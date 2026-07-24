@@ -332,6 +332,12 @@ public final class WordSpecificationParser implements SpecificationParser {
                 continue;
             }
             String key = cell(row, headers.get(Header.KEY));
+            System.out.printf(
+                    "Row=%d, Name=%s, Type=%s%n",
+                    rowIndex,
+                    name,
+                    rawType
+            );
             result.add(new ParsedColumn(
                     name,
                     cell(row, headers.get(Header.COLUMN_DESCRIPTION)),

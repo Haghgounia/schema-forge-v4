@@ -1,0 +1,158 @@
+diff -ruN sfv4orig/schema-forge-v4/src/test/java/com/behsazan/schemaforge/OracleDdlGeneratorTest.java sfv4work/schema-forge-v4/src/test/java/com/behsazan/schemaforge/OracleDdlGeneratorTest.java
+--- sfv4orig/schema-forge-v4/src/test/java/com/behsazan/schemaforge/OracleDdlGeneratorTest.java	2026-07-24 21:20:42.000000000 +0000
++++ sfv4work/schema-forge-v4/src/test/java/com/behsazan/schemaforge/OracleDdlGeneratorTest.java	2026-07-24 18:10:34.689678494 +0000
+@@ -1,58 +1,95 @@
+-package com.behsazan.schemaforge;
+-
+-import com.behsazan.schemaforge.domain.*;
+-
+-import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+-import org.junit.jupiter.api.Test;
+-
+-import java.nio.file.Files;
+-import java.nio.file.Path;
+-
+-import static org.junit.jupiter.api.Assertions.*;
+-
+-class OracleDdlGeneratorTest {
+-
+-    @Test
+-    void shouldGenerateOracleScript() throws Exception {
+-
+-        DatabaseSchema schema = new DatabaseSchema();
+-
+-        Table table = new Table();
+-        table.setName(new Identifier("CUSTOMER"));
+-
+-        Column id = new Column();
+-        id.setName(new Identifier("CUSTOMER_ID"));
+-        id.setDataType("NUMBER");
+-        id.setPrecision(18);
+-        id.setNullable(false);
+-
+-        Column name = new Column();
+-        name.setName(new Identifier("NAME"));
+-        name.setDataType("VARCHAR");
+-        name.setLength(100);
+-        name.setNullable(true);
+-
+-        table.getColumns().add(id);
+-        table.getColumns().add(name);
+-
+-        schema.getTables().add(table);
+-
+-        DdlGenerator generator =
+-                new DdlGenerator(new OracleDialect());
+-
+-        String ddl = generator.generate(schema);
+-
+-        assertNotNull(ddl);
+-
+-        assertTrue(ddl.contains("CREATE TABLE CUSTOMER"));
+-        assertTrue(ddl.contains("CUSTOMER_ID"));
+-        assertTrue(ddl.contains("VARCHAR2(100"));
+-        assertTrue(ddl.contains("NUMBER(18"));
+-        assertTrue(ddl.contains("Generated On"));
+-
+-        Files.writeString(
+-                Path.of("target/customer.sql"),
+-                ddl
+-        );
+-    }
+-}
+\ No newline at end of file
++package com.behsazan.schemaforge;
++
++import com.behsazan.schemaforge.domain.model.Column;
++import com.behsazan.schemaforge.domain.model.DatabaseSchema;
++import com.behsazan.schemaforge.domain.model.PrimaryKey;
++import com.behsazan.schemaforge.domain.model.Table;
++import com.behsazan.schemaforge.domain.valueobject.DataType;
++import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
++import com.behsazan.schemaforge.domain.valueobject.Description;
++import com.behsazan.schemaforge.domain.valueobject.Identifier;
++import org.junit.jupiter.api.Test;
++
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.time.Clock;
++import java.time.Instant;
++import java.time.ZoneOffset;
++import java.util.List;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++class OracleDdlGeneratorTest {
++
++    @Test
++    void shouldGenerateOracleScriptFromVersion4DomainModel() throws Exception {
++        Column id = new Column(
++                Identifier.of("CUSTOMER_ID"),
++                DataType.numeric("NUMBER", 18, 0),
++                false,
++                null,
++                new Description("Customer identifier"),
++                false,
++                1
++        );
++
++        Column name = new Column(
++                Identifier.of("NAME"),
++                DataType.varchar("VARCHAR", 100),
++                true,
++                new DefaultValue("'UNKNOWN'"),
++                new Description("Customer name"),
++                false,
++                2
++        );
++
++        Table customer = Table.builder("BIM", "CUSTOMER")
++                .description("Customer master")
++                .addColumn(id)
++                .addColumn(name)
++                .primaryKey(new PrimaryKey(
++                        Identifier.of("PK_CUSTOMER"),
++                        List.of(Identifier.of("CUSTOMER_ID"))
++                ))
++                .physicalOption("TABLESPACE", "BIM_DATA")
++                .physicalOption("INDEX_TABLESPACE", "BIM_INDEX")
++                .build();
++
++        DatabaseSchema schema = DatabaseSchema.builder("CUSTOMER_SCHEMA")
++                .metadata("sourceFile", "MCB.BIM.TBL.CUSTOMER.V1.0.docx")
++                .addTable(customer)
++                .build();
++
++        Clock fixedClock = Clock.fixed(
++                Instant.parse("2026-07-24T17:30:45Z"),
++                ZoneOffset.ofHoursMinutes(3, 30)
++        );
++
++        String sql = new DdlGenerator(new OracleDialect(), fixedClock)
++                .generate(schema);
++
++        assertTrue(sql.contains("CREATE TABLE BIM.CUSTOMER"));
++        assertTrue(sql.contains("CUSTOMER_ID NUMBER(18,0) NOT NULL"));
++        assertTrue(sql.contains("NAME VARCHAR2(100 CHAR) DEFAULT 'UNKNOWN'"));
++        assertTrue(sql.contains("CONSTRAINT PK_CUSTOMER PRIMARY KEY (CUSTOMER_ID)"));
++        assertTrue(sql.contains("TABLESPACE BIM_DATA;"));
++        assertTrue(sql.contains("COMMENT ON TABLE BIM.CUSTOMER IS 'Customer master';"));
++        assertTrue(sql.contains("COMMENT ON COLUMN BIM.CUSTOMER.NAME IS 'Customer name';"));
++        assertTrue(sql.contains("Generated On : 2026-07-24 21:00:45 +03:30"));
++        assertTrue(sql.contains("Source File  : MCB.BIM.TBL.CUSTOMER.V1.0.docx"));
++        assertTrue(sql.contains("Dialect      : Oracle"));
++
++        long createTableCount = sql.lines()
++                .filter(line -> line.startsWith("CREATE TABLE "))
++                .count();
++        assertEquals(1, createTableCount);
++
++        Path output = Path.of("target/test-output/BIM.CUSTOMER.oracle.sql");
++        Files.createDirectories(output.getParent());
++        Files.writeString(output, sql);
++
++        assertTrue(Files.exists(output));
++        assertTrue(Files.size(output) > 0);
++    }
++}
