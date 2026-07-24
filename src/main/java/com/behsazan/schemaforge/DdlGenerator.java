@@ -70,13 +70,14 @@ public final class DdlGenerator {
         String body = statements.stream()
                 .filter(statement -> statement != null && !statement.isBlank())
                 .collect(Collectors.joining(NL + NL));
-        return body + NL + NL + footer(schema);
+        String warnings = warningHeader(schema);
+        return (warnings.isBlank() ? "" : warnings + NL + NL)
+                + body + NL + NL + footer(schema);
     }
 
     private String createSequence(Sequence sequence) {
         StringBuilder sql = new StringBuilder("CREATE SEQUENCE ")
                 .append(qualifiedName(sequence.qualifiedName()))
-                .append(" START WITH ").append(sequence.startWith())
                 .append(" INCREMENT BY ").append(sequence.incrementBy());
         if (sequence.maxValue() != null) sql.append(" MAXVALUE ").append(sequence.maxValue());
         if (sequence.minValue() != null) sql.append(" MINVALUE ").append(sequence.minValue());
@@ -177,13 +178,9 @@ public final class DdlGenerator {
         String name = index.name() == null
                 ? "IDX_" + table.qualifiedName().name().normalized() + "_" + rawIndexColumns(index.columns())
                 : dialect.quote(index.name());
-        String indexModifier = switch (index.type()) {
-            case UNIQUE -> "UNIQUE ";
-            case BITMAP -> "BITMAP ";
-            default -> "";
-        };
+        String unique = index.type() == IndexType.UNIQUE ? "UNIQUE " : "";
         String columns = index.columns().stream().map(this::indexColumn).collect(Collectors.joining(","));
-        StringBuilder sql = new StringBuilder("CREATE ").append(indexModifier).append("INDEX ")
+        StringBuilder sql = new StringBuilder("CREATE ").append(unique).append("INDEX ")
                 .append(qualifyLikeTable(table, name)).append(" ON ")
                 .append(qualifiedName(table.qualifiedName())).append("(").append(columns).append(")");
         option(table, "INDEX_TABLESPACE").ifPresent(value -> sql.append(" TABLESPACE ").append(value));
@@ -197,7 +194,6 @@ public final class DdlGenerator {
 
     private void addComments(List<String> statements, Table table) {
         if (!table.description().isEmpty()) {
-            statements.add("-- " + table.description().value());
             statements.add("COMMENT ON TABLE " + qualifiedName(table.qualifiedName())
                     + " IS '" + escapeLiteral(table.description().value()) + "'" + dialect.statementTerminator());
         }
@@ -220,9 +216,58 @@ public final class DdlGenerator {
         });
     }
 
+    private String warningHeader(DatabaseSchema schema) {
+        String rawWarnings = firstMetadata(schema.metadata(), "recovery.warnings");
+        if (rawWarnings == null || rawWarnings.isBlank()) {
+            return "";
+        }
+
+        List<String> duplicateWarnings = rawWarnings.lines()
+                .filter(line -> line.startsWith("DUPLICATE_COLUMN|"))
+                .toList();
+        if (duplicateWarnings.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sql = new StringBuilder();
+        for (String warning : duplicateWarnings) {
+            Map<String, String> values = parseWarning(warning);
+            String name = values.getOrDefault("name", "UNKNOWN");
+            String firstRow = values.getOrDefault("firstRow", "?");
+            String duplicateRow = values.getOrDefault("duplicateRow", "?");
+            String definition = values.getOrDefault("definition", name);
+
+            if (!sql.isEmpty()) {
+                sql.append(NL);
+            }
+            sql.append("PROMPT **************************************************************").append(NL)
+                    .append("PROMPT SCHEMAFORGE WARNING : DUPLICATE COLUMN DEFINITION").append(NL)
+                    .append("PROMPT COLUMN              : ").append(name).append(NL)
+                    .append("PROMPT FIRST WORD ROW      : ").append(firstRow).append(NL)
+                    .append("PROMPT DUPLICATE WORD ROW  : ").append(duplicateRow).append(NL)
+                    .append("PROMPT ACTION              : FIRST DEFINITION IS EXECUTABLE;").append(NL)
+                    .append("PROMPT                       DUPLICATE IS SHOWN BELOW AS COMMENT.").append(NL)
+                    .append("PROMPT **************************************************************").append(NL)
+                    .append("-- DUPLICATE DEFINITION (NOT EXECUTABLE):").append(NL)
+                    .append("-- ").append(definition).append(dialect.statementTerminator());
+        }
+        return sql.toString();
+    }
+
+    private Map<String, String> parseWarning(String warning) {
+        Map<String, String> values = new java.util.LinkedHashMap<>();
+        for (String part : warning.split("\\|")) {
+            int separator = part.indexOf('=');
+            if (separator > 0) {
+                values.put(part.substring(0, separator), part.substring(separator + 1));
+            }
+        }
+        return values;
+    }
+
     private String footer(DatabaseSchema schema) {
         OffsetDateTime now = OffsetDateTime.ofInstant(clock.instant(), clock.getZone());
-        String source = firstMetadata(schema.metadata(), "sourceFile", "source-file", "source", "fileName");
+        String source = firstMetadata(schema.metadata(), "source.fileName", "sourceFile", "source-file", "source", "fileName");
         return "/*" + NL
                 + "Generated By : SchemaForge" + NL
                 + "Generated On : " + FOOTER_TIME.format(now) + NL

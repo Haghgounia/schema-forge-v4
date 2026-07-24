@@ -320,6 +320,7 @@ public final class WordSpecificationParser implements SpecificationParser {
 
         Map<Header, Integer> headers = mapHeaders(table.getRow(0));
         List<ParsedColumn> result = new ArrayList<>();
+        Map<String, Integer> firstDefinitionRows = new LinkedHashMap<>();
         for (int rowIndex = 1; rowIndex < table.getNumberOfRows(); rowIndex++) {
             XWPFTableRow row = table.getRow(rowIndex);
             String rawName = cell(row, headers.get(Header.COLUMN_NAME));
@@ -332,13 +333,7 @@ public final class WordSpecificationParser implements SpecificationParser {
                 continue;
             }
             String key = cell(row, headers.get(Header.KEY));
-            System.out.printf(
-                    "Row=%d, Name=%s, Type=%s%n",
-                    rowIndex,
-                    name,
-                    rawType
-            );
-            result.add(new ParsedColumn(
+            ParsedColumn parsedColumn = new ParsedColumn(
                     name,
                     cell(row, headers.get(Header.COLUMN_DESCRIPTION)),
                     parseDataType(rawType, recoveryWarnings),
@@ -351,9 +346,46 @@ public final class WordSpecificationParser implements SpecificationParser {
                     cell(row, headers.get(Header.INDEX)),
                     cell(row, headers.get(Header.RANGE)),
                     cell(row, headers.get(Header.CHECK_CONSTRAINT)),
-                    cell(row, headers.get(Header.GENERATED_EXPRESSION))));
+                    cell(row, headers.get(Header.GENERATED_EXPRESSION)));
+
+            String duplicateKey = name.toUpperCase(Locale.ROOT);
+            Integer firstRow = firstDefinitionRows.putIfAbsent(duplicateKey, rowIndex + 1);
+            if (firstRow != null) {
+                recoveryWarnings.add(duplicateColumnWarning(
+                        name,
+                        firstRow,
+                        rowIndex + 1,
+                        rawType,
+                        parsedColumn));
+                continue;
+            }
+            result.add(parsedColumn);
         }
         return result;
+    }
+
+    private String duplicateColumnWarning(
+            String name,
+            int firstRow,
+            int duplicateRow,
+            String rawType,
+            ParsedColumn column) {
+        StringBuilder definition = new StringBuilder(name).append(" ").append(normalizeText(rawType));
+        if (column.defaultValue() != null && !column.defaultValue().isBlank()) {
+            definition.append(" DEFAULT ").append(normalizeText(column.defaultValue()));
+        }
+        if (column.required()) {
+            definition.append(" NOT NULL");
+        }
+        return "DUPLICATE_COLUMN"
+                + "|name=" + warningValue(name)
+                + "|firstRow=" + firstRow
+                + "|duplicateRow=" + duplicateRow
+                + "|definition=" + warningValue(definition.toString());
+    }
+
+    private String warningValue(String value) {
+        return normalizeText(value).replace("|", "/");
     }
 
     private DataType parseDataType(String rawValue, List<String> recoveryWarnings) {
