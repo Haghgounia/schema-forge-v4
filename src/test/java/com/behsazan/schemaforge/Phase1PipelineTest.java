@@ -1,0 +1,118 @@
+package com.behsazan.schemaforge;
+
+import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.specification.json.JsonExporter;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
+import com.behsazan.schemaforge.specification.parser.SpecificationSource;
+import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
+import com.behsazan.schemaforge.specification.validation.SpecificationValidator;
+import com.behsazan.schemaforge.specification.validation.ValidationReport;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class Phase1PipelineTest {
+
+    @Test
+    void shouldParseNormalizeValidateAndExportWordDocument() throws Exception {
+        Path input = Path.of(
+                "src/test/resources/samples/MCB.BIM.TBL.PROVINCES.V1.1.docx"
+        );
+
+        Path output = Path.of(
+                "target/test-output/MCB.BIM.TBL.PROVINCES.V1.1.json"
+        );
+
+        Files.createDirectories(output.getParent());
+        Files.deleteIfExists(output);
+
+        DatabaseSchema parsedSchema;
+
+        try (InputStream inputStream = Files.newInputStream(input)) {
+            SpecificationSource source = new SpecificationSource(
+                    input.getFileName().toString(),
+                    inputStream
+            );
+
+            parsedSchema = new WordSpecificationParser().parse(source);
+        }
+
+        assertNotNull(parsedSchema);
+
+        assertFalse(
+                parsedSchema.tables().isEmpty(),
+                "No table was extracted from the Word document"
+        );
+
+        DatabaseSchema normalizedSchema =
+                new SpecificationNormalizer().normalize(parsedSchema);
+
+        assertNotNull(normalizedSchema);
+
+        ValidationReport report =
+                new SpecificationValidator().validate(normalizedSchema);
+
+        assertNotNull(report);
+
+        assertTrue(
+                report.valid(),
+                () -> "Validation issues: " + report.issues()
+        );
+
+        new JsonExporter().write(
+                output,
+                normalizedSchema,
+                report
+        );
+
+        assertTrue(
+                Files.isRegularFile(output),
+                "JSON output file was not created"
+        );
+
+        assertTrue(
+                Files.size(output) > 0,
+                "JSON output file is empty"
+        );
+
+        JsonNode json =
+                new ObjectMapper().readTree(output.toFile());
+
+        assertTrue(
+                json.has("source"),
+                "JSON does not contain source information"
+        );
+
+        assertTrue(
+                json.has("schema"),
+                "JSON does not contain schema information"
+        );
+
+        assertTrue(
+                json.has("validation"),
+                "JSON does not contain validation information"
+        );
+
+        assertTrue(
+                json.path("schema").path("tables").isArray(),
+                "JSON schema.tables is not an array"
+        );
+
+        assertFalse(
+                json.path("schema").path("tables").isEmpty(),
+                "JSON schema.tables is empty"
+        );
+
+        System.out.println(
+                "Test JSON created: " + output.toAbsolutePath()
+        );
+    }
+}

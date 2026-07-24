@@ -1,21 +1,42 @@
-# SchemaForge v4 - Initial Project
+# SchemaForge - Phase 1
 
-این نسخه، اسکلت اولیه فاز چهار است و بر قواعد زیر بنا شده است:
+Phase 1 has exactly one responsibility:
 
-- ساختار ساده و feature-oriented؛ بدون لایه‌های Enterprise/DDD/Hexagonal.
-- `dialect` در ریشه پروژه حفظ شده است.
-- هر دیتابیس فقط یک Repository دارد.
-- Metadata در هر API call مستقیماً از دیتابیس خوانده می‌شود؛ Cache کاربردی وجود ندارد.
-- Normalization عمومی فقط در `parser/SchemaNormalizer` است.
-- Normalization وابسته به دیتابیس در همان Dialect انجام می‌شود.
-- Controller مستقیماً Engineهای اجرایی را فراخوانی می‌کند؛ Serviceهای thin ایجاد نشده‌اند.
-
-## اجرای تست
-
-```bash
-mvn clean test
+```text
+Word (.docx) -> Parse -> Normalize -> Validate offline -> JSON
 ```
 
-## وضعیت این تحویل
+## Entry point
 
-این تحویل یک Bootstrap قابل Compile برای شروع Patchهای فاز چهار است. پیاده‌سازی‌های کامل فاز سه هنوز منتقل نشده‌اند؛ فایل `MIGRATION-MANIFEST.md` فهرست انتقال پیشنهادی و مقصد هر کلاس را مشخص می‌کند.
+`com.behsazan.schemaforge.Phase1Application`
+
+## Build
+
+```bash
+mvn clean package
+```
+
+## Run
+
+```bash
+java -jar target/schema-forge-phase1.jar input.docx output.json
+```
+
+The output argument is optional. Without it, JSON is created next to the Word file.
+
+## Scope
+
+Included:
+- Word table specification parser
+- Canonical schema/table/column model
+- Field normalization
+- Structural validation without database access
+- JSON export
+
+Excluded from Phase 1:
+- Enterprise Architect input
+- DDL generation
+- Oracle/PostgreSQL dialects
+- JDBC and repositories
+- REST API and Spring Boot
+- Database-backed validation
