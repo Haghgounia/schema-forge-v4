@@ -146,6 +146,36 @@ class OracleDdlGeneratorTest {
         assertTrue(Files.size(output) > 0);
     }
 
+
+    @Test
+    void shouldRenderDuplicateColumnWarningWithoutGeneratingDuplicateColumn() {
+        Column isActive = column("IS_ACTIVE", DataType.numeric("NUMBER", 1, 0), false, "1",
+                "Active flag", 1);
+
+        Table table = Table.builder("BIM", "PROVINCES")
+                .addColumn(isActive)
+                .build();
+
+        DatabaseSchema schema = DatabaseSchema.builder("BIM")
+                .metadata("source.fileName", "MCB.BIM.TBL.PROVINCES.V1.1.docx")
+                .metadata("recovery.warningCount", "1")
+                .metadata("recovery.warnings",
+                        "DUPLICATE_COLUMN|name=IS_ACTIVE|firstRow=11|duplicateRow=12|definition=IS_ACTIVE NUMBER(1) DEFAULT 1 NOT NULL")
+                .addTable(table)
+                .build();
+
+        String sql = new DdlGenerator(new OracleDialect(), Clock.fixed(
+                Instant.parse("2026-07-24T17:30:45Z"),
+                ZoneOffset.UTC)).generate(schema);
+
+        assertTrue(sql.contains("SCHEMAFORGE WARNING : DUPLICATE COLUMN DEFINITION"));
+        assertTrue(sql.contains("PROMPT COLUMN              : IS_ACTIVE"));
+        assertTrue(sql.contains("PROMPT FIRST WORD ROW      : 11"));
+        assertTrue(sql.contains("PROMPT DUPLICATE WORD ROW  : 12"));
+        assertTrue(sql.contains("-- IS_ACTIVE NUMBER(1) DEFAULT 1 NOT NULL;"));
+        assertEquals(1, sql.lines().filter(line -> line.stripLeading().startsWith("IS_ACTIVE ")).count());
+    }
+
     private static Column column(String name, DataType type, boolean nullable, String defaultExpression,
                                  String description, int ordinalPosition) {
         return new Column(

@@ -80,6 +80,25 @@ class WordSpecificationIntegrationTest {
 
             assertTrue(Files.exists(outputFile));
             assertTrue(Files.size(outputFile) > 0);
+
+            String sqlFileName =
+                    inputFile.getFileName()
+                            .toString()
+                            .replace(".docx", ".sql");
+
+            Path sqlOutputFile =
+                    outputFolder.resolve(sqlFileName);
+
+            String sql = new DdlGenerator(new OracleDialect())
+                    .generate(normalizedSchema);
+
+            Files.writeString(sqlOutputFile, sql);
+
+            assertTrue(Files.exists(sqlOutputFile));
+            assertTrue(Files.size(sqlOutputFile) > 0);
+            assertTrue(sql.contains("CREATE TABLE"));
+            assertTrue(sql.contains(normalizedSchema.tables().getFirst()
+                    .qualifiedName().name().normalized()));
         }
     }
 }

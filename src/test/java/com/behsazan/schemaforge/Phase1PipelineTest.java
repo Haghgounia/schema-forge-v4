@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,6 +51,20 @@ class Phase1PipelineTest {
         assertFalse(
                 parsedSchema.tables().isEmpty(),
                 "No table was extracted from the Word document"
+        );
+
+        String recoveryWarnings = parsedSchema.metadata().get("recovery.warnings");
+        assertNotNull(recoveryWarnings, "Recovery warnings metadata was not created");
+        assertTrue(
+                recoveryWarnings.contains("DUPLICATE_COLUMN|name=IS_ACTIVE"),
+                "Duplicate IS_ACTIVE definition was not reported"
+        );
+        assertEquals(
+                1,
+                parsedSchema.tables().getFirst().columns().stream()
+                        .filter(column -> column.name().normalized().equals("IS_ACTIVE"))
+                        .count(),
+                "Only the first duplicate column definition must remain executable"
         );
 
         DatabaseSchema normalizedSchema =
