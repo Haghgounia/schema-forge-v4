@@ -95,12 +95,28 @@ public final class WordSpecificationParser implements SpecificationParser {
                         null,
                         Description.empty()));
             }
-            schema.metadata("recovery.warningCount", Integer.toString(recoveryWarnings.size()));
-            schema.metadata("recovery.warnings", String.join(System.lineSeparator(), recoveryWarnings));
+            List<String> actionableRecoveryWarnings = recoveryWarnings.stream()
+                    .filter(WordSpecificationParser::isActionableRecoveryWarning)
+                    .toList();
+            schema.metadata("recovery.warningCount", Integer.toString(actionableRecoveryWarnings.size()));
+            if (!actionableRecoveryWarnings.isEmpty()) {
+                schema.metadata("recovery.warnings",
+                        String.join(System.lineSeparator(), actionableRecoveryWarnings));
+            }
             return schema.build();
         } catch (IOException exception) {
             throw new IllegalArgumentException("Unable to read DOCX specification: " + source.fileName(), exception);
         }
+    }
+
+
+    private static boolean isActionableRecoveryWarning(String warning) {
+        if (warning == null) {
+            return false;
+        }
+        return warning.startsWith("DUPLICATE_COLUMN|")
+                || warning.startsWith("COLUMN_DATATYPE_MISSING|")
+                || warning.startsWith("COLUMN_DESCRIPTION_MISSING|");
     }
 
     private Table buildTable(
@@ -275,7 +291,10 @@ public final class WordSpecificationParser implements SpecificationParser {
     }
 
     private Reference parseReference(String rawReference, List<String> recoveryWarnings) {
-        String normalized = normalizeText(rawReference).toUpperCase(Locale.ROOT);
+        String normalized = normalizeText(rawReference)
+                .replaceAll("\\s*\\.\\s*", ".")
+                .replaceAll("\\s*/\\s*", "/")
+                .toUpperCase(Locale.ROOT);
         Matcher matcher = GROUP_REFERENCE.matcher(normalized);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid foreign-key reference: " + rawReference);
@@ -512,7 +531,7 @@ public final class WordSpecificationParser implements SpecificationParser {
 
         String name = normalizeDataTypeName(matcher.group(1));
         Integer first = matcher.group(2) == null ? null : Integer.valueOf(matcher.group(2));
-        Integer second = matcher.group(2) == null ? null : Integer.valueOf(matcher.group(2));
+        Integer second = matcher.group(3) == null ? null : Integer.valueOf(matcher.group(3));
         LengthSemantics lengthSemantics = matcher.group(4) == null
                 ? LengthSemantics.DEFAULT
                 : LengthSemantics.valueOf(matcher.group(4).toUpperCase(Locale.ROOT));

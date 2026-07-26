@@ -3,6 +3,7 @@ package com.behsazan.schemaforge;
 import com.behsazan.schemaforge.api.SchemaForgeApiService;
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.config.AuditProperties;
+import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
@@ -47,7 +48,8 @@ class SchemaForgeApiServiceRegressionTest {
         spellCheck.setEnabled(false);
 
         SchemaForgeApiService service = new SchemaForgeApiService(
-                AuditProperties.defaults(), spellCheck, new ObjectMapper(), resolver);
+                AuditProperties.defaults(), GrantProperties.defaults(),
+                spellCheck, new ObjectMapper(), resolver);
 
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -83,9 +85,19 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(oracleSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_CALENDAR_ID"));
+        assertTrue(oracleSql.contains(") TABLESPACE TS_BIM;"));
+        assertTrue(oracleSql.contains("TABLESPACE ITS_BIM"));
+        assertTrue(oracleSql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DEVELOPER;"));
+        assertTrue(oracleSql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DESIGNER;"));
         assertTrue(postgresqlSql.contains("fk_provinces_language_id"));
         assertTrue(postgresqlSql.contains("fk_provinces_country_id"));
         assertTrue(postgresqlSql.contains("fk_provinces_calendar_id"));
+        assertTrue(postgresqlSql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON bim.provinces TO U_DEVELOPER;"));
+        assertTrue(postgresqlSql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON bim.provinces TO U_DESIGNER;"));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {

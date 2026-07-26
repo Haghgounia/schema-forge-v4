@@ -33,6 +33,13 @@ schemaforge:
           nullable: false
           comment: "Last modification timestamp"
 
+    # Grantees are database roles/principals, not application user ids.
+    grants:
+      - grantee: U_DEVELOPER
+        privileges: [SELECT, INSERT, UPDATE, DELETE]
+      - grantee: U_DESIGNER
+        privileges: [SELECT, INSERT, UPDATE, DELETE]
+
   spell-check:
     enabled: true
     endpoint: https://api.languagetool.org/v2/check

@@ -141,7 +141,7 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("-- Customer master"));
         assertTrue(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'Customer master';"));
         assertTrue(sql.contains("COMMENT ON COLUMN BIM.CUSTOMERS.NAME IS 'Customer name';"));
-        assertTrue(sql.contains("GRANT SELECT, INSERT, UPDATE, DELETE TO U_DEVELOPER ON BIM.CUSTOMERS;"));
+        assertTrue(sql.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.CUSTOMERS TO U_DEVELOPER;"));
         assertTrue(sql.contains("Generated On : 2026-07-24 21:00:45 +03:30"));
         assertTrue(sql.contains("Source File  : MCB.BIM.TBL.CUSTOMERS.V1.0.docx"));
         assertTrue(sql.contains("Dialect      : Oracle"));
@@ -208,6 +208,34 @@ class OracleDdlGeneratorTest {
         assertInlineIssues(sql, "IS_ACTIVE", "W", "DUP");
         assertColumnGeneratedOnce(sql, "IS_ACTIVE");
     }
+    @Test
+    void shouldApplyOracleSchemaBasedTablespaceDefaultsWhenOptionsAreAbsent() {
+        Column id = column("DEPOSIT_ID", DataType.numeric("NUMBER", 9, 0), false, null,
+                "Deposit identifier", 1);
+        Column productId = column("DEPOSIT_PRODUCT_ID", DataType.numeric("NUMBER", 6, 0), false, null,
+                "Deposit product identifier", 2);
+
+        Table table = Table.builder("DPS", "DEPOSITS")
+                .addColumn(id)
+                .addColumn(productId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_DEPOSITS_DEPOSIT_ID"),
+                        List.of(Identifier.of("DEPOSIT_ID"))))
+                .addUniqueKey(new UniqueKey(Identifier.of("UK_DEPOSITS_PRODUCT"),
+                        List.of(Identifier.of("DEPOSIT_PRODUCT_ID"))))
+                .addIndex(new Index(Identifier.of("IX_DEPOSITS_PRODUCT"),
+                        List.of(new IndexColumn(Identifier.of("DEPOSIT_PRODUCT_ID"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+
+        String sql = new DdlGenerator(new OracleDialect()).generate(
+                DatabaseSchema.builder("DPS").addTable(table).build());
+
+        assertTrue(sql.contains(") TABLESPACE TS_DPS;"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.PK_DEPOSITS_DEPOSIT_ID ON DPS.DEPOSITS(DEPOSIT_ID) TABLESPACE ITS_DPS"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.UK_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS"));
+        assertTrue(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS;"));
+    }
+
 
     private static Column column(String name, DataType type, boolean nullable, String defaultExpression,
                                  String description, int ordinalPosition) {

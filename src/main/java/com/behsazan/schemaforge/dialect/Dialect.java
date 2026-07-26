@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.dialect;
 
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
 import java.util.Set;
 
@@ -69,6 +70,22 @@ public interface Dialect {
 
     default String constraintValidationClause() {
         return "";
+    }
+
+    /**
+     * Returns the dialect/project default table tablespace for a table when the
+     * canonical model does not provide an explicit TABLESPACE physical option.
+     */
+    default String defaultTableTablespace(QualifiedName tableName) {
+        return null;
+    }
+
+    /**
+     * Returns the dialect/project default index tablespace for PK, UK and
+     * standalone indexes when no explicit physical option is present.
+     */
+    default String defaultIndexTablespace(QualifiedName tableName) {
+        return null;
     }
 
     default String tableTablespaceClause(String tablespace) {

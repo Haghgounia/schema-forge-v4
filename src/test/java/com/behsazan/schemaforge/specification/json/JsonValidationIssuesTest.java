@@ -25,7 +25,7 @@ class JsonValidationIssuesTest {
     Path tempDir;
 
     @Test
-    void shouldWriteRecoveryDuplicateMetadataAndSpellingIssues() throws Exception {
+    void shouldWriteActionableRecoveryMetadataAndSpellingIssues() throws Exception {
         Table table = Table.builder("BIM", "PROVINCES")
                 .addColumn(Column.required("IS_ACTIVE", DataType.numeric("NUMBER", 1, null)))
                 .addColumn(Column.required("PROVINCE_CODE", DataType.numeric("NUMBER", 10, null)))
@@ -54,7 +54,6 @@ class JsonValidationIssuesTest {
                 .collect(Collectors.toSet());
 
         assertEquals(Set.of(
-                "RECOVERY_WARNING",
                 "DUPLICATE_COLUMN",
                 "METADATA_DATATYPE_MISMATCH",
                 "SPELLING_WARNING"), codes);

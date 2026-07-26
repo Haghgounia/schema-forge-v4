@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
+import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -42,6 +43,9 @@ public final class OracleDialect implements Dialect {
             case "INT", "INTEGER", "BIGINT", "SMALLINT" -> "NUMBER";
             case "DOUBLE", "DOUBLE PRECISION" -> "BINARY_DOUBLE";
             case "REAL" -> "BINARY_FLOAT";
+            case "TIMESTAMP_WITH_TIME_ZONE" -> "TIMESTAMP WITH TIME ZONE";
+            case "TIMESTAMP_WITH_LOCAL_TIME_ZONE" -> "TIMESTAMP WITH LOCAL TIME ZONE";
+            case "LONG_RAW" -> "LONG RAW";
             default -> name.toUpperCase(Locale.ROOT);
         };
 
@@ -102,6 +106,20 @@ public final class OracleDialect implements Dialect {
     @Override
     public String constraintValidationClause() {
         return " ENABLE";
+    }
+
+    @Override
+    public String defaultTableTablespace(QualifiedName tableName) {
+        return tableName.schemaName()
+                .map(schema -> "TS_" + schema.normalized())
+                .orElse(null);
+    }
+
+    @Override
+    public String defaultIndexTablespace(QualifiedName tableName) {
+        return tableName.schemaName()
+                .map(schema -> "ITS_" + schema.normalized())
+                .orElse(null);
     }
 
     @Override

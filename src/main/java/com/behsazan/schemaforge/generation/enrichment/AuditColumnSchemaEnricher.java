@@ -48,8 +48,15 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
                 .description(table.description().value());
 
         table.columns().forEach(result::addColumn);
+        int nextOrdinal = table.columns().stream()
+                .map(Column::ordinalPosition)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0) + 1;
         for (AuditProperties.AuditColumn configured : properties.getColumns()) {
-            addIfMissing(table, result, toColumn(configured));
+            if (table.findColumn(configured.getName()).isEmpty()) {
+                result.addColumn(toColumn(configured, nextOrdinal++));
+            }
         }
 
         table.primaryKey().ifPresent(result::primaryKey);
@@ -61,7 +68,7 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
         return result.build();
     }
 
-    private Column toColumn(AuditProperties.AuditColumn configured) {
+    private Column toColumn(AuditProperties.AuditColumn configured, int ordinalPosition) {
         if (configured.getName() == null || configured.getName().isBlank()) {
             throw new IllegalArgumentException("Audit column name must not be blank");
         }
@@ -75,7 +82,7 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
                 null,
                 new Description(configured.getComment()),
                 false,
-                null,
+                ordinalPosition,
                 null
         );
     }
@@ -99,9 +106,4 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
         return DataType.numeric(name, first, null);
     }
 
-    private void addIfMissing(Table source, Table.Builder target, Column column) {
-        if (source.findColumn(column.name().value()).isEmpty()) {
-            target.addColumn(column);
-        }
-    }
 }

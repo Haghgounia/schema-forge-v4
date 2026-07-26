@@ -88,6 +88,7 @@ public final class DdlGenerator {
         SqlIssueCatalog issueCatalog = SqlIssueCatalog.from(schema, combinedReport);
 
         List<String> statements = new ArrayList<>();
+        List<String> grantStatements = new ArrayList<>();
         if (!schema.sequences().isEmpty()) {
             dialect.require(DialectFeature.SEQUENCE);
             schema.sequences().stream()
@@ -103,8 +104,10 @@ public final class DdlGenerator {
             table.foreignKeys().stream().map(foreignKey -> createForeignKey(table, foreignKey, metadata)).forEach(statements::add);
             table.indexes().stream().map(index -> createIndex(table, index)).forEach(statements::add);
             addComments(statements, table);
-            addGrants(statements, table);
+            addGrants(grantStatements, table);
         }
+        // Grants are the final executable statements in the generated script.
+        statements.addAll(grantStatements);
 
         String body = statements.stream()
                 .filter(statement -> statement != null && !statement.isBlank())
@@ -165,7 +168,8 @@ public final class DdlGenerator {
                 .append("(").append(NL)
                 .append(String.join(NL, definitions)).append(NL)
                 .append(")");
-        String tablespace = option(table, "TABLESPACE").orElse(null);
+        String tablespace = option(table, "TABLESPACE")
+                .orElseGet(() -> dialect.defaultTableTablespace(table.qualifiedName()));
         sql.append(dialect.tableTablespaceClause(tablespace));
         return sql.append(dialect.statementTerminator()).toString();
     }
@@ -199,7 +203,8 @@ public final class DdlGenerator {
                 ? "PK_" + table.qualifiedName().name().normalized()
                 : dialect.quote(primaryKey.name());
         String indexTablespace = option(table, "INDEX_TABLESPACE")
-                .orElseGet(() -> option(table, "PK_TABLESPACE").orElse(null));
+                .orElseGet(() -> option(table, "PK_TABLESPACE")
+                        .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName())));
         String tableName = qualifiedName(table.qualifiedName());
         String columns = identifiers(primaryKey.columns());
         String qualifiedIndexName = qualifyLikeTable(table, constraintName);
@@ -223,7 +228,8 @@ public final class DdlGenerator {
                 : dialect.quote(unique.name());
         String columns = identifiers(unique.columns());
         String tableName = qualifiedName(table.qualifiedName());
-        String indexTablespace = option(table, "INDEX_TABLESPACE").orElse(null);
+        String indexTablespace = option(table, "INDEX_TABLESPACE")
+                .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String qualifiedIndexName = qualifyLikeTable(table, name);
         return dialect.uniqueConstraint(name, tableName, columns, qualifiedIndexName, indexTablespace, unique.deferrable(), unique.initiallyDeferred());
     }
@@ -279,7 +285,8 @@ public final class DdlGenerator {
         if (!index.includeColumns().isEmpty()) {
             sql.append(dialect.indexIncludeClause(identifiers(index.includeColumns())));
         }
-        String indexTablespace = option(table, "INDEX_TABLESPACE").orElse(null);
+        String indexTablespace = option(table, "INDEX_TABLESPACE")
+                .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         sql.append(dialect.indexTablespaceClause(indexTablespace));
         if (index.predicate() != null) {
             sql.append(dialect.partialIndexClause(index.predicate()));
@@ -321,9 +328,21 @@ public final class DdlGenerator {
         option(table, "GRANTS").ifPresent(value -> {
             for (String grant : value.split("[;\\r\\n]+")) {
                 String trimmed = grant.trim();
-                if (trimmed.isEmpty()) continue;
-                // Format: SELECT, INSERT, UPDATE, DELETE TO U_DEVELOPER
-                statements.add("GRANT " + trimmed + " ON " + qualifiedName(table.qualifiedName()) + dialect.statementTerminator());
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                // Canonical option format: SELECT, INSERT, UPDATE, DELETE TO U_DEVELOPER
+                // The grantee is a database role/principal; it is not an application user id.
+                int toIndex = trimmed.toUpperCase(Locale.ROOT).lastIndexOf(" TO ");
+                if (toIndex <= 0 || toIndex + 4 >= trimmed.length()) {
+                    throw new IllegalArgumentException("Invalid GRANTS option: " + trimmed);
+                }
+                String privileges = trimmed.substring(0, toIndex).trim();
+                String grantee = trimmed.substring(toIndex + 4).trim();
+                statements.add("GRANT " + privileges
+                        + " ON " + qualifiedName(table.qualifiedName())
+                        + " TO " + grantee
+                        + dialect.statementTerminator());
             }
         });
     }

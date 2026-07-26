@@ -90,3 +90,54 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 - The final `S` in plural table names such as `LANGUAGES`, `COUNTRIES`, and `CALENDARS` is part of the identifier, not a flag.
 - Oracle and PostgreSQL DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
 - Singular table names are preserved unchanged and receive `W:TABLE-PLURAL` only.
+
+## Oracle storage defaults
+
+When a Word/EA specification does not provide explicit physical options, the Oracle dialect applies the project storage convention automatically:
+
+```text
+Table tablespace : TS_<SCHEMA>
+Index tablespace : ITS_<SCHEMA>
+```
+
+For example, table `DPS.DEPOSITS` is terminated as:
+
+```sql
+) TABLESPACE TS_DPS;
+```
+
+and its primary-key, unique-key and standalone indexes use `TABLESPACE ITS_DPS`. Explicit `TABLESPACE`, `INDEX_TABLESPACE` or `PK_TABLESPACE` options in the canonical model take precedence over these defaults. PostgreSQL is unchanged and receives no implicit tablespace.
+
+## Standard database role grants
+
+Standard table privileges are configured centrally and are applied to every generated table:
+
+```yaml
+schemaforge:
+  standards:
+    grants:
+      - grantee: U_DEVELOPER
+        privileges: [SELECT, INSERT, UPDATE, DELETE]
+      - grantee: U_DESIGNER
+        privileges: [SELECT, INSERT, UPDATE, DELETE]
+```
+
+`grantee` identifies a database **role/principal**, not an application user id. The generated statements are placed at the end of the executable SQL body:
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.DEPOSITS TO U_DEVELOPER;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.DEPOSITS TO U_DESIGNER;
+```
+
+The same configuration is used by REST Word/ZIP/EA XML generation and the offline generation pipeline. An empty `grants` list disables standard grants. Explicit table-level `GRANTS` options are retained and merged without duplicate statements.
+
+## Document-to-database Excel comparison
+
+When Oracle or PostgreSQL metadata is enabled and the exact document table already exists in the target database, the REST response ZIP also contains a comparison workbook:
+
+```text
+<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.oracle.xlsx
+<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.postgresql.xlsx
+```
+
+The workbook uses the established SchemaForge v3 one-sheet, 22-column layout and compares the document with live database metadata. Metadata is read during the REST request and is not cached. If the table does not exist in a target database, the workbook for that database is omitted while SQL and JSON generation continue.

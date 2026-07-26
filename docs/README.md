@@ -15,6 +15,7 @@
 - [Output file naming](generation/OUTPUT-FILE-NAMING.md)
 - [DBMS-aware output naming](generation/DBMS-AWARE-OUTPUT-NAMING.md)
 - [Output naming fix](generation/OUTPUT-NAMING-FIX.md)
+- [Document-to-database comparison workbook](generation/DOCUMENT-DATABASE-COMPARISON.md)
 
 ## Testing and validation
 

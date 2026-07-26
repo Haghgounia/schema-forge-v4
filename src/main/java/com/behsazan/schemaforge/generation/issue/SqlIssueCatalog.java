@@ -79,8 +79,6 @@ public final class SqlIssueCatalog {
                 String message = "Persian column name/description is missing for column " + column
                         + " in Word row " + values.getOrDefault("row", "?") + ".";
                 target.add(new ValidationIssue("WARNING", "COLUMN_DESCRIPTION_MISSING", path, message));
-            } else {
-                target.add(new ValidationIssue("WARNING", "RECOVERY_WARNING", "schema", warning));
             }
         }
     }

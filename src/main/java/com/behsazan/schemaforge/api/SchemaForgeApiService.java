@@ -4,12 +4,16 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
+import com.behsazan.schemaforge.config.GrantProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonValidator;
+import com.behsazan.schemaforge.reporting.SchemaCompareExcelWriter;
 import com.behsazan.schemaforge.specification.json.JsonExporter;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
@@ -30,7 +34,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -41,13 +47,16 @@ public class SchemaForgeApiService {
     private final SchemaPreparationService preparationService;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
     private final OutputFileNamer outputFileNamer = new OutputFileNamer();
+    private final SchemaCompareExcelWriter compareExcelWriter = new SchemaCompareExcelWriter();
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
+            GrantProperties grantProperties,
             SpellCheckProperties spellCheckProperties,
             ObjectMapper objectMapper,
             MetadataRepositoryResolver metadataRepositoryResolver) {
-        this.preparationService = new SchemaPreparationService(auditProperties, spellCheckProperties, objectMapper);
+        this.preparationService = new SchemaPreparationService(
+                auditProperties, grantProperties, spellCheckProperties, objectMapper);
         this.metadataRepositoryResolver = metadataRepositoryResolver;
     }
 
@@ -128,21 +137,62 @@ public class SchemaForgeApiService {
         // reused by SQL generation and the consolidated JSON validation report.
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             var dialect = DialectFactory.create(platform);
+            MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(
-                    dialect, metadataRepositoryResolver.resolve(platform)).validate(schema);
-            jsonIssues.addAll(metadata.issues());
+                    dialect, repository).validate(schema);
+            metadata.issues().stream()
+                    .map(issue -> new ValidationIssue(
+                            issue.severity(),
+                            issue.code(),
+                            "dialects." + platform.commandLineName() + "." + issue.path(),
+                            "[" + platform.name() + "] " + issue.message()))
+                    .forEach(jsonIssues::add);
 
             String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
             Files.writeString(
                     output.resolve(timestampedBaseName + "." + platform.commandLineName() + ".sql"),
                     sql,
                     StandardCharsets.UTF_8);
+
+            writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform);
         }
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
         new JsonExporter().write(output.resolve(timestampedBaseName + ".json"), schema, jsonReport);
+    }
+
+    private void writeComparisonWorkbooks(
+            DatabaseSchema schema,
+            MetadataRepository repository,
+            MetadataComparisonResult metadata,
+            Path output,
+            String timestamp,
+            DatabasePlatform platform) throws IOException {
+
+        if (!repository.available()) return;
+
+        for (Table documentTable : schema.tables()) {
+            String schemaName = documentTable.qualifiedName().schemaName()
+                    .map(identifier -> identifier.value())
+                    .orElse(schema.name().value());
+            String tableName = documentTable.qualifiedName().name().value();
+            var databaseTable = repository.findTable(schemaName, tableName);
+            if (databaseTable.isEmpty()) continue;
+
+            Map<String, Long> usageCounts = new LinkedHashMap<>();
+            documentTable.columns().forEach(column -> usageCounts.put(
+                    column.name().normalized(),
+                    metadata.frequency(MetadataComparisonValidator.path(documentTable, column))));
+
+            byte[] workbook = compareExcelWriter.write(
+                    documentTable, databaseTable.get(), usageCounts, platform);
+            String fileName = schemaName + "." + tableName
+                    + "_compare_" + timestamp
+                    + "." + platform.commandLineName() + ".xlsx";
+            Files.write(output.resolve(fileName), workbook);
+        }
     }
 
     private static void unzipSafely(MultipartFile file, Path destination) throws IOException {
