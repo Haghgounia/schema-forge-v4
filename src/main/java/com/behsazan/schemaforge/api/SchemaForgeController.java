@@ -14,12 +14,17 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/generate")
 @Tag(name = "Schema Generation", description = "Generate Oracle and PostgreSQL DDL from Word, ZIP, or Enterprise Architect XML/XMI")
 public class SchemaForgeController {
+    private static final DateTimeFormatter ARCHIVE_TIME =
+            DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss_SSS", Locale.ROOT);
     private final SchemaForgeApiService service;
 
     public SchemaForgeController(SchemaForgeApiService service) {
@@ -29,19 +34,23 @@ public class SchemaForgeController {
     @PostMapping(value = "/word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from one Word specification")
     public ResponseEntity<byte[]> word(@RequestPart("file") MultipartFile file) throws IOException {
-        return zip(service.generateFromWord(file), "schemaforge-word-output.zip");
+        return zip(service.generateFromWord(file), archiveName("schemaforge-word-output"));
     }
 
     @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from a ZIP containing Word specifications")
     public ResponseEntity<byte[]> zip(@RequestPart("file") MultipartFile file) throws IOException {
-        return zip(service.generateFromZip(file), "schemaforge-batch-output.zip");
+        return zip(service.generateFromZip(file), archiveName("schemaforge-batch-output"));
     }
 
     @PostMapping(value = "/ea-xml", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from Enterprise Architect XML/XMI")
     public ResponseEntity<byte[]> eaXml(@RequestPart("file") MultipartFile file) throws IOException {
-        return zip(service.generateFromEaXml(file), "schemaforge-ea-output.zip");
+        return zip(service.generateFromEaXml(file), archiveName("schemaforge-ea-output"));
+    }
+
+    private static String archiveName(String baseName) {
+        return baseName + "_" + LocalDateTime.now().format(ARCHIVE_TIME) + ".zip";
     }
 
     private static ResponseEntity<byte[]> zip(byte[] content, String fileName) {

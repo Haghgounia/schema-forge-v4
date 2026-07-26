@@ -52,7 +52,7 @@ public final class WordSpecificationParser implements SpecificationParser {
     private static final Pattern DATA_TYPE = Pattern.compile(
             "(?i)^([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?(?:\\s+(CHAR|BYTE))?\\s*\\))?$");
     private static final Pattern GROUP_REFERENCE = Pattern.compile(
-            "(?i)^([A-Z][A-Z0-9_$.]*?)(?:\\s+(S))?\\s*/\\s*([YN])$");
+            "(?i)^([A-Z][A-Z0-9_$#]*(?:\\s*\\.\\s*[A-Z][A-Z0-9_$#]*)?)\\s*/\\s*([YN])$");
     private static final Pattern GROUP_POSITION = Pattern.compile("(?i)^([A-Z]+\\d+)(?:\\s*[,;:]\\s*(\\d+))?$" );
 
     @Override
@@ -281,8 +281,8 @@ public final class WordSpecificationParser implements SpecificationParser {
             throw new IllegalArgumentException("Invalid foreign-key reference: " + rawReference);
         }
 
-        String object = matcher.group(1).replace(" ", "");
-        boolean physical = "Y".equalsIgnoreCase(matcher.group(3));
+        String object = matcher.group(1).replaceAll("\\s*\\.\\s*", ".").replace(" ", "");
+        boolean physical = "Y".equalsIgnoreCase(matcher.group(2));
         String[] parts = object.split("\\.", -1);
         if (parts.length > 2) {
             throw new IllegalArgumentException("Invalid qualified reference: " + rawReference);
@@ -512,7 +512,7 @@ public final class WordSpecificationParser implements SpecificationParser {
 
         String name = normalizeDataTypeName(matcher.group(1));
         Integer first = matcher.group(2) == null ? null : Integer.valueOf(matcher.group(2));
-        Integer second = matcher.group(3) == null ? null : Integer.valueOf(matcher.group(3));
+        Integer second = matcher.group(2) == null ? null : Integer.valueOf(matcher.group(2));
         LengthSemantics lengthSemantics = matcher.group(4) == null
                 ? LengthSemantics.DEFAULT
                 : LengthSemantics.valueOf(matcher.group(4).toUpperCase(Locale.ROOT));

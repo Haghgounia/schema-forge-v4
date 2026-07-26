@@ -83,8 +83,10 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 ```
 
 ### Foreign-key reference flags
-- `/Y`: physical reference.
-- `/N`: logical reference.
-- A qualified reference such as `TIM.CALENDAR` preserves the explicitly supplied schema.
+- `TABLE/Y`: physical reference.
+- `TABLE/N`: logical reference.
+- `SCHEMA.TABLE/Y` and `SCHEMA.TABLE/N`: qualified references with an explicit schema.
+- Spaces around the schema separator are tolerated because Word may expose `TIM. CALENDARS/N`.
+- The final `S` in plural table names such as `LANGUAGES`, `COUNTRIES`, and `CALENDARS` is part of the identifier, not a flag.
 - Oracle and PostgreSQL DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
 - Singular table names are preserved unchanged and receive `W:TABLE-PLURAL` only.

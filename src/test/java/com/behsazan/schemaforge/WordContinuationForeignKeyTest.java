@@ -35,13 +35,13 @@ class WordContinuationForeignKeyTest {
 
             XWPFTable continuation = document.createTable(3, 11);
             setRow(continuation, 0,
-                    "LANGUAGE_ID", "زبان رسمی", "NUMBER(8)", "LANGUAGE S/Y",
+                    "LANGUAGE_ID", "زبان رسمی", "NUMBER(8)", "LANGUAGES/Y",
                     "", "", "", "", "", "", "");
             setRow(continuation, 1,
-                    "COUNTRY_ID", "کشور", "NUMBER(8)", "COUNTRIES /Y",
+                    "COUNTRY_ID", "کشور", "NUMBER(8)", "COUNTRIES/Y",
                     "", "", "", "", "", "", "");
             setRow(continuation, 2,
-                    "CALENDAR_ID", "تقویم", "NUMBER(8)", "TIM.CALENDAR S/N",
+                    "CALENDAR_ID", "تقویم", "NUMBER(8)", "TIM. CALENDARS/N",
                     "", "", "", "", "", "", "");
 
             document.write(output);
@@ -57,7 +57,7 @@ class WordContinuationForeignKeyTest {
         assertTrue(table.columns().stream().anyMatch(column -> column.name().normalized().equals("LANGUAGE_ID")));
         assertTrue(table.columns().stream().anyMatch(column -> column.name().normalized().equals("COUNTRY_ID")));
         assertTrue(table.columns().stream().anyMatch(column -> column.name().normalized().equals("CALENDAR_ID")));
-        assertEquals("LANGUAGE", table.foreignKeys().get(0).referencedTable().name().normalized());
+        assertEquals("LANGUAGES", table.foreignKeys().get(0).referencedTable().name().normalized());
         assertTrue(table.foreignKeys().get(0).physicalReference());
         assertTrue(!table.foreignKeys().get(0).schemaExplicit());
         assertTrue(table.foreignKeys().get(1).physicalReference());
@@ -65,7 +65,7 @@ class WordContinuationForeignKeyTest {
         assertEquals("TIM", table.foreignKeys().get(2).referencedTable().schemaName().orElseThrow().normalized());
         assertTrue(!table.foreignKeys().get(2).physicalReference());
         assertTrue(table.foreignKeys().get(2).schemaExplicit());
-        assertEquals("CALENDAR", table.foreignKeys().get(2).referencedTable().name().normalized());
+        assertEquals("CALENDARS", table.foreignKeys().get(2).referencedTable().name().normalized());
     }
 
     private static void setRow(XWPFTable table, int rowIndex, String... values) {

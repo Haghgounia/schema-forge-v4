@@ -17,6 +17,7 @@ import com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlPa
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.application.PreparedSchema;
+import com.behsazan.schemaforge.application.OutputFileNamer;
 import com.behsazan.schemaforge.application.SchemaPreparationService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +40,7 @@ import java.util.zip.ZipOutputStream;
 public class SchemaForgeApiService {
     private final SchemaPreparationService preparationService;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
+    private final OutputFileNamer outputFileNamer = new OutputFileNamer();
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
@@ -118,6 +120,10 @@ public class SchemaForgeApiService {
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
 
+        // All artifacts for one source document share the same timestamp.
+        String timestamp = outputFileNamer.create(output, baseName, DatabasePlatform.ORACLE).timestamp();
+        String timestampedBaseName = baseName + "_" + timestamp;
+
         // Metadata is queried once per database output. The same comparison result is
         // reused by SQL generation and the consolidated JSON validation report.
         for (DatabasePlatform platform : DatabasePlatform.values()) {
@@ -128,7 +134,7 @@ public class SchemaForgeApiService {
 
             String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
             Files.writeString(
-                    output.resolve(baseName + "." + platform.commandLineName() + ".sql"),
+                    output.resolve(timestampedBaseName + "." + platform.commandLineName() + ".sql"),
                     sql,
                     StandardCharsets.UTF_8);
         }
@@ -136,7 +142,7 @@ public class SchemaForgeApiService {
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
-        new JsonExporter().write(output.resolve(baseName + ".json"), schema, jsonReport);
+        new JsonExporter().write(output.resolve(timestampedBaseName + ".json"), schema, jsonReport);
     }
 
     private static void unzipSafely(MultipartFile file, Path destination) throws IOException {
