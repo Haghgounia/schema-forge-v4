@@ -106,6 +106,10 @@ class SchemaForgeApiComparisonExcelTest {
             assertEquals("COLUMN_USAGE", sheet.getRow(0).getCell(0).getStringCellValue());
             assertEquals("DIFF", sheet.getRow(0).getCell(21).getStringCellValue());
             assertTrue(sheet.getLastRowNum() >= 20);
+            assertNotNull(workbook.getSheet("PRIMARY_KEY_COMPARE"));
+            assertNotNull(workbook.getSheet("FOREIGN_KEYS_COMPARE"));
+            assertNotNull(workbook.getSheet("INDEXES_COMPARE"));
+            assertNotNull(workbook.getSheet("UNIQUE_INDEXES_COMPARE"));
         }
     }
 

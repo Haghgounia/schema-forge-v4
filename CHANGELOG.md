@@ -68,3 +68,37 @@
 - Fixed the Excel comparison of `CHECK ... IN (...)` constraints after whitespace normalization.
 - `IN (0, 1)`, `IN (1, 0)` and spacing variants are now treated as semantically equivalent.
 - Added a regression test to prevent false `CHECK CONSTRAINT` differences caused only by list order.
+
+## 2026-07-26 - Comparison Excel row order and row fills
+
+- Rows in comparison workbooks now follow the document column order first.
+- Database-only rows are appended after all document rows.
+- Applied the established Excel row background styles:
+  - header: `GREY_40_PERCENT`
+  - added/document-only column: `BRIGHT_GREEN`
+  - dropped/database-only column: `RED`
+  - modified or rename candidate row: `LIGHT_ORANGE`
+  - position-only row: `GREY_25_PERCENT`
+  - unchanged row: `LIGHT_CORNFLOWER_BLUE`
+- Kept one comparison workbook per database dialect (`*.oracle.xlsx`, `*.postgresql.xlsx`).
+
+## 2026-07-26 - Excel comparison historical fill correction
+
+- Restored the historical v3 row-fill behavior.
+- Unchanged rows now have no background fill.
+- `GREY_40_PERCENT` remains for the header.
+- `BRIGHT_GREEN` remains for document-only columns.
+- `RED` remains for database-only columns.
+- `LIGHT_ORANGE` remains for modified or rename-candidate rows.
+- `GREY_25_PERCENT` remains for position-only differences.
+- `LIGHT_CORNFLOWER_BLUE` is no longer applied to unchanged rows because it was not used by the real v3 comparison workbooks.
+
+## 2026-07-26 - Excel database-object comparison completion
+
+- Added thin borders to all cells in the column and database-object comparison sheets.
+- Preserved the historical v3 row colors: green for ADD, red for DROP, orange for MODIFY, grey for position-only changes, and no fill for unchanged rows.
+- Added separate comparison sheets for primary keys, foreign keys, non-unique indexes, and unique constraints/indexes.
+- Composite and single-column indexes are compared by ordered key columns, sort direction, index type, include columns and predicate.
+- Primary-key, foreign-key and unique-object changes now include names and complete canonical definitions rather than column membership only.
+- Kept document object order first and appended database-only objects afterwards.
+- Added a database-neutral writer entry point that receives the generic dialect contract; database-specific metadata adapters remain outside the Excel writer.

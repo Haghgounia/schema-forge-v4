@@ -9,12 +9,14 @@ import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.model.IndexColumn;
+import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.metadata.DataTypeCanonicalizer;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
@@ -29,7 +31,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,8 +43,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Writes the one-sheet document/database comparison workbook used by the
- * historical SchemaForge v3 output corpus.
+ * Writes the historical 22-column document/database comparison sheet and
+ * database-neutral object comparison sheets for keys and indexes.
  */
 @Component
 public final class SchemaCompareExcelWriter {
@@ -60,6 +61,13 @@ public final class SchemaCompareExcelWriter {
             11, 28, 24, 13, 28, 40, 32, 34, 42, 46, 36
     };
 
+    private static final String[] OBJECT_HEADERS = {
+            "OBJECT_TYPE", "DOCUMENT_NAME", "DOCUMENT_DEFINITION",
+            "DATABASE_NAME", "DATABASE_DEFINITION", "STATUS", "DIFF"
+    };
+
+    private static final int[] OBJECT_WIDTHS = {22, 34, 72, 34, 72, 16, 42};
+
     private static final Pattern SHORT_MARKER =
             Pattern.compile("(?:^|_)([UI]\\d+(?:\\.\\d+)?)$", Pattern.CASE_INSENSITIVE);
 
@@ -70,13 +78,30 @@ public final class SchemaCompareExcelWriter {
             Table databaseTable,
             Map<String, Long> columnUsageCounts,
             DatabasePlatform platform) {
+        Objects.requireNonNull(platform, "platform must not be null");
+        return write(documentTable, databaseTable, columnUsageCounts,
+                platform.name(), DialectFactory.create(platform));
+    }
+
+    /**
+     * Database-neutral comparison entry point. The writer receives only the
+     * canonical document/database tables and the generic dialect contract.
+     * Oracle, PostgreSQL and future database adapters remain outside the
+     * reporting implementation.
+     */
+    public byte[] write(
+            Table documentTable,
+            Table databaseTable,
+            Map<String, Long> columnUsageCounts,
+            String databaseType,
+            Dialect dialect) {
 
         Objects.requireNonNull(documentTable, "documentTable must not be null");
         Objects.requireNonNull(databaseTable, "databaseTable must not be null");
-        Objects.requireNonNull(platform, "platform must not be null");
+        Objects.requireNonNull(databaseType, "databaseType must not be null");
+        Objects.requireNonNull(dialect, "dialect must not be null");
 
         Map<String, Long> usageCounts = normalizeUsage(columnUsageCounts);
-        Dialect dialect = DialectFactory.create(platform);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -86,8 +111,8 @@ public final class SchemaCompareExcelWriter {
             writeHeader(sheet, styles.header);
 
             int rowNumber = 1;
-            for (ColumnPair pair : pairColumns(documentTable, databaseTable, dialect, platform)) {
-                List<String> differences = differences(documentTable, databaseTable, pair, dialect, platform);
+            for (ColumnPair pair : pairColumns(documentTable, databaseTable, dialect, databaseType)) {
+                List<String> differences = differences(documentTable, databaseTable, pair, dialect, databaseType);
                 CellStyle rowStyle = rowStyle(pair, differences, styles);
                 Row row = sheet.createRow(rowNumber++);
                 row.setHeightInPoints(28);
@@ -98,12 +123,298 @@ public final class SchemaCompareExcelWriter {
             }
 
             configureSheet(sheet, Math.max(1, rowNumber - 1));
+            writePrimaryKeySheet(workbook, documentTable, databaseTable, styles);
+            writeObjectComparisonSheet(workbook, "FOREIGN_KEYS_COMPARE",
+                    foreignKeySnapshots(documentTable), foreignKeySnapshots(databaseTable), styles);
+            writeObjectComparisonSheet(workbook, "INDEXES_COMPARE",
+                    indexSnapshots(documentTable, false), indexSnapshots(databaseTable, false), styles);
+            writeObjectComparisonSheet(workbook, "UNIQUE_INDEXES_COMPARE",
+                    uniqueSnapshots(documentTable), uniqueSnapshots(databaseTable), styles);
+
             workbook.setActiveSheet(0);
             workbook.write(output);
             return output.toByteArray();
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot create schema comparison Excel", exception);
         }
+    }
+
+
+    private static void writePrimaryKeySheet(
+            XSSFWorkbook workbook,
+            Table documentTable,
+            Table databaseTable,
+            Styles styles) {
+        List<ObjectSnapshot> document = documentTable.primaryKey()
+                .map(SchemaCompareExcelWriter::primaryKeySnapshot)
+                .map(List::of)
+                .orElseGet(List::of);
+        List<ObjectSnapshot> database = databaseTable.primaryKey()
+                .map(SchemaCompareExcelWriter::primaryKeySnapshot)
+                .map(List::of)
+                .orElseGet(List::of);
+        writeObjectComparisonSheet(workbook, "PRIMARY_KEY_COMPARE", document, database, styles);
+    }
+
+    private static void writeObjectComparisonSheet(
+            XSSFWorkbook workbook,
+            String preferredSheetName,
+            List<ObjectSnapshot> documentObjects,
+            List<ObjectSnapshot> databaseObjects,
+            Styles styles) {
+
+        Sheet sheet = workbook.createSheet(uniqueSheetName(workbook, preferredSheetName));
+        Row header = sheet.createRow(0);
+        header.setHeightInPoints(30);
+        for (int index = 0; index < OBJECT_HEADERS.length; index++) {
+            setCell(header, index, OBJECT_HEADERS[index], styles.header);
+        }
+
+        int rowNumber = 1;
+        for (ObjectPair pair : pairObjects(documentObjects, databaseObjects)) {
+            List<String> differences = objectDifferences(pair);
+            String status = objectStatus(pair, differences);
+            CellStyle style = objectRowStyle(status, styles);
+            Row row = sheet.createRow(rowNumber++);
+            row.setHeightInPoints(30);
+
+            ObjectSnapshot document = pair.document();
+            ObjectSnapshot database = pair.database();
+            String objectType = document != null ? document.objectType()
+                    : database == null ? "" : database.objectType();
+
+            setCell(row, 0, objectType, style);
+            setCell(row, 1, document == null ? "" : document.name(), style);
+            setCell(row, 2, document == null ? "" : document.definition(), style);
+            setCell(row, 3, database == null ? "" : database.name(), style);
+            setCell(row, 4, database == null ? "" : database.definition(), style);
+            setCell(row, 5, status, style);
+            setCell(row, 6, diffText(differences), style);
+        }
+
+        configureObjectSheet(sheet, rowNumber - 1);
+    }
+
+    private static List<ObjectPair> pairObjects(
+            List<ObjectSnapshot> documentObjects,
+            List<ObjectSnapshot> databaseObjects) {
+        List<ObjectSnapshot> remaining = new ArrayList<>(databaseObjects);
+        List<ObjectPair> result = new ArrayList<>();
+
+        for (ObjectSnapshot document : documentObjects) {
+            ObjectSnapshot exact = remaining.stream()
+                    .filter(database -> !document.name().isBlank())
+                    .filter(database -> document.name().equalsIgnoreCase(database.name()))
+                    .findFirst()
+                    .orElse(null);
+            if (exact != null) {
+                result.add(new ObjectPair(document, exact));
+                remaining.remove(exact);
+                continue;
+            }
+
+            ObjectSnapshot structural = remaining.stream()
+                    .filter(database -> document.structuralKey().equals(database.structuralKey()))
+                    .findFirst()
+                    .orElse(null);
+            if (structural != null) {
+                result.add(new ObjectPair(document, structural));
+                remaining.remove(structural);
+            } else {
+                result.add(new ObjectPair(document, null));
+            }
+        }
+
+        remaining.forEach(database -> result.add(new ObjectPair(null, database)));
+        return result;
+    }
+
+    private static List<String> objectDifferences(ObjectPair pair) {
+        if (pair.document() == null || pair.database() == null) return List.of();
+
+        List<String> result = new ArrayList<>();
+        if (!pair.document().name().equalsIgnoreCase(pair.database().name())) result.add("NAME");
+
+        LinkedHashMap<String, String> attributes = new LinkedHashMap<>();
+        pair.document().attributes().forEach(attributes::putIfAbsent);
+        pair.database().attributes().forEach(attributes::putIfAbsent);
+        for (String attribute : attributes.keySet()) {
+            String documentValue = pair.document().attributes().getOrDefault(attribute, "");
+            String databaseValue = pair.database().attributes().getOrDefault(attribute, "");
+            if (!Objects.equals(documentValue, databaseValue)) result.add(attribute);
+        }
+        return result;
+    }
+
+    private static String objectStatus(ObjectPair pair, List<String> differences) {
+        if (pair.document() != null && pair.database() == null) return "ADD";
+        if (pair.document() == null && pair.database() != null) return "DROP";
+        return differences.isEmpty() ? "SAME" : "MODIFY";
+    }
+
+    private static CellStyle objectRowStyle(String status, Styles styles) {
+        return switch (status) {
+            case "ADD" -> styles.missingInDatabase;
+            case "DROP" -> styles.extraInDatabase;
+            case "MODIFY" -> styles.changed;
+            default -> styles.normal;
+        };
+    }
+
+    private static ObjectSnapshot primaryKeySnapshot(PrimaryKey key) {
+        LinkedHashMap<String, String> attributes = new LinkedHashMap<>();
+        attributes.put("COLUMNS", identifiers(key.columns()));
+        attributes.put("DEFERRABLE", yesNo(key.deferrable()));
+        attributes.put("INITIALLY_DEFERRED", yesNo(key.initiallyDeferred()));
+        return snapshot("PRIMARY_KEY", identifierName(key.name()),
+                "PRIMARY_KEY", attributes, null);
+    }
+
+    private static List<ObjectSnapshot> foreignKeySnapshots(Table table) {
+        List<ObjectSnapshot> result = new ArrayList<>();
+        for (ForeignKey key : table.foreignKeys()) {
+            LinkedHashMap<String, String> attributes = new LinkedHashMap<>();
+            attributes.put("COLUMNS", identifiers(key.columns()));
+            attributes.put("REFERENCED_TABLE", qualifiedName(key.referencedTable()));
+            attributes.put("REFERENCED_COLUMNS", identifiers(key.referencedColumns()));
+            attributes.put("ON_DELETE", key.onDelete().name());
+            attributes.put("ON_UPDATE", key.onUpdate().name());
+            attributes.put("DEFERRABLE", yesNo(key.deferrable()));
+            attributes.put("INITIALLY_DEFERRED", yesNo(key.initiallyDeferred()));
+            String extra = "REFERENCE_MODE=" + (key.physicalReference() ? "PHYSICAL" : "LOGICAL");
+            result.add(snapshot("FOREIGN_KEY", identifierName(key.name()),
+                    "FK:" + attributes.get("COLUMNS"), attributes, extra));
+        }
+        return result;
+    }
+
+    private static List<ObjectSnapshot> indexSnapshots(Table table, boolean uniqueOnly) {
+        List<ObjectSnapshot> result = new ArrayList<>();
+        Set<String> constraintBackedNames = constraintBackedUniqueIndexNames(table);
+        for (Index index : table.indexes()) {
+            boolean unique = index.type() == IndexType.UNIQUE;
+            if (uniqueOnly != unique) continue;
+            if (unique && index.name() != null
+                    && constraintBackedNames.contains(index.name().normalized())) continue;
+
+            LinkedHashMap<String, String> attributes = new LinkedHashMap<>();
+            attributes.put("INDEX_TYPE", index.type().name());
+            attributes.put("COLUMNS", indexColumns(index));
+            attributes.put("INCLUDE_COLUMNS", identifiers(index.includeColumns()));
+            attributes.put("PREDICATE", normalizeExpression(index.predicate()));
+            String structuralKey = "INDEX:" + attributes.get("COLUMNS");
+            result.add(snapshot(unique ? "UNIQUE_INDEX" : "INDEX",
+                    identifierName(index.name()), structuralKey, attributes, null));
+        }
+        return result;
+    }
+
+    private static List<ObjectSnapshot> uniqueSnapshots(Table table) {
+        List<ObjectSnapshot> result = new ArrayList<>();
+        for (UniqueKey key : table.uniqueKeys()) {
+            LinkedHashMap<String, String> attributes = new LinkedHashMap<>();
+            attributes.put("KIND", "UNIQUE_CONSTRAINT");
+            attributes.put("COLUMNS", identifiers(key.columns()));
+            attributes.put("DEFERRABLE", yesNo(key.deferrable()));
+            attributes.put("INITIALLY_DEFERRED", yesNo(key.initiallyDeferred()));
+            result.add(snapshot("UNIQUE_OBJECT", identifierName(key.name()),
+                    "UNIQUE:" + attributes.get("COLUMNS"), attributes, null));
+        }
+        result.addAll(indexSnapshots(table, true).stream()
+                .map(index -> new ObjectSnapshot(
+                        "UNIQUE_OBJECT",
+                        index.name(),
+                        index.definition(),
+                        "UNIQUE:" + index.attributes().getOrDefault("COLUMNS", ""),
+                        withKind(index.attributes(), "UNIQUE_INDEX")))
+                .toList());
+        return result;
+    }
+
+    private static Map<String, String> withKind(Map<String, String> source, String kind) {
+        LinkedHashMap<String, String> result = new LinkedHashMap<>();
+        result.put("KIND", kind);
+        source.forEach(result::putIfAbsent);
+        return result;
+    }
+
+    private static Set<String> constraintBackedUniqueIndexNames(Table table) {
+        Set<String> result = new TreeSet<>();
+        table.primaryKey().map(PrimaryKey::name)
+                .filter(Objects::nonNull).map(Identifier::normalized).ifPresent(result::add);
+        table.uniqueKeys().stream().map(UniqueKey::name)
+                .filter(Objects::nonNull).map(Identifier::normalized).forEach(result::add);
+        return result;
+    }
+
+    private static ObjectSnapshot snapshot(
+            String objectType,
+            String name,
+            String structuralKey,
+            LinkedHashMap<String, String> attributes,
+            String extraDefinition) {
+        String definition = attributes.entrySet().stream()
+                .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining("; "));
+        if (extraDefinition != null && !extraDefinition.isBlank()) {
+            definition = definition.isBlank() ? extraDefinition : definition + "; " + extraDefinition;
+        }
+        return new ObjectSnapshot(
+                objectType,
+                name == null ? "" : name,
+                definition,
+                structuralKey == null ? "" : structuralKey,
+                java.util.Collections.unmodifiableMap(new LinkedHashMap<>(attributes)));
+    }
+
+    private static String identifierName(Identifier identifier) {
+        return identifier == null ? "" : identifier.value();
+    }
+
+    private static String identifiers(List<Identifier> identifiers) {
+        return identifiers == null ? "" : identifiers.stream()
+                .map(Identifier::normalized)
+                .collect(Collectors.joining(","));
+    }
+
+    private static String indexColumns(Index index) {
+        return index.columns().stream()
+                .map(column -> column.expressionBased()
+                        ? normalizeExpression(column.expression()) + " " + column.direction().name()
+                        : column.column().normalized() + " " + column.direction().name())
+                .collect(Collectors.joining(","));
+    }
+
+    private static String qualifiedName(com.behsazan.schemaforge.domain.valueobject.QualifiedName name) {
+        String table = name.name().normalized();
+        return name.schemaName().map(Identifier::normalized)
+                .map(schema -> schema + "." + table)
+                .orElse(table);
+    }
+
+    private static String yesNo(boolean value) {
+        return value ? "Y" : "N";
+    }
+
+    private static void configureObjectSheet(Sheet sheet, int dataRows) {
+        sheet.createFreezePane(0, 1);
+        sheet.setAutoFilter(new CellRangeAddress(0, Math.max(0, dataRows), 0, OBJECT_HEADERS.length - 1));
+        sheet.setDisplayGridlines(false);
+        for (int index = 0; index < OBJECT_WIDTHS.length; index++) {
+            sheet.setColumnWidth(index, OBJECT_WIDTHS[index] * 256);
+        }
+    }
+
+    private static String uniqueSheetName(XSSFWorkbook workbook, String preferred) {
+        String base = safeSheetName(preferred);
+        if (workbook.getSheet(base) == null) return base;
+        for (int index = 2; index < 1000; index++) {
+            String suffix = "_" + index;
+            String candidate = base.substring(0, Math.min(base.length(), 31 - suffix.length())) + suffix;
+            if (workbook.getSheet(candidate) == null) return candidate;
+        }
+        throw new IllegalStateException("Cannot allocate unique sheet name for " + preferred);
     }
 
     private static Map<String, Long> normalizeUsage(Map<String, Long> values) {
@@ -178,7 +489,7 @@ public final class SchemaCompareExcelWriter {
             Table databaseTable,
             ColumnPair pair,
             Dialect dialect,
-            DatabasePlatform platform) {
+            String databaseType) {
 
         if (pair.document() != null && pair.database() == null) return List.of("NOT_EXISTS_IN_TABLE");
         if (pair.document() == null && pair.database() != null) return List.of("NOT_EXISTS_IN_DOCUMENT");
@@ -192,7 +503,7 @@ public final class SchemaCompareExcelWriter {
             result.add("SIMILARITY");
         }
         if (!Objects.equals(document.ordinalPosition(), database.ordinalPosition())) result.add("COLUMN ID");
-        if (!canonicalizer.equivalent(platform.name(), dialect.sqlType(document), dialect.sqlType(database))) {
+        if (!canonicalizer.equivalent(databaseType, dialect.sqlType(document), dialect.sqlType(database))) {
             result.add("DATA_TYPE");
         }
         if (document.nullable() != database.nullable()) result.add("NULLABLE");
@@ -201,14 +512,12 @@ public final class SchemaCompareExcelWriter {
         if (!normalizeText(document.description().value())
                 .equals(normalizeText(database.description().value()))) result.add("COMMENTS");
         if (!identityEquivalent(document, database)) result.add("IDENTITY_MODE");
-        if (inPrimaryKey(documentTable, document.name()) != inPrimaryKey(databaseTable, database.name())) {
-            result.add("PRIMARY_KEY");
-        }
+        if (!primaryKeyDefinitions(documentTable, document.name())
+                .equals(primaryKeyDefinitions(databaseTable, database.name()))) result.add("PRIMARY_KEY");
         if (!foreignKeyDefinitions(documentTable, document.name())
                 .equals(foreignKeyDefinitions(databaseTable, database.name()))) result.add("FOREIGN_KEY");
-        if (isUnique(documentTable, document.name()) != isUnique(databaseTable, database.name())) {
-            result.add("UNIQUE");
-        }
+        if (!uniqueDefinitions(documentTable, document.name())
+                .equals(uniqueDefinitions(databaseTable, database.name()))) result.add("UNIQUE_INDEX");
         if (!normalIndexDefinitions(documentTable, document.name())
                 .equals(normalIndexDefinitions(databaseTable, database.name()))) result.add("INDEX");
         if (!checkExpressions(documentTable, document.name())
@@ -221,7 +530,7 @@ public final class SchemaCompareExcelWriter {
             Table documentTable,
             Table databaseTable,
             Dialect dialect,
-            DatabasePlatform platform) {
+            String databaseType) {
 
         Map<String, Column> databaseByName = databaseTable.columns().stream()
                 .collect(Collectors.toMap(
@@ -230,32 +539,32 @@ public final class SchemaCompareExcelWriter {
                         (first, second) -> first,
                         LinkedHashMap::new));
 
-        List<ColumnPair> result = new ArrayList<>();
-        Set<String> matchedDatabase = new HashSet<>();
-        List<Column> unmatchedDocument = new ArrayList<>();
-
-        documentTable.columns().stream().sorted(byPosition()).forEach(column -> {
-            Column exact = databaseByName.get(column.name().normalized());
-            if (exact == null) unmatchedDocument.add(column);
-            else {
-                result.add(new ColumnPair(column, exact, false));
-                matchedDatabase.add(exact.name().normalized());
-            }
-        });
+        Set<String> documentNames = documentTable.columns().stream()
+                .map(column -> column.name().normalized())
+                .collect(Collectors.toSet());
 
         List<Column> unmatchedDatabase = databaseTable.columns().stream()
-                .filter(column -> !matchedDatabase.contains(column.name().normalized()))
+                .filter(column -> !documentNames.contains(column.name().normalized()))
                 .sorted(byPosition())
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        for (Column document : unmatchedDocument) {
-            Column candidate = bestRenameCandidate(document, unmatchedDatabase, dialect, platform);
-            if (candidate == null) result.add(new ColumnPair(document, null, false));
-            else {
+        List<ColumnPair> result = new ArrayList<>();
+        documentTable.columns().stream().sorted(byPosition()).forEach(document -> {
+            Column exact = databaseByName.get(document.name().normalized());
+            if (exact != null) {
+                result.add(new ColumnPair(document, exact, false));
+                return;
+            }
+
+            Column candidate = bestRenameCandidate(document, unmatchedDatabase, dialect, databaseType);
+            if (candidate == null) {
+                result.add(new ColumnPair(document, null, false));
+            } else {
                 result.add(new ColumnPair(document, candidate, true));
                 unmatchedDatabase.remove(candidate);
             }
-        }
+        });
+
         unmatchedDatabase.forEach(column -> result.add(new ColumnPair(null, column, false)));
         return result;
     }
@@ -264,12 +573,12 @@ public final class SchemaCompareExcelWriter {
             Column document,
             List<Column> candidates,
             Dialect dialect,
-            DatabasePlatform platform) {
+            String databaseType) {
 
         Column best = null;
         double bestScore = 0.0;
         for (Column candidate : candidates) {
-            if (!canonicalizer.equivalent(platform.name(),
+            if (!canonicalizer.equivalent(databaseType,
                     dialect.sqlType(document), dialect.sqlType(candidate))) continue;
 
             double nameScore = similarity(document.name().normalized(), candidate.name().normalized());
@@ -374,9 +683,6 @@ public final class SchemaCompareExcelWriter {
     private static Set<String> foreignKeyDefinitions(Table table, Identifier column) {
         return table.foreignKeys().stream().filter(key -> key.columns().contains(column))
                 .map(key -> {
-                    int position = key.columns().indexOf(column);
-                    String referencedColumn = position >= 0 && position < key.referencedColumns().size()
-                            ? key.referencedColumns().get(position).normalized() : "";
                     String referencedSchema = key.referencedTable().schemaName()
                             .map(Identifier::normalized)
                             .orElseGet(() -> table.qualifiedName().schemaName()
@@ -384,33 +690,47 @@ public final class SchemaCompareExcelWriter {
                     String qualifiedTable = referencedSchema.isBlank()
                             ? key.referencedTable().name().normalized()
                             : referencedSchema + "." + key.referencedTable().name().normalized();
-                    return qualifiedTable + "." + referencedColumn;
+                    return identifierName(key.name()).toUpperCase(Locale.ROOT)
+                            + "|" + identifiers(key.columns())
+                            + "|" + qualifiedTable
+                            + "|" + identifiers(key.referencedColumns())
+                            + "|" + key.onDelete().name()
+                            + "|" + key.onUpdate().name()
+                            + "|" + key.deferrable()
+                            + "|" + key.initiallyDeferred();
                 })
                 .collect(Collectors.toCollection(TreeSet::new));
     }
 
-
-    private static boolean isUnique(Table table, Identifier column) {
-        if (inPrimaryKey(table, column)) return true;
-        if (table.uniqueKeys().stream().anyMatch(key -> key.columns().contains(column))) return true;
-        return table.indexes().stream()
-                .filter(index -> index.type() == IndexType.UNIQUE)
-                .anyMatch(index -> index.columns().stream()
-                        .filter(item -> !item.expressionBased())
-                        .map(IndexColumn::column)
-                        .anyMatch(column::equals));
+    private static Set<String> primaryKeyDefinitions(Table table, Identifier column) {
+        return table.primaryKey()
+                .filter(key -> key.columns().contains(column))
+                .map(key -> Set.of(
+                        identifierName(key.name()).toUpperCase(Locale.ROOT)
+                                + "|" + identifiers(key.columns())
+                                + "|" + key.deferrable()
+                                + "|" + key.initiallyDeferred()))
+                .orElseGet(Set::of);
     }
+
+
 
     private static Set<String> uniqueDefinitions(Table table, Identifier column) {
         Set<String> result = new TreeSet<>();
-        if (inPrimaryKey(table, column)) result.add("PK");
         table.uniqueKeys().stream().filter(key -> key.columns().contains(column))
-                .map(key -> key.columns().stream().map(Identifier::normalized).collect(Collectors.joining(",")))
+                .map(key -> "CONSTRAINT|"
+                        + identifierName(key.name()).toUpperCase(Locale.ROOT)
+                        + "|" + identifiers(key.columns())
+                        + "|" + key.deferrable()
+                        + "|" + key.initiallyDeferred())
                 .forEach(result::add);
+
+        Set<String> constraintBacked = constraintBackedUniqueIndexNames(table);
         table.indexes().stream().filter(index -> index.type() == IndexType.UNIQUE)
+                .filter(index -> index.name() == null || !constraintBacked.contains(index.name().normalized()))
                 .filter(index -> index.columns().stream().filter(item -> !item.expressionBased())
                         .map(IndexColumn::column).anyMatch(column::equals))
-                .map(SchemaCompareExcelWriter::indexDefinition)
+                .map(index -> "INDEX|" + indexComparisonSignature(index))
                 .forEach(result::add);
         return result;
     }
@@ -419,16 +739,16 @@ public final class SchemaCompareExcelWriter {
         return table.indexes().stream().filter(index -> index.type() != IndexType.UNIQUE)
                 .filter(index -> index.columns().stream().filter(item -> !item.expressionBased())
                         .map(IndexColumn::column).anyMatch(column::equals))
-                .map(SchemaCompareExcelWriter::indexDefinition)
+                .map(SchemaCompareExcelWriter::indexComparisonSignature)
                 .collect(Collectors.toCollection(TreeSet::new));
     }
 
-    private static String indexDefinition(Index index) {
-        return index.columns().stream()
-                .map(item -> item.expressionBased()
-                        ? normalizeExpression(item.expression()) + " " + item.direction().name()
-                        : item.column().normalized() + " " + item.direction().name())
-                .collect(Collectors.joining(","));
+    private static String indexComparisonSignature(Index index) {
+        return identifierName(index.name()).toUpperCase(Locale.ROOT)
+                + "|" + index.type().name()
+                + "|" + indexColumns(index)
+                + "|" + identifiers(index.includeColumns())
+                + "|" + normalizeExpression(index.predicate());
     }
 
     private static Set<String> checkExpressions(Table table, Identifier column) {
@@ -575,6 +895,15 @@ public final class SchemaCompareExcelWriter {
 
     private record ColumnPair(Column document, Column database, boolean renameCandidate) { }
 
+    private record ObjectSnapshot(
+            String objectType,
+            String name,
+            String definition,
+            String structuralKey,
+            Map<String, String> attributes) { }
+
+    private record ObjectPair(ObjectSnapshot document, ObjectSnapshot database) { }
+
     private static final class Styles {
         private final CellStyle header;
         private final CellStyle normal;
@@ -587,15 +916,16 @@ public final class SchemaCompareExcelWriter {
         private Styles(XSSFWorkbook workbook) {
             header = headerStyle(workbook);
             normal = plainStyle(workbook);
-            changed = filledStyle(workbook, IndexedColors.ORANGE);
+            changed = filledStyle(workbook, IndexedColors.LIGHT_ORANGE);
             missingInDatabase = filledStyle(workbook, IndexedColors.BRIGHT_GREEN);
             extraInDatabase = filledStyle(workbook, IndexedColors.RED);
-            renameCandidate = filledStyle(workbook, IndexedColors.ORANGE);
+            renameCandidate = filledStyle(workbook, IndexedColors.LIGHT_ORANGE);
             positionChanged = filledStyle(workbook, IndexedColors.GREY_25_PERCENT);
         }
 
         private static CellStyle headerStyle(XSSFWorkbook workbook) {
             CellStyle style = filledStyle(workbook, IndexedColors.GREY_40_PERCENT);
+            style.setWrapText(false);
             style.setAlignment(HorizontalAlignment.CENTER);
             return style;
         }
@@ -604,6 +934,8 @@ public final class SchemaCompareExcelWriter {
             CellStyle style = workbook.createCellStyle();
             style.setVerticalAlignment(VerticalAlignment.CENTER);
             style.setWrapText(true);
+            style.setFillPattern(FillPatternType.NO_FILL);
+            applyThinBorders(style);
             return style;
         }
 
@@ -612,6 +944,13 @@ public final class SchemaCompareExcelWriter {
             style.setFillForegroundColor(color.getIndex());
             style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             return style;
+        }
+
+        private static void applyThinBorders(CellStyle style) {
+            style.setBorderTop(BorderStyle.THIN);
+            style.setBorderBottom(BorderStyle.THIN);
+            style.setBorderLeft(BorderStyle.THIN);
+            style.setBorderRight(BorderStyle.THIN);
         }
     }
 }

@@ -140,4 +140,17 @@ When Oracle or PostgreSQL metadata is enabled and the exact document table alrea
 <SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.postgresql.xlsx
 ```
 
-The workbook uses the established SchemaForge v3 one-sheet, 22-column layout and compares the document with live database metadata. Metadata is read during the REST request and is not cached. If the table does not exist in a target database, the workbook for that database is omitted while SQL and JSON generation continue.
+The workbook preserves the established SchemaForge v3 22-column table sheet and adds database-object comparison sheets for keys and indexes. Metadata is read during the REST request and is not cached. If the table does not exist in a target database, the workbook for that database is omitted while SQL and JSON generation continue.
+
+### Excel comparison sheets
+
+Each database-specific comparison workbook contains the historical 22-column table sheet plus these database-neutral object sheets:
+
+```text
+PRIMARY_KEY_COMPARE
+FOREIGN_KEYS_COMPARE
+INDEXES_COMPARE
+UNIQUE_INDEXES_COMPARE
+```
+
+Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract; Oracle and PostgreSQL metadata access stays in their repository adapters.

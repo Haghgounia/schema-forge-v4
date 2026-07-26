@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.config.GrantProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
@@ -154,7 +155,7 @@ public class SchemaForgeApiService {
                     sql,
                     StandardCharsets.UTF_8);
 
-            writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform);
+            writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform, dialect);
         }
 
         ValidationReport jsonReport = new ValidationReport(
@@ -169,7 +170,8 @@ public class SchemaForgeApiService {
             MetadataComparisonResult metadata,
             Path output,
             String timestamp,
-            DatabasePlatform platform) throws IOException {
+            DatabasePlatform platform,
+            Dialect dialect) throws IOException {
 
         if (!repository.available()) return;
 
@@ -187,7 +189,7 @@ public class SchemaForgeApiService {
                     metadata.frequency(MetadataComparisonValidator.path(documentTable, column))));
 
             byte[] workbook = compareExcelWriter.write(
-                    documentTable, databaseTable.get(), usageCounts, platform);
+                    documentTable, databaseTable.get(), usageCounts, platform.name(), dialect);
             String fileName = schemaName + "." + tableName
                     + "_compare_" + timestamp
                     + "." + platform.commandLineName() + ".xlsx";
