@@ -17,6 +17,7 @@ import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.specification.normalization.CheckConstraintNormalizer;
 import com.behsazan.schemaforge.specification.normalization.NumericRangeParser;
@@ -49,8 +50,9 @@ public final class WordSpecificationParser implements SpecificationParser {
 
 
     private static final Pattern DATA_TYPE = Pattern.compile(
-            "(?i)^([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?(?:\\s+(?:CHAR|BYTE))?\\s*\\))?$");
-    private static final Pattern GROUP_REFERENCE = Pattern.compile("(?i)^([A-Z][A-Z0-9_$.]*)(?:/([YN]))?$" );
+            "(?i)^([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?(?:\\s+(CHAR|BYTE))?\\s*\\))?$");
+    private static final Pattern GROUP_REFERENCE = Pattern.compile(
+            "(?i)^([A-Z][A-Z0-9_$.]*?)(?:\\s+(S))?\\s*/\\s*([YN])$");
     private static final Pattern GROUP_POSITION = Pattern.compile("(?i)^([A-Z]+\\d+)(?:\\s*[,;:]\\s*(\\d+))?$" );
 
     @Override
@@ -175,7 +177,11 @@ public final class WordSpecificationParser implements SpecificationParser {
                     validatedQualifiedName(reference.schema(), reference.table(), "referenced table"),
                     List.of(identifierValidator.toIdentifier(column.name(), "referenced column")),
                     ReferentialAction.NO_ACTION,
-                    ReferentialAction.NO_ACTION));
+                    ReferentialAction.NO_ACTION,
+                    false,
+                    false,
+                    reference.physical(),
+                    reference.schemaExplicit()));
         }
     }
 
@@ -269,10 +275,14 @@ public final class WordSpecificationParser implements SpecificationParser {
     }
 
     private Reference parseReference(String rawReference, List<String> recoveryWarnings) {
-        String normalized = normalizeText(rawReference).replace(" ", "").toUpperCase(Locale.ROOT);
+        String normalized = normalizeText(rawReference).toUpperCase(Locale.ROOT);
         Matcher matcher = GROUP_REFERENCE.matcher(normalized);
-        String object = matcher.matches() ? matcher.group(1) : normalized.split("/")[0];
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid foreign-key reference: " + rawReference);
+        }
 
+        String object = matcher.group(1).replace(" ", "");
+        boolean physical = "Y".equalsIgnoreCase(matcher.group(3));
         String[] parts = object.split("\\.", -1);
         if (parts.length > 2) {
             throw new IllegalArgumentException("Invalid qualified reference: " + rawReference);
@@ -280,12 +290,12 @@ public final class WordSpecificationParser implements SpecificationParser {
 
         if (parts.length == 1) {
             String table = recoverIdentifier(parts[0], "referenced table", null, recoveryWarnings);
-            return new Reference(null, table);
+            return new Reference(null, table, physical, false);
         }
 
         String schema = recoverIdentifier(parts[0], "referenced schema", null, recoveryWarnings);
         String table = recoverIdentifier(parts[1], "referenced table", null, recoveryWarnings);
-        return new Reference(schema, table);
+        return new Reference(schema, table, physical, true);
     }
 
     private Metadata readMetadata(XWPFDocument document) {
@@ -307,61 +317,152 @@ public final class WordSpecificationParser implements SpecificationParser {
     }
 
     private List<ParsedColumn> readColumns(XWPFDocument document, List<String> recoveryWarnings) {
-        XWPFTable table = document.getTables().stream()
-                .filter(candidate -> {
-                    if (candidate.getNumberOfRows() == 0) {
-                        return false;
-                    }
-                    Map<Header, Integer> headers = mapHeaders(candidate.getRow(0));
-                    return headers.containsKey(Header.COLUMN_NAME) && headers.containsKey(Header.DATA_TYPE);
-                })
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Column specification table was not found"));
+        List<XWPFTable> tables = document.getTables();
+        int firstColumnTableIndex = -1;
+        Map<Header, Integer> primaryHeaders = null;
 
-        Map<Header, Integer> headers = mapHeaders(table.getRow(0));
+        for (int index = 0; index < tables.size(); index++) {
+            XWPFTable candidate = tables.get(index);
+            if (candidate.getNumberOfRows() == 0) {
+                continue;
+            }
+            Map<Header, Integer> headers = mapHeaders(candidate.getRow(0));
+            if (headers.containsKey(Header.COLUMN_NAME) && headers.containsKey(Header.DATA_TYPE)) {
+                firstColumnTableIndex = index;
+                primaryHeaders = headers;
+                break;
+            }
+        }
+
+        if (firstColumnTableIndex < 0 || primaryHeaders == null) {
+            throw new IllegalArgumentException("Column specification table was not found");
+        }
+
         List<ParsedColumn> result = new ArrayList<>();
         Map<String, Integer> firstDefinitionRows = new LinkedHashMap<>();
-        for (int rowIndex = 1; rowIndex < table.getNumberOfRows(); rowIndex++) {
-            XWPFTableRow row = table.getRow(rowIndex);
-            String rawName = cell(row, headers.get(Header.COLUMN_NAME));
-            if (rawName == null) {
-                continue;
-            }
-            String name = recoverIdentifier(rawName, "column", null, recoveryWarnings);
-            String rawType = cell(row, headers.get(Header.DATA_TYPE));
-            if (rawType == null || rawType.isBlank()) {
-                continue;
-            }
-            String key = cell(row, headers.get(Header.KEY));
-            ParsedColumn parsedColumn = new ParsedColumn(
-                    name,
-                    cell(row, headers.get(Header.COLUMN_DESCRIPTION)),
-                    parseDataType(rawType, recoveryWarnings),
-                    normalizeText(rawType).toUpperCase(Locale.ROOT).contains("IDENTITY"),
-                    containsToken(key, "PK"),
-                    extractReference(key),
-                    isMarked(cell(row, headers.get(Header.REQUIRED))),
-                    cell(row, headers.get(Header.DEFAULT_VALUE)),
-                    cell(row, headers.get(Header.UNIQUE)),
-                    cell(row, headers.get(Header.INDEX)),
-                    cell(row, headers.get(Header.RANGE)),
-                    cell(row, headers.get(Header.CHECK_CONSTRAINT)),
-                    cell(row, headers.get(Header.GENERATED_EXPRESSION)));
+        int logicalRow = 1;
 
-            String duplicateKey = name.toUpperCase(Locale.ROOT);
-            Integer firstRow = firstDefinitionRows.putIfAbsent(duplicateKey, rowIndex + 1);
-            if (firstRow != null) {
-                recoveryWarnings.add(duplicateColumnWarning(
-                        name,
-                        firstRow,
-                        rowIndex + 1,
-                        rawType,
-                        parsedColumn));
+        for (int tableIndex = firstColumnTableIndex; tableIndex < tables.size(); tableIndex++) {
+            XWPFTable table = tables.get(tableIndex);
+            if (table.getNumberOfRows() == 0) {
                 continue;
             }
-            result.add(parsedColumn);
+
+            Map<Header, Integer> detectedHeaders = mapHeaders(table.getRow(0));
+            boolean hasColumnHeader = detectedHeaders.containsKey(Header.COLUMN_NAME);
+            Map<Header, Integer> headers;
+            int firstDataRow;
+
+            if (tableIndex == firstColumnTableIndex || hasColumnHeader) {
+                headers = hasColumnHeader ? detectedHeaders : primaryHeaders;
+                firstDataRow = 1;
+            } else if (isContinuationTable(table, primaryHeaders)) {
+                headers = primaryHeaders;
+                firstDataRow = 0;
+            } else {
+                continue;
+            }
+
+            for (int rowIndex = firstDataRow; rowIndex < table.getNumberOfRows(); rowIndex++) {
+                XWPFTableRow row = table.getRow(rowIndex);
+                logicalRow++;
+                parseColumnRow(row, headers, logicalRow, result, firstDefinitionRows, recoveryWarnings);
+            }
         }
         return result;
+    }
+
+    private void parseColumnRow(
+            XWPFTableRow row,
+            Map<Header, Integer> headers,
+            int wordRow,
+            List<ParsedColumn> result,
+            Map<String, Integer> firstDefinitionRows,
+            List<String> recoveryWarnings) {
+        if (isCompletelyEmpty(row)) {
+            return;
+        }
+
+        String rawName = cell(row, headers.get(Header.COLUMN_NAME));
+        if (rawName == null) {
+            return;
+        }
+        String name = recoverIdentifier(rawName, "column", null, recoveryWarnings);
+        String rawDescription = cell(row, headers.get(Header.COLUMN_DESCRIPTION));
+        String rawType = cell(row, headers.get(Header.DATA_TYPE));
+        if (rawType == null || rawType.isBlank()) {
+            recoveryWarnings.add(missingColumnFieldWarning(
+                    "COLUMN_DATATYPE_MISSING", name, wordRow));
+        }
+        if (rawDescription == null || rawDescription.isBlank()) {
+            recoveryWarnings.add(missingColumnFieldWarning(
+                    "COLUMN_DESCRIPTION_MISSING", name, wordRow));
+        }
+        String key = cell(row, headers.get(Header.KEY));
+        ParsedColumn parsedColumn = new ParsedColumn(
+                name,
+                rawDescription,
+                rawType == null || rawType.isBlank()
+                        ? DataType.simple("MISSING_DATA_TYPE")
+                        : parseDataType(rawType, recoveryWarnings),
+                rawType != null && normalizeText(rawType).toUpperCase(Locale.ROOT).contains("IDENTITY"),
+                containsToken(key, "PK"),
+                extractReference(key),
+                isMarked(cell(row, headers.get(Header.REQUIRED))),
+                cell(row, headers.get(Header.DEFAULT_VALUE)),
+                cell(row, headers.get(Header.UNIQUE)),
+                cell(row, headers.get(Header.INDEX)),
+                cell(row, headers.get(Header.RANGE)),
+                cell(row, headers.get(Header.CHECK_CONSTRAINT)),
+                cell(row, headers.get(Header.GENERATED_EXPRESSION)));
+
+        String duplicateKey = name.toUpperCase(Locale.ROOT);
+        Integer firstRow = firstDefinitionRows.putIfAbsent(duplicateKey, wordRow);
+        if (firstRow != null) {
+            recoveryWarnings.add(duplicateColumnWarning(
+                    name,
+                    firstRow,
+                    wordRow,
+                    rawType,
+                    parsedColumn));
+            return;
+        }
+        result.add(parsedColumn);
+    }
+
+    private boolean isContinuationTable(XWPFTable table, Map<Header, Integer> headers) {
+        Integer columnNameIndex = headers.get(Header.COLUMN_NAME);
+        if (columnNameIndex == null) {
+            return false;
+        }
+        int requiredCellCount = headers.values().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
+        for (XWPFTableRow row : table.getRows()) {
+            if (row == null || row.getTableCells().size() < requiredCellCount || isCompletelyEmpty(row)) {
+                continue;
+            }
+            String candidate = cell(row, columnNameIndex);
+            if (candidate != null && candidate.matches("(?i)[A-Z][A-Z0-9_$#]*(?:_[A-Z0-9_$#]+)*")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    private boolean isCompletelyEmpty(XWPFTableRow row) {
+        if (row == null || row.getTableCells().isEmpty()) {
+            return true;
+        }
+        return row.getTableCells().stream()
+                .map(XWPFTableCell::getText)
+                .map(this::emptyToNull)
+                .allMatch(Objects::isNull);
+    }
+
+    private String missingColumnFieldWarning(String code, String name, int row) {
+        return code
+                + "|name=" + warningValue(name)
+                + "|row=" + row;
     }
 
     private String duplicateColumnWarning(
@@ -370,7 +471,10 @@ public final class WordSpecificationParser implements SpecificationParser {
             int duplicateRow,
             String rawType,
             ParsedColumn column) {
-        StringBuilder definition = new StringBuilder(name).append(" ").append(normalizeText(rawType));
+        StringBuilder definition = new StringBuilder(name);
+        if (rawType != null && !rawType.isBlank()) {
+            definition.append(" ").append(normalizeText(rawType));
+        }
         if (column.defaultValue() != null && !column.defaultValue().isBlank()) {
             definition.append(" DEFAULT ").append(normalizeText(column.defaultValue()));
         }
@@ -409,13 +513,16 @@ public final class WordSpecificationParser implements SpecificationParser {
         String name = normalizeDataTypeName(matcher.group(1));
         Integer first = matcher.group(2) == null ? null : Integer.valueOf(matcher.group(2));
         Integer second = matcher.group(3) == null ? null : Integer.valueOf(matcher.group(3));
+        LengthSemantics lengthSemantics = matcher.group(4) == null
+                ? LengthSemantics.DEFAULT
+                : LengthSemantics.valueOf(matcher.group(4).toUpperCase(Locale.ROOT));
         validateDataTypeParameters(name, first, second, rawValue);
 
         if (first == null) {
             return DataType.simple(name);
         }
         if (isLengthType(name)) {
-            return DataType.varchar(name, first);
+            return DataType.varchar(name, first, lengthSemantics);
         }
         return DataType.numeric(name, first, second);
     }
@@ -671,6 +778,6 @@ public final class WordSpecificationParser implements SpecificationParser {
     private record PositionedColumn(String name, int position) {
     }
 
-    private record Reference(String schema, String table) {
+    private record Reference(String schema, String table, boolean physical, boolean schemaExplicit) {
     }
 }

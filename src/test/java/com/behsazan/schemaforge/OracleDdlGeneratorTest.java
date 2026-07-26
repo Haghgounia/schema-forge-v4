@@ -1,5 +1,9 @@
 package com.behsazan.schemaforge;
 
+import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.application.OutputFileNamer;
+import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
+
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
@@ -17,6 +21,7 @@ import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +34,10 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColumnContains;
+import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColumnGeneratedOnce;
+import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertHeaderContainsIssue;
+import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertInlineIssues;
 
 class OracleDdlGeneratorTest {
 
@@ -102,7 +111,7 @@ class OracleDdlGeneratorTest {
 
         // 1. Sequence
         assertTrue(sql.contains("CREATE SEQUENCE BIM.SEQ_CUSTOMERS START WITH 1 INCREMENT BY 1"));
-        assertTrue(sql.contains("MAXVALUE 999999999999999999 MINVALUE 1 NOCACHE NOCYCLE;"));
+        assertTrue(sql.contains("MAXVALUE 999999999999999999 MINVALUE 1 NOCACHE NOCYCLE NOORDER;"));
 
         // 2. Create table and columns
         assertTrue(sql.contains("CREATE TABLE BIM.CUSTOMERS"));
@@ -139,13 +148,36 @@ class OracleDdlGeneratorTest {
 
         assertEquals(1, sql.lines().filter(line -> line.startsWith("CREATE TABLE ")).count());
 
-        Path output = Path.of("target/test-output/BIM.CUSTOMERS.oracle.sql");
+        Path output = new OutputFileNamer().create(
+                Path.of("target/test-output"),
+                "BIM.CUSTOMERS.oracle.sql",
+                "sql");
         Files.createDirectories(output.getParent());
         Files.writeString(output, sql);
         assertTrue(Files.exists(output));
         assertTrue(Files.size(output) > 0);
     }
 
+
+
+    @Test
+    void shouldPreserveOracleCharacterLengthSemantics() {
+        OracleDialect dialect = new OracleDialect();
+
+        Column charColumn = column("CHAR_TEXT",
+                DataType.varchar("VARCHAR2", 50, LengthSemantics.CHAR),
+                true, null, "Character semantics", 1);
+        Column byteColumn = column("BYTE_TEXT",
+                DataType.varchar("VARCHAR2", 50, LengthSemantics.BYTE),
+                true, null, "Byte semantics", 2);
+        Column defaultColumn = column("DEFAULT_TEXT",
+                new DataType(Identifier.of("VARCHAR2"), 50, LengthSemantics.DEFAULT, null, null),
+                true, null, "Default semantics", 3);
+
+        assertEquals("VARCHAR2(50 CHAR)", dialect.sqlType(charColumn));
+        assertEquals("VARCHAR2(50 BYTE)", dialect.sqlType(byteColumn));
+        assertEquals("VARCHAR2(50)", dialect.sqlType(defaultColumn));
+    }
 
     @Test
     void shouldRenderDuplicateColumnWarningWithoutGeneratingDuplicateColumn() {
@@ -168,12 +200,13 @@ class OracleDdlGeneratorTest {
                 Instant.parse("2026-07-24T17:30:45Z"),
                 ZoneOffset.UTC)).generate(schema);
 
-        assertTrue(sql.contains("SCHEMAFORGE WARNING : DUPLICATE COLUMN DEFINITION"));
-        assertTrue(sql.contains("PROMPT COLUMN              : IS_ACTIVE"));
-        assertTrue(sql.contains("PROMPT FIRST WORD ROW      : 11"));
-        assertTrue(sql.contains("PROMPT DUPLICATE WORD ROW  : 12"));
-        assertTrue(sql.contains("-- IS_ACTIVE NUMBER(1) DEFAULT 1 NOT NULL;"));
-        assertEquals(1, sql.lines().filter(line -> line.stripLeading().startsWith("IS_ACTIVE ")).count());
+        assertTrue(sql.contains("SchemaForge Validation Findings"));
+        assertHeaderContainsIssue(sql, "WARNING", "DUPLICATE_COLUMN",
+                "tables.PROVINCES.columns.IS_ACTIVE");
+        assertTrue(sql.contains("first Word row 11, duplicate Word row 12"));
+        assertColumnContains(sql, "IS_ACTIVE", "NUMBER(1,0)", "DEFAULT 1", "NOT NULL");
+        assertInlineIssues(sql, "IS_ACTIVE", "W", "DUP");
+        assertColumnGeneratedOnce(sql, "IS_ACTIVE");
     }
 
     private static Column column(String name, DataType type, boolean nullable, String defaultExpression,

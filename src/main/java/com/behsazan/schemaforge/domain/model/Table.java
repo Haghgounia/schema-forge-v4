@@ -36,7 +36,12 @@ public final class Table implements SchemaObject {
         if (primaryKey != null) requireColumns(primaryKey.columns(), byName, "primary key");
         foreignKeys.forEach(fk -> requireColumns(fk.columns(), byName, "foreign key"));
         uniqueKeys.forEach(uk -> requireColumns(uk.columns(), byName, "unique key"));
-        indexes.forEach(idx -> requireColumns(idx.columns().stream().map(IndexColumn::column).toList(), byName, "index"));
+        indexes.forEach(idx -> {
+            requireColumns(idx.columns().stream()
+                    .filter(indexColumn -> !indexColumn.expressionBased())
+                    .map(IndexColumn::column).toList(), byName, "index");
+            requireColumns(idx.includeColumns(), byName, "index include");
+        });
     }
     private static void requireColumns(List<Identifier> names, Map<String, Column> columns, String owner) {
         names.forEach(n -> { if (!columns.containsKey(n.normalized())) throw new IllegalArgumentException(owner + " references missing column: " + n); });

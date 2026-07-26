@@ -1,11 +1,16 @@
 package com.behsazan.schemaforge;
 
+import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.application.OutputFileNamer;
+import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.application.PreparedSchema;
+import com.behsazan.schemaforge.application.SchemaPreparationService;
+import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
+
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.specification.json.JsonExporter;
-import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
-import com.behsazan.schemaforge.specification.validation.SpecificationValidator;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,20 +40,23 @@ class WordSpecificationRegressionTest {
     private static final Path OUTPUT_DIRECTORY =
             Path.of("target/test-output");
 
-    private static final Path SUMMARY_FILE =
-            Path.of("target/test-reports/word-regression-summary.csv");
+    private static final Path SUMMARY_DIRECTORY =
+            Path.of("target/test-reports");
+
+    private final OutputFileNamer outputFileNamer =
+            new OutputFileNamer();
 
     private final WordSpecificationParser parser =
             new WordSpecificationParser();
 
-    private final SpecificationNormalizer normalizer =
-            new SpecificationNormalizer();
-
-    private final SpecificationValidator validator =
-            new SpecificationValidator();
+    private final SchemaPreparationService preparationService =
+            new SchemaPreparationService();
 
     private final JsonExporter jsonExporter =
             new JsonExporter();
+
+    private final DdlGenerator ddlGenerator =
+            new DdlGenerator(new OracleDialect());
 
     private final ObjectMapper objectMapper =
             new ObjectMapper();
@@ -70,7 +78,7 @@ class WordSpecificationRegressionTest {
         );
 
         Files.createDirectories(OUTPUT_DIRECTORY);
-        Files.createDirectories(SUMMARY_FILE.getParent());
+        Files.createDirectories(SUMMARY_DIRECTORY);
 
         List<RegressionResult> results = new ArrayList<>();
 
@@ -78,8 +86,12 @@ class WordSpecificationRegressionTest {
             results.add(processDocument(inputFile));
         }
 
-        writeSummary(results);
-        printSummary(results);
+        Path summaryFile = outputFileNamer.create(
+                SUMMARY_DIRECTORY,
+                "word-regression-summary.csv",
+                "csv");
+        writeSummary(results, summaryFile);
+        printSummary(results, summaryFile);
 
         List<RegressionResult> failedResults = results.stream()
                 .filter(result -> !result.success())
@@ -88,7 +100,8 @@ class WordSpecificationRegressionTest {
         if (!failedResults.isEmpty()) {
             String failureMessage = buildFailureMessage(
                     failedResults,
-                    results.size()
+                    results.size(),
+                    summaryFile
             );
 
             fail(failureMessage);
@@ -118,6 +131,12 @@ class WordSpecificationRegressionTest {
 
     private RegressionResult processDocument(Path inputFile) {
         Instant start = Instant.now();
+        OutputFileNamer.OutputNames outputNames = outputFileNamer.create(
+                OUTPUT_DIRECTORY,
+                inputFile.getFileName().toString(),
+                DatabasePlatform.ORACLE);
+        Path outputFile = outputNames.jsonFile();
+        Path sqlOutputFile = outputNames.sqlFile();
 
         try {
             DatabaseSchema parsedSchema = parse(inputFile);
@@ -128,25 +147,15 @@ class WordSpecificationRegressionTest {
                 );
             }
 
-            DatabaseSchema normalizedSchema =
-                    normalizer.normalize(parsedSchema);
-
-            if (normalizedSchema == null) {
-                throw new IllegalStateException(
-                        "Normalizer returned a null schema"
-                );
-            }
-
-            ValidationReport validationReport =
-                    validator.validate(normalizedSchema);
+            PreparedSchema prepared = preparationService.prepare(parsedSchema);
+            DatabaseSchema normalizedSchema = prepared.schema();
+            ValidationReport validationReport = prepared.validationReport();
 
             if (validationReport == null) {
                 throw new IllegalStateException(
                         "Validator returned a null report"
                 );
             }
-
-            Path outputFile = createOutputPath(inputFile);
 
             Files.deleteIfExists(outputFile);
 
@@ -157,6 +166,14 @@ class WordSpecificationRegressionTest {
             );
 
             verifyJsonOutput(outputFile);
+
+            Files.deleteIfExists(sqlOutputFile);
+            Files.writeString(
+                    sqlOutputFile,
+                    ddlGenerator.generate(normalizedSchema),
+                    StandardCharsets.UTF_8
+            );
+            verifySqlOutput(sqlOutputFile, normalizedSchema);
 
             int tableCount = normalizedSchema.tables().size();
 
@@ -194,7 +211,7 @@ class WordSpecificationRegressionTest {
 
             return RegressionResult.failure(
                     inputFile,
-                    createOutputPath(inputFile),
+                    outputFile,
                     0,
                     0,
                     elapsedMilliseconds,
@@ -217,17 +234,21 @@ class WordSpecificationRegressionTest {
         }
     }
 
-    private Path createOutputPath(Path inputFile) {
-        String inputFileName =
-                inputFile.getFileName().toString();
-
-        String outputFileName =
-                inputFileName.substring(
-                        0,
-                        inputFileName.length() - ".docx".length()
-                ) + ".json";
-
-        return OUTPUT_DIRECTORY.resolve(outputFileName);
+    private void verifySqlOutput(
+            Path outputFile,
+            DatabaseSchema schema
+    ) throws Exception {
+        if (!Files.isRegularFile(outputFile) || Files.size(outputFile) == 0) {
+            throw new IllegalStateException("Oracle SQL output was not created or is empty");
+        }
+        String sql = Files.readString(outputFile, StandardCharsets.UTF_8);
+        for (var table : schema.tables()) {
+            if (!sql.contains("CREATE TABLE " + table.qualifiedName())) {
+                throw new IllegalStateException(
+                        "SQL does not contain CREATE TABLE for " + table.qualifiedName()
+                );
+            }
+        }
     }
 
     private void verifyJsonOutput(Path outputFile) throws Exception {
@@ -286,11 +307,12 @@ class WordSpecificationRegressionTest {
     }
 
     private void writeSummary(
-            List<RegressionResult> results
+            List<RegressionResult> results,
+            Path summaryFile
     ) throws Exception {
 
         try (BufferedWriter writer = Files.newBufferedWriter(
-                SUMMARY_FILE,
+                summaryFile,
                 StandardCharsets.UTF_8
         )) {
             writer.write(
@@ -328,7 +350,8 @@ class WordSpecificationRegressionTest {
     }
 
     private void printSummary(
-            List<RegressionResult> results
+            List<RegressionResult> results,
+            Path summaryFile
     ) {
         long passed = results.stream()
                 .filter(RegressionResult::success)
@@ -361,14 +384,15 @@ class WordSpecificationRegressionTest {
                 "Elapsed ms: " + totalElapsedMilliseconds
         );
         System.out.println(
-                "Summary   : " + SUMMARY_FILE.toAbsolutePath()
+                "Summary   : " + summaryFile.toAbsolutePath()
         );
         System.out.println();
     }
 
     private String buildFailureMessage(
             List<RegressionResult> failedResults,
-            int totalCount
+            int totalCount,
+            Path summaryFile
     ) {
         StringBuilder message = new StringBuilder();
 
@@ -387,7 +411,7 @@ class WordSpecificationRegressionTest {
         }
 
         message.append("See report: ")
-                .append(SUMMARY_FILE.toAbsolutePath());
+                .append(summaryFile.toAbsolutePath());
 
         return message.toString();
     }

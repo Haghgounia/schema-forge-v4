@@ -1,62 +1,87 @@
 package com.behsazan.schemaforge;
 
-import com.behsazan.schemaforge.domain.model.DatabaseSchema;
-import com.behsazan.schemaforge.specification.json.JsonExporter;
-import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
-import com.behsazan.schemaforge.specification.parser.SpecificationSource;
-import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
-import com.behsazan.schemaforge.specification.validation.SpecificationValidator;
-import com.behsazan.schemaforge.specification.validation.ValidationReport;
+import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.application.GenerationOutput;
+import com.behsazan.schemaforge.application.SchemaGenerationService;
 
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
-/** The only executable entry point for phase 1: Word -> normalize -> validate -> JSON. */
+/** Offline entry point: one Word specification produces one JSON and one DBMS-specific SQL file. */
 public final class Phase1Application {
-    private Phase1Application() { }
+    private static final DatabasePlatform DEFAULT_PLATFORM = DatabasePlatform.ORACLE;
+
+    private Phase1Application() {
+    }
 
     public static void main(String[] args) {
-        if (args.length < 1 || args.length > 2) {
-            System.err.println("Usage: java -jar schema-forge-phase1.jar <input.docx> [output.json]");
-            System.exit(2);
+        if (args.length < 1 || args.length > 3) {
+            printUsageAndExit();
         }
 
         Path input = Path.of(args[0]).toAbsolutePath().normalize();
-        Path output = args.length == 2
-                ? Path.of(args[1]).toAbsolutePath().normalize()
-                : defaultOutput(input);
+        CommandLineOptions options;
+        try {
+            options = resolveOptions(input, args);
+        } catch (IllegalArgumentException exception) {
+            System.err.println(exception.getMessage());
+            printUsageAndExit();
+            return;
+        }
 
         try {
-            if (!Files.isRegularFile(input)) {
-                throw new IllegalArgumentException("Input file does not exist: " + input);
+            GenerationOutput output =
+                    new SchemaGenerationService()
+                            .generate(input, options.outputDirectory(), options.platform());
+
+            System.out.println("JSON created : " + output.jsonFile());
+            System.out.println(output.platform().commandLineName() + " SQL : " + output.sqlFile());
+            System.out.println("Validation   : " + (output.valid() ? "VALID" : "INVALID"));
+            if (!output.valid()) {
+                System.exit(1);
             }
-            Files.createDirectories(output.getParent());
-
-            DatabaseSchema parsed;
-            try (InputStream stream = Files.newInputStream(input)) {
-                parsed = new WordSpecificationParser().parse(
-                        new SpecificationSource(input.getFileName().toString(), stream));
-            }
-
-            DatabaseSchema normalized = new SpecificationNormalizer().normalize(parsed);
-            ValidationReport report = new SpecificationValidator().validate(normalized);
-            new JsonExporter().write(output, normalized, report);
-
-            System.out.println("JSON created: " + output);
-            System.out.println("Validation: " + (report.valid() ? "VALID" : "INVALID"));
-            if (!report.valid()) System.exit(1);
         } catch (Exception exception) {
-            System.err.println("Phase 1 failed: " + exception.getMessage());
+            System.err.println("SchemaForge failed: " + exception.getMessage());
             exception.printStackTrace(System.err);
             System.exit(1);
         }
     }
 
-    private static Path defaultOutput(Path input) {
-        String fileName = input.getFileName().toString();
-        int dot = fileName.lastIndexOf('.');
-        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
-        return input.resolveSibling(base + ".json");
+    static CommandLineOptions resolveOptions(Path input, String[] args) {
+        Path defaultOutput = input.getParent() == null
+                ? Path.of(".").toAbsolutePath().normalize()
+                : input.getParent();
+
+        if (args.length == 1) {
+            return new CommandLineOptions(defaultOutput, DEFAULT_PLATFORM);
+        }
+        if (args.length == 2 && isPlatform(args[1])) {
+            return new CommandLineOptions(defaultOutput, DatabasePlatform.parse(args[1]));
+        }
+
+        Path outputDirectory = Path.of(args[1]).toAbsolutePath().normalize();
+        DatabasePlatform platform = args.length == 3
+                ? DatabasePlatform.parse(args[2])
+                : DEFAULT_PLATFORM;
+        return new CommandLineOptions(outputDirectory, platform);
+    }
+
+    private static boolean isPlatform(String value) {
+        try {
+            DatabasePlatform.parse(value);
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private static void printUsageAndExit() {
+        System.err.println("Usage:");
+        System.err.println("  java -jar schema-forge.jar <input.docx>");
+        System.err.println("  java -jar schema-forge.jar <input.docx> <oracle|postgresql>");
+        System.err.println("  java -jar schema-forge.jar <input.docx> <output-directory> [oracle|postgresql]");
+        System.exit(2);
+    }
+
+    record CommandLineOptions(Path outputDirectory, DatabasePlatform platform) {
     }
 }

@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge;
 
+import com.behsazan.schemaforge.application.OutputFileNamer;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.specification.json.JsonExporter;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
@@ -28,9 +29,10 @@ class Phase1PipelineTest {
                 "src/test/resources/samples/MCB.BIM.TBL.PROVINCES.V1.1.docx"
         );
 
-        Path output = Path.of(
-                "target/test-output/MCB.BIM.TBL.PROVINCES.V1.1.json"
-        );
+        Path output = new OutputFileNamer().create(
+                Path.of("target/test-output"),
+                input.getFileName().toString(),
+                "json");
 
         Files.createDirectories(output.getParent());
         Files.deleteIfExists(output);
@@ -65,6 +67,25 @@ class Phase1PipelineTest {
                         .filter(column -> column.name().normalized().equals("IS_ACTIVE"))
                         .count(),
                 "Only the first duplicate column definition must remain executable"
+        );
+
+        assertTrue(
+                parsedSchema.tables().getFirst().columns().stream()
+                        .anyMatch(column -> column.name().normalized().equals("POPULATION")),
+                "A non-empty row with missing data type must remain in the parsed model"
+        );
+        assertTrue(
+                parsedSchema.tables().getFirst().columns().stream()
+                        .anyMatch(column -> column.name().normalized().equals("HOUSEHOLD")),
+                "A non-empty row with missing Persian description must remain in the parsed model"
+        );
+        assertTrue(
+                recoveryWarnings.contains("COLUMN_DATATYPE_MISSING|name=POPULATION"),
+                "Missing datatype warning was not reported for POPULATION"
+        );
+        assertTrue(
+                recoveryWarnings.contains("COLUMN_DESCRIPTION_MISSING|name=HOUSEHOLD"),
+                "Missing description warning was not reported for HOUSEHOLD"
         );
 
         DatabaseSchema normalizedSchema =

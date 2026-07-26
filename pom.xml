@@ -11,9 +11,9 @@
     </parent>
 
     <groupId>com.behsazan</groupId>
-    <artifactId>schema-forge-v3</artifactId>
-    <version>3.0.0-SNAPSHOT</version>
-    <name>SchemaForge v3</name>
+    <artifactId>schema-forge-v4</artifactId>
+    <version>4.0.0-SNAPSHOT</version>
+    <name>SchemaForge v4</name>
     <description>DBMS-neutral schema specification, validation and DDL generation platform</description>
 
     <properties>

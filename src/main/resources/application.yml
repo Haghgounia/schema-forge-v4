@@ -1,0 +1,63 @@
+server:
+  port: 9090
+spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+schemaforge:
+  standards:
+    audit:
+      enabled: true
+      columns:
+        - name: CREATED_BY
+          dataType: VARCHAR2(50)
+          nullable: false
+          comment: "Creation user"
+        - name: CREATED_DATE
+          dataType: TIMESTAMP
+          nullable: false
+          comment: "Creation timestamp"
+        - name: LAST_MODIFIED_BY
+          dataType: VARCHAR2(50)
+          nullable: false
+          comment: "Last modification user"
+        - name: LAST_MODIFIED_DATE
+          dataType: TIMESTAMP
+          nullable: false
+          comment: "Last modification timestamp"
+
+  spell-check:
+    enabled: true
+    endpoint: https://api.languagetool.org/v2/check
+    language: en-US
+    connect-timeout: 3s
+    request-timeout: 5s
+    maximum-suggestions: 3
+    fail-open: true
+    technical-terms:
+      - MEPS
+      - BEHSAZAN
+      - MELLAT
+      - BNCP
+
+  metadata:
+    oracle:
+      enabled: true
+      url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+      username: SYSTEM
+      password: Oracle123
+      driver-class-name: oracle.jdbc.OracleDriver
+
+    postgresql:
+      enabled: true
+      url: jdbc:postgresql://localhost:5433/mydb
+      username: postgres
+      password: 123456
+      driver-class-name: org.postgresql.Driver

@@ -1,0 +1,29 @@
+# SchemaForge Documentation
+
+## Architecture
+
+- [Dialect capability](architecture/DIALECT-CAPABILITY.md)
+- [Application dialect selection](architecture/APPLICATION-DIALECT-SELECTION.md)
+- [Application pipeline](architecture/APPLICATION-PIPELINE.md)
+
+## DDL generation
+
+- [Oracle offline DDL](generation/ORACLE-OFFLINE-DDL-COMPLETION.md)
+- [PostgreSQL DDL](generation/POSTGRESQL-DDL-COMPLETION.md)
+- [PostgreSQL identifier policy](generation/POSTGRESQL-IDENTIFIER-POLICY.md)
+- [PostgreSQL parity completion](generation/POSTGRESQL-PARITY-COMPLETION.md)
+- [Output file naming](generation/OUTPUT-FILE-NAMING.md)
+- [DBMS-aware output naming](generation/DBMS-AWARE-OUTPUT-NAMING.md)
+- [Output naming fix](generation/OUTPUT-NAMING-FIX.md)
+
+## Testing and validation
+
+- [PostgreSQL Word regression fix](testing/POSTGRESQL-WORD-REGRESSION-FIX.md)
+- [Dual-database directory generation](testing/DIRECTORY-DUAL-DATABASE-GENERATION.md)
+- [DDL execution validation](testing/DDL-EXECUTION-VALIDATION.md)
+- [Validation warning abbreviations](testing/VALIDATION-WARNING-ABBREVIATIONS.md)
+
+## Existing project documents
+
+- [Roadmap change log](roadmap/CHANGELOG.md)
+- [Gap matrix](roadmap/GAP-MATRIX.md)

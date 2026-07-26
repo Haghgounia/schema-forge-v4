@@ -1,0 +1,12 @@
+{
+  "columns": [
+    {
+      "name": "CUSTOMER_ID",
+      "totalFrequency": 75,
+      "types": [
+        { "signature": "NUMBER(10)", "frequency": 60 },
+        { "signature": "VARCHAR2(20)", "frequency": 15 }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,8 @@ package com.behsazan.schemaforge.specification.json;
 
 import com.behsazan.schemaforge.domain.model.*;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
+import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -17,7 +19,12 @@ public final class JsonExporter {
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     public void write(Path output, DatabaseSchema schema, ValidationReport validation) throws IOException {
-        mapper.writeValue(output.toFile(), document(schema, validation));
+        List<ValidationIssue> issues =
+                SqlIssueCatalog.from(schema, validation).all();
+        ValidationReport completeValidation = new ValidationReport(
+                issues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
+                issues);
+        mapper.writeValue(output.toFile(), document(schema, completeValidation));
     }
 
     private Map<String, Object> document(DatabaseSchema schema, ValidationReport validation) {
@@ -56,6 +63,7 @@ public final class JsonExporter {
         value.put("name", column.name().value());
         value.put("logicalType", column.dataType().name().value());
         value.put("length", column.dataType().length());
+        value.put("lengthSemantics", column.dataType().lengthSemantics().name());
         value.put("precision", column.dataType().precision());
         value.put("scale", column.dataType().scale());
         value.put("nullable", column.nullable());
@@ -90,6 +98,8 @@ public final class JsonExporter {
         value.put("referencedColumns", key.referencedColumns().stream().map(Identifier::value).toList());
         value.put("onDelete", key.onDelete().name());
         value.put("onUpdate", key.onUpdate().name());
+        value.put("physicalReference", key.physicalReference());
+        value.put("schemaExplicit", key.schemaExplicit());
         return value;
     }
 

@@ -1,5 +1,10 @@
 package com.behsazan.schemaforge;
 
+import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.application.OutputFileNamer;
+import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
+
 
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.specification.json.JsonExporter;
@@ -65,40 +70,29 @@ class WordSpecificationIntegrationTest {
 
             Files.createDirectories(outputFolder);
 
-            String jsonFileName =
-                    inputFile.getFileName()
-                            .toString()
-                            .replace(".docx", ".json");
+            OutputFileNamer.OutputNames outputNames = new OutputFileNamer().create(
+                    outputFolder,
+                    inputFile.getFileName().toString(),
+                    DatabasePlatform.ORACLE);
 
-            Path outputFile =
-                    outputFolder.resolve(jsonFileName);
+            Path outputFile = outputNames.jsonFile();
 
             new JsonExporter().write(
                     outputFile,
                     normalizedSchema,
                     report);
 
-            assertTrue(Files.exists(outputFile));
-            assertTrue(Files.size(outputFile) > 0);
-
-            String sqlFileName =
-                    inputFile.getFileName()
-                            .toString()
-                            .replace(".docx", ".sql");
-
-            Path sqlOutputFile =
-                    outputFolder.resolve(sqlFileName);
-
-            String sql = new DdlGenerator(new OracleDialect())
-                    .generate(normalizedSchema);
-
+            Path sqlOutputFile = outputNames.sqlFile();
+            String sql = new DdlGenerator(new OracleDialect()).generate(normalizedSchema);
             Files.writeString(sqlOutputFile, sql);
 
+            assertTrue(Files.exists(outputFile));
+            assertTrue(Files.size(outputFile) > 0);
             assertTrue(Files.exists(sqlOutputFile));
             assertTrue(Files.size(sqlOutputFile) > 0);
-            assertTrue(sql.contains("CREATE TABLE"));
-            assertTrue(sql.contains(normalizedSchema.tables().getFirst()
-                    .qualifiedName().name().normalized()));
+            normalizedSchema.tables().forEach(table ->
+                    assertTrue(sql.contains("CREATE TABLE " + table.qualifiedName()),
+                            () -> "Missing CREATE TABLE for " + table.qualifiedName()));
         }
     }
 }

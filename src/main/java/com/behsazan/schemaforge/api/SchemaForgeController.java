@@ -1,0 +1,60 @@
+package com.behsazan.schemaforge.api;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/generate")
+@Tag(name = "Schema Generation", description = "Generate Oracle and PostgreSQL DDL from Word, ZIP, or Enterprise Architect XML/XMI")
+public class SchemaForgeController {
+    private final SchemaForgeApiService service;
+
+    public SchemaForgeController(SchemaForgeApiService service) {
+        this.service = service;
+    }
+
+    @PostMapping(value = "/word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
+    @Operation(summary = "Generate from one Word specification")
+    public ResponseEntity<byte[]> word(@RequestPart("file") MultipartFile file) throws IOException {
+        return zip(service.generateFromWord(file), "schemaforge-word-output.zip");
+    }
+
+    @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
+    @Operation(summary = "Generate from a ZIP containing Word specifications")
+    public ResponseEntity<byte[]> zip(@RequestPart("file") MultipartFile file) throws IOException {
+        return zip(service.generateFromZip(file), "schemaforge-batch-output.zip");
+    }
+
+    @PostMapping(value = "/ea-xml", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
+    @Operation(summary = "Generate from Enterprise Architect XML/XMI")
+    public ResponseEntity<byte[]> eaXml(@RequestPart("file") MultipartFile file) throws IOException {
+        return zip(service.generateFromEaXml(file), "schemaforge-ea-output.zip");
+    }
+
+    private static ResponseEntity<byte[]> zip(byte[] content, String fileName) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/zip"));
+        headers.setContentDisposition(ContentDisposition.attachment().filename(fileName).build());
+        headers.setContentLength(content.length);
+        return ResponseEntity.ok().headers(headers).body(content);
+    }
+
+    @ExceptionHandler({IllegalArgumentException.class, IOException.class})
+    public ResponseEntity<Map<String, String>> badRequest(Exception exception) {
+        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("error", exception.getMessage()));
+    }
+}

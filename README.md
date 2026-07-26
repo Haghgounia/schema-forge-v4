@@ -1,14 +1,23 @@
-# SchemaForge - Phase 1
+# SchemaForge v4 - Offline Word to Oracle DDL
 
-Phase 1 has exactly one responsibility:
+SchemaForge processes each Word table specification without connecting to a database.
 
 ```text
-Word (.docx) -> Parse -> Normalize -> Validate offline -> JSON
+one input.docx -> one complete input.sql + one input.json
 ```
 
-## Entry point
+The SQL file contains all objects related to that Word specification in one file:
 
-`com.behsazan.schemaforge.Phase1Application`
+- sequence (when the Word identity marker requires it)
+- table and columns
+- primary key
+- check constraints
+- unique constraints and supporting indexes
+- foreign keys
+- indexes
+- table and column comments
+- grants
+- parser recovery warnings and generation footer
 
 ## Build
 
@@ -18,25 +27,64 @@ mvn clean package
 
 ## Run
 
+Create outputs next to the Word file:
+
 ```bash
-java -jar target/schema-forge-phase1.jar input.docx output.json
+java -jar target/schema-forge-v3-3.0.0-SNAPSHOT.jar input.docx
 ```
 
-The output argument is optional. Without it, JSON is created next to the Word file.
+Create outputs in a selected directory:
 
-## Scope
+```bash
+java -jar target/schema-forge-v3-3.0.0-SNAPSHOT.jar input.docx output-directory
+```
 
-Included:
-- Word table specification parser
-- Canonical schema/table/column model
-- Field normalization
-- Structural validation without database access
-- JSON export
+No JDBC connection or database metadata lookup is performed during parsing, validation, or DDL generation.
 
-Excluded from Phase 1:
-- Enterprise Architect input
-- DDL generation
-- Oracle/PostgreSQL dialects
-- JDBC and repositories
-- REST API and Spring Boot
-- Database-backed validation
+## Project documentation
+
+Detailed project documentation is maintained under [`doc/`](doc/):
+
+- `doc/generation/ORACLE-OFFLINE-DDL-COMPLETION.md`
+- `doc/roadmap/GAP-MATRIX.md`
+- `doc/roadmap/CHANGELOG.md`
+
+## V4 DBMS-neutral DDL refactoring
+
+`DdlGenerator` now contains only orchestration and canonical-model traversal. DBMS-specific rendering such as Oracle `USING INDEX`, `ENABLE`, `NOCACHE`, `NOCYCLE`, `NOORDER`, and `PROMPT` is implemented by `OracleDialect`. PostgreSQL uses the same generator through `PostgreSqlDialect` without Oracle syntax leakage.
+
+## DBMS selection (V4)
+
+The offline entry point supports Oracle and PostgreSQL while preserving Oracle as the default:
+
+```text
+java -jar schema-forge.jar input.docx
+java -jar schema-forge.jar input.docx postgresql
+java -jar schema-forge.jar input.docx output-directory postgresql
+```
+
+## Timestamped output files
+
+Application-generated JSON and SQL files use a shared Gregorian date/time suffix:
+
+```text
+<input-base-name>_yyyyMMdd_HHmmss_SSS.json
+<input-base-name>_yyyyMMdd_HHmmss_SSS.sql
+```
+
+## DBMS-aware generated file names
+
+Generated artifacts use a shared Gregorian timestamp. SQL file names also identify the selected dialect:
+
+```text
+<input>_yyyyMMdd_HHmmss_SSS.json
+<input>_yyyyMMdd_HHmmss_SSS.oracle.sql
+<input>_yyyyMMdd_HHmmss_SSS.postgresql.sql
+```
+
+### Foreign-key reference flags
+- `/Y`: physical reference.
+- `/N`: logical reference.
+- A qualified reference such as `TIM.CALENDAR` preserves the explicitly supplied schema.
+- Oracle and PostgreSQL DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
+- Singular table names are preserved unchanged and receive `W:TABLE-PLURAL` only.
