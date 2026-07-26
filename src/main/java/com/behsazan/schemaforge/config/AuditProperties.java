@@ -5,6 +5,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Defines external configuration properties for audit.
+ *
+ * @since 4.1
+ */
 @ConfigurationProperties(prefix = "schemaforge.standards.audit")
 public class AuditProperties {
     private boolean enabled = true;

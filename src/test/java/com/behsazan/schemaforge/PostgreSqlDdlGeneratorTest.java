@@ -18,6 +18,13 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Verifies the behavior and regression expectations of Postgre SQL DDL Generator.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class PostgreSqlDdlGeneratorTest {
 
     @Test

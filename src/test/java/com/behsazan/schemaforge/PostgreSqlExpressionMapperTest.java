@@ -5,6 +5,13 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Verifies the behavior and regression expectations of Postgre SQL Expression Mapper.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class PostgreSqlExpressionMapperTest {
     private final PostgreSqlExpressionMapper mapper = new PostgreSqlExpressionMapper();
 

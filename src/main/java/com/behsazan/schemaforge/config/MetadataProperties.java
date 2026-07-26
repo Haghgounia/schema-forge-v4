@@ -2,6 +2,11 @@ package com.behsazan.schemaforge.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Defines external configuration properties for metadata.
+ *
+ * @since 4.1
+ */
 @ConfigurationProperties(prefix = "schemaforge.metadata")
 public class MetadataProperties {
     private final Database oracle = new Database();

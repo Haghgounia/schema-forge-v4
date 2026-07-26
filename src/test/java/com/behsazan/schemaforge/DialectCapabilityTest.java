@@ -8,6 +8,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Verifies the behavior and regression expectations of Dialect Capability.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class DialectCapabilityTest {
 
     @Test

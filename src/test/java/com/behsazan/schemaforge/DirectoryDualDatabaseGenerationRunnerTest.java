@@ -11,6 +11,13 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Verifies the behavior and regression expectations of Directory Dual Database Generation Runner.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class DirectoryDualDatabaseGenerationRunnerTest {
 
     @TempDir

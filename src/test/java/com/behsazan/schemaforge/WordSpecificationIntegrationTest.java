@@ -23,6 +23,13 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Verifies the behavior and regression expectations of Word Specification Integration.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class WordSpecificationIntegrationTest {
 
     static Stream<Path> wordDocuments() throws Exception {

@@ -6,6 +6,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Defines external configuration properties for spell check.
+ *
+ * @since 4.1
+ */
 @ConfigurationProperties(prefix = "schemaforge.spell-check")
 public class SpellCheckProperties {
     private boolean enabled = false;

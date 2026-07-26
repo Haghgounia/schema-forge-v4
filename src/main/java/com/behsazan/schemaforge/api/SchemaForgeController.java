@@ -19,6 +19,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Exposes REST endpoints for schema forge operations.
+ *
+ * @since 4.1
+ */
 @RestController
 @RequestMapping("/api/v1/generate")
 @Tag(name = "Schema Generation", description = "Generate Oracle and PostgreSQL DDL from Word, ZIP, or Enterprise Architect XML/XMI")

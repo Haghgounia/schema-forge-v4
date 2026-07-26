@@ -7,6 +7,13 @@ import com.behsazan.schemaforge.domain.valueobject.Identifier;
 
 import java.util.Objects;
 
+/**
+ * Represents a database-independent column in the canonical schema model.
+ *
+ * <p>This type is database-independent and may be shared by every SQL dialect.</p>
+ *
+ * @since 4.1
+ */
 public record Column(Identifier name, DataType dataType, boolean nullable, DefaultValue defaultValue,
                      Description description, boolean identity, Integer ordinalPosition,
                      String generatedExpression) {

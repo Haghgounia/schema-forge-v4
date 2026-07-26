@@ -19,6 +19,13 @@ import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColu
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertInlineIssues;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertValidationHeaderBeforeDdl;
 
+/**
+ * Verifies the behavior and regression expectations of DDL Issue Rendering.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class DdlIssueRenderingTest {
 
     @Test

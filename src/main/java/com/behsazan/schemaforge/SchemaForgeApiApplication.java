@@ -10,6 +10,11 @@ import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.MetadataProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
 
+/**
+ * Provides the application entry point for Schema Forge Api.
+ *
+ * @since 4.1
+ */
 @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
 @EnableConfigurationProperties({AuditProperties.class, GrantProperties.class, SpellCheckProperties.class, MetadataProperties.class, EaImportProperties.class})
 public class SchemaForgeApiApplication {

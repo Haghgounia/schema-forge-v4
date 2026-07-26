@@ -1,3 +1,11 @@
+# SchemaForge v4.1
+
+- Added English class-level JavaDoc across production and test sources.
+- Deprecated the legacy Phase1 command-line entry point and its obsolete tests.
+- Performed non-functional Java source whitespace cleanup.
+- Added `docs/V4.1-DOCUMENTATION-CLEANUP.md`.
+- Deferred broad refactoring until additional database dialect requirements are implemented.
+
 
 ## 2026-07-25 - Final script metadata validation
 - Added schema existence validation for Oracle and PostgreSQL.

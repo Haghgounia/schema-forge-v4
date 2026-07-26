@@ -4,6 +4,11 @@ import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Represents the immutable metadata comparison result produced by the SchemaForge workflow.
+ *
+ * @since 4.1
+ */
 public record MetadataComparisonResult(List<ValidationIssue> issues,
                                        Map<String, Long> columnFrequencies,
                                        Map<String, String> resolvedForeignKeySchemas,

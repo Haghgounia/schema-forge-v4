@@ -54,6 +54,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+/**
+ * Coordinates schema forge api operations.
+ *
+ * @since 4.1
+ */
 @Service
 public class SchemaForgeApiService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaForgeApiService.class);

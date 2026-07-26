@@ -32,6 +32,13 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 
+/**
+ * Verifies the behavior and regression expectations of Word Specification Regression.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class WordSpecificationRegressionTest {
 
     private static final Path INPUT_DIRECTORY =

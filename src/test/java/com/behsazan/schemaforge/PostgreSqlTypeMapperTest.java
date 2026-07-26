@@ -6,6 +6,13 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Verifies the behavior and regression expectations of Postgre SQL Type Mapper.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class PostgreSqlTypeMapperTest {
     private final PostgreSqlTypeMapper mapper = new PostgreSqlTypeMapper();
 

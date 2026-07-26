@@ -7,6 +7,13 @@ import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Represents a database-independent foreign key in the canonical schema model.
+ *
+ * <p>This type is database-independent and may be shared by every SQL dialect.</p>
+ *
+ * @since 4.1
+ */
 public record ForeignKey(Identifier name, List<Identifier> columns, QualifiedName referencedTable,
                          List<Identifier> referencedColumns, ReferentialAction onDelete, ReferentialAction onUpdate,
                          boolean deferrable, boolean initiallyDeferred,

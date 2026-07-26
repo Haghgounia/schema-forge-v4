@@ -37,6 +37,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Verifies the behavior and regression expectations of Schema Forge Api Comparison Excel.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class SchemaForgeApiComparisonExcelTest {
     private static final Pattern ORACLE_COMPARE = Pattern.compile(
             "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.xlsx");

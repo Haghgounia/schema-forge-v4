@@ -7,6 +7,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Verifies the behavior and regression expectations of Inline Issue Renderer.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class InlineIssueRendererTest {
 
     @Test

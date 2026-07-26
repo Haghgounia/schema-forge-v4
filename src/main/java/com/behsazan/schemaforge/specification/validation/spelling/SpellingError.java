@@ -2,6 +2,11 @@ package com.behsazan.schemaforge.specification.validation.spelling;
 
 import java.util.List;
 
+/**
+ * Provides spelling error functionality within the SchemaForge processing pipeline.
+ *
+ * @since 4.1
+ */
 public record SpellingError(
         String word,
         String message,

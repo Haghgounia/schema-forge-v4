@@ -7,6 +7,11 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+/**
+ * Normalizes check constraint values into a stable canonical form.
+ *
+ * @since 4.1
+ */
 @Component
 public final class CheckConstraintNormalizer {
 

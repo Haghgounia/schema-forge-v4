@@ -27,6 +27,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Verifies the behavior and regression expectations of Schema Forge Api Service Regression.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class SchemaForgeApiServiceRegressionTest {
 
     private static final Pattern JSON_NAME = Pattern.compile(

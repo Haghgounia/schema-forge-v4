@@ -36,6 +36,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Verifies the behavior and regression expectations of Schema Forge EA Per Table Output.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class SchemaForgeEaPerTableOutputTest {
 
     @Test

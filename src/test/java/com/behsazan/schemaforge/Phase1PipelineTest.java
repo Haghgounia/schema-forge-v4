@@ -21,6 +21,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Verifies the behavior and regression expectations of Phase1 Pipeline.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ *
+ * @deprecated Replaced by service-level and REST regression tests.
+ * @since 4.1
+ */
+@Deprecated(since = "4.1", forRemoval = true)
 class Phase1PipelineTest {
 
     @Test

@@ -6,6 +6,13 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Represents a database-independent table in the canonical schema model.
+ *
+ * <p>This type is database-independent and may be shared by every SQL dialect.</p>
+ *
+ * @since 4.1
+ */
 public final class Table implements SchemaObject {
     private final QualifiedName qualifiedName;
     private final Description description;

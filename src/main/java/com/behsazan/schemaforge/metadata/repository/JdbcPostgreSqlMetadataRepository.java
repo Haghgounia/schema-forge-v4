@@ -38,6 +38,11 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Provides access to jdbc postgre sql metadata data.
+ *
+ * @since 4.1
+ */
 @Repository
 @ConditionalOnProperty(prefix = "schemaforge.metadata.postgresql", name = "enabled", havingValue = "true")
 public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepository {

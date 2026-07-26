@@ -1,5 +1,10 @@
 package com.behsazan.schemaforge.dialect;
 
+/**
+ * Defines the supported database capability values used by SchemaForge.
+ *
+ * @since 4.1
+ */
 public enum DatabaseCapability {
     SEQUENCE,
     IDENTITY,

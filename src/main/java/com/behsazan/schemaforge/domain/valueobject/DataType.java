@@ -2,6 +2,13 @@ package com.behsazan.schemaforge.domain.valueobject;
 
 import java.util.Objects;
 
+/**
+ * Represents the validated data type value used by the canonical schema model.
+ *
+ * <p>This type is database-independent and may be shared by every SQL dialect.</p>
+ *
+ * @since 4.1
+ */
 public record DataType(
         Identifier name,
         Integer length,

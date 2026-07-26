@@ -12,6 +12,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Verifies the behavior and regression expectations of Application Dialect Selection.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ *
+ * @deprecated Covers the deprecated Phase1Application command-line path.
+ * @since 4.1
+ */
+@Deprecated(since = "4.1", forRemoval = true)
 class ApplicationDialectSelectionTest {
 
     @Test

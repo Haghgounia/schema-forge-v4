@@ -4,6 +4,11 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
+/**
+ * Resolves the appropriate metadata repository implementation at runtime.
+ *
+ * @since 4.1
+ */
 @Component
 public class MetadataRepositoryResolver {
     private final ObjectProvider<OracleMetadataRepository> oracle;

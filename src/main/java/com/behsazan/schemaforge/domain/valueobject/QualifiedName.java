@@ -3,6 +3,13 @@ package com.behsazan.schemaforge.domain.valueobject;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Represents the validated qualified name value used by the canonical schema model.
+ *
+ * <p>This type is database-independent and may be shared by every SQL dialect.</p>
+ *
+ * @since 4.1
+ */
 public record QualifiedName(Identifier schema, Identifier name) {
     public QualifiedName {
         Objects.requireNonNull(name, "name must not be null");

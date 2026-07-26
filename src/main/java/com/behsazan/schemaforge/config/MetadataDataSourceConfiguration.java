@@ -9,6 +9,11 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
 
+/**
+ * Provides metadata data source configuration functionality within the SchemaForge processing pipeline.
+ *
+ * @since 4.1
+ */
 @Configuration
 public class MetadataDataSourceConfiguration {
 

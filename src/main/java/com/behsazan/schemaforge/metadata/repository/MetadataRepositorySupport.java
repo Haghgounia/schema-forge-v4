@@ -7,6 +7,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Provides metadata repository support functionality within the SchemaForge processing pipeline.
+ *
+ * @since 4.1
+ */
 final class MetadataRepositorySupport {
     private MetadataRepositorySupport() { }
 

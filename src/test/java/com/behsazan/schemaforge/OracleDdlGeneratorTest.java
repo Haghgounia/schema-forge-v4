@@ -39,6 +39,13 @@ import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColu
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertHeaderContainsIssue;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertInlineIssues;
 
+/**
+ * Verifies the behavior and regression expectations of Oracle DDL Generator.
+ *
+ * <p>This test documents expected behavior and protects against regression.</p>
+ *
+ * @since 4.1
+ */
 class OracleDdlGeneratorTest {
 
     @Test

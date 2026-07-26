@@ -34,6 +34,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Provides access to jdbc oracle metadata data.
+ *
+ * @since 4.1
+ */
 @Repository
 @ConditionalOnProperty(prefix = "schemaforge.metadata.oracle", name = "enabled", havingValue = "true")
 public class JdbcOracleMetadataRepository implements OracleMetadataRepository {

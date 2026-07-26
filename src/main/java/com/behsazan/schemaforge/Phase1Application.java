@@ -6,7 +6,17 @@ import com.behsazan.schemaforge.application.SchemaGenerationService;
 
 import java.nio.file.Path;
 
-/** Offline entry point: one Word specification produces one JSON and one DBMS-specific SQL file. */
+/**
+ * Provides the legacy offline command-line entry point for single-document generation.
+ *
+ * <p>The current supported runtime entry point is {@link SchemaForgeApiApplication}. This
+ * class is retained temporarily so existing command-line workflows can be migrated safely.</p>
+ *
+ * @deprecated Replaced by the REST-based application entry point and scheduled for removal
+ *     after compatibility validation.
+ * @since 4.0
+ */
+@Deprecated(since = "4.1", forRemoval = true)
 public final class Phase1Application {
     private static final DatabasePlatform DEFAULT_PLATFORM = DatabasePlatform.ORACLE;
 

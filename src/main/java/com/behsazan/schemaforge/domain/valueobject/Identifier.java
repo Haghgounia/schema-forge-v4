@@ -4,6 +4,13 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+/**
+ * Represents the validated identifier value used by the canonical schema model.
+ *
+ * <p>This type is database-independent and may be shared by every SQL dialect.</p>
+ *
+ * @since 4.1
+ */
 public record Identifier(String value) implements Comparable<Identifier> {
     private static final Pattern VALID = Pattern.compile("[A-Za-z][A-Za-z0-9_$#]*");
 
