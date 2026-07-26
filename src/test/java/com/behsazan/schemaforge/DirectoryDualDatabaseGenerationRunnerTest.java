@@ -18,8 +18,8 @@ class DirectoryDualDatabaseGenerationRunnerTest {
 
     @Test
     void shouldGenerateScriptsAndBatchDiagnosticReportsForEveryWordFile() throws Exception {
-        Path input = Path.of("D:\\SchemaDocuments_4");
-        Path output = tempDirectory.resolve("D:\\SchemaReports_4");
+        Path input = Path.of("src", "test", "resources", "samples");
+        Path output = tempDirectory.resolve("generated");
 
         long expectedDocuments;
         try (Stream<Path> stream = Files.walk(input)) {

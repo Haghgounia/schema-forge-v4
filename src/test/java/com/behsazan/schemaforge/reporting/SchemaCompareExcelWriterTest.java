@@ -101,6 +101,31 @@ class SchemaCompareExcelWriterTest {
         }
     }
 
+    @Test
+    void shouldTreatPostgreSqlAnyArrayAsEquivalentToInList() throws Exception {
+        Table document = Table.builder("BIM", "FLAGS")
+                .addColumn(Column.required("IS_ACTIVE", DataType.numeric("NUMBER", 1, null)))
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_FLAGS_IS_ACTIVE"),
+                        "IS_ACTIVE IN (0, 1)"))
+                .build();
+
+        Table database = Table.builder("bim", "flags")
+                .addColumn(Column.required("is_active", DataType.numeric("NUMERIC", 1, 0)))
+                .addCheck(new CheckConstraint(
+                        Identifier.of("ck_flags_is_active"),
+                        "((is_active = ANY (ARRAY[(1)::numeric, (0)::numeric])))"))
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.POSTGRESQL);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var row = findRow(workbook.getSheet("FLAGS"), "IS_ACTIVE", 2, 12);
+            assertFalse(row.getCell(21).getStringCellValue().contains("CHECK CONSTRAINT"));
+        }
+    }
+
 
 
     @Test

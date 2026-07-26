@@ -12,6 +12,11 @@ springdoc:
     path: /v3/api-docs
 
 schemaforge:
+  # Enterprise Architect XMI files often do not contain a physical schema.
+  # Override with SCHEMAFORGE_EA_DEFAULT_SCHEMA or edit this value.
+  ea:
+    default-schema: ${SCHEMAFORGE_EA_DEFAULT_SCHEMA:EA_SCHEMA}
+
   standards:
     audit:
       enabled: true
@@ -64,7 +69,7 @@ schemaforge:
 
     postgresql:
       enabled: true
-      url: jdbc:postgresql://localhost:5433/mydb
+      url: jdbc:postgresql://localhost:5433/postgres
       username: postgres
       password: 123456
       driver-class-name: org.postgresql.Driver

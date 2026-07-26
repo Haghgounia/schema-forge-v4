@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+  <XMI.header>
+    <XMI.documentation>
+      <XMI.exporter>Enterprise Architect</XMI.exporter>
+      <XMI.exporterVersion>2.5</XMI.exporterVersion>
+    </XMI.documentation>
+  </XMI.header>
+  <XMI.content>
+    <UML:Model name="EA Model" xmi.id="MODEL_1">
+      <UML:Namespace.ownedElement>
+        <UML:Package name="Tables" xmi.id="PACKAGE_1">
+          <UML:Namespace.ownedElement>
+            <UML:Class name="FEE_VERSION" xmi.id="TABLE_FEE_VERSION">
+              <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+              <UML:Classifier.feature>
+                <UML:Attribute name="FEE_VERSION_ID">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                  <UML:ModelElement.taggedValue>
+                    <UML:TaggedValue tag="type" value="NUMBER"/>
+                    <UML:TaggedValue tag="precision" value="5"/>
+                    <UML:TaggedValue tag="scale" value="0"/>
+                    <UML:TaggedValue tag="position" value="0"/>
+                    <UML:TaggedValue tag="lowerBound" value="1"/>
+                    <UML:TaggedValue tag="style" value="&#1588;&#1606;&#1575;&#1587;&#1607; &#1606;&#1587;&#1582;&#1607;"/>
+                  </UML:ModelElement.taggedValue>
+                </UML:Attribute>
+                <UML:Operation name="PK_FEE_VERSION">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype>
+                  <UML:BehavioralFeature.parameter>
+                    <UML:Parameter kind="return"/>
+                    <UML:Parameter name="FEE_VERSION_ID" kind="in">
+                      <UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue>
+                    </UML:Parameter>
+                  </UML:BehavioralFeature.parameter>
+                </UML:Operation>
+              </UML:Classifier.feature>
+            </UML:Class>
+
+            <UML:Class name="REGULATORY_RULE" xmi.id="TABLE_RULE">
+              <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+              <UML:ModelElement.taggedValue><UML:TaggedValue tag="alias" value="قانون نظارتی"/></UML:ModelElement.taggedValue>
+              <UML:Classifier.feature>
+                <UML:Attribute name="REGULATORY_RULE_ID">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                  <UML:ModelElement.taggedValue>
+                    <UML:TaggedValue tag="type" value="NUMBER"/>
+                    <UML:TaggedValue tag="precision" value="3"/>
+                    <UML:TaggedValue tag="scale" value="0"/>
+                    <UML:TaggedValue tag="position" value="0"/>
+                    <UML:TaggedValue tag="lowerBound" value="1"/>
+                  </UML:ModelElement.taggedValue>
+                </UML:Attribute>
+                <UML:Attribute name="FEE_VERSION_ID">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                  <UML:ModelElement.taggedValue>
+                    <UML:TaggedValue tag="type" value="NUMBER"/>
+                    <UML:TaggedValue tag="precision" value="5"/>
+                    <UML:TaggedValue tag="scale" value="0"/>
+                    <UML:TaggedValue tag="position" value="1"/>
+                    <UML:TaggedValue tag="lowerBound" value="1"/>
+                  </UML:ModelElement.taggedValue>
+                </UML:Attribute>
+                <UML:Attribute name="RULE_DESCRIPTION">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                  <UML:ModelElement.taggedValue>
+                    <UML:TaggedValue tag="type" value="VARCHAR2"/>
+                    <UML:TaggedValue tag="length" value="100"/>
+                    <UML:TaggedValue tag="position" value="2"/>
+                    <UML:TaggedValue tag="lowerBound" value="0"/>
+                  </UML:ModelElement.taggedValue>
+                </UML:Attribute>
+                <UML:Operation name="PK_REGULATORY_RULE">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype>
+                  <UML:BehavioralFeature.parameter>
+                    <UML:Parameter name="REGULATORY_RULE_ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter>
+                  </UML:BehavioralFeature.parameter>
+                </UML:Operation>
+                <UML:Operation name="FK_RULE_FEE_VERSION">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype>
+                  <UML:ModelElement.taggedValue><UML:TaggedValue tag="Delete" value="Cascade"/></UML:ModelElement.taggedValue>
+                  <UML:BehavioralFeature.parameter>
+                    <UML:Parameter name="FEE_VERSION_ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter>
+                  </UML:BehavioralFeature.parameter>
+                </UML:Operation>
+                <UML:Operation name="IX_RULE_FEE_VERSION">
+                  <UML:ModelElement.stereotype><UML:Stereotype name="index"/></UML:ModelElement.stereotype>
+                  <UML:BehavioralFeature.parameter>
+                    <UML:Parameter name="FEE_VERSION_ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter>
+                    <UML:Parameter name="RULE_DESCRIPTION" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="1"/></UML:ModelElement.taggedValue></UML:Parameter>
+                  </UML:BehavioralFeature.parameter>
+                </UML:Operation>
+              </UML:Classifier.feature>
+            </UML:Class>
+
+            <UML:Association name="(FEE_VERSION_ID = FEE_VERSION_ID)" xmi.id="ASSOC_1">
+              <UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype>
+              <UML:ModelElement.taggedValue>
+                <UML:TaggedValue tag="styleex" value="FKINFO=SRC=FK_RULE_FEE_VERSION:DST=PK_FEE_VERSION:;"/>
+                <UML:TaggedValue tag="ea_sourceName" value="REGULATORY_RULE"/>
+                <UML:TaggedValue tag="ea_targetName" value="FEE_VERSION"/>
+              </UML:ModelElement.taggedValue>
+              <UML:Association.connection>
+                <UML:AssociationEnd name="FK_RULE_FEE_VERSION" type="TABLE_RULE"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="source"/></UML:ModelElement.taggedValue></UML:AssociationEnd>
+                <UML:AssociationEnd name="PK_FEE_VERSION" type="TABLE_FEE_VERSION"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="target"/></UML:ModelElement.taggedValue></UML:AssociationEnd>
+              </UML:Association.connection>
+            </UML:Association>
+          </UML:Namespace.ownedElement>
+        </UML:Package>
+      </UML:Namespace.ownedElement>
+    </UML:Model>
+  </XMI.content>
+</XMI>

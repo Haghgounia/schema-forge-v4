@@ -154,3 +154,29 @@ UNIQUE_INDEXES_COMPARE
 ```
 
 Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract; Oracle and PostgreSQL metadata access stays in their repository adapters.
+
+
+## Enterprise Architect XML/XMI input
+
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle SQL file and one PostgreSQL SQL file per table, one comparison workbook per visible database table and dialect, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
+
+```text
+oracle/<SCHEMA>.<TABLE>.oracle.sql
+postgresql/<schema>.<table>.postgresql.sql
+comparison/oracle/<SCHEMA>.<TABLE>.oracle.xlsx
+comparison/postgresql/<schema>.<table>.postgresql.xlsx
+oracle/run_all.sql
+postgresql/run_all.sql
+model.json
+manifest.json
+```
+
+EA exports may omit the physical schema. Configure the fallback schema centrally:
+
+```yaml
+schemaforge:
+  ea:
+    default-schema: ${SCHEMAFORGE_EA_DEFAULT_SCHEMA:EA_SCHEMA}
+```
+
+An explicit schema/owner tagged value in the XML overrides this fallback.

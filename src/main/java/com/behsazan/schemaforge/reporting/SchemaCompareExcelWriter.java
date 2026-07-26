@@ -762,7 +762,21 @@ public final class SchemaCompareExcelWriter {
     private static String normalizeCheckExpression(String value) {
         if (value == null || value.isBlank()) return "";
 
-        String source = value.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " ");
+        String source = stripBalancedOuterParentheses(
+                value.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " "));
+
+        Matcher anyArrayMatcher = Pattern.compile(
+                        "^(.*?)=\\s*ANY\\s*\\(\\s*ARRAY\\s*\\[(.*)]\\s*\\)(.*)$",
+                        Pattern.CASE_INSENSITIVE)
+                .matcher(source);
+
+        if (anyArrayMatcher.matches()) {
+            return canonicalInExpression(
+                    anyArrayMatcher.group(1),
+                    anyArrayMatcher.group(2),
+                    anyArrayMatcher.group(3));
+        }
+
         Matcher matcher = Pattern.compile(
                         "^(.*?)\\bIN\\s*\\(([^()]*)\\)(.*)$",
                         Pattern.CASE_INSENSITIVE)
@@ -770,18 +784,57 @@ public final class SchemaCompareExcelWriter {
 
         if (!matcher.matches()) return normalizeExpression(source);
 
+        return canonicalInExpression(matcher.group(1), matcher.group(2), matcher.group(3));
+    }
+
+    private static String canonicalInExpression(String prefix, String rawValues, String suffix) {
         List<String> values = new ArrayList<>();
-        for (String item : matcher.group(2).split(",")) {
-            String token = normalizeExpression(item);
+        for (String item : rawValues.split(",")) {
+            String token = normalizeCheckValue(item);
             if (!token.isEmpty()) values.add(token);
         }
         values.sort(String::compareTo);
 
-        return normalizeExpression(matcher.group(1))
+        return normalizeExpression(stripBalancedOuterParentheses(prefix))
                 + "IN("
                 + String.join(",", values)
                 + ")"
-                + normalizeExpression(matcher.group(3));
+                + normalizeExpression(stripBalancedOuterParentheses(suffix));
+    }
+
+    private static String normalizeCheckValue(String value) {
+        String result = value == null ? "" : value.trim();
+        result = stripBalancedOuterParentheses(result);
+        result = result.replaceFirst("(?i)::[A-Z0-9_.$\" ]+(?:\\[\\])?$", "");
+        result = stripBalancedOuterParentheses(result.trim());
+        return normalizeExpression(result);
+    }
+
+    private static String stripBalancedOuterParentheses(String value) {
+        String result = value == null ? "" : value.trim();
+        while (result.length() >= 2 && result.startsWith("(") && result.endsWith(")")
+                && enclosesWholeExpression(result)) {
+            result = result.substring(1, result.length() - 1).trim();
+        }
+        return result;
+    }
+
+    private static boolean enclosesWholeExpression(String value) {
+        int depth = 0;
+        boolean inSingleQuote = false;
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (current == '\'' && (index == 0 || value.charAt(index - 1) != '\\')) {
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+            if (inSingleQuote) continue;
+            if (current == '(') depth++;
+            if (current == ')') depth--;
+            if (depth == 0 && index < value.length() - 1) return false;
+            if (depth < 0) return false;
+        }
+        return depth == 0;
     }
 
     private static boolean identityEquivalent(Column document, Column database) {

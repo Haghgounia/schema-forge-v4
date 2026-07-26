@@ -110,3 +110,20 @@
 - Groups repeated tokens as composite indexes in document row order.
 - Propagates parsed indexes through the canonical model to JSON, Oracle/PostgreSQL DDL, and Excel comparison.
 - Adds `WordLegacyIndexParsingTest` for the `I1` composite-index scenario.
+
+## 2026-07-26 - Enterprise Architect XML/XMI phase
+
+- Replaced the minimal EA class importer with an EA XMI 1.x table-model importer.
+- Added configurable `schemaforge.ea.default-schema` fallback.
+- Imported ordered columns, datatype details, nullability and Persian descriptions.
+- Imported PK, FK associations, referential actions and simple/composite indexes.
+- Reused the existing canonical JSON, Oracle/PostgreSQL DDL and Excel comparison pipeline.
+
+## 2026-07-26 - Enterprise Architect per-table REST output
+
+- EA XML/XMI REST generation now writes one Oracle and one PostgreSQL SQL file per table.
+- Added per-dialect folders and per-table comparison workbook folders.
+- Added consolidated `model.json` and `manifest.json`.
+- Added Oracle and PostgreSQL `run_all.sql` files ordered by internal foreign-key dependencies.
+- Added cycle reporting in the run-all header without changing Word or ZIP input behavior.
+- Added regression coverage for per-table file names, manifest contents and dependency ordering.

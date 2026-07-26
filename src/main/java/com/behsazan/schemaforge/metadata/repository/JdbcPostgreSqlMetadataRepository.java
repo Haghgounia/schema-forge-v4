@@ -22,6 +22,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,6 +41,7 @@ import java.util.regex.Pattern;
 @Repository
 @ConditionalOnProperty(prefix = "schemaforge.metadata.postgresql", name = "enabled", havingValue = "true")
 public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepository {
+    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcPostgreSqlMetadataRepository.class);
     private static final Pattern TYPE_WITH_TWO_ARGUMENTS = Pattern.compile("^(.+?)\\((\\d+)\\s*,\\s*(\\d+)\\)(.*)$");
     private static final Pattern TYPE_WITH_ONE_ARGUMENT = Pattern.compile("^(.+?)\\((\\d+)\\)(.*)$");
 
@@ -59,13 +62,21 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
 
     private static final String TABLE_SQL = """
             SELECT c.oid AS table_oid,
+                   n.nspname AS schema_name,
                    c.relname AS table_name,
                    obj_description(c.oid, 'pg_class') AS comments
               FROM pg_class c
               JOIN pg_namespace n ON n.oid = c.relnamespace
              WHERE c.relkind IN ('r', 'p')
-               AND UPPER(n.nspname) = UPPER(:schemaName)
-               AND UPPER(c.relname) = UPPER(:tableName)
+               AND LOWER(n.nspname) = LOWER(:schemaName)
+               AND LOWER(c.relname) = LOWER(:tableName)
+             ORDER BY CASE
+                        WHEN n.nspname = :schemaName AND c.relname = :tableName THEN 0
+                        WHEN n.nspname = LOWER(:schemaName) AND c.relname = LOWER(:tableName) THEN 1
+                        ELSE 2
+                      END,
+                      n.nspname,
+                      c.relname
             """;
 
     private static final String COLUMNS_SQL = """
@@ -205,12 +216,20 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                 .addValue("tableName", tableName.trim());
         List<TableInfo> tables = jdbcTemplate.query(TABLE_SQL, parameters,
                 (rs, rowNumber) -> new TableInfo(
-                        rs.getLong("table_oid"), rs.getString("table_name"), rs.getString("comments")));
-        if (tables.isEmpty()) return Optional.empty();
+                        rs.getLong("table_oid"), rs.getString("schema_name"),
+                        rs.getString("table_name"), rs.getString("comments")));
+        if (tables.isEmpty()) {
+            Map<String, Object> connectionInfo = jdbcTemplate.getJdbcTemplate().queryForMap(
+                    "SELECT current_database() AS database_name, current_user AS user_name");
+            List<String> visibleSchemas = findTableSchemas(tableName);
+            LOGGER.warn("PostgreSQL metadata table not found. database={}, user={}, requested={}.{}, visibleTableSchemas={}",
+                    connectionInfo.get("database_name"), connectionInfo.get("user_name"),
+                    schemaName, tableName, visibleSchemas);
+            return Optional.empty();
+        }
 
         TableInfo info = tables.getFirst();
-        String schema = schemaName.trim();
-        Table.Builder builder = Table.builder(schema, info.name());
+        Table.Builder builder = Table.builder(info.schema(), info.name());
         String tableComment = trimToNull(info.comment());
         if (tableComment != null) builder.description(tableComment);
 
@@ -475,7 +494,7 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
         return rs.wasNull() ? null : value;
     }
 
-    private record TableInfo(long oid, String name, String comment) { }
+    private record TableInfo(long oid, String schema, String name, String comment) { }
 
     private record PostgreSqlColumnRow(int position, String name, String formattedType, boolean nullable,
                                        String defaultValue, String comment, String identityFlag,
