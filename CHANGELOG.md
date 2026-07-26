@@ -102,3 +102,11 @@
 - Primary-key, foreign-key and unique-object changes now include names and complete canonical definitions rather than column membership only.
 - Kept document object order first and appended database-only objects afterwards.
 - Added a database-neutral writer entry point that receives the generic dialect contract; database-specific metadata adapters remain outside the Excel writer.
+
+## 2026-07-26 - Legacy Word index-token parsing
+
+- Reads legacy `I1`, `I2`, ... index group tokens when they are stored in the `Primary/Foreign Key` column.
+- Keeps the dedicated `Index` column as the first-priority source when both layouts are present.
+- Groups repeated tokens as composite indexes in document row order.
+- Propagates parsed indexes through the canonical model to JSON, Oracle/PostgreSQL DDL, and Excel comparison.
+- Adds `WordLegacyIndexParsingTest` for the `I1` composite-index scenario.

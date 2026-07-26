@@ -52,8 +52,9 @@ public final class WordSpecificationParser implements SpecificationParser {
     private static final Pattern DATA_TYPE = Pattern.compile(
             "(?i)^([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?(?:\\s+(CHAR|BYTE))?\\s*\\))?$");
     private static final Pattern GROUP_REFERENCE = Pattern.compile(
-            "(?i)^([A-Z][A-Z0-9_$#]*(?:\\s*\\.\\s*[A-Z][A-Z0-9_$#]*)?)\\s*/\\s*([YN])$");
+            "(?i)^([A-Z][A-Z0-9_$#-]*(?:\\.[A-Z][A-Z0-9_$#-]*){0,2})/((?:Y|N|YES|NO))$");
     private static final Pattern GROUP_POSITION = Pattern.compile("(?i)^([A-Z]+\\d+)(?:\\s*[,;:]\\s*(\\d+))?$" );
+    private static final Pattern LEGACY_INDEX_IN_KEY = Pattern.compile("(?i)^I\\d+(?:[,;:]\\d+)?$");
 
     @Override
     public boolean supports(String fileName) {
@@ -116,7 +117,9 @@ public final class WordSpecificationParser implements SpecificationParser {
         }
         return warning.startsWith("DUPLICATE_COLUMN|")
                 || warning.startsWith("COLUMN_DATATYPE_MISSING|")
-                || warning.startsWith("COLUMN_DESCRIPTION_MISSING|");
+                || warning.startsWith("COLUMN_DESCRIPTION_MISSING|")
+                || warning.startsWith("FK_REFERENCE_NORMALIZED|")
+                || warning.startsWith("FK_REFERENCE_INVALID|");
     }
 
     private Table buildTable(
@@ -186,12 +189,21 @@ public final class WordSpecificationParser implements SpecificationParser {
             if (column.referenceTable() == null) {
                 continue;
             }
-            Reference reference = parseReference(column.referenceTable(), recoveryWarnings);
+            Reference reference;
+            try {
+                reference = parseReference(column.referenceTable(), recoveryWarnings);
+            } catch (IllegalArgumentException exception) {
+                recoveryWarnings.add("FK_REFERENCE_INVALID|column=" + column.name()
+                        + "|value=" + normalizeWarningValue(column.referenceTable())
+                        + "|message=" + normalizeWarningValue(exception.getMessage()));
+                continue;
+            }
+            String referencedColumn = reference.column() == null ? column.name() : reference.column();
             table.addForeignKey(new ForeignKey(
                     identifierValidator.toIdentifier("FK_" + tableName + "_" + column.name(), "foreign key"),
                     List.of(identifierValidator.toIdentifier(column.name(), "foreign key column")),
                     validatedQualifiedName(reference.schema(), reference.table(), "referenced table"),
-                    List.of(identifierValidator.toIdentifier(column.name(), "referenced column")),
+                    List.of(identifierValidator.toIdentifier(referencedColumn, "referenced column")),
                     ReferentialAction.NO_ACTION,
                     ReferentialAction.NO_ACTION,
                     false,
@@ -291,30 +303,49 @@ public final class WordSpecificationParser implements SpecificationParser {
     }
 
     private Reference parseReference(String rawReference, List<String> recoveryWarnings) {
-        String normalized = normalizeText(rawReference)
-                .replaceAll("\\s*\\.\\s*", ".")
-                .replaceAll("\\s*/\\s*", "/")
-                .toUpperCase(Locale.ROOT);
+        String original = normalizeText(rawReference);
+        String normalized = normalizeForeignKeyReference(original);
         Matcher matcher = GROUP_REFERENCE.matcher(normalized);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid foreign-key reference: " + rawReference);
         }
 
-        String object = matcher.group(1).replaceAll("\\s*\\.\\s*", ".").replace(" ", "");
-        boolean physical = "Y".equalsIgnoreCase(matcher.group(2));
-        String[] parts = object.split("\\.", -1);
-        if (parts.length > 2) {
-            throw new IllegalArgumentException("Invalid qualified reference: " + rawReference);
+        if (!original.equalsIgnoreCase(normalized)) {
+            recoveryWarnings.add("FK_REFERENCE_NORMALIZED|original="
+                    + normalizeWarningValue(original) + "|normalized=" + normalized);
         }
+
+        String object = matcher.group(1);
+        String flag = matcher.group(2);
+        boolean physical = "Y".equalsIgnoreCase(flag) || "YES".equalsIgnoreCase(flag);
+        String[] parts = object.split("\\.", -1);
 
         if (parts.length == 1) {
             String table = recoverIdentifier(parts[0], "referenced table", null, recoveryWarnings);
-            return new Reference(null, table, physical, false);
+            return new Reference(null, table, null, physical, false);
         }
 
         String schema = recoverIdentifier(parts[0], "referenced schema", null, recoveryWarnings);
         String table = recoverIdentifier(parts[1], "referenced table", null, recoveryWarnings);
-        return new Reference(schema, table, physical, true);
+        String column = parts.length == 3
+                ? recoverIdentifier(parts[2], "referenced column", null, recoveryWarnings)
+                : null;
+        return new Reference(schema, table, column, physical, true);
+    }
+
+    private String normalizeForeignKeyReference(String value) {
+        return normalizeText(value)
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", "")
+                .replaceAll("/YES$", "/Y")
+                .replaceAll("/NO$", "/N");
+    }
+
+    private static String normalizeWarningValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("|", "/").replaceAll("[\\r\\n]+", " ").trim();
     }
 
     private Metadata readMetadata(XWPFDocument document) {
@@ -430,7 +461,9 @@ public final class WordSpecificationParser implements SpecificationParser {
                 isMarked(cell(row, headers.get(Header.REQUIRED))),
                 cell(row, headers.get(Header.DEFAULT_VALUE)),
                 cell(row, headers.get(Header.UNIQUE)),
-                cell(row, headers.get(Header.INDEX)),
+                firstNonBlank(
+                        cell(row, headers.get(Header.INDEX)),
+                        extractLegacyIndexToken(key)),
                 cell(row, headers.get(Header.RANGE)),
                 cell(row, headers.get(Header.CHECK_CONSTRAINT)),
                 cell(row, headers.get(Header.GENERATED_EXPRESSION)));
@@ -595,6 +628,19 @@ public final class WordSpecificationParser implements SpecificationParser {
             }
         }
         return result;
+    }
+
+
+    private String extractLegacyIndexToken(String keyValue) {
+        String value = emptyToNull(keyValue);
+        if (value == null) {
+            return null;
+        }
+        String normalized = normalizeText(value).replace(" ", "");
+        if (normalized.contains("/") || containsToken(normalized, "PK")) {
+            return null;
+        }
+        return LEGACY_INDEX_IN_KEY.matcher(normalized).matches() ? normalized : null;
     }
 
     private String extractReference(String keyValue) {
@@ -797,6 +843,11 @@ public final class WordSpecificationParser implements SpecificationParser {
     private record PositionedColumn(String name, int position) {
     }
 
-    private record Reference(String schema, String table, boolean physical, boolean schemaExplicit) {
+    private record Reference(
+            String schema,
+            String table,
+            String column,
+            boolean physical,
+            boolean schemaExplicit) {
     }
 }

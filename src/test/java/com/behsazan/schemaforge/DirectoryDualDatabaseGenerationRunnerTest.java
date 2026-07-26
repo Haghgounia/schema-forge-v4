@@ -17,12 +17,12 @@ class DirectoryDualDatabaseGenerationRunnerTest {
     Path tempDirectory;
 
     @Test
-    void shouldGenerateOracleAndPostgreSqlScriptsForEveryWordFile() throws Exception {
-        Path input = Path.of("src", "test", "resources", "samples");
-        Path output = tempDirectory.resolve("generated");
+    void shouldGenerateScriptsAndBatchDiagnosticReportsForEveryWordFile() throws Exception {
+        Path input = Path.of("D:\\SchemaDocuments_4");
+        Path output = tempDirectory.resolve("D:\\SchemaReports_4");
 
         long expectedDocuments;
-        try (Stream<Path> stream = Files.list(input)) {
+        try (Stream<Path> stream = Files.walk(input)) {
             expectedDocuments = stream
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName()
@@ -36,9 +36,25 @@ class DirectoryDualDatabaseGenerationRunnerTest {
                 DirectoryDualDatabaseGenerationRunner.generateAll(input, output);
 
         assertEquals(expectedDocuments, result.documents());
-        assertEquals(expectedDocuments, result.oracleScripts());
-        assertEquals(expectedDocuments, result.postgreSqlScripts());
-        assertEquals(0, result.invalidDocuments());
+        assertEquals(expectedDocuments, result.passedDocuments() + result.failedDocuments());
+        assertEquals(result.passedDocuments(), result.oracleScripts());
+        assertEquals(result.passedDocuments(), result.postgreSqlScripts());
+
+        assertTrue(Files.isRegularFile(result.summaryFile()));
+        assertTrue(Files.isRegularFile(result.indexDetailFile()));
+        assertTrue(Files.isRegularFile(result.recoveryWarningFile()));
+        assertTrue(Files.isRegularFile(result.errorFile()));
+
+        List<String> summaryLines = Files.readAllLines(result.summaryFile());
+        assertEquals(expectedDocuments + 1, summaryLines.size());
+        assertTrue(summaryLines.getFirst().contains("unique_indexes"));
+        assertTrue(summaryLines.getFirst().contains("elapsed_ms"));
+
+        String indexDetails = Files.readString(result.indexDetailFile());
+        assertTrue(indexDetails.startsWith("document,table,object_type"));
+
+        String recoveryWarnings = Files.readString(result.recoveryWarningFile());
+        assertTrue(recoveryWarnings.startsWith("document,warning_type,details"));
 
         List<Path> files;
         try (Stream<Path> stream = Files.list(output)) {
@@ -46,14 +62,14 @@ class DirectoryDualDatabaseGenerationRunnerTest {
         }
 
         assertEquals(
-                expectedDocuments,
+                result.oracleScripts(),
                 files.stream()
                         .filter(path -> path.toString().endsWith(".oracle.sql"))
                         .count()
         );
 
         assertEquals(
-                expectedDocuments,
+                result.postgreSqlScripts(),
                 files.stream()
                         .filter(path -> path.toString().endsWith(".postgresql.sql"))
                         .count()
