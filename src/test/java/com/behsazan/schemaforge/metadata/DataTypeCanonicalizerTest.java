@@ -26,6 +26,7 @@ class DataTypeCanonicalizerTest {
     @Test
     void shouldSupportAllPlannedDatabaseEngines() {
         assertTrue(canonicalizer.equivalent("DB2", "DECIMAL(8)", "DECIMAL(8,0)"));
+        assertTrue(canonicalizer.equivalent("DB2_ZOS", "NUMERIC(8)", "DECIMAL(8,0)"));
         assertTrue(canonicalizer.equivalent("MySQL", "NUMERIC(8)", "DECIMAL(8,0)"));
         assertTrue(canonicalizer.equivalent("PostgreSQL", "NUMERIC(8)", "DECIMAL(8,0)"));
         assertTrue(canonicalizer.equivalent("SQL Server", "NUMERIC(8)", "DECIMAL(8,0)"));

@@ -110,4 +110,28 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          Optional local IBM JCC wiring for the explicitly invoked Db2 live integration test.
+          The profile is inactive during normal builds and never downloads or redistributes JCC.
+        -->
+        <profile>
+            <id>db2zos-live</id>
+            <activation>
+                <property>
+                    <name>db2zos.jcc.path</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ibm.db2</groupId>
+                    <artifactId>jcc-local</artifactId>
+                    <version>local</version>
+                    <scope>system</scope>
+                    <systemPath>${db2zos.jcc.path}</systemPath>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>

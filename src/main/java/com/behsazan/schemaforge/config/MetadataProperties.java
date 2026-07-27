@@ -11,9 +11,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MetadataProperties {
     private final Database oracle = new Database();
     private final Database postgresql = new Database();
+    private final Database db2zos = new Database();
 
     public Database getOracle() { return oracle; }
     public Database getPostgresql() { return postgresql; }
+    public Database getDb2zos() { return db2zos; }
 
     public static class Database {
         private boolean enabled;

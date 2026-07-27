@@ -115,7 +115,7 @@ public final class DataTypeCanonicalizer {
         return switch (normalized) {
             case "POSTGRES", "POSTGRESQL" -> "POSTGRESQL";
             case "MSSQL", "SQLSERVER", "MICROSOFTSQLSERVER" -> "SQLSERVER";
-            case "IBMDB2", "DB2" -> "DB2";
+            case "IBMDB2", "DB2", "DB2ZOS", "IBMDB2ZOS" -> "DB2";
             default -> normalized;
         };
     }

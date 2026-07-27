@@ -5,6 +5,7 @@ Implemented repository layer:
 - `MetadataRepository`
 - `OracleMetadataProvider`
 - `PostgreSqlMetadataProvider`
+- `Db2ZosMetadataRepository` / `JdbcDb2ZosMetadataRepository`
 - `JsonMetadataProvider`
 - `InMemoryMetadataRepository`
 
@@ -49,4 +50,4 @@ String sql = new DdlGenerator(new OracleDialect())
         .generate(schema, validationReport, metadata);
 ```
 
-Oracle and PostgreSQL providers use aggregated queries and never expose table names in findings.
+Oracle, PostgreSQL, and Db2 for z/OS providers use aggregated queries and never expose table names in findings. Live table reads are used separately for database-object comparison workbooks.

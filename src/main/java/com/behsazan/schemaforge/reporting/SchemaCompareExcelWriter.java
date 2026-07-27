@@ -13,7 +13,7 @@ import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
-import com.behsazan.schemaforge.metadata.DataTypeCanonicalizer;
+import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -71,7 +71,7 @@ public final class SchemaCompareExcelWriter {
     private static final Pattern SHORT_MARKER =
             Pattern.compile("(?:^|_)([UI]\\d+(?:\\.\\d+)?)$", Pattern.CASE_INSENSITIVE);
 
-    private final DataTypeCanonicalizer canonicalizer = new DataTypeCanonicalizer();
+    private final NumericTypeEquivalenceService typeEquivalence = new NumericTypeEquivalenceService();
 
     public byte[] write(
             Table documentTable,
@@ -503,7 +503,9 @@ public final class SchemaCompareExcelWriter {
             result.add("SIMILARITY");
         }
         if (!Objects.equals(document.ordinalPosition(), database.ordinalPosition())) result.add("COLUMN ID");
-        if (!canonicalizer.equivalent(databaseType, dialect.sqlType(document), dialect.sqlType(database))) {
+        if (!typeEquivalence.equivalent(
+                databaseType, dialect.sqlType(document), dialect.sqlType(database),
+                dialect.numericMappingStrategy())) {
             result.add("DATA_TYPE");
         }
         if (document.nullable() != database.nullable()) result.add("NULLABLE");
@@ -578,8 +580,9 @@ public final class SchemaCompareExcelWriter {
         Column best = null;
         double bestScore = 0.0;
         for (Column candidate : candidates) {
-            if (!canonicalizer.equivalent(databaseType,
-                    dialect.sqlType(document), dialect.sqlType(candidate))) continue;
+            if (!typeEquivalence.equivalent(
+                    databaseType, dialect.sqlType(document), dialect.sqlType(candidate),
+                    dialect.numericMappingStrategy())) continue;
 
             double nameScore = similarity(document.name().normalized(), candidate.name().normalized());
             int documentPosition = document.ordinalPosition() == null ? Integer.MAX_VALUE : document.ordinalPosition();

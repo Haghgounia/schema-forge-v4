@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.dialect.postgresql;
 
+import com.behsazan.schemaforge.dialect.NumericIntegerProfiles;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.NumericTypeOptimizationService;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
@@ -9,10 +10,6 @@ import java.util.Objects;
 
 /** Maps canonical and Oracle-oriented data types to PostgreSQL data types. */
 public final class PostgreSqlTypeMapper {
-    private static final NumericTypeOptimizationService.NumericIntegerProfile INTEGER_PROFILE =
-            new NumericTypeOptimizationService.NumericIntegerProfile(
-                    "SMALLINT", 4, "INTEGER", 9, "BIGINT", 18);
-
     private final NumericMappingStrategy strategy;
     private final NumericTypeOptimizationService optimizer;
 
@@ -29,7 +26,7 @@ public final class PostgreSqlTypeMapper {
         Objects.requireNonNull(type, "type must not be null");
         String sourceName = type.name().normalized().toUpperCase(Locale.ROOT);
         if (strategy == NumericMappingStrategy.OPTIMIZED) {
-            var optimized = optimizer.optimize(type, INTEGER_PROFILE);
+            var optimized = optimizer.optimize(type, NumericIntegerProfiles.POSTGRESQL);
             if (optimized.isPresent()) {
                 return optimized.get();
             }

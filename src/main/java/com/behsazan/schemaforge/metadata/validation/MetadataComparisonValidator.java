@@ -5,7 +5,7 @@ import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Table;
-import com.behsazan.schemaforge.metadata.DataTypeCanonicalizer;
+import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
 import com.behsazan.schemaforge.metadata.repository.MetadataColumnProfile;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataTypeFrequency;
@@ -31,7 +31,7 @@ public final class MetadataComparisonValidator {
 
     private final Dialect dialect;
     private final MetadataRepository repository;
-    private final DataTypeCanonicalizer typeCanonicalizer = new DataTypeCanonicalizer();
+    private final NumericTypeEquivalenceService typeEquivalence = new NumericTypeEquivalenceService();
 
     public MetadataComparisonValidator(Dialect dialect, MetadataRepository repository) {
         this.dialect = Objects.requireNonNull(dialect, "dialect must not be null");
@@ -65,7 +65,9 @@ public final class MetadataComparisonValidator {
                 if (profile == null) continue;
                 String documentType = MetadataTypeFrequency.normalize(dialect.sqlType(column));
                 boolean knownType = profile.typeFrequencies().stream().anyMatch(item ->
-                        typeCanonicalizer.equivalent(dialect.name(), documentType, item.typeSignature()));
+                        typeEquivalence.equivalent(
+                                dialect.name(), documentType, item.typeSignature(),
+                                dialect.numericMappingStrategy()));
                 if (!knownType) {
                     issues.add(new ValidationIssue("WARNING", "METADATA_DATATYPE_MISMATCH", path,
                             message(column.name().value(), documentType, profile)));

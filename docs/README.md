@@ -17,6 +17,12 @@
 - [Output naming fix](generation/OUTPUT-NAMING-FIX.md)
 - [Document-to-database comparison workbook](generation/DOCUMENT-DATABASE-COMPARISON.md)
 
+## Dialects
+
+- [Db2 for z/OS core dialect](dialects/DB2-ZOS-DIALECT.md)
+- [Db2 for z/OS numeric mapping](dialects/DB2-ZOS-NUMERIC-MAPPING.md)
+- [Db2 for z/OS metadata comparison](dialects/DB2-ZOS-METADATA.md)
+
 ## Testing and validation
 
 - [PostgreSQL Word regression fix](testing/POSTGRESQL-WORD-REGRESSION-FIX.md)

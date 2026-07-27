@@ -1,6 +1,8 @@
 package com.behsazan.schemaforge.reporting;
 
 import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
@@ -135,6 +137,26 @@ class SchemaCompareExcelWriterTest {
 
 
 
+
+    @Test
+    void optimizedComparisonShouldTreatExactNumericAsEquivalentToNativeInteger() throws Exception {
+        Table document = Table.builder("BIM", "FLAGS")
+                .addColumn(Column.required("FLAG_ID", DataType.numeric("NUMBER", 2, null)))
+                .build();
+
+        Table database = Table.builder("BIM", "FLAGS")
+                .addColumn(Column.required("FLAG_ID", DataType.simple("SMALLINT")))
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), "PostgreSQL", new RawOptimizedDialect());
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var row = findRow(workbook.getSheet("FLAGS"), "FLAG_ID", 2, 12);
+            assertFalse(row.getCell(21).getStringCellValue().contains("DATA_TYPE"));
+        }
+    }
+
     @Test
     void shouldKeepRowsInDocumentOrderAndAppendDatabaseOnlyRowsAtTheEnd() throws Exception {
         Table document = Table.builder("BIM", "CUSTOMERS")
@@ -252,6 +274,30 @@ class SchemaCompareExcelWriterTest {
             var indexes = workbook.getSheet("INDEXES_COMPARE");
             assertEquals(BorderStyle.THIN, indexes.getRow(0).getCell(0).getCellStyle().getBorderLeft());
             assertEquals(BorderStyle.THIN, indexes.getRow(1).getCell(0).getCellStyle().getBorderRight());
+        }
+    }
+
+
+    private static final class RawOptimizedDialect implements Dialect {
+        @Override
+        public NumericMappingStrategy numericMappingStrategy() {
+            return NumericMappingStrategy.OPTIMIZED;
+        }
+
+        @Override
+        public String sqlType(Column column) {
+            DataType type = column.dataType();
+            String name = type.name().normalized();
+            if (type.precision() == null) {
+                return name;
+            }
+            return name + "(" + type.precision()
+                    + (type.scale() == null ? "" : "," + type.scale()) + ")";
+        }
+
+        @Override
+        public String quote(Identifier identifier) {
+            return identifier.value();
         }
     }
 

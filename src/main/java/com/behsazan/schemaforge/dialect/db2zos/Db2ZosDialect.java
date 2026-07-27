@@ -20,6 +20,7 @@ public final class Db2ZosDialect implements Dialect {
             DialectFeature.COLUMN_COMMENT,
             DialectFeature.GRANT);
 
+    private final NumericMappingStrategy numericMappingStrategy;
     private final Db2ZosTypeMapper typeMapper;
     private final Db2ZosIdentifierRenderer identifierRenderer;
     private final Db2ZosExpressionMapper expressionMapper;
@@ -29,9 +30,15 @@ public final class Db2ZosDialect implements Dialect {
     }
 
     public Db2ZosDialect(NumericMappingStrategy strategy) {
+        this.numericMappingStrategy = Objects.requireNonNull(strategy, "strategy must not be null");
         this.typeMapper = new Db2ZosTypeMapper(strategy);
         this.identifierRenderer = new Db2ZosIdentifierRenderer();
         this.expressionMapper = new Db2ZosExpressionMapper();
+    }
+
+    @Override
+    public NumericMappingStrategy numericMappingStrategy() {
+        return numericMappingStrategy;
     }
 
     @Override
@@ -98,6 +105,11 @@ public final class Db2ZosDialect implements Dialect {
                     "Db2 z/OS does not support ON DELETE SET DEFAULT");
         }
         return Dialect.super.referentialActionClause(clause, action);
+    }
+
+    @Override
+    public boolean requiresExplicitConstraintIndexes() {
+        return true;
     }
 
     @Override

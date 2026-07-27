@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.dialect.db2zos;
 
+import com.behsazan.schemaforge.dialect.NumericIntegerProfiles;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.NumericTypeOptimizationService;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
@@ -10,10 +11,6 @@ import java.util.Objects;
 /** Maps canonical and Oracle-oriented data types to Db2 for z/OS data types. */
 public final class Db2ZosTypeMapper {
     static final int MAX_DECIMAL_PRECISION = 31;
-
-    private static final NumericTypeOptimizationService.NumericIntegerProfile INTEGER_PROFILE =
-            new NumericTypeOptimizationService.NumericIntegerProfile(
-                    "SMALLINT", 4, "INTEGER", 9, "BIGINT", 18);
 
     private final NumericMappingStrategy strategy;
     private final NumericTypeOptimizationService optimizer;
@@ -54,6 +51,7 @@ public final class Db2ZosTypeMapper {
             case "NCLOB" -> "DBCLOB";
 
             case "DATE" -> "TIMESTAMP(0)";
+            case "DB2_DATE" -> "DATE";
             case "TIMESTAMP" -> timestamp(type, false);
             case "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
                     "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE" -> timestamp(type, true);
@@ -66,6 +64,7 @@ public final class Db2ZosTypeMapper {
             case "JSON" -> "CLOB";
             case "BOOLEAN" -> "SMALLINT";
             case "ROWID", "UROWID" -> "VARCHAR(40)";
+            case "DB2_ROWID" -> "ROWID";
             default -> renderUnknown(type, sourceName);
         };
     }
@@ -83,7 +82,7 @@ public final class Db2ZosTypeMapper {
 
         int scale = type.scale() == null ? 0 : type.scale();
         if (strategy == NumericMappingStrategy.OPTIMIZED) {
-            var optimized = optimizer.optimize(typeWithExplicitScale(type, scale), INTEGER_PROFILE);
+            var optimized = optimizer.optimize(typeWithExplicitScale(type, scale), NumericIntegerProfiles.DB2_ZOS);
             if (optimized.isPresent()) {
                 return optimized.get();
             }

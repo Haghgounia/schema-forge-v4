@@ -43,6 +43,19 @@ public class MetadataDataSourceConfiguration {
         return new NamedParameterJdbcTemplate(dataSource);
     }
 
+    @Bean("db2ZosMetadataDataSource")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.db2zos", name = "enabled", havingValue = "true")
+    DataSource db2ZosMetadataDataSource(MetadataProperties properties) {
+        return create(properties.getDb2zos(), "Db2 for z/OS");
+    }
+
+    @Bean("db2ZosMetadataJdbcTemplate")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.db2zos", name = "enabled", havingValue = "true")
+    NamedParameterJdbcTemplate db2ZosMetadataJdbcTemplate(
+            @Qualifier("db2ZosMetadataDataSource") DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
     private static DataSource create(MetadataProperties.Database properties, String databaseName) {
         require(properties.getUrl(), databaseName + " metadata URL");
         require(properties.getUsername(), databaseName + " metadata username");

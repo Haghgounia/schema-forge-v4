@@ -85,8 +85,10 @@ class Db2ZosDdlGeneratorTest {
         assertTrue(sql.contains("EXTERNAL_ID DECIMAL(18,0) DEFAULT NEXT VALUE FOR BIM.SEQ_CUSTOMERS NOT NULL"));
         assertTrue(sql.contains("EFFECTIVE_STATUS DECIMAL(1,0) GENERATED ALWAYS AS (COALESCE(STATUS, 0))"));
         assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID)"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX BIM.PK_CUSTOMERS_IX ON BIM.CUSTOMERS(CUSTOMER_ID);"));
         assertTrue(sql.contains(") IN APPDB.APP_TS;"));
         assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE);"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX BIM.UK_CUSTOMERS_CODE_IX ON BIM.CUSTOMERS(CUSTOMER_CODE);"));
         assertTrue(sql.contains("CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("REFERENCES BIM.BRANCHES(BRANCH_ID) ON DELETE CASCADE;"));
         assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_STATUS ON BIM.CUSTOMERS(STATUS DESC);"));

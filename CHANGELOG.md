@@ -1,6 +1,20 @@
 
 ## Unreleased
 
+### Fixed
+- Corrected `Db2ZosOfflineDdlValidatorTest` to expect the four executable statements actually generated for one table with a primary key and one unique key: `CREATE TABLE`, primary-key enforcing index, unique constraint, and unique-key enforcing index.
+- The production DB2 z/OS DDL generator and offline validator were already correct; only the test statement-count assertion was wrong.
+
+## 2026-07-27 - Strategy-aware numeric metadata comparison
+
+- Added shared PostgreSQL and Db2 for z/OS native-integer capacity profiles.
+- Added `NumericTypeEquivalenceService` for SAFE/OPTIMIZED-aware comparison.
+- In OPTIMIZED mode, exact numeric metadata is equivalent to the lossless native integer selected by the active dialect.
+- Removed false `METADATA_DATATYPE_MISMATCH` and `W:TYPE` findings caused only by numeric optimization.
+- Kept fractional numerics, precision above BIGINT capacity, unrelated datatypes, and SAFE-mode differences as real mismatches.
+- Applied the same equivalence policy to metadata validation, rename candidate matching, and Excel column comparison.
+- Added regression coverage for PostgreSQL, Db2 for z/OS, SAFE behavior, fractional values, capacity boundaries, and workbook output.
+
 - Updated REST regression tests to use the schema extracted from `MCB.BIM.TBL.PROVINCES.V1.2.docx` (`DPS`) when matching comparison workbooks, tablespaces, and grants.
 - Added table-level inline validation hints directly on the `CREATE TABLE` line for schema-not-found, same-name table in other schemas, spelling, and singular table-name findings.
 # SchemaForge v4.1
@@ -175,3 +189,25 @@
 - Added regression coverage for type mapping, identifiers, expressions, capabilities, complete DDL, REST archives, and EA archives.
 - Kept the existing dual Oracle/PostgreSQL JDBC validation runner explicitly dual; Db2 execution validation is deferred.
 - Db2 catalog metadata access remains unavailable in production and resolves to the empty metadata repository.
+
+## 2026-07-27 - Db2 for z/OS live metadata comparison
+
+- Added the conditional `Db2ZosMetadataRepository` JDBC adapter.
+- Added live catalog reads for tables, columns, primary/unique/check/foreign-key constraints and indexes.
+- Connected `DB2_ZOS` to `MetadataRepositoryResolver`; disabled configurations still resolve to the empty repository.
+- Added Db2 metadata datasource properties and environment-variable configuration.
+- Enabled existing REST and EA comparison-workbook generation for Db2 when the exact table exists.
+- Preserved strategy-aware `SAFE`/`OPTIMIZED` numeric equivalence in Db2 validation and Excel comparison.
+- Added mapper and repository-resolution regression tests.
+- Documented JCC configuration, catalog sources and first-phase limitations.
+
+## 2026-07-27 - Db2 for z/OS validation completion pack
+
+- Added explicit unique enforcing indexes for every Db2 primary key and unique constraint.
+- Added deterministic `Db2ZosOfflineDdlValidator` checks for foreign-dialect syntax, unsupported `ON UPDATE`, decimal precision/scale, balanced delimiters, unexpected statement types and missing enforcing indexes.
+- Added the read-only `Db2ZosConnectionProbeService` for JCC, server, schema, SQLID and catalog-access verification.
+- Added `Db2ZosValidationRunner` with separate `generate`, `probe` and confirmation-gated `execute` modes.
+- Added the explicitly invoked `Db2ZosLiveIT`, excluded from normal test discovery, which creates, verifies and removes disposable Db2 objects.
+- Added an inactive `db2zos-live` Maven profile that accepts a local organization-approved JCC JAR without bundling or redistributing it.
+- Added complete staged live-validation instructions in `docs/testing/DB2-ZOS-LIVE-VALIDATION.md`.
+

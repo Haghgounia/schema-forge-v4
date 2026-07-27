@@ -99,8 +99,17 @@ public final class DdlGenerator {
 
         for (Table table : schema.tables()) {
             statements.add(createTable(table, issueCatalog, metadata));
+            if (dialect.requiresExplicitConstraintIndexes()) {
+                table.primaryKey().map(primaryKey -> createPrimaryKeyIndex(table, primaryKey))
+                        .ifPresent(statements::add);
+            }
             table.checkConstraints().stream().map(check -> createCheck(table, check)).forEach(statements::add);
-            table.uniqueKeys().stream().map(unique -> createUnique(table, unique)).forEach(statements::add);
+            for (UniqueKey unique : table.uniqueKeys()) {
+                statements.add(createUnique(table, unique));
+                if (dialect.requiresExplicitConstraintIndexes()) {
+                    statements.add(createUniqueKeyIndex(table, unique));
+                }
+            }
             table.foreignKeys().stream().map(foreignKey -> createForeignKey(table, foreignKey, metadata)).forEach(statements::add);
             table.indexes().stream().map(index -> createIndex(table, index)).forEach(statements::add);
             addComments(statements, table);
@@ -212,6 +221,38 @@ public final class DdlGenerator {
         String qualifiedIndexName = qualifyLikeTable(table, constraintName);
         return dialect.primaryKeyConstraint(
                 constraintName, tableName, columns, qualifiedIndexName, indexTablespace, primaryKey.deferrable(), primaryKey.initiallyDeferred());
+    }
+
+    private String createPrimaryKeyIndex(Table table, PrimaryKey primaryKey) {
+        String defaultName = "PK_" + table.qualifiedName().name().normalized();
+        String indexName = enforcingIndexName(primaryKey.name(), defaultName);
+        return createEnforcingUniqueIndex(table, indexName, primaryKey.columns());
+    }
+
+    private String createUniqueKeyIndex(Table table, UniqueKey unique) {
+        String defaultName = "UK_" + table.qualifiedName().name().normalized()
+                + "_" + rawIdentifiers(unique.columns());
+        String indexName = enforcingIndexName(unique.name(), defaultName);
+        return createEnforcingUniqueIndex(table, indexName, unique.columns());
+    }
+
+    private String enforcingIndexName(Identifier constraintName, String defaultName) {
+        String base = constraintName == null ? defaultName : constraintName.value();
+        int maximumBaseLength = 125;
+        if (base.length() > maximumBaseLength) {
+            base = base.substring(0, maximumBaseLength);
+        }
+        return dialect.quote(Identifier.of(base + "_IX"));
+    }
+
+    private String createEnforcingUniqueIndex(Table table, String indexName, List<Identifier> columns) {
+        String indexTablespace = option(table, "INDEX_TABLESPACE")
+                .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
+        return "CREATE UNIQUE INDEX " + qualifyLikeTable(table, indexName)
+                + " ON " + qualifiedName(table.qualifiedName())
+                + "(" + identifiers(columns) + ")"
+                + dialect.indexTablespaceClause(indexTablespace)
+                + dialect.statementTerminator();
     }
 
     private String createCheck(Table table, CheckConstraint check) {
@@ -354,6 +395,10 @@ public final class DdlGenerator {
         int checkCount = schema.tables().stream().mapToInt(table -> table.checkConstraints().size()).sum();
         int foreignKeyCount = schema.tables().stream().mapToInt(table -> table.foreignKeys().size()).sum();
         int indexCount = schema.tables().stream().mapToInt(table -> table.indexes().size()).sum();
+        int enforcingIndexCount = dialect.requiresExplicitConstraintIndexes()
+                ? primaryKeyCount + uniqueCount
+                : 0;
+        int emittedIndexCount = indexCount + enforcingIndexCount;
         return "/*" + NL
                 + "SchemaForge Object Summary" + NL
                 + "Sequences    : " + schema.sequences().size() + NL
@@ -363,7 +408,9 @@ public final class DdlGenerator {
                 + "Unique Keys  : " + uniqueCount + NL
                 + "Checks       : " + checkCount + NL
                 + "Foreign Keys : " + foreignKeyCount + NL
-                + "Indexes      : " + indexCount + NL
+                + "Indexes      : " + emittedIndexCount + NL
+                + (enforcingIndexCount == 0 ? ""
+                        : "Enforcing    : " + enforcingIndexCount + NL)
                 + "*/";
     }
 

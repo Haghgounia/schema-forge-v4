@@ -12,6 +12,7 @@ import java.util.Set;
 
 /** PostgreSQL-specific type, identifier and DDL rendering rules. */
 public final class PostgreSqlDialect implements Dialect {
+    private final NumericMappingStrategy numericMappingStrategy;
     private final PostgreSqlTypeMapper typeMapper;
     private static final PostgreSqlExpressionMapper EXPRESSION_MAPPER = new PostgreSqlExpressionMapper();
     private static final PostgreSqlIdentifierRenderer IDENTIFIER_RENDERER = new PostgreSqlIdentifierRenderer();
@@ -21,6 +22,7 @@ public final class PostgreSqlDialect implements Dialect {
     }
 
     public PostgreSqlDialect(NumericMappingStrategy strategy) {
+        this.numericMappingStrategy = Objects.requireNonNull(strategy, "strategy must not be null");
         this.typeMapper = new PostgreSqlTypeMapper(strategy);
     }
 
@@ -35,6 +37,11 @@ public final class PostgreSqlDialect implements Dialect {
             DialectFeature.PARTIAL_INDEX,
             DialectFeature.EXPRESSION_INDEX,
             DialectFeature.DEFERRABLE_CONSTRAINT);
+
+    @Override
+    public NumericMappingStrategy numericMappingStrategy() {
+        return numericMappingStrategy;
+    }
 
     @Override
     public Set<DialectFeature> supportedFeatures() {

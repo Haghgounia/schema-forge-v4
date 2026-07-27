@@ -10,7 +10,7 @@ The `db2zos` platform is registered in `DatabasePlatform` and uses the shared ca
 - identity and generated columns
 - primary keys, unique constraints, check constraints, and foreign keys
 - ordinary and quoted identifier rendering
-- standalone indexes
+- standalone indexes and explicit unique enforcing indexes for primary/unique constraints
 - table and column comments
 - configured grants
 - Word/ZIP REST artifacts and EA per-table artifacts
@@ -34,11 +34,11 @@ Db2 for z/OS output supports `ON DELETE RESTRICT`, `CASCADE`, and `SET NULL`. `O
 
 ## Current limitations
 
-- No production Db2 catalog metadata repository yet.
-- No Db2 JDBC execution-validation runner yet.
+- Live Db2 catalog metadata comparison is available when configured; see `DB2-ZOS-METADATA.md`.
+- The normal build does not connect to Db2. A separate offline validator, read-only probe, confirmation-gated execution runner, and opt-in disposable integration test are available; see `../testing/DB2-ZOS-LIVE-VALIDATION.md`.
 - `run_all.sql` for EA records dependency order as comments because execution/include commands depend on the selected Db2 client.
 - Db2-specific index-space, buffer-pool, STOGROUP, partitioning, CCSID, and universal-table-space options are deferred.
-- For explicitly provisioned table spaces, DBA review might be required for primary/unique supporting indexes.
+- Enforcing indexes are emitted without installation-specific storage clauses and therefore still require DBA review.
 
 ## Configuration
 
@@ -47,4 +47,4 @@ schemaforge.numeric-mapping.strategy=SAFE|OPTIMIZED
 SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY=SAFE|OPTIMIZED
 ```
 
-See `DB2-ZOS-NUMERIC-MAPPING.md` for exact precision boundaries.
+See `DB2-ZOS-NUMERIC-MAPPING.md` for exact precision boundaries and `DB2-ZOS-METADATA.md` for live catalog comparison configuration.

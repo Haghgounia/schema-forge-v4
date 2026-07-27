@@ -61,10 +61,12 @@ class Db2ZosTypeMapperTest {
         assertEquals("VARCHAR(50)", mapper.map(DataType.varchar("VARCHAR2", 50)));
         assertEquals("VARGRAPHIC(50)", mapper.map(DataType.varchar("NVARCHAR2", 50)));
         assertEquals("TIMESTAMP(0)", mapper.map(DataType.simple("DATE")));
+        assertEquals("DATE", mapper.map(DataType.simple("DB2_DATE")));
         assertEquals("TIMESTAMP WITH TIME ZONE", mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
         assertEquals("VARBINARY(100)", mapper.map(DataType.varchar("RAW", 100)));
         assertEquals("BLOB", mapper.map(DataType.simple("LONG_RAW")));
         assertEquals("DBCLOB", mapper.map(DataType.simple("NCLOB")));
         assertEquals("SMALLINT", mapper.map(DataType.simple("BOOLEAN")));
+        assertEquals("ROWID", mapper.map(DataType.simple("DB2_ROWID")));
     }
 }

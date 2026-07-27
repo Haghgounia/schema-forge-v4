@@ -30,6 +30,11 @@ public interface Dialect {
 
     String sqlType(Column column);
 
+    /** Returns the active exact-numeric mapping policy for metadata comparison. */
+    default NumericMappingStrategy numericMappingStrategy() {
+        return NumericMappingStrategy.SAFE;
+    }
+
     String quote(Identifier identifier);
 
     default String name() {
@@ -95,6 +100,14 @@ public interface Dialect {
 
     default String indexTablespaceClause(String tablespace) {
         return tablespace == null || tablespace.isBlank() ? "" : " TABLESPACE " + tablespace.trim();
+    }
+
+    /**
+     * Whether primary-key and unique constraints require explicit unique enforcing indexes.
+     * Db2 for z/OS can leave a table definition incomplete when these indexes are absent.
+     */
+    default boolean requiresExplicitConstraintIndexes() {
+        return false;
     }
 
     default String primaryKeyConstraint(String constraintName, String tableName, String columns,

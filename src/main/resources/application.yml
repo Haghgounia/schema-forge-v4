@@ -77,3 +77,11 @@ schemaforge:
       username: postgres
       password: 123456
       driver-class-name: org.postgresql.Driver
+
+    # Disabled by default because IBM JCC is not bundled with the project.
+    db2zos:
+      enabled: ${SCHEMAFORGE_METADATA_DB2ZOS_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_DB2ZOS_URL:}
+      username: ${SCHEMAFORGE_METADATA_DB2ZOS_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD:}
+      driver-class-name: ${SCHEMAFORGE_METADATA_DB2ZOS_DRIVER:com.ibm.db2.jcc.DB2Driver}

@@ -1,6 +1,6 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, and Db2 for z/OS. DDL generation remains offline; optional Oracle/PostgreSQL metadata connections are used only for comparison workbooks.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, and Db2 for z/OS. DDL generation remains offline; optional Oracle, PostgreSQL, and Db2 for z/OS metadata connections are used only for validation and comparison workbooks.
 
 ```text
 one input.docx -> one JSON model + one SQL file per registered dialect
@@ -131,11 +131,12 @@ The same configuration is used by REST Word/ZIP/EA XML generation and the offlin
 
 ## Document-to-database Excel comparison
 
-When Oracle or PostgreSQL metadata is enabled and the exact document table already exists in the target database, the REST response ZIP also contains a comparison workbook:
+When metadata is enabled and the exact document table already exists in a target database, the REST response ZIP also contains a comparison workbook:
 
 ```text
 <SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.oracle.xlsx
 <SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.postgresql.xlsx
+<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.db2zos.xlsx
 ```
 
 The workbook preserves the established SchemaForge v3 22-column table sheet and adds database-object comparison sheets for keys and indexes. Metadata is read during the REST request and is not cached. If the table does not exist in a target database, the workbook for that database is omitted while SQL and JSON generation continue.
@@ -151,12 +152,21 @@ INDEXES_COMPARE
 UNIQUE_INDEXES_COMPARE
 ```
 
-Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle and PostgreSQL have JDBC metadata adapters. Db2 for z/OS DDL is generated now, while its production metadata adapter is deferred to the next phase.
+Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle, PostgreSQL, and Db2 for z/OS have JDBC metadata adapters. Db2 configuration is disabled by default and requires the IBM JCC driver at runtime.
 
 
 ## Db2 for z/OS core dialect
 
-Select the dialect with `db2zos` (aliases: `db2-zos`, `db2`, `zos`). The current core phase generates tables, columns, sequences, identity/generated columns, primary/unique/check/foreign-key constraints, indexes, comments, and grants. `TABLESPACE` is rendered as Db2 `IN <table-space>` or `IN <database>.<table-space>`. Db2 metadata comparison and JDBC execution validation are not yet enabled. See `docs/dialects/DB2-ZOS-DIALECT.md`.
+Select the dialect with `db2zos` (aliases: `db2-zos`, `db2`, `zos`). The current core phase generates tables, columns, sequences, identity/generated columns, primary/unique/check/foreign-key constraints, indexes, comments, and grants. `TABLESPACE` is rendered as Db2 `IN <table-space>` or `IN <database>.<table-space>`. Db2 primary and unique constraints now receive explicit unique enforcing indexes so explicitly managed table spaces do not leave incomplete table definitions. Db2 metadata comparison is available when configured. Offline preflight, a read-only connection probe, and an explicitly invoked disposable live integration test are documented in `docs/testing/DB2-ZOS-LIVE-VALIDATION.md`. See also `docs/dialects/DB2-ZOS-DIALECT.md` and `docs/dialects/DB2-ZOS-METADATA.md`.
+
+Enable live Db2 metadata comparison only after adding the organization-approved IBM JCC driver to the runtime classpath:
+
+```text
+SCHEMAFORGE_METADATA_DB2ZOS_ENABLED=true
+SCHEMAFORGE_METADATA_DB2ZOS_URL=jdbc:db2://db2-host:446/LOCATION
+SCHEMAFORGE_METADATA_DB2ZOS_USERNAME=SCHEMAFORGE
+SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD=change-me
+```
 
 ## Enterprise Architect XML/XMI input
 
@@ -168,6 +178,7 @@ postgresql/<schema>.<table>.postgresql.sql
 db2zos/<SCHEMA>.<TABLE>.db2zos.sql
 comparison/oracle/<SCHEMA>.<TABLE>.oracle.xlsx
 comparison/postgresql/<schema>.<table>.postgresql.xlsx
+comparison/db2zos/<SCHEMA>.<TABLE>.db2zos.xlsx
 oracle/run_all.sql
 postgresql/run_all.sql
 db2zos/run_all.sql
