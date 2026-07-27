@@ -119,6 +119,32 @@
     </build>
 
     <profiles>
+        <!-- Explicit SQL Server live integration-test execution; inactive during normal builds. -->
+        <profile>
+            <id>sqlserver-live</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/SqlServerLiveIT.java</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!--
           Optional local IBM JCC wiring for the explicitly invoked Db2 live integration test.
           The profile is inactive during normal builds and never downloads or redistributes JCC.

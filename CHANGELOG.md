@@ -10,7 +10,7 @@
 - Added Word/ZIP REST artifacts, EA per-table SQL artifacts, and SQLCMD-compatible `run_all.sql` files with the `.sqlserver` suffix.
 - Extended strategy-aware metadata type equivalence and SQL script parsing for SQL Server.
 - Added regression coverage for platform selection, capabilities, datatype mapping, identifiers, expressions, complete DDL, REST archives, EA archives, numeric equivalence, and statement parsing.
-- Kept SQL Server live metadata and execution validation explicitly deferred to the next phase.
+- Completed SQL Server live metadata and execution validation in the validation completion pack described below.
 
 ### Fixed
 - Corrected `Db2ZosOfflineDdlValidatorTest` to expect the four executable statements actually generated for one table with a primary key and one unique key: `CREATE TABLE`, primary-key enforcing index, unique constraint, and unique-key enforcing index.
@@ -234,3 +234,13 @@
 - Added `SqlServerConnectionProbeService` for read-only server/database/schema and catalog-access verification.
 - Added SQL Server repository, resolver, offline-validator and probe regression tests.
 - Added SQL Server metadata and validation documentation.
+
+## 2026-07-27 - Microsoft SQL Server live validation completion pack
+
+- Added `SqlServerValidationRunner` with separate `generate`, `probe`, and confirmation-gated `execute` modes.
+- Added deterministic CSV reports for SQL Server offline preflight and live JDBC execution results.
+- Added the explicitly invoked `SqlServerLiveIT`, excluded from normal test discovery, for disposable schema creation, generated-DDL execution, catalog verification, metadata round-trip, Excel `SAME` verification, and cleanup.
+- Covered table, column, primary key, foreign key, normal index with included columns, sequence, table descriptions, and column descriptions in the live verification model.
+- Added the inactive `sqlserver-live` Maven profile using Failsafe; normal unit and regression builds remain database-independent.
+- Replaced the deferred live-test notes with staged generate, probe, execute, and integration-test instructions in `docs/testing/SQL-SERVER-VALIDATION.md`.
+

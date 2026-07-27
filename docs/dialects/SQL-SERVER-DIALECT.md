@@ -129,6 +129,8 @@ The SQL Server completion pack also provides:
 
 - `SqlServerOfflineDdlValidator` for deterministic static checks
 - `SqlServerConnectionProbeService` for read-only driver, server, database, schema, and catalog verification
+- `SqlServerValidationRunner` for staged generate, probe, and confirmation-gated execute validation
+- `SqlServerLiveIT` for disposable-schema execution, metadata round-trip, and Excel `SAME` verification
 - strategy-aware numeric comparison for `DECIMAL` versus `SMALLINT`, `INT`, and `BIGINT`
 
 See `SQL-SERVER-METADATA.md` and `../testing/SQL-SERVER-VALIDATION.md`.
