@@ -82,6 +82,7 @@ public final class NumericTypeEquivalenceService {
         return switch (normalizeDatabase(database)) {
             case "POSTGRESQL" -> Optional.of(NumericIntegerProfiles.POSTGRESQL);
             case "DB2" -> Optional.of(NumericIntegerProfiles.DB2_ZOS);
+            case "SQLSERVER" -> Optional.of(NumericIntegerProfiles.SQL_SERVER);
             default -> Optional.empty();
         };
     }
@@ -108,6 +109,7 @@ public final class NumericTypeEquivalenceService {
         return switch (normalized) {
             case "POSTGRES", "POSTGRESQL" -> "POSTGRESQL";
             case "IBMDB2", "DB2", "DB2ZOS", "IBMDB2ZOS" -> "DB2";
+            case "MSSQL", "SQLSERVER", "MICROSOFTSQLSERVER" -> "SQLSERVER";
             default -> normalized;
         };
     }

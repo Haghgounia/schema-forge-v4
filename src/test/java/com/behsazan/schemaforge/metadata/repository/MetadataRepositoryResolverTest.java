@@ -26,7 +26,7 @@ class MetadataRepositoryResolverTest {
         Db2ZosMetadataRepository expected = mock(Db2ZosMetadataRepository.class);
         when(db2zos.getIfAvailable()).thenReturn(expected);
 
-        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos);
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos, provider());
 
         assertSame(expected, resolver.resolve(DatabasePlatform.DB2_ZOS));
     }
@@ -38,9 +38,30 @@ class MetadataRepositoryResolverTest {
         ObjectProvider<Db2ZosMetadataRepository> db2zos = provider();
         when(db2zos.getIfAvailable()).thenReturn(null);
 
-        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos);
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos, provider());
 
         assertFalse(resolver.resolve(DatabasePlatform.DB2_ZOS).available());
+    }
+
+    @Test
+    void resolvesSqlServerRepositoryWhenConfigured() {
+        ObjectProvider<SqlServerMetadataRepository> sqlserver = provider();
+        SqlServerMetadataRepository expected = mock(SqlServerMetadataRepository.class);
+        when(sqlserver.getIfAvailable()).thenReturn(expected);
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
+                provider(), provider(), provider(), sqlserver);
+
+        assertSame(expected, resolver.resolve(DatabasePlatform.SQLSERVER));
+    }
+
+    @Test
+    void returnsEmptyRepositoryWhenSqlServerMetadataIsDisabled() {
+        ObjectProvider<SqlServerMetadataRepository> sqlserver = provider();
+        when(sqlserver.getIfAvailable()).thenReturn(null);
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
+                provider(), provider(), provider(), sqlserver);
+
+        assertFalse(resolver.resolve(DatabasePlatform.SQLSERVER).available());
     }
 
     @SuppressWarnings("unchecked")

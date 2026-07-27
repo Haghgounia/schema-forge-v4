@@ -1,6 +1,6 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, and Db2 for z/OS. DDL generation remains offline; optional Oracle, PostgreSQL, and Db2 for z/OS metadata connections are used only for validation and comparison workbooks.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server metadata connections are used only for validation and comparison workbooks.
 
 ```text
 one input.docx -> one JSON model + one SQL file per registered dialect
@@ -39,7 +39,7 @@ Create outputs in a selected directory:
 java -jar target/schema-forge-v4-4.0.0-SNAPSHOT.jar input.docx output-directory
 ```
 
-No JDBC connection or database metadata lookup is performed during parsing, validation, or DDL generation.
+The offline CLI does not require a JDBC connection. REST metadata validation and comparison are activated only for explicitly enabled database adapters.
 
 ## Project documentation
 
@@ -47,17 +47,18 @@ Detailed project documentation is maintained under [`docs/`](docs/), including d
 
 ## V4 DBMS-neutral DDL refactoring
 
-`DdlGenerator` now contains only orchestration and canonical-model traversal. DBMS-specific rendering such as Oracle `USING INDEX`, `ENABLE`, `NOCACHE`, `NOCYCLE`, `NOORDER`, and `PROMPT` is implemented by `OracleDialect`. PostgreSQL uses the same generator through `PostgreSqlDialect` without Oracle syntax leakage.
+`DdlGenerator` now contains only orchestration and canonical-model traversal. DBMS-specific rendering such as Oracle `USING INDEX`, Db2 enforcing indexes, and SQL Server computed columns, filegroups, filtered indexes, and extended properties is delegated to the selected dialect. PostgreSQL, Db2 for z/OS, and SQL Server use the same generator without Oracle syntax leakage.
 
 ## DBMS selection (V4)
 
-The offline entry point supports Oracle, PostgreSQL, and Db2 for z/OS while preserving Oracle as the default:
+The offline entry point supports Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server while preserving Oracle as the default:
 
 ```text
 java -jar schema-forge.jar input.docx
 java -jar schema-forge.jar input.docx postgresql
 java -jar schema-forge.jar input.docx db2zos
-java -jar schema-forge.jar input.docx output-directory db2zos
+java -jar schema-forge.jar input.docx sqlserver
+java -jar schema-forge.jar input.docx output-directory sqlserver
 ```
 
 ## Timestamped output files
@@ -78,6 +79,7 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 <input>_yyyyMMdd_HHmmss_SSS.oracle.sql
 <input>_yyyyMMdd_HHmmss_SSS.postgresql.sql
 <input>_yyyyMMdd_HHmmss_SSS.db2zos.sql
+<input>_yyyyMMdd_HHmmss_SSS.sqlserver.sql
 ```
 
 ### Foreign-key reference flags
@@ -86,7 +88,7 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 - `SCHEMA.TABLE/Y` and `SCHEMA.TABLE/N`: qualified references with an explicit schema.
 - Spaces around the schema separator are tolerated because Word may expose `TIM. CALENDARS/N`.
 - The final `S` in plural table names such as `LANGUAGES`, `COUNTRIES`, and `CALENDARS` is part of the identifier, not a flag.
-- Oracle, PostgreSQL, and Db2 for z/OS DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
+- Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
 - Singular table names are preserved unchanged and receive `W:TABLE-PLURAL` only.
 
 ## Oracle storage defaults
@@ -137,6 +139,7 @@ When metadata is enabled and the exact document table already exists in a target
 <SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.oracle.xlsx
 <SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.postgresql.xlsx
 <SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.db2zos.xlsx
+<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.sqlserver.xlsx
 ```
 
 The workbook preserves the established SchemaForge v3 22-column table sheet and adds database-object comparison sheets for keys and indexes. Metadata is read during the REST request and is not cached. If the table does not exist in a target database, the workbook for that database is omitted while SQL and JSON generation continue.
@@ -152,7 +155,7 @@ INDEXES_COMPARE
 UNIQUE_INDEXES_COMPARE
 ```
 
-Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle, PostgreSQL, and Db2 for z/OS have JDBC metadata adapters. Db2 configuration is disabled by default and requires the IBM JCC driver at runtime.
+Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server have JDBC metadata adapters. Db2 configuration is disabled by default and requires the IBM JCC driver at runtime. SQL Server metadata is also disabled by default and uses the Microsoft JDBC driver from Maven Central.
 
 
 ## Db2 for z/OS core dialect
@@ -168,20 +171,36 @@ SCHEMAFORGE_METADATA_DB2ZOS_USERNAME=SCHEMAFORGE
 SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD=change-me
 ```
 
+## Microsoft SQL Server core dialect
+
+Select the dialect with `sqlserver` (aliases: `sql-server`, `mssql`, `sqlsrv`). The dialect generates sequences, tables, identity/computed columns, primary/unique/check/foreign-key constraints, included and filtered indexes, `MS_Description` extended properties, grants, REST artifacts, and EA per-table artifacts. `SAFE` numeric mapping preserves exact values as `DECIMAL`; `OPTIMIZED` uses lossless `SMALLINT`, `INT`, and `BIGINT` boundaries. Conditional live metadata, comparison workbooks, offline DDL validation, and a read-only connection/catalog probe are available. See `docs/dialects/SQL-SERVER-DIALECT.md`, `docs/dialects/SQL-SERVER-METADATA.md`, and `docs/testing/SQL-SERVER-VALIDATION.md`.
+
+Enable SQL Server metadata comparison with:
+
+```text
+SCHEMAFORGE_METADATA_SQLSERVER_ENABLED=true
+SCHEMAFORGE_METADATA_SQLSERVER_URL=jdbc:sqlserver://localhost:1433;databaseName=APPDB;encrypt=true;trustServerCertificate=true
+SCHEMAFORGE_METADATA_SQLSERVER_USERNAME=sa
+SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
+```
+
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, and Db2 for z/OS SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, and SQL Server SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
 
 ```text
 oracle/<SCHEMA>.<TABLE>.oracle.sql
 postgresql/<schema>.<table>.postgresql.sql
 db2zos/<SCHEMA>.<TABLE>.db2zos.sql
+sqlserver/<SCHEMA>.<TABLE>.sqlserver.sql
 comparison/oracle/<SCHEMA>.<TABLE>.oracle.xlsx
 comparison/postgresql/<schema>.<table>.postgresql.xlsx
 comparison/db2zos/<SCHEMA>.<TABLE>.db2zos.xlsx
+comparison/sqlserver/<SCHEMA>.<TABLE>.sqlserver.xlsx
 oracle/run_all.sql
 postgresql/run_all.sql
 db2zos/run_all.sql
+sqlserver/run_all.sql
 model.json
 manifest.json
 ```

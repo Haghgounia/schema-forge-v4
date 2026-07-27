@@ -353,6 +353,7 @@ public class SchemaForgeApiService {
                 case ORACLE -> script.append("@@").append(fileName);
                 case POSTGRESQL -> script.append("\\ir ").append(fileName);
                 case DB2_ZOS -> script.append("-- Execute in this order: ").append(fileName);
+                case SQLSERVER -> script.append(":r ").append(fileName);
             }
             script.append(System.lineSeparator());
         }

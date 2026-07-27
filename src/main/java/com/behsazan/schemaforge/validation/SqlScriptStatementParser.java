@@ -51,6 +51,7 @@ public final class SqlScriptStatementParser {
                         || trimmed.equals("/");
                 case POSTGRESQL -> trimmed.startsWith("\\");
                 case DB2_ZOS -> false;
+                case SQLSERVER -> trimmed.startsWith(":") || trimmed.equalsIgnoreCase("GO");
             };
             if (!skip) {
                 result.append(line).append(System.lineSeparator());

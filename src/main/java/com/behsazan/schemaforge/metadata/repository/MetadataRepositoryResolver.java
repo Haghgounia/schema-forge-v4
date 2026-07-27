@@ -14,13 +14,16 @@ public class MetadataRepositoryResolver {
     private final ObjectProvider<OracleMetadataRepository> oracle;
     private final ObjectProvider<PostgreSqlMetadataRepository> postgresql;
     private final ObjectProvider<Db2ZosMetadataRepository> db2zos;
+    private final ObjectProvider<SqlServerMetadataRepository> sqlserver;
 
     public MetadataRepositoryResolver(ObjectProvider<OracleMetadataRepository> oracle,
                                       ObjectProvider<PostgreSqlMetadataRepository> postgresql,
-                                      ObjectProvider<Db2ZosMetadataRepository> db2zos) {
+                                      ObjectProvider<Db2ZosMetadataRepository> db2zos,
+                                      ObjectProvider<SqlServerMetadataRepository> sqlserver) {
         this.oracle = oracle;
         this.postgresql = postgresql;
         this.db2zos = db2zos;
+        this.sqlserver = sqlserver;
     }
 
     public MetadataRepository resolve(DatabasePlatform platform) {
@@ -28,6 +31,7 @@ public class MetadataRepositoryResolver {
             case ORACLE -> oracle.getIfAvailable();
             case POSTGRESQL -> postgresql.getIfAvailable();
             case DB2_ZOS -> db2zos.getIfAvailable();
+            case SQLSERVER -> sqlserver.getIfAvailable();
         };
         return repository == null ? MetadataRepository.empty() : repository;
     }

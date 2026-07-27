@@ -22,6 +22,8 @@
 - [Db2 for z/OS core dialect](dialects/DB2-ZOS-DIALECT.md)
 - [Db2 for z/OS numeric mapping](dialects/DB2-ZOS-NUMERIC-MAPPING.md)
 - [Db2 for z/OS metadata comparison](dialects/DB2-ZOS-METADATA.md)
+- [Microsoft SQL Server core dialect](dialects/SQL-SERVER-DIALECT.md)
+- [Microsoft SQL Server metadata comparison](dialects/SQL-SERVER-METADATA.md)
 
 ## Testing and validation
 
@@ -29,6 +31,7 @@
 - [Dual-database directory generation](testing/DIRECTORY-DUAL-DATABASE-GENERATION.md)
 - [DDL execution validation](testing/DDL-EXECUTION-VALIDATION.md)
 - [Validation warning abbreviations](testing/VALIDATION-WARNING-ABBREVIATIONS.md)
+- [Microsoft SQL Server validation](testing/SQL-SERVER-VALIDATION.md)
 
 ## Existing project documents
 

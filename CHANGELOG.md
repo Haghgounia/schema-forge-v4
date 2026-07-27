@@ -1,6 +1,17 @@
 
 ## Unreleased
 
+### Added - Microsoft SQL Server core dialect
+
+- Registered `SQLSERVER` with command name `sqlserver` and aliases `sql-server`, `mssql`, and `sqlsrv`.
+- Added `SqlServerDialect`, `SqlServerTypeMapper`, `SqlServerIdentifierRenderer`, and `SqlServerExpressionMapper`.
+- Added `SAFE` exact numeric mapping and `OPTIMIZED` lossless `SMALLINT`/`INT`/`BIGINT` mapping through the shared numeric strategy.
+- Added SQL Server sequences, `IDENTITY(1,1)`, computed columns, primary/unique/check/foreign-key constraints, included and filtered indexes, filegroup placement, extended-property comments, and grants.
+- Added Word/ZIP REST artifacts, EA per-table SQL artifacts, and SQLCMD-compatible `run_all.sql` files with the `.sqlserver` suffix.
+- Extended strategy-aware metadata type equivalence and SQL script parsing for SQL Server.
+- Added regression coverage for platform selection, capabilities, datatype mapping, identifiers, expressions, complete DDL, REST archives, EA archives, numeric equivalence, and statement parsing.
+- Kept SQL Server live metadata and execution validation explicitly deferred to the next phase.
+
 ### Fixed
 - Corrected `Db2ZosOfflineDdlValidatorTest` to expect the four executable statements actually generated for one table with a primary key and one unique key: `CREATE TABLE`, primary-key enforcing index, unique constraint, and unique-key enforcing index.
 - The production DB2 z/OS DDL generator and offline validator were already correct; only the test statement-count assertion was wrong.
@@ -211,3 +222,15 @@
 - Added an inactive `db2zos-live` Maven profile that accepts a local organization-approved JCC JAR without bundling or redistributing it.
 - Added complete staged live-validation instructions in `docs/testing/DB2-ZOS-LIVE-VALIDATION.md`.
 
+
+## 2026-07-27 - Microsoft SQL Server metadata and validation phase
+
+- Added conditional `SqlServerMetadataRepository` and `JdbcSqlServerMetadataRepository` implementations.
+- Added live reads from SQL Server `sys.*` catalog views for tables, columns, defaults, identity/computed columns, descriptions, PK/UK/FK/check constraints, rowstore indexes, include columns, filters and filegroups.
+- Connected SQL Server to `MetadataRepositoryResolver`, REST comparison workbooks and EA per-table comparison output.
+- Added SQL Server metadata datasource configuration and the Microsoft JDBC driver runtime dependency.
+- Preserved SQL Server-native `date`, `rowversion`, max-length types and temporal scale zero in the canonical metadata model.
+- Added `SqlServerOfflineDdlValidator` for datatype limits, delimiter checks, statement-family checks and foreign-dialect leakage.
+- Added `SqlServerConnectionProbeService` for read-only server/database/schema and catalog-access verification.
+- Added SQL Server repository, resolver, offline-validator and probe regression tests.
+- Added SQL Server metadata and validation documentation.

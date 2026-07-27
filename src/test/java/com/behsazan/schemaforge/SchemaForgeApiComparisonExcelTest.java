@@ -51,6 +51,8 @@ class SchemaForgeApiComparisonExcelTest {
             "DPS\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.xlsx");
     private static final Pattern DB2_ZOS_COMPARE = Pattern.compile(
             "DPS\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.xlsx");
+    private static final Pattern SQLSERVER_COMPARE = Pattern.compile(
+            "DPS\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.xlsx");
 
     @Test
     void shouldAddComparisonWorkbookForEachDatabaseWhenTableAlreadyExists() throws Exception {
@@ -94,7 +96,7 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(7, entries.size());
+        assertEquals(9, entries.size());
 
         String oracleName = entries.keySet().stream().filter(name -> ORACLE_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();
@@ -102,10 +104,13 @@ class SchemaForgeApiComparisonExcelTest {
                 .findFirst().orElseThrow();
         String db2ZosName = entries.keySet().stream().filter(name -> DB2_ZOS_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();
+        String sqlServerName = entries.keySet().stream().filter(name -> SQLSERVER_COMPARE.matcher(name).matches())
+                .findFirst().orElseThrow();
 
         verifyWorkbook(entries.get(oracleName));
         verifyWorkbook(entries.get(postgresqlName));
         verifyWorkbook(entries.get(db2ZosName));
+        verifyWorkbook(entries.get(sqlServerName));
     }
 
     private static void verifyWorkbook(byte[] content) throws Exception {

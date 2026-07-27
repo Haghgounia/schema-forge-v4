@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.behsazan.schemaforge.specification.validation.spelling.LanguageToolSpellCheckServiceTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.622 s -- in com.behsazan.schemaforge.specification.validation.spelling.LanguageToolSpellCheckServiceTest

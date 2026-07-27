@@ -56,6 +56,19 @@ public class MetadataDataSourceConfiguration {
         return new NamedParameterJdbcTemplate(dataSource);
     }
 
+    @Bean("sqlServerMetadataDataSource")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.sqlserver", name = "enabled", havingValue = "true")
+    DataSource sqlServerMetadataDataSource(MetadataProperties properties) {
+        return create(properties.getSqlserver(), "SQL Server");
+    }
+
+    @Bean("sqlServerMetadataJdbcTemplate")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.sqlserver", name = "enabled", havingValue = "true")
+    NamedParameterJdbcTemplate sqlServerMetadataJdbcTemplate(
+            @Qualifier("sqlServerMetadataDataSource") DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
     private static DataSource create(MetadataProperties.Database properties, String databaseName) {
         require(properties.getUrl(), databaseName + " metadata URL");
         require(properties.getUsername(), databaseName + " metadata username");

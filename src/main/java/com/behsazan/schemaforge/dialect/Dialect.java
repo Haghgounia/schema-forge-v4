@@ -45,6 +45,16 @@ public interface Dialect {
         return ";";
     }
 
+    /** Whether a generated/computed column keeps the canonical datatype in its definition. */
+    default boolean generatedColumnIncludesDataType() {
+        return true;
+    }
+
+    /** Whether a generated/computed column may carry an explicit NOT NULL clause. */
+    default boolean generatedColumnIncludesNullability() {
+        return true;
+    }
+
     default String generatedColumnClause(Column column) {
         return " AS (" + column.generatedExpression() + ")";
     }
@@ -68,6 +78,11 @@ public interface Dialect {
 
     default String sequenceCycleClause(boolean cycle) {
         return cycle ? " CYCLE" : " NO CYCLE";
+    }
+
+    /** Renders cache/cycle options in the order required by the target database. */
+    default String sequenceOptions(Integer cacheSize, boolean cycle) {
+        return sequenceCacheClause(cacheSize) + sequenceCycleClause(cycle);
     }
 
     default String sequenceTail() {
@@ -100,6 +115,13 @@ public interface Dialect {
 
     default String indexTablespaceClause(String tablespace) {
         return tablespace == null || tablespace.isBlank() ? "" : " TABLESPACE " + tablespace.trim();
+    }
+
+    /** Renders an index name in the namespace required by the target database. */
+    default String qualifyIndexName(QualifiedName tableName, String renderedIndexName) {
+        return tableName.schemaName()
+                .map(schema -> quote(schema) + "." + renderedIndexName)
+                .orElse(renderedIndexName);
     }
 
     /**
@@ -143,6 +165,16 @@ public interface Dialect {
         return " WHERE " + expression(predicate);
     }
 
+    /**
+     * Renders the optional tail of CREATE INDEX. Vendors differ in the required
+     * ordering of INCLUDE, filter predicates and physical placement clauses.
+     */
+    default String indexTail(String includeColumns, String indexTablespace, String predicate) {
+        return indexIncludeClause(includeColumns)
+                + indexTablespaceClause(indexTablespace)
+                + partialIndexClause(predicate);
+    }
+
     /** Renders a referential action, including the leading blank and clause name. */
     default String referentialActionClause(String clause, ReferentialAction action) {
         if (action == null || action == ReferentialAction.NO_ACTION) {
@@ -156,6 +188,26 @@ public interface Dialect {
             case NO_ACTION -> "NO ACTION";
         };
         return " " + clause + " " + renderedAction;
+    }
+
+    default String tableCommentStatement(QualifiedName tableName, String comment) {
+        return "COMMENT ON TABLE " + qualifiedName(tableName)
+                + " IS '" + escapeLiteral(comment) + "'" + statementTerminator();
+    }
+
+    default String columnCommentStatement(QualifiedName tableName, Identifier columnName, String comment) {
+        return "COMMENT ON COLUMN " + qualifiedName(tableName) + "." + quote(columnName)
+                + " IS '" + escapeLiteral(comment) + "'" + statementTerminator();
+    }
+
+    private String qualifiedName(QualifiedName name) {
+        return name.schemaName()
+                .map(schema -> quote(schema) + "." + quote(name.name()))
+                .orElseGet(() -> quote(name.name()));
+    }
+
+    private String escapeLiteral(String value) {
+        return value.replace("'", "''");
     }
 
     default String scriptPreamble(String source, String schemaName) {

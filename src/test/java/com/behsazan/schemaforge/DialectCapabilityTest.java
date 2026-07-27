@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
+import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,6 +25,7 @@ class DialectCapabilityTest {
         OracleDialect oracle = new OracleDialect();
         PostgreSqlDialect postgreSql = new PostgreSqlDialect();
         Db2ZosDialect db2Zos = new Db2ZosDialect();
+        SqlServerDialect sqlServer = new SqlServerDialect();
 
         // PostgreSQL
         for (DialectFeature feature : DialectFeature.values()) {
@@ -57,5 +59,17 @@ class DialectCapabilityTest {
         assertFalse(db2Zos.supportedFeatures().contains(DialectFeature.INDEX_INCLUDE));
         assertFalse(db2Zos.supportedFeatures().contains(DialectFeature.PARTIAL_INDEX));
         assertFalse(db2Zos.supportedFeatures().contains(DialectFeature.DEFERRABLE_CONSTRAINT));
+
+        // Microsoft SQL Server core scope
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.SEQUENCE));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.IDENTITY_COLUMN));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.GENERATED_COLUMN));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.TABLE_COMMENT));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.COLUMN_COMMENT));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.GRANT));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.INDEX_INCLUDE));
+        assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.PARTIAL_INDEX));
+        assertFalse(sqlServer.supportedFeatures().contains(DialectFeature.EXPRESSION_INDEX));
+        assertFalse(sqlServer.supportedFeatures().contains(DialectFeature.DEFERRABLE_CONSTRAINT));
     }
 }

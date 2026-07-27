@@ -18,7 +18,7 @@ OpenAPI JSON: `http://localhost:9090/v3/api-docs`
 - `POST /api/v1/generate/zip` — multipart field `file`, one `.zip` containing `.docx` files
 - `POST /api/v1/generate/ea-xml` — multipart field `file`, one EA `.xml` or `.xmi`
 
-Every endpoint returns an `application/zip`. Word and Word-ZIP inputs keep the timestamped document-level output. EA XML/XMI input produces one Oracle and one PostgreSQL SQL file per table, consolidated `model.json` and `manifest.json`, dialect-specific `run_all.sql` files, and one comparison workbook per visible database table and dialect.
+Every endpoint returns an `application/zip`. Word and Word-ZIP inputs keep the timestamped document-level output and include Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL. EA XML/XMI input produces one SQL file per table for all four registered dialects, consolidated `model.json` and `manifest.json`, dialect-specific `run_all.sql` files, and one comparison workbook per visible database table and metadata-enabled dialect.
 
 ## Enterprise Architect XML/XMI
 
@@ -32,4 +32,4 @@ schemaforge:
 
 The value may also be supplied with the `SCHEMAFORGE_EA_DEFAULT_SCHEMA` environment variable. An explicit EA schema/owner tagged value takes precedence over the configured fallback.
 
-The EA importer reads table classes, ordered columns, datatype/length/precision/scale, nullability, descriptions, primary keys, foreign keys and standalone indexes. All imported objects enter the same canonical model used by Word input, so Oracle/PostgreSQL DDL, JSON, validation and Excel comparison remain database-neutral.
+The EA importer reads table classes, ordered columns, datatype/length/precision/scale, nullability, descriptions, primary keys, foreign keys and standalone indexes. All imported objects enter the same canonical model used by Word input, so Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL share the same database-neutral JSON and validation pipeline. Comparison workbooks are produced only for dialects with an available metadata repository.

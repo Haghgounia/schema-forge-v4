@@ -30,6 +30,19 @@ class NumericTypeEquivalenceServiceTest {
                 "DB2-ZOS", "BIGINT", "DECIMAL(18,0)", NumericMappingStrategy.OPTIMIZED));
     }
 
+
+    @Test
+    void shouldRecognizeSqlServerOptimizedIntegerMappings() {
+        assertTrue(equivalence.equivalent(
+                "SQLServer", "DECIMAL(4,0)", "SMALLINT", NumericMappingStrategy.OPTIMIZED));
+        assertTrue(equivalence.equivalent(
+                "MSSQL", "NUMERIC(9)", "INT", NumericMappingStrategy.OPTIMIZED));
+        assertTrue(equivalence.equivalent(
+                "Microsoft SQL Server", "BIGINT", "DECIMAL(18,0)", NumericMappingStrategy.OPTIMIZED));
+        assertFalse(equivalence.equivalent(
+                "SQLServer", "DECIMAL(10,0)", "INT", NumericMappingStrategy.OPTIMIZED));
+    }
+
     @Test
     void shouldKeepUnsafeOrUnrelatedTypesDifferent() {
         assertFalse(equivalence.equivalent(

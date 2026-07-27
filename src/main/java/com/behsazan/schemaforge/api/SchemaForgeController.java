@@ -26,7 +26,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/v1/generate")
-@Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, and Db2 for z/OS DDL from Word, ZIP, or Enterprise Architect XML/XMI")
+@Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL from Word, ZIP, or Enterprise Architect XML/XMI")
 public class SchemaForgeController {
     private static final DateTimeFormatter ARCHIVE_TIME =
             DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss_SSS", Locale.ROOT);

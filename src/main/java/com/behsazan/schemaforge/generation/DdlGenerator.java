@@ -143,8 +143,7 @@ public final class DdlGenerator {
                 .append(" INCREMENT BY ").append(sequence.incrementBy());
         if (sequence.maxValue() != null) sql.append(" MAXVALUE ").append(sequence.maxValue());
         if (sequence.minValue() != null) sql.append(" MINVALUE ").append(sequence.minValue());
-        sql.append(dialect.sequenceCacheClause(sequence.cacheSize()));
-        sql.append(dialect.sequenceCycleClause(sequence.cycle()));
+        sql.append(dialect.sequenceOptions(sequence.cacheSize(), sequence.cycle()));
         sql.append(dialect.sequenceTail());
         return sql.append(dialect.statementTerminator()).toString();
     }
@@ -190,8 +189,10 @@ public final class DdlGenerator {
         if (metadataAvailable) {
             sql.append("/* ").append(String.format(Locale.ROOT, "%3d", metadataFrequency)).append("*/  ");
         }
-        sql.append(dialect.quote(column.name())).append(" ")
-                .append(dialect.sqlType(column));
+        sql.append(dialect.quote(column.name()));
+        if (!column.generated() || dialect.generatedColumnIncludesDataType()) {
+            sql.append(" ").append(dialect.sqlType(column));
+        }
         if (column.generated()) {
             dialect.require(DialectFeature.GENERATED_COLUMN);
             sql.append(dialect.generatedColumnClause(column));
@@ -205,7 +206,10 @@ public final class DdlGenerator {
         } else if (column.defaultValue().isPresent()) {
             sql.append(dialect.defaultClause(column));
         }
-        if (!column.nullable()) sql.append(" NOT NULL");
+        if (!column.nullable()
+                && (!column.generated() || dialect.generatedColumnIncludesNullability())) {
+            sql.append(" NOT NULL");
+        }
         return sql.toString();
     }
 
@@ -218,7 +222,7 @@ public final class DdlGenerator {
                         .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName())));
         String tableName = qualifiedName(table.qualifiedName());
         String columns = identifiers(primaryKey.columns());
-        String qualifiedIndexName = qualifyLikeTable(table, constraintName);
+        String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), constraintName);
         return dialect.primaryKeyConstraint(
                 constraintName, tableName, columns, qualifiedIndexName, indexTablespace, primaryKey.deferrable(), primaryKey.initiallyDeferred());
     }
@@ -248,7 +252,7 @@ public final class DdlGenerator {
     private String createEnforcingUniqueIndex(Table table, String indexName, List<Identifier> columns) {
         String indexTablespace = option(table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
-        return "CREATE UNIQUE INDEX " + qualifyLikeTable(table, indexName)
+        return "CREATE UNIQUE INDEX " + dialect.qualifyIndexName(table.qualifiedName(), indexName)
                 + " ON " + qualifiedName(table.qualifiedName())
                 + "(" + identifiers(columns) + ")"
                 + dialect.indexTablespaceClause(indexTablespace)
@@ -273,7 +277,7 @@ public final class DdlGenerator {
         String tableName = qualifiedName(table.qualifiedName());
         String indexTablespace = option(table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
-        String qualifiedIndexName = qualifyLikeTable(table, name);
+        String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), name);
         return dialect.uniqueConstraint(name, tableName, columns, qualifiedIndexName, indexTablespace, unique.deferrable(), unique.initiallyDeferred());
     }
 
@@ -314,17 +318,13 @@ public final class DdlGenerator {
         String unique = index.type() == IndexType.UNIQUE ? "UNIQUE " : "";
         String columns = index.columns().stream().map(this::indexColumn).collect(Collectors.joining(","));
         StringBuilder sql = new StringBuilder("CREATE ").append(unique).append("INDEX ")
-                .append(qualifyLikeTable(table, name)).append(" ON ")
+                .append(dialect.qualifyIndexName(table.qualifiedName(), name)).append(" ON ")
                 .append(qualifiedName(table.qualifiedName())).append("(").append(columns).append(")");
-        if (!index.includeColumns().isEmpty()) {
-            sql.append(dialect.indexIncludeClause(identifiers(index.includeColumns())));
-        }
+        String includeColumns = index.includeColumns().isEmpty()
+                ? null : identifiers(index.includeColumns());
         String indexTablespace = option(table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
-        sql.append(dialect.indexTablespaceClause(indexTablespace));
-        if (index.predicate() != null) {
-            sql.append(dialect.partialIndexClause(index.predicate()));
-        }
+        sql.append(dialect.indexTail(includeColumns, indexTablespace, index.predicate()));
         return sql.append(dialect.statementTerminator()).toString();
     }
 
@@ -341,16 +341,16 @@ public final class DdlGenerator {
 
     private void addComments(List<String> statements, Table table) {
         if (dialect.supports(DialectFeature.TABLE_COMMENT) && !table.description().isEmpty()) {
-            statements.add("COMMENT ON TABLE " + qualifiedName(table.qualifiedName())
-                    + " IS '" + escapeLiteral(table.description().value()) + "'" + dialect.statementTerminator());
+            statements.add(dialect.tableCommentStatement(
+                    table.qualifiedName(), table.description().value()));
         }
         if (!dialect.supports(DialectFeature.COLUMN_COMMENT)) {
             return;
         }
         for (Column column : table.columns()) {
             if (!column.description().isEmpty()) {
-                statements.add("COMMENT ON COLUMN " + qualifiedName(table.qualifiedName()) + "." + dialect.quote(column.name())
-                        + " IS '" + escapeLiteral(column.description().value()) + "'" + dialect.statementTerminator());
+                statements.add(dialect.columnCommentStatement(
+                        table.qualifiedName(), column.name(), column.description().value()));
             }
         }
     }
@@ -477,12 +477,6 @@ public final class DdlGenerator {
                 .orElseGet(() -> dialect.quote(name.name()));
     }
 
-    private String qualifyLikeTable(Table table, String objectName) {
-        return table.qualifiedName().schemaName()
-                .map(schema -> dialect.quote(schema) + "." + objectName)
-                .orElse(objectName);
-    }
-
     private String identifiers(List<Identifier> identifiers) {
         return identifiers.stream().map(dialect::quote).collect(Collectors.joining(","));
     }
@@ -497,7 +491,4 @@ public final class DdlGenerator {
                 .collect(Collectors.joining("_"));
     }
 
-    private String escapeLiteral(String value) {
-        return value.replace("'", "''");
-    }
 }

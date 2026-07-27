@@ -40,4 +40,18 @@ class SqlScriptStatementParserTest {
 
         assertEquals(List.of("CREATE TABLE TEST_TABLE(ID NUMBER)"), statements);
     }
+    @Test
+    void shouldRemoveSqlServerSqlCmdCommandsAndBatchSeparators() {
+        String script = ":r child.sql\n"
+                + "CREATE TABLE TEST_TABLE(ID INT);\n"
+                + "GO\n"
+                + "INSERT INTO TEST_TABLE VALUES (1);\n";
+
+        List<String> statements = parser.parse(script, DatabasePlatform.SQLSERVER);
+
+        assertEquals(List.of(
+                "CREATE TABLE TEST_TABLE(ID INT)",
+                "INSERT INTO TEST_TABLE VALUES (1)"), statements);
+    }
+
 }

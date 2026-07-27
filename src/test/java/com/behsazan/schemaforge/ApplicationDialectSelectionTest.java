@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
+import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -35,6 +36,9 @@ class ApplicationDialectSelectionTest {
         assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("db2zos"));
         assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("db2-zos"));
         assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("DB2"));
+        assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("sqlserver"));
+        assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("sql-server"));
+        assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("MSSQL"));
         assertThrows(IllegalArgumentException.class, () -> DatabasePlatform.parse("mysql"));
     }
 
@@ -43,6 +47,7 @@ class ApplicationDialectSelectionTest {
         assertInstanceOf(OracleDialect.class, DialectFactory.create(DatabasePlatform.ORACLE));
         assertInstanceOf(PostgreSqlDialect.class, DialectFactory.create(DatabasePlatform.POSTGRESQL));
         assertInstanceOf(Db2ZosDialect.class, DialectFactory.create(DatabasePlatform.DB2_ZOS));
+        assertInstanceOf(SqlServerDialect.class, DialectFactory.create(DatabasePlatform.SQLSERVER));
     }
 
     @Test

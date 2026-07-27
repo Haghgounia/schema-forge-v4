@@ -12,10 +12,12 @@ public class MetadataProperties {
     private final Database oracle = new Database();
     private final Database postgresql = new Database();
     private final Database db2zos = new Database();
+    private final Database sqlserver = new Database();
 
     public Database getOracle() { return oracle; }
     public Database getPostgresql() { return postgresql; }
     public Database getDb2zos() { return db2zos; }
+    public Database getSqlserver() { return sqlserver; }
 
     public static class Database {
         private boolean enabled;
