@@ -6,7 +6,8 @@ import java.util.Locale;
 /** Database engines currently supported by SchemaForge DDL generation. */
 public enum DatabasePlatform {
     ORACLE("oracle", "ora"),
-    POSTGRESQL("postgresql", "postgres", "pg");
+    POSTGRESQL("postgresql", "postgres", "pg"),
+    DB2_ZOS("db2zos", "db2-zos", "db2", "zos");
 
     private final String[] aliases;
 
@@ -28,6 +29,6 @@ public enum DatabasePlatform {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unsupported database platform: " + value
-                                + ". Supported values: oracle, postgresql"));
+                                + ". Supported values: oracle, postgresql, db2zos"));
     }
 }

@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.dialect;
 
+import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
@@ -127,6 +128,21 @@ public interface Dialect {
         if (predicate == null || predicate.isBlank()) return "";
         require(DialectFeature.PARTIAL_INDEX);
         return " WHERE " + expression(predicate);
+    }
+
+    /** Renders a referential action, including the leading blank and clause name. */
+    default String referentialActionClause(String clause, ReferentialAction action) {
+        if (action == null || action == ReferentialAction.NO_ACTION) {
+            return "";
+        }
+        String renderedAction = switch (action) {
+            case RESTRICT -> "RESTRICT";
+            case CASCADE -> "CASCADE";
+            case SET_NULL -> "SET NULL";
+            case SET_DEFAULT -> "SET DEFAULT";
+            case NO_ACTION -> "NO ACTION";
+        };
+        return " " + clause + " " + renderedAction;
     }
 
     default String scriptPreamble(String source, String schemaName) {

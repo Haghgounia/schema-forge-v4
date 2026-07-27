@@ -68,20 +68,26 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(8, entries.size());
+        assertEquals(11, entries.size());
         assertTrue(entries.containsKey("model.json"));
         assertTrue(entries.containsKey("manifest.json"));
         assertTrue(entries.containsKey("oracle/FEE.REGULATORY_RULE.oracle.sql"));
         assertTrue(entries.containsKey("oracle/FEE.FEE_VERSION.oracle.sql"));
         assertTrue(entries.containsKey("postgresql/fee.regulatory_rule.postgresql.sql"));
         assertTrue(entries.containsKey("postgresql/fee.fee_version.postgresql.sql"));
+        assertTrue(entries.containsKey("db2zos/FEE.REGULATORY_RULE.db2zos.sql"));
+        assertTrue(entries.containsKey("db2zos/FEE.FEE_VERSION.db2zos.sql"));
         assertTrue(entries.containsKey("oracle/run_all.sql"));
         assertTrue(entries.containsKey("postgresql/run_all.sql"));
+        assertTrue(entries.containsKey("db2zos/run_all.sql"));
         assertFalse(entries.keySet().stream().anyMatch(name -> name.matches("ea-sample_.*\\.oracle\\.sql")));
 
         String oracleRunAll = new String(entries.get("oracle/run_all.sql"), StandardCharsets.UTF_8);
         assertTrue(oracleRunAll.indexOf("FEE.FEE_VERSION.oracle.sql")
                 < oracleRunAll.indexOf("FEE.REGULATORY_RULE.oracle.sql"));
+        String db2ZosRunAll = new String(entries.get("db2zos/run_all.sql"), StandardCharsets.UTF_8);
+        assertTrue(db2ZosRunAll.indexOf("FEE.FEE_VERSION.db2zos.sql")
+                < db2ZosRunAll.indexOf("FEE.REGULATORY_RULE.db2zos.sql"));
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         assertEquals(2, manifest.path("tableCount").asInt());
@@ -128,11 +134,13 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(12, entries.size());
+        assertEquals(17, entries.size());
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.fee_version.postgresql.xlsx"));
+        assertTrue(entries.containsKey("comparison/db2zos/FEE.REGULATORY_RULE.db2zos.xlsx"));
+        assertTrue(entries.containsKey("comparison/db2zos/FEE.FEE_VERSION.db2zos.xlsx"));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {

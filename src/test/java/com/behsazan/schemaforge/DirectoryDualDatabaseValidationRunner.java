@@ -83,8 +83,11 @@ public final class DirectoryDualDatabaseValidationRunner {
         JdbcDdlValidationService validationService = new JdbcDdlValidationService();
         List<DdlValidationResult> results = new ArrayList<>();
 
+        List<DatabasePlatform> validationPlatforms = List.of(
+                DatabasePlatform.ORACLE,
+                DatabasePlatform.POSTGRESQL);
         for (Path document : documents) {
-            for (DatabasePlatform platform : DatabasePlatform.values()) {
+            for (DatabasePlatform platform : validationPlatforms) {
                 GenerationOutput generated = generationService.generate(document, output, platform);
                 if (!generated.valid()) {
                     results.add(new DdlValidationResult(document, generated.sqlFile(), platform,

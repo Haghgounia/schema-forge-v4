@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.application;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 
@@ -17,6 +18,7 @@ public final class DialectFactory {
         return switch (platform) {
             case ORACLE -> new OracleDialect();
             case POSTGRESQL -> new PostgreSqlDialect(resolveNumericMappingStrategy());
+            case DB2_ZOS -> new Db2ZosDialect(resolveNumericMappingStrategy());
         };
     }
 

@@ -2,6 +2,7 @@ package com.behsazan.schemaforge;
 
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
+import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,9 @@ class ApplicationDialectSelectionTest {
         assertEquals(DatabasePlatform.POSTGRESQL, DatabasePlatform.parse("postgresql"));
         assertEquals(DatabasePlatform.POSTGRESQL, DatabasePlatform.parse("postgres"));
         assertEquals(DatabasePlatform.POSTGRESQL, DatabasePlatform.parse("PG"));
+        assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("db2zos"));
+        assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("db2-zos"));
+        assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("DB2"));
         assertThrows(IllegalArgumentException.class, () -> DatabasePlatform.parse("mysql"));
     }
 
@@ -38,6 +42,7 @@ class ApplicationDialectSelectionTest {
     void shouldCreateTheRequestedDialect() {
         assertInstanceOf(OracleDialect.class, DialectFactory.create(DatabasePlatform.ORACLE));
         assertInstanceOf(PostgreSqlDialect.class, DialectFactory.create(DatabasePlatform.POSTGRESQL));
+        assertInstanceOf(Db2ZosDialect.class, DialectFactory.create(DatabasePlatform.DB2_ZOS));
     }
 
     @Test

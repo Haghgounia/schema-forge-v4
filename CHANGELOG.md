@@ -162,4 +162,16 @@
 - SAFE mapping preserves exact numbers as `DECIMAL(p,s)`.
 - OPTIMIZED mapping uses `SMALLINT`, `INTEGER` and `BIGINT` at lossless precision boundaries.
 - Added explicit rejection for unbounded NUMBER and precision above the Db2 z/OS DECIMAL limit of 31.
-- Db2 is not yet registered in `DatabasePlatform`; full dialect integration is the next step.
+- This foundation is now followed by the registered core dialect integration below.
+
+## 2026-07-27 - Db2 for z/OS core dialect integration
+
+- Registered `DB2_ZOS` with command name `db2zos` and aliases `db2-zos`, `db2`, and `zos`.
+- Added `Db2ZosDialect`, identifier rendering, expression conversion, and common Oracle-to-Db2 datatype mapping.
+- Connected Db2 output to CLI, REST Word/ZIP generation, and EA per-table generation.
+- Added Db2 SQL and comparison-workbook artifact naming using the `.db2zos` suffix.
+- Added Db2 table placement through `IN TABLESPACE` and `IN DATABASE.TABLESPACE`.
+- Added Db2-aware foreign-key action handling and rejection of unsupported update/delete rules.
+- Added regression coverage for type mapping, identifiers, expressions, capabilities, complete DDL, REST archives, and EA archives.
+- Kept the existing dual Oracle/PostgreSQL JDBC validation runner explicitly dual; Db2 execution validation is deferred.
+- Db2 catalog metadata access remains unavailable in production and resolves to the empty metadata repository.

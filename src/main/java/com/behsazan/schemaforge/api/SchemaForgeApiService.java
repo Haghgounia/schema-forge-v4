@@ -101,7 +101,7 @@ public class SchemaForgeApiService {
             Path input = work.resolve(safeName(file.getOriginalFilename(), "input.docx"));
             file.transferTo(input);
             Path output = Files.createDirectories(work.resolve("output"));
-            generateWordForBoth(input, output);
+            generateWordForAll(input, output);
             return zipDirectory(output);
         } finally {
             deleteRecursively(work);
@@ -120,7 +120,7 @@ public class SchemaForgeApiService {
                         .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".docx"))
                         .toList();
                 if (documents.isEmpty()) throw new IllegalArgumentException("ZIP does not contain any DOCX files");
-                for (Path document : documents) generateWordForBoth(document, outputDir);
+                for (Path document : documents) generateWordForAll(document, outputDir);
             }
             return zipDirectory(outputDir);
         } finally {
@@ -149,10 +149,10 @@ public class SchemaForgeApiService {
     }
 
     /**
-     * Parses and enriches the Word model only once. Oracle and PostgreSQL are generated
+     * Parses and enriches the Word model only once. All registered database dialects are generated
      * from the exact same enriched model, so configured audit columns cannot diverge.
      */
-    private void generateWordForBoth(Path input, Path output) throws IOException {
+    private void generateWordForAll(Path input, Path output) throws IOException {
         DatabaseSchema parsed;
         try (InputStream stream = Files.newInputStream(input)) {
             parsed = new WordSpecificationParser().parse(
@@ -204,7 +204,7 @@ public class SchemaForgeApiService {
 
     /**
      * EA exports can contain many tables. Each table is therefore emitted as an
-     * independent Oracle/PostgreSQL script and, when metadata is available, an
+     * independent per-dialect script and, when metadata is available, an
      * independent comparison workbook. The canonical model and a manifest remain
      * consolidated at archive root.
      */
@@ -349,10 +349,10 @@ public class SchemaForgeApiService {
 
         for (Table table : order.tables()) {
             String fileName = eaSqlFileName(schema, table, platform);
-            if (platform == DatabasePlatform.ORACLE) {
-                script.append("@@").append(fileName);
-            } else {
-                script.append("\\ir ").append(fileName);
+            switch (platform) {
+                case ORACLE -> script.append("@@").append(fileName);
+                case POSTGRESQL -> script.append("\\ir ").append(fileName);
+                case DB2_ZOS -> script.append("-- Execute in this order: ").append(fileName);
             }
             script.append(System.lineSeparator());
         }

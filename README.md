@@ -1,9 +1,9 @@
-# SchemaForge v4 - Offline Word to Oracle DDL
+# SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge processes each Word table specification without connecting to a database.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, and Db2 for z/OS. DDL generation remains offline; optional Oracle/PostgreSQL metadata connections are used only for comparison workbooks.
 
 ```text
-one input.docx -> one complete input.sql + one input.json
+one input.docx -> one JSON model + one SQL file per registered dialect
 ```
 
 The SQL file contains all objects related to that Word specification in one file:
@@ -30,24 +30,20 @@ mvn clean package
 Create outputs next to the Word file:
 
 ```bash
-java -jar target/schema-forge-v3-3.0.0-SNAPSHOT.jar input.docx
+java -jar target/schema-forge-v4-4.0.0-SNAPSHOT.jar input.docx
 ```
 
 Create outputs in a selected directory:
 
 ```bash
-java -jar target/schema-forge-v3-3.0.0-SNAPSHOT.jar input.docx output-directory
+java -jar target/schema-forge-v4-4.0.0-SNAPSHOT.jar input.docx output-directory
 ```
 
 No JDBC connection or database metadata lookup is performed during parsing, validation, or DDL generation.
 
 ## Project documentation
 
-Detailed project documentation is maintained under [`doc/`](doc/):
-
-- `doc/generation/ORACLE-OFFLINE-DDL-COMPLETION.md`
-- `doc/roadmap/GAP-MATRIX.md`
-- `doc/roadmap/CHANGELOG.md`
+Detailed project documentation is maintained under [`docs/`](docs/), including dialect, architecture, testing, and release material. The project-level release history remains in `CHANGELOG.md`.
 
 ## V4 DBMS-neutral DDL refactoring
 
@@ -55,12 +51,13 @@ Detailed project documentation is maintained under [`doc/`](doc/):
 
 ## DBMS selection (V4)
 
-The offline entry point supports Oracle and PostgreSQL while preserving Oracle as the default:
+The offline entry point supports Oracle, PostgreSQL, and Db2 for z/OS while preserving Oracle as the default:
 
 ```text
 java -jar schema-forge.jar input.docx
 java -jar schema-forge.jar input.docx postgresql
-java -jar schema-forge.jar input.docx output-directory postgresql
+java -jar schema-forge.jar input.docx db2zos
+java -jar schema-forge.jar input.docx output-directory db2zos
 ```
 
 ## Timestamped output files
@@ -80,6 +77,7 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 <input>_yyyyMMdd_HHmmss_SSS.json
 <input>_yyyyMMdd_HHmmss_SSS.oracle.sql
 <input>_yyyyMMdd_HHmmss_SSS.postgresql.sql
+<input>_yyyyMMdd_HHmmss_SSS.db2zos.sql
 ```
 
 ### Foreign-key reference flags
@@ -88,7 +86,7 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 - `SCHEMA.TABLE/Y` and `SCHEMA.TABLE/N`: qualified references with an explicit schema.
 - Spaces around the schema separator are tolerated because Word may expose `TIM. CALENDARS/N`.
 - The final `S` in plural table names such as `LANGUAGES`, `COUNTRIES`, and `CALENDARS` is part of the identifier, not a flag.
-- Oracle and PostgreSQL DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
+- Oracle, PostgreSQL, and Db2 for z/OS DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
 - Singular table names are preserved unchanged and receive `W:TABLE-PLURAL` only.
 
 ## Oracle storage defaults
@@ -153,20 +151,26 @@ INDEXES_COMPARE
 UNIQUE_INDEXES_COMPARE
 ```
 
-Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract; Oracle and PostgreSQL metadata access stays in their repository adapters.
+Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle and PostgreSQL have JDBC metadata adapters. Db2 for z/OS DDL is generated now, while its production metadata adapter is deferred to the next phase.
 
+
+## Db2 for z/OS core dialect
+
+Select the dialect with `db2zos` (aliases: `db2-zos`, `db2`, `zos`). The current core phase generates tables, columns, sequences, identity/generated columns, primary/unique/check/foreign-key constraints, indexes, comments, and grants. `TABLESPACE` is rendered as Db2 `IN <table-space>` or `IN <database>.<table-space>`. Db2 metadata comparison and JDBC execution validation are not yet enabled. See `docs/dialects/DB2-ZOS-DIALECT.md`.
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle SQL file and one PostgreSQL SQL file per table, one comparison workbook per visible database table and dialect, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, and Db2 for z/OS SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
 
 ```text
 oracle/<SCHEMA>.<TABLE>.oracle.sql
 postgresql/<schema>.<table>.postgresql.sql
+db2zos/<SCHEMA>.<TABLE>.db2zos.sql
 comparison/oracle/<SCHEMA>.<TABLE>.oracle.xlsx
 comparison/postgresql/<schema>.<table>.postgresql.xlsx
 oracle/run_all.sql
 postgresql/run_all.sql
+db2zos/run_all.sql
 model.json
 manifest.json
 ```

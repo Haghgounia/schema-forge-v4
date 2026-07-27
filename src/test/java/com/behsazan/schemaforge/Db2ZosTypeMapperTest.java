@@ -53,4 +53,18 @@ class Db2ZosTypeMapperTest {
                 () -> mapper.map(DataType.numeric("NUMBER", 32, 0)));
         assertTrue(excessivePrecision.getMessage().contains("exceeds 31"));
     }
+
+    @Test
+    void shouldMapCommonOracleTypesToDb2ZosTypes() {
+        Db2ZosTypeMapper mapper = new Db2ZosTypeMapper();
+
+        assertEquals("VARCHAR(50)", mapper.map(DataType.varchar("VARCHAR2", 50)));
+        assertEquals("VARGRAPHIC(50)", mapper.map(DataType.varchar("NVARCHAR2", 50)));
+        assertEquals("TIMESTAMP(0)", mapper.map(DataType.simple("DATE")));
+        assertEquals("TIMESTAMP WITH TIME ZONE", mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        assertEquals("VARBINARY(100)", mapper.map(DataType.varchar("RAW", 100)));
+        assertEquals("BLOB", mapper.map(DataType.simple("LONG_RAW")));
+        assertEquals("DBCLOB", mapper.map(DataType.simple("NCLOB")));
+        assertEquals("SMALLINT", mapper.map(DataType.simple("BOOLEAN")));
+    }
 }

@@ -263,16 +263,7 @@ public final class DdlGenerator {
     }
 
     private void appendReferentialAction(StringBuilder sql, String clause, ReferentialAction action) {
-        if (action == null || action == ReferentialAction.NO_ACTION) {
-            return;
-        }
-        sql.append(' ').append(clause).append(' ').append(switch (action) {
-            case RESTRICT -> "RESTRICT";
-            case CASCADE -> "CASCADE";
-            case SET_NULL -> "SET NULL";
-            case SET_DEFAULT -> "SET DEFAULT";
-            case NO_ACTION -> "NO ACTION";
-        });
+        sql.append(dialect.referentialActionClause(clause, action));
     }
 
     private String createIndex(Table table, Index index) {

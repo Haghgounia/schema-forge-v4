@@ -24,6 +24,7 @@ public class MetadataRepositoryResolver {
         MetadataRepository repository = switch (platform) {
             case ORACLE -> oracle.getIfAvailable();
             case POSTGRESQL -> postgresql.getIfAvailable();
+            case DB2_ZOS -> null;
         };
         return repository == null ? MetadataRepository.empty() : repository;
     }

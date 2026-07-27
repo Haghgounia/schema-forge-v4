@@ -1,7 +1,6 @@
 # Db2 for z/OS numeric mapping foundation
 
-This step introduces the first Db2 for z/OS dialect component without yet adding
-Db2 to `DatabasePlatform`.
+This mapping is now used by the registered `db2zos` dialect through `Db2ZosDialect`. The default remains `SAFE`; `OPTIMIZED` must be enabled explicitly.
 
 ## SAFE strategy
 
@@ -30,3 +29,8 @@ The global configuration remains:
 schemaforge.numeric-mapping.strategy=SAFE|OPTIMIZED
 SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY=SAFE|OPTIMIZED
 ```
+
+
+## Integration status
+
+The mapper is connected to `DatabasePlatform.DB2_ZOS`, REST Word/ZIP generation, Enterprise Architect per-table output, the legacy CLI, and the shared Excel comparison writer used by tests. A production Db2 catalog metadata repository is not part of this phase.

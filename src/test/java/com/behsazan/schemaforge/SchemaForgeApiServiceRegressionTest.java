@@ -42,6 +42,8 @@ class SchemaForgeApiServiceRegressionTest {
             "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql");
     private static final Pattern POSTGRESQL_NAME = Pattern.compile(
             "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.sql");
+    private static final Pattern DB2_ZOS_NAME = Pattern.compile(
+            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.sql");
 
     @Test
     void restWordGenerationShouldUseLatestParserAndTimestampAllArtifacts() throws Exception {
@@ -64,7 +66,7 @@ class SchemaForgeApiServiceRegressionTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(3, entries.size());
+        assertEquals(4, entries.size());
 
         String jsonName = entries.keySet().stream().filter(name -> JSON_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();
@@ -72,11 +74,14 @@ class SchemaForgeApiServiceRegressionTest {
                 .findFirst().orElseThrow();
         String postgresqlName = entries.keySet().stream().filter(name -> POSTGRESQL_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();
+        String db2ZosName = entries.keySet().stream().filter(name -> DB2_ZOS_NAME.matcher(name).matches())
+                .findFirst().orElseThrow();
 
         String sharedTimestamp = jsonName.substring(
                 "MCB.BIM.TBL.PROVINCES.V1.2_".length(), jsonName.length() - ".json".length());
         assertTrue(oracleName.contains("_" + sharedTimestamp + ".oracle.sql"));
         assertTrue(postgresqlName.contains("_" + sharedTimestamp + ".postgresql.sql"));
+        assertTrue(db2ZosName.contains("_" + sharedTimestamp + ".db2zos.sql"));
 
         JsonNode json = new ObjectMapper().readTree(entries.get(jsonName));
         JsonNode table = json.path("schema").path("tables").get(0);
@@ -88,6 +93,7 @@ class SchemaForgeApiServiceRegressionTest {
 
         String oracleSql = new String(entries.get(oracleName));
         String postgresqlSql = new String(entries.get(postgresqlName));
+        String db2ZosSql = new String(entries.get(db2ZosName));
         assertTrue(oracleSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_CALENDAR_ID"));
@@ -104,6 +110,13 @@ class SchemaForgeApiServiceRegressionTest {
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.provinces TO U_DEVELOPER;"));
         assertTrue(postgresqlSql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.provinces TO U_DESIGNER;"));
+        assertTrue(db2ZosSql.contains("FK_PROVINCES_LANGUAGE_ID"));
+        assertTrue(db2ZosSql.contains("FK_PROVINCES_COUNTRY_ID"));
+        assertTrue(db2ZosSql.contains("FK_PROVINCES_CALENDAR_ID"));
+        assertTrue(db2ZosSql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DEVELOPER;"));
+        assertTrue(db2ZosSql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DESIGNER;"));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {
