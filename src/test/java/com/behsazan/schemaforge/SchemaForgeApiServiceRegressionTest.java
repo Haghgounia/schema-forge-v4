@@ -22,6 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -102,7 +103,8 @@ class SchemaForgeApiServiceRegressionTest {
         String sqlServerSql = new String(entries.get(sqlServerName));
         assertTrue(oracleSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_COUNTRY_ID"));
-        assertTrue(oracleSql.contains("FK_PROVINCES_CALENDAR_ID"));
+        assertTrue(oracleSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
+        assertFalse(oracleSql.contains("ADD CONSTRAINT FK_PROVINCES_CALENDAR_ID"));
         assertTrue(oracleSql.contains(") TABLESPACE TS_DPS;"));
         assertTrue(oracleSql.contains("TABLESPACE ITS_DPS"));
         assertTrue(oracleSql.contains(
@@ -111,21 +113,24 @@ class SchemaForgeApiServiceRegressionTest {
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DESIGNER;"));
         assertTrue(postgresqlSql.contains("fk_provinces_language_id"));
         assertTrue(postgresqlSql.contains("fk_provinces_country_id"));
-        assertTrue(postgresqlSql.contains("fk_provinces_calendar_id"));
+        assertTrue(postgresqlSql.contains("[LOGICAL FOREIGN KEY] fk_provinces_calendar_id"));
+        assertFalse(postgresqlSql.contains("ADD CONSTRAINT fk_provinces_calendar_id"));
         assertTrue(postgresqlSql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.provinces TO U_DEVELOPER;"));
         assertTrue(postgresqlSql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.provinces TO U_DESIGNER;"));
         assertTrue(db2ZosSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(db2ZosSql.contains("FK_PROVINCES_COUNTRY_ID"));
-        assertTrue(db2ZosSql.contains("FK_PROVINCES_CALENDAR_ID"));
+        assertTrue(db2ZosSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
+        assertFalse(db2ZosSql.contains("ADD CONSTRAINT FK_PROVINCES_CALENDAR_ID"));
         assertTrue(db2ZosSql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DEVELOPER;"));
         assertTrue(db2ZosSql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DESIGNER;"));
         assertTrue(sqlServerSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(sqlServerSql.contains("FK_PROVINCES_COUNTRY_ID"));
-        assertTrue(sqlServerSql.contains("FK_PROVINCES_CALENDAR_ID"));
+        assertTrue(sqlServerSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
+        assertFalse(sqlServerSql.contains("ADD CONSTRAINT FK_PROVINCES_CALENDAR_ID"));
         assertTrue(sqlServerSql.contains("PROVINCE_ID DECIMAL(2,0) DEFAULT NEXT VALUE FOR DPS.SEQ_PROVINCES NOT NULL"));
         assertTrue(sqlServerSql.contains("EXEC sys.sp_addextendedproperty"));
         assertTrue(sqlServerSql.contains(

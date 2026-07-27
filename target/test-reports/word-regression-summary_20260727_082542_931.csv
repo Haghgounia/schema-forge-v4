@@ -1,0 +1,9 @@
+input_file,status,table_count,column_count,elapsed_ms,output_file,error
+"docs\samples\word\MCB.BIM.TBL.CONTINENTAL_REGION_COUNTRIES.V1.0.docx","PASS",1,7,85,"target\test-output\MCB.BIM.TBL.CONTINENTAL_REGION_COUNTRIES.V1.0_20260727_082541_932.json",""
+"docs\samples\word\MCB.BIM.TBL.CONTINENTS.V1.0.docx","PASS",1,9,127,"target\test-output\MCB.BIM.TBL.CONTINENTS.V1.0_20260727_082542_017.json",""
+"docs\samples\word\MCB.BIM.TBL.COUNTRIES.V1.1.docx","PASS",1,22,192,"target\test-output\MCB.BIM.TBL.COUNTRIES.V1.1_20260727_082542_145.json",""
+"docs\samples\word\MCB.BIM.TBL.COUNTRY_CURRENCY_HISTORY.V1.1.docx","PASS",1,9,168,"target\test-output\MCB.BIM.TBL.COUNTRY_CURRENCY_HISTORY.V1.1_20260727_082542_338.json",""
+"docs\samples\word\MCB.BIM.TBL.COUNTRY_OTHER_LANGUAGES.V1.0.docx","PASS",1,7,115,"target\test-output\MCB.BIM.TBL.COUNTRY_OTHER_LANGUAGES.V1.0_20260727_082542_506.json",""
+"docs\samples\word\MCB.BIM.TBL.LANGUAGES.V1.0.docx","PASS",1,10,83,"target\test-output\MCB.BIM.TBL.LANGUAGES.V1.0_20260727_082542_622.json",""
+"docs\samples\word\MCB.BIM.TBL.PROVINCES.V1.1.docx","PASS",1,16,144,"target\test-output\MCB.BIM.TBL.PROVINCES.V1.1_20260727_082542_705.json",""
+"docs\samples\word\MCB.BIM.TBL.PROVINCES.V1.2.docx","PASS",1,20,81,"target\test-output\MCB.BIM.TBL.PROVINCES.V1.2_20260727_082542_849.json",""

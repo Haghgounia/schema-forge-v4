@@ -110,7 +110,9 @@ public final class DdlGenerator {
                     statements.add(createUniqueKeyIndex(table, unique));
                 }
             }
-            table.foreignKeys().stream().map(foreignKey -> createForeignKey(table, foreignKey, metadata)).forEach(statements::add);
+            table.foreignKeys().stream()
+                    .map(foreignKey -> createForeignKey(table, foreignKey, metadata))
+                    .forEach(statements::add);
             table.indexes().stream().map(index -> createIndex(table, index)).forEach(statements::add);
             addComments(statements, table);
             addGrants(grantStatements, table);
@@ -285,10 +287,16 @@ public final class DdlGenerator {
         String name = foreignKey.name() == null
                 ? "FK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(foreignKey.columns())
                 : dialect.quote(foreignKey.name());
+        QualifiedName referencedTable = resolvedReferencedTable(table, foreignKey, metadata);
+        if (!foreignKey.physicalReference()) {
+            return dialect.warningLine("[LOGICAL FOREIGN KEY] " + name + ": "
+                    + qualifiedName(table.qualifiedName()) + "(" + identifiers(foreignKey.columns()) + ") -> "
+                    + qualifiedName(referencedTable) + "(" + identifiers(foreignKey.referencedColumns()) + ")");
+        }
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(qualifiedName(table.qualifiedName()))
                 .append(" ADD CONSTRAINT ").append(name)
                 .append(" FOREIGN KEY (").append(identifiers(foreignKey.columns())).append(")")
-                                .append(" REFERENCES ").append(qualifiedName(resolvedReferencedTable(table, foreignKey, metadata)))
+                .append(" REFERENCES ").append(qualifiedName(referencedTable))
                 .append("(").append(identifiers(foreignKey.referencedColumns())).append(")");
         appendReferentialAction(sql, "ON DELETE", foreignKey.onDelete());
         appendReferentialAction(sql, "ON UPDATE", foreignKey.onUpdate());
@@ -394,6 +402,10 @@ public final class DdlGenerator {
         int uniqueCount = schema.tables().stream().mapToInt(table -> table.uniqueKeys().size()).sum();
         int checkCount = schema.tables().stream().mapToInt(table -> table.checkConstraints().size()).sum();
         int foreignKeyCount = schema.tables().stream().mapToInt(table -> table.foreignKeys().size()).sum();
+        int physicalForeignKeyCount = schema.tables().stream()
+                .mapToInt(table -> (int) table.foreignKeys().stream().filter(ForeignKey::physicalReference).count())
+                .sum();
+        int logicalForeignKeyCount = foreignKeyCount - physicalForeignKeyCount;
         int indexCount = schema.tables().stream().mapToInt(table -> table.indexes().size()).sum();
         int enforcingIndexCount = dialect.requiresExplicitConstraintIndexes()
                 ? primaryKeyCount + uniqueCount
@@ -408,6 +420,8 @@ public final class DdlGenerator {
                 + "Unique Keys  : " + uniqueCount + NL
                 + "Checks       : " + checkCount + NL
                 + "Foreign Keys : " + foreignKeyCount + NL
+                + "Physical FKs : " + physicalForeignKeyCount + NL
+                + "Logical FKs  : " + logicalForeignKeyCount + NL
                 + "Indexes      : " + emittedIndexCount + NL
                 + (enforcingIndexCount == 0 ? ""
                         : "Enforcing    : " + enforcingIndexCount + NL)

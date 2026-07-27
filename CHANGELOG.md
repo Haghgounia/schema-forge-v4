@@ -12,6 +12,14 @@
 - Added regression coverage for platform selection, capabilities, datatype mapping, identifiers, expressions, complete DDL, REST archives, EA archives, numeric equivalence, and statement parsing.
 - Completed SQL Server live metadata and execution validation in the validation completion pack described below.
 
+### Changed - logical foreign keys and PostgreSQL UTF-8 hardening
+
+- `/Y` foreign-key references remain executable physical constraints.
+- `/N` references are now emitted as `[LOGICAL FOREIGN KEY]` hints and are no longer executed as database constraints.
+- Added physical/logical foreign-key counts to the generated object summary.
+- PostgreSQL scripts now start with `\encoding UTF8` before `\set ON_ERROR_STOP on` to protect Persian comments when executed by `psql`.
+- Confirmed SQL Server identifier output remains deterministic `UPPER_SNAKE_CASE`.
+
 ### Fixed
 - Corrected `Db2ZosOfflineDdlValidatorTest` to expect the four executable statements actually generated for one table with a primary key and one unique key: `CREATE TABLE`, primary-key enforcing index, unique constraint, and unique-key enforcing index.
 - The production DB2 z/OS DDL generator and offline validator were already correct; only the test statement-count assertion was wrong.

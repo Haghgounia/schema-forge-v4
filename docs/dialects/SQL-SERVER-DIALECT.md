@@ -36,6 +36,12 @@ The run-all file uses SQLCMD include commands:
 :r SCHEMA.TABLE.sqlserver.sql
 ```
 
+## Identifier notation
+
+SchemaForge renders SQL Server schemas, tables, columns, sequences, constraints, and indexes in deterministic `UPPER_SNAKE_CASE`. SQL Server normally resolves ordinary identifiers according to database collation, so case may be insensitive or sensitive. A single uppercase convention avoids cross-database comparison noise and remains aligned with Oracle and Db2 output. Brackets are used only when an identifier is reserved or cannot be rendered as an ordinary name.
+
+Logical references marked `/N` are preserved as `[LOGICAL FOREIGN KEY]` hints and are not emitted as executable constraints. Physical `/Y` references generate normal `ALTER TABLE ... FOREIGN KEY` statements.
+
 ## Numeric mapping
 
 The default strategy remains `SAFE`:

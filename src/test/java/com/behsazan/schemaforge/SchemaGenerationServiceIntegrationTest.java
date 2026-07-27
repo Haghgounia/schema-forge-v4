@@ -47,6 +47,7 @@ class SchemaGenerationServiceIntegrationTest {
 
         String sql = Files.readString(output.sqlFile(), StandardCharsets.UTF_8);
         assertTrue(sql.contains("SchemaForge Offline PostgreSQL DDL"));
+        assertTrue(sql.contains("\\encoding UTF8"));
         assertTrue(sql.contains("\\set ON_ERROR_STOP on"));
         assertTrue(sql.contains("CREATE TABLE"));
         assertTrue(sql.contains("Dialect      : PostgreSql"));

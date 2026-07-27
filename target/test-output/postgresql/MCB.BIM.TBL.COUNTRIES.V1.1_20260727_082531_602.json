@@ -1,0 +1,377 @@
+{
+  "source" : {
+    "source.fileName" : "MCB.BIM.TBL.COUNTRIES.V1.1.docx",
+    "recovery.warningCount" : "0"
+  },
+  "schema" : {
+    "name" : "BIM",
+    "description" : "",
+    "tables" : [ {
+      "schema" : "BIM",
+      "name" : "COUNTRIES",
+      "description" : "کلیه کشورها با توجه به قاره ای که در آن قرار دارند، در این جدول نگهداری میشوند.",
+      "columns" : [ {
+        "name" : "COUNTRY_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 3,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : "BIM.SEQ_COUNTRIES.NEXTVAL",
+        "description" : "شناسه کشور",
+        "identity" : true,
+        "ordinalPosition" : 1,
+        "generatedExpression" : null
+      }, {
+        "name" : "COUNTRY_NAME",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "نام کشور",
+        "identity" : false,
+        "ordinalPosition" : 2,
+        "generatedExpression" : null
+      }, {
+        "name" : "COUNTRY_ENGLISH_NAME",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "نام انگلیسی کشور",
+        "identity" : false,
+        "ordinalPosition" : 3,
+        "generatedExpression" : null
+      }, {
+        "name" : "COUNTRY_FULL_NAME",
+        "logicalType" : "VARCHAR2",
+        "length" : 100,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : true,
+        "defaultValue" : null,
+        "description" : "نام کامل کشور",
+        "identity" : false,
+        "ordinalPosition" : 4,
+        "generatedExpression" : null
+      }, {
+        "name" : "COUNTRY_ENGLISH_FULL_NAME",
+        "logicalType" : "VARCHAR2",
+        "length" : 100,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : true,
+        "defaultValue" : null,
+        "description" : "نام کامل انگلیسی کشور",
+        "identity" : false,
+        "ordinalPosition" : 5,
+        "generatedExpression" : null
+      }, {
+        "name" : "CONTINENT_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 1,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "شناسه قاره",
+        "identity" : false,
+        "ordinalPosition" : 6,
+        "generatedExpression" : null
+      }, {
+        "name" : "COUNTRY_ISO_CODE",
+        "logicalType" : "CHAR",
+        "length" : 3,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "کد ایزو کشور",
+        "identity" : false,
+        "ordinalPosition" : 7,
+        "generatedExpression" : null
+      }, {
+        "name" : "DIALLING_CODE",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 5,
+        "scale" : null,
+        "nullable" : true,
+        "defaultValue" : null,
+        "description" : "کد مخابراتی",
+        "identity" : false,
+        "ordinalPosition" : 8,
+        "generatedExpression" : null
+      }, {
+        "name" : "IS_MAIN_COUNTRY",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 1,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : "0",
+        "description" : "کشور اصلی",
+        "identity" : false,
+        "ordinalPosition" : 9,
+        "generatedExpression" : null
+      }, {
+        "name" : "IS_NEIGHBOURING",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 1,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : "0",
+        "description" : "کشور همسایه",
+        "identity" : false,
+        "ordinalPosition" : 10,
+        "generatedExpression" : null
+      }, {
+        "name" : "IS_ISLAMIC",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 1,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : "0",
+        "description" : "کشور اسلامی",
+        "identity" : false,
+        "ordinalPosition" : 11,
+        "generatedExpression" : null
+      }, {
+        "name" : "FIRST_CURRENCY_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 3,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "شناسه ارز اول",
+        "identity" : false,
+        "ordinalPosition" : 12,
+        "generatedExpression" : null
+      }, {
+        "name" : "SECOND_CURRENCY_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 3,
+        "scale" : null,
+        "nullable" : true,
+        "defaultValue" : null,
+        "description" : "شناسه ارز دوم",
+        "identity" : false,
+        "ordinalPosition" : 13,
+        "generatedExpression" : null
+      }, {
+        "name" : "OFFICIAL_LANGUAGE_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 3,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "شناسه زبان رسمی",
+        "identity" : false,
+        "ordinalPosition" : 14,
+        "generatedExpression" : null
+      }, {
+        "name" : "NATIONALITY",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : true,
+        "defaultValue" : null,
+        "description" : "ملیت",
+        "identity" : false,
+        "ordinalPosition" : 15,
+        "generatedExpression" : null
+      }, {
+        "name" : "ENGLISH_NATIONALITY",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : true,
+        "defaultValue" : null,
+        "description" : "ملیت انگلیسی",
+        "identity" : false,
+        "ordinalPosition" : 16,
+        "generatedExpression" : null
+      }, {
+        "name" : "SPACE_FREE_NAME",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "نام کشور بدون فضای خالی",
+        "identity" : false,
+        "ordinalPosition" : 17,
+        "generatedExpression" : null
+      }, {
+        "name" : "IS_ACTIVE",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 1,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : "1",
+        "description" : "وضعیت",
+        "identity" : false,
+        "ordinalPosition" : 18,
+        "generatedExpression" : null
+      }, {
+        "name" : "CREATED_BY",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "CHAR",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "Creation user",
+        "identity" : false,
+        "ordinalPosition" : 19,
+        "generatedExpression" : null
+      }, {
+        "name" : "CREATED_DATE",
+        "logicalType" : "TIMESTAMP",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "Creation timestamp",
+        "identity" : false,
+        "ordinalPosition" : 20,
+        "generatedExpression" : null
+      }, {
+        "name" : "LAST_MODIFIED_BY",
+        "logicalType" : "VARCHAR2",
+        "length" : 50,
+        "lengthSemantics" : "CHAR",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "Last modification user",
+        "identity" : false,
+        "ordinalPosition" : 21,
+        "generatedExpression" : null
+      }, {
+        "name" : "LAST_MODIFIED_DATE",
+        "logicalType" : "TIMESTAMP",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : null,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "Last modification timestamp",
+        "identity" : false,
+        "ordinalPosition" : 22,
+        "generatedExpression" : null
+      } ],
+      "primaryKey" : {
+        "name" : "PK_COUNTRIES",
+        "columns" : [ "COUNTRY_ID" ]
+      },
+      "uniqueKeys" : [ {
+        "name" : "UK_COUNTRIES_U1",
+        "columns" : [ "COUNTRY_ISO_CODE" ]
+      }, {
+        "name" : "UK_COUNTRIES_U2",
+        "columns" : [ "SPACE_FREE_NAME" ]
+      } ],
+      "foreignKeys" : [ {
+        "name" : "FK_COUNTRIES_CONTINENT_ID",
+        "columns" : [ "CONTINENT_ID" ],
+        "referencedTable" : "CONTINENTS",
+        "referencedColumns" : [ "CONTINENT_ID" ],
+        "onDelete" : "NO_ACTION",
+        "onUpdate" : "NO_ACTION",
+        "physicalReference" : true,
+        "schemaExplicit" : false
+      }, {
+        "name" : "FK_COUNTRIES_FIRST_CURRENCY_ID",
+        "columns" : [ "FIRST_CURRENCY_ID" ],
+        "referencedTable" : "CURRENCIES",
+        "referencedColumns" : [ "FIRST_CURRENCY_ID" ],
+        "onDelete" : "NO_ACTION",
+        "onUpdate" : "NO_ACTION",
+        "physicalReference" : true,
+        "schemaExplicit" : false
+      }, {
+        "name" : "FK_COUNTRIES_SECOND_CURRENCY_ID",
+        "columns" : [ "SECOND_CURRENCY_ID" ],
+        "referencedTable" : "CURRENCIES",
+        "referencedColumns" : [ "SECOND_CURRENCY_ID" ],
+        "onDelete" : "NO_ACTION",
+        "onUpdate" : "NO_ACTION",
+        "physicalReference" : true,
+        "schemaExplicit" : false
+      }, {
+        "name" : "FK_COUNTRIES_OFFICIAL_LANGUAGE_ID",
+        "columns" : [ "OFFICIAL_LANGUAGE_ID" ],
+        "referencedTable" : "LANGUAGES",
+        "referencedColumns" : [ "OFFICIAL_LANGUAGE_ID" ],
+        "onDelete" : "NO_ACTION",
+        "onUpdate" : "NO_ACTION",
+        "physicalReference" : true,
+        "schemaExplicit" : false
+      } ],
+      "checkConstraints" : [ {
+        "name" : "CK_COUNTRIES_IS_MAIN_COUNTRY",
+        "expression" : "IS_MAIN_COUNTRY IN (0, 1)"
+      }, {
+        "name" : "CK_COUNTRIES_IS_NEIGHBOURING",
+        "expression" : "IS_NEIGHBOURING IN (0, 1)"
+      }, {
+        "name" : "CK_COUNTRIES_IS_ISLAMIC",
+        "expression" : "IS_ISLAMIC IN (0, 1)"
+      }, {
+        "name" : "CK_COUNTRIES_IS_ACTIVE",
+        "expression" : "IS_ACTIVE IN (0, 1)"
+      } ],
+      "indexes" : [ ]
+    } ],
+    "sequences" : [ {
+      "name" : "BIM.SEQ_COUNTRIES",
+      "startWith" : 1,
+      "incrementBy" : 1,
+      "minValue" : null,
+      "maxValue" : null,
+      "cycle" : false,
+      "cacheSize" : null
+    } ]
+  },
+  "validation" : {
+    "valid" : true,
+    "issues" : [ ]
+  }
+}

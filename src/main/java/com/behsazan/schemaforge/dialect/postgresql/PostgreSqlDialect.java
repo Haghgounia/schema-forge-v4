@@ -149,6 +149,7 @@ public final class PostgreSqlDialect implements Dialect {
                 + (source == null ? "" : "-- Source File : " + source + nl)
                 + "-- Schema      : " + schemaName.toLowerCase(Locale.ROOT) + nl
                 + "-- ==============================================================" + nl
+                + "\\encoding UTF8" + nl
                 + "\\set ON_ERROR_STOP on";
     }
 

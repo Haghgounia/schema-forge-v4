@@ -88,7 +88,8 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 - `SCHEMA.TABLE/Y` and `SCHEMA.TABLE/N`: qualified references with an explicit schema.
 - Spaces around the schema separator are tolerated because Word may expose `TIM. CALENDARS/N`.
 - The final `S` in plural table names such as `LANGUAGES`, `COUNTRIES`, and `CALENDARS` is part of the identifier, not a flag.
-- Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL generate the `FOREIGN KEY` statement for both `/Y` and `/N`.
+- `/Y` references generate executable `FOREIGN KEY` constraints.
+- `/N` references remain in the canonical model and comparison reports but are emitted only as `[LOGICAL FOREIGN KEY]` SQL hints; no executable constraint is generated.
 - Singular table names are preserved unchanged and receive `W:TABLE-PLURAL` only.
 
 ## Oracle storage defaults
@@ -107,6 +108,8 @@ For example, table `DPS.DEPOSITS` is terminated as:
 ```
 
 and its primary-key, unique-key and standalone indexes use `TABLESPACE ITS_DPS`. Explicit `TABLESPACE`, `INDEX_TABLESPACE` or `PK_TABLESPACE` options in the canonical model take precedence over these defaults. PostgreSQL is unchanged and receives no implicit tablespace.
+
+PostgreSQL scripts begin with `\encoding UTF8` followed by `\set ON_ERROR_STOP on`. The encoding command protects Persian table and column comments when scripts are executed through `psql`; the database itself should also use UTF-8.
 
 ## Standard database role grants
 
@@ -174,6 +177,8 @@ SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD=change-me
 ## Microsoft SQL Server core dialect
 
 Select the dialect with `sqlserver` (aliases: `sql-server`, `mssql`, `sqlsrv`). The dialect generates sequences, tables, identity/computed columns, primary/unique/check/foreign-key constraints, included and filtered indexes, `MS_Description` extended properties, grants, REST artifacts, and EA per-table artifacts. `SAFE` numeric mapping preserves exact values as `DECIMAL`; `OPTIMIZED` uses lossless `SMALLINT`, `INT`, and `BIGINT` boundaries. Conditional live metadata, comparison workbooks, offline DDL validation, a read-only connection/catalog probe, a confirmation-gated execution runner, and an explicit disposable-schema integration test are available. See `docs/dialects/SQL-SERVER-DIALECT.md`, `docs/dialects/SQL-SERVER-METADATA.md`, and `docs/testing/SQL-SERVER-VALIDATION.md`.
+
+SQL Server identifiers are rendered in `UPPER_SNAKE_CASE` for consistency with the canonical banking data model and the Oracle/Db2 outputs. SQL Server usually resolves unquoted identifiers case-insensitively according to database collation, but SchemaForge keeps one deterministic uppercase representation and uses brackets only for reserved or non-ordinary names.
 
 Enable SQL Server metadata comparison with:
 

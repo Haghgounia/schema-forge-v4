@@ -1,0 +1,97 @@
+{
+  "source" : {
+    "source.fileName" : "MCB.BIM.TBL.COUNTRY_OTHER_LANGUAGES.V1.0.docx",
+    "recovery.warningCount" : "0"
+  },
+  "schema" : {
+    "name" : "BIM",
+    "description" : "",
+    "tables" : [ {
+      "schema" : "BIM",
+      "name" : "COUNTRY_OTHER_LANGUAGES",
+      "description" : "سایر زبانهای کشورها (غیر از زبان رسمی آن کشور) در این جدول نگهداری میشوند.",
+      "columns" : [ {
+        "name" : "COUNTRY_OTHER_LANGUAGE_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 4,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : "BIM.SEQ_COUNTRY_OTHER_LANGUAGES.NEXTVAL",
+        "description" : "شناسه سایر زبانها",
+        "identity" : true,
+        "ordinalPosition" : 1,
+        "generatedExpression" : null
+      }, {
+        "name" : "COUNTRY_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 3,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "شناسه کشور",
+        "identity" : false,
+        "ordinalPosition" : 2,
+        "generatedExpression" : null
+      }, {
+        "name" : "LANGUAGE_ID",
+        "logicalType" : "NUMBER",
+        "length" : null,
+        "lengthSemantics" : "DEFAULT",
+        "precision" : 3,
+        "scale" : null,
+        "nullable" : false,
+        "defaultValue" : null,
+        "description" : "شناسه زبان",
+        "identity" : false,
+        "ordinalPosition" : 3,
+        "generatedExpression" : null
+      } ],
+      "primaryKey" : {
+        "name" : "PK_COUNTRY_OTHER_LANGUAGES",
+        "columns" : [ "COUNTRY_OTHER_LANGUAGE_ID" ]
+      },
+      "uniqueKeys" : [ {
+        "name" : "UK_COUNTRY_OTHER_LANGUAGES_U1",
+        "columns" : [ "COUNTRY_ID", "LANGUAGE_ID" ]
+      } ],
+      "foreignKeys" : [ {
+        "name" : "FK_COUNTRY_OTHER_LANGUAGES_COUNTRY_ID",
+        "columns" : [ "COUNTRY_ID" ],
+        "referencedTable" : "COUNTERIES",
+        "referencedColumns" : [ "COUNTRY_ID" ],
+        "onDelete" : "NO_ACTION",
+        "onUpdate" : "NO_ACTION",
+        "physicalReference" : true,
+        "schemaExplicit" : false
+      }, {
+        "name" : "FK_COUNTRY_OTHER_LANGUAGES_LANGUAGE_ID",
+        "columns" : [ "LANGUAGE_ID" ],
+        "referencedTable" : "LANGUAGES",
+        "referencedColumns" : [ "LANGUAGE_ID" ],
+        "onDelete" : "NO_ACTION",
+        "onUpdate" : "NO_ACTION",
+        "physicalReference" : true,
+        "schemaExplicit" : false
+      } ],
+      "checkConstraints" : [ ],
+      "indexes" : [ ]
+    } ],
+    "sequences" : [ {
+      "name" : "BIM.SEQ_COUNTRY_OTHER_LANGUAGES",
+      "startWith" : 1,
+      "incrementBy" : 1,
+      "minValue" : null,
+      "maxValue" : null,
+      "cycle" : false,
+      "cacheSize" : null
+    } ]
+  },
+  "validation" : {
+    "valid" : true,
+    "issues" : [ ]
+  }
+}

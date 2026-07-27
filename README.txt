@@ -1,17 +1,17 @@
-SchemaForge Oracle Offline DDL Patch
+SchemaForge V4 - Logical Foreign Key and PostgreSQL UTF-8 Fix
 
-Scope:
-- Generates one complete Oracle SQL script from DatabaseSchema.
-- Does not connect to Oracle or any other database.
-- Uses the canonical model only.
-- Output order: sequences, create table + PK, checks, unique keys, foreign keys,
-  indexes, comments, grants, Gregorian timestamp footer.
-- Oracle VARCHAR2/CHAR lengths are rendered with CHAR semantics.
+Changes:
+- /Y references generate executable foreign-key constraints.
+- /N references generate [LOGICAL FOREIGN KEY] hints only.
+- PostgreSQL scripts start with \encoding UTF8 and \set ON_ERROR_STOP on.
+- Object summaries distinguish physical and logical foreign keys.
+- SQL Server identifiers remain deterministic UPPER_SNAKE_CASE.
 
-Apply from the project root:
-  patch -p5 < schema-forge-v4-oracle-offline.patch
+Verification performed in this environment:
+- Java 21 compilation of DdlGenerator, PostgreSqlDialect and SqlServerDialect.
+- Smoke generation for PostgreSQL and SQL Server.
+- Verified logical FK is not executable.
+- Verified physical FK remains executable.
+- Verified SQL Server schema, table and column names are uppercase.
 
-Alternatively copy the three Java files under src/main/java/com/behsazan/schemaforge.
-
-Verification performed:
-  javac compilation of the complete domain model plus the three changed classes.
+Run the complete Maven regression suite in the project environment before release.
