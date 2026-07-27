@@ -12,6 +12,10 @@ springdoc:
     path: /v3/api-docs
 
 schemaforge:
+  numeric-mapping:
+    # SAFE preserves NUMBER as NUMERIC/DECIMAL. OPTIMIZED narrows scale-zero values losslessly.
+    strategy: ${SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY:SAFE}
+
   # Enterprise Architect XMI files often do not contain a physical schema.
   # Override with SCHEMAFORGE_EA_DEFAULT_SCHEMA or edit this value.
   ea:

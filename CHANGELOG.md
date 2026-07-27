@@ -140,3 +140,26 @@
 - Added Oracle and PostgreSQL `run_all.sql` files ordered by internal foreign-key dependencies.
 - Added cycle reporting in the run-all header without changing Word or ZIP input behavior.
 - Added regression coverage for per-table file names, manifest contents and dependency ordering.
+
+## Numeric mapping foundation
+- Added configurable `SAFE` and `OPTIMIZED` numeric mapping strategies.
+- Added a shared lossless numeric optimization service.
+- PostgreSQL optimized mapping: NUMBER(1..4,0) -> SMALLINT, NUMBER(5..9,0) -> INTEGER, NUMBER(10..18,0) -> BIGINT.
+- Decimal values, unbounded NUMBER, and precision above 18 remain NUMERIC.
+- Default remains SAFE for backward compatibility.
+
+## 2026-07-27 - LanguageTool test stability
+
+- Stabilized the local LanguageTool HTTP stub used by `LanguageToolSpellCheckServiceTest`.
+- Increased only the local test connect/request timeouts to tolerate slow Windows CI hosts.
+- Executed the test HTTP handler directly on the server dispatcher and closed each exchange deterministically.
+- Disabled fail-open for successful-response tests so transport failures are reported directly instead of appearing as spelling results.
+- Production spell-check behavior and numeric mapping behavior are unchanged.
+
+## 2026-07-27 - Db2 for z/OS numeric mapping foundation
+
+- Added `Db2ZosTypeMapper` as the first v4.2 Db2 for z/OS component.
+- SAFE mapping preserves exact numbers as `DECIMAL(p,s)`.
+- OPTIMIZED mapping uses `SMALLINT`, `INTEGER` and `BIGINT` at lossless precision boundaries.
+- Added explicit rejection for unbounded NUMBER and precision above the Db2 z/OS DECIMAL limit of 31.
+- Db2 is not yet registered in `DatabasePlatform`; full dialect integration is the next step.

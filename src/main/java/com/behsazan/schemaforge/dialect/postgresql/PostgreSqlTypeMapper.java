@@ -1,5 +1,7 @@
 package com.behsazan.schemaforge.dialect.postgresql;
 
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.NumericTypeOptimizationService;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 
 import java.util.Locale;
@@ -7,10 +9,32 @@ import java.util.Objects;
 
 /** Maps canonical and Oracle-oriented data types to PostgreSQL data types. */
 public final class PostgreSqlTypeMapper {
+    private static final NumericTypeOptimizationService.NumericIntegerProfile INTEGER_PROFILE =
+            new NumericTypeOptimizationService.NumericIntegerProfile(
+                    "SMALLINT", 4, "INTEGER", 9, "BIGINT", 18);
+
+    private final NumericMappingStrategy strategy;
+    private final NumericTypeOptimizationService optimizer;
+
+    public PostgreSqlTypeMapper() {
+        this(NumericMappingStrategy.SAFE);
+    }
+
+    public PostgreSqlTypeMapper(NumericMappingStrategy strategy) {
+        this.strategy = Objects.requireNonNull(strategy, "strategy must not be null");
+        this.optimizer = new NumericTypeOptimizationService();
+    }
 
     public String map(DataType type) {
         Objects.requireNonNull(type, "type must not be null");
         String sourceName = type.name().normalized().toUpperCase(Locale.ROOT);
+        if (strategy == NumericMappingStrategy.OPTIMIZED) {
+            var optimized = optimizer.optimize(type, INTEGER_PROFILE);
+            if (optimized.isPresent()) {
+                return optimized.get();
+            }
+        }
+
         String targetName = switch (sourceName) {
             case "VARCHAR", "VARCHAR2", "NVARCHAR", "NVARCHAR2" -> "VARCHAR";
             case "CHAR", "NCHAR", "CHARACTER" -> "CHAR";

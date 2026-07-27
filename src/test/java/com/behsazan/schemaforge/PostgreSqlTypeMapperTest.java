@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge;
 
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlTypeMapper;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import org.junit.jupiter.api.Test;
@@ -36,4 +37,15 @@ class PostgreSqlTypeMapperTest {
         assertEquals("TIMESTAMP WITH TIME ZONE",
                 mapper.map(DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")));
     }
+    @Test
+    void shouldOptimizeScaleZeroNumbersWhenExplicitlyEnabled() {
+        PostgreSqlTypeMapper optimized = new PostgreSqlTypeMapper(NumericMappingStrategy.OPTIMIZED);
+
+        assertEquals("SMALLINT", optimized.map(DataType.numeric("NUMBER", 4, 0)));
+        assertEquals("INTEGER", optimized.map(DataType.numeric("NUMBER", 9, 0)));
+        assertEquals("BIGINT", optimized.map(DataType.numeric("NUMBER", 18, 0)));
+        assertEquals("NUMERIC(19,0)", optimized.map(DataType.numeric("NUMBER", 19, 0)));
+        assertEquals("NUMERIC(18,2)", optimized.map(DataType.numeric("NUMBER", 18, 2)));
+    }
+
 }

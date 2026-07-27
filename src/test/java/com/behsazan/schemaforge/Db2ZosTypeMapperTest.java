@@ -1,0 +1,56 @@
+package com.behsazan.schemaforge;
+
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.db2zos.Db2ZosTypeMapper;
+import com.behsazan.schemaforge.domain.valueobject.DataType;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** Protects the lossless NUMBER mapping policy for Db2 for z/OS. */
+class Db2ZosTypeMapperTest {
+
+    @Test
+    void safeStrategyShouldKeepExactNumbersAsDecimal() {
+        Db2ZosTypeMapper mapper = new Db2ZosTypeMapper();
+
+        assertEquals("DECIMAL(4,0)", mapper.map(DataType.numeric("NUMBER", 4, null)));
+        assertEquals("DECIMAL(18,0)", mapper.map(DataType.numeric("NUMBER", 18, 0)));
+        assertEquals("DECIMAL(18,2)", mapper.map(DataType.numeric("NUMBER", 18, 2)));
+        assertEquals("DECIMAL(31,0)", mapper.map(DataType.numeric("NUMBER", 31, 0)));
+    }
+
+    @Test
+    void optimizedStrategyShouldUseLosslessNativeIntegerTypes() {
+        Db2ZosTypeMapper mapper = new Db2ZosTypeMapper(NumericMappingStrategy.OPTIMIZED);
+
+        assertEquals("SMALLINT", mapper.map(DataType.numeric("NUMBER", 4, 0)));
+        assertEquals("INTEGER", mapper.map(DataType.numeric("NUMBER", 9, 0)));
+        assertEquals("BIGINT", mapper.map(DataType.numeric("NUMBER", 18, 0)));
+        assertEquals("DECIMAL(19,0)", mapper.map(DataType.numeric("NUMBER", 19, 0)));
+    }
+
+    @Test
+    void optimizedStrategyShouldNotConvertFractionalNumbersToIntegers() {
+        Db2ZosTypeMapper mapper = new Db2ZosTypeMapper(NumericMappingStrategy.OPTIMIZED);
+
+        assertEquals("DECIMAL(18,2)", mapper.map(DataType.numeric("NUMBER", 18, 2)));
+    }
+
+    @Test
+    void shouldRejectNumbersThatCannotBeMappedLosslessly() {
+        Db2ZosTypeMapper mapper = new Db2ZosTypeMapper();
+
+        IllegalArgumentException unbounded = assertThrows(
+                IllegalArgumentException.class,
+                () -> mapper.map(DataType.simple("NUMBER")));
+        assertTrue(unbounded.getMessage().contains("explicit precision"));
+
+        IllegalArgumentException excessivePrecision = assertThrows(
+                IllegalArgumentException.class,
+                () -> mapper.map(DataType.numeric("NUMBER", 32, 0)));
+        assertTrue(excessivePrecision.getMessage().contains("exceeds 31"));
+    }
+}

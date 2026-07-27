@@ -76,8 +76,9 @@ class LanguageToolSpellCheckServiceTest {
         SpellCheckProperties properties = new SpellCheckProperties();
         properties.setEnabled(true);
         properties.setEndpoint("http://127.0.0.1:" + server.getAddress().getPort() + "/v2/check");
-        properties.setConnectTimeout(Duration.ofSeconds(1));
-        properties.setRequestTimeout(Duration.ofSeconds(1));
+        properties.setConnectTimeout(Duration.ofSeconds(5));
+        properties.setRequestTimeout(Duration.ofSeconds(10));
+        properties.setFailOpen(false);
         properties.setMaximumSuggestions(3);
         return properties;
     }
@@ -87,13 +88,21 @@ class LanguageToolSpellCheckServiceTest {
             String response) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v2/check", exchange -> {
-            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, bytes.length);
-            exchange.getResponseBody().write(bytes);
-            exchange.close();
+            try (exchange) {
+                requestBody.set(new String(
+                        exchange.getRequestBody().readAllBytes(),
+                        StandardCharsets.UTF_8));
+                byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set(
+                        "Content-Type",
+                        "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
+            }
         });
+        // Execute the small test handler directly on the HttpServer dispatcher.
+        // This avoids thread-pool startup delays on heavily loaded Windows builds.
+        server.setExecutor(Runnable::run);
         server.start();
         return server;
     }

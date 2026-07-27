@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.dialect.postgresql;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 
@@ -11,9 +12,17 @@ import java.util.Set;
 
 /** PostgreSQL-specific type, identifier and DDL rendering rules. */
 public final class PostgreSqlDialect implements Dialect {
-    private static final PostgreSqlTypeMapper TYPE_MAPPER = new PostgreSqlTypeMapper();
+    private final PostgreSqlTypeMapper typeMapper;
     private static final PostgreSqlExpressionMapper EXPRESSION_MAPPER = new PostgreSqlExpressionMapper();
     private static final PostgreSqlIdentifierRenderer IDENTIFIER_RENDERER = new PostgreSqlIdentifierRenderer();
+
+    public PostgreSqlDialect() {
+        this(NumericMappingStrategy.SAFE);
+    }
+
+    public PostgreSqlDialect(NumericMappingStrategy strategy) {
+        this.typeMapper = new PostgreSqlTypeMapper(strategy);
+    }
 
     private static final Set<DialectFeature> FEATURES = Set.of(
             DialectFeature.SEQUENCE,
@@ -36,7 +45,7 @@ public final class PostgreSqlDialect implements Dialect {
     @Override
     public String sqlType(Column column) {
         Objects.requireNonNull(column, "column must not be null");
-        return TYPE_MAPPER.map(column.dataType());
+        return typeMapper.map(column.dataType());
     }
 
     @Override
