@@ -6,7 +6,7 @@
 - Platform-aware removal of SQL*Plus and psql client commands before JDBC execution.
 - CSV validation report.
 - A dual-database validation runner supporting generation-only and explicit execution modes.
-- Portable directory-generation test using `src/test/resources/samples` and `@TempDir`.
+- Portable directory-generation test using `docs/samples/word` and `@TempDir`.
 
 ## Generate-only mode
 

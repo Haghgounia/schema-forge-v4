@@ -1,3 +1,8 @@
+
+## Unreleased
+
+- Updated REST regression tests to use the schema extracted from `MCB.BIM.TBL.PROVINCES.V1.2.docx` (`DPS`) when matching comparison workbooks, tablespaces, and grants.
+- Added table-level inline validation hints directly on the `CREATE TABLE` line for schema-not-found, same-name table in other schemas, spelling, and singular table-name findings.
 # SchemaForge v4.1
 
 - Added English class-level JavaDoc across production and test sources.

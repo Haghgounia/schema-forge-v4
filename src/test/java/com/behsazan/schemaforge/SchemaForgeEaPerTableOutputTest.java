@@ -47,7 +47,7 @@ class SchemaForgeEaPerTableOutputTest {
 
     @Test
     void shouldGenerateIndependentSqlFilesAndRunAllForEveryEaTable() throws Exception {
-        Path source = Path.of("src", "test", "resources", "ea", "ea-sample.xml");
+        Path source = TestSamplePaths.EA_SAMPLE;
 
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(MetadataRepository.empty());
@@ -91,7 +91,7 @@ class SchemaForgeEaPerTableOutputTest {
 
     @Test
     void shouldPlaceEaComparisonWorkbooksInPerDialectPerTableFolders() throws Exception {
-        Path source = Path.of("src", "test", "resources", "ea", "ea-sample.xml");
+        Path source = TestSamplePaths.EA_SAMPLE;
 
         MetadataRepository repository = new MetadataRepository() {
             @Override

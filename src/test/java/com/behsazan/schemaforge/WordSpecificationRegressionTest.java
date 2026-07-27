@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 class WordSpecificationRegressionTest {
 
     private static final Path INPUT_DIRECTORY =
-            Path.of("src/test/resources/samples");
+            TestSamplePaths.WORD_DIRECTORY;
 
     private static final Path OUTPUT_DIRECTORY =
             Path.of("target/test-output");

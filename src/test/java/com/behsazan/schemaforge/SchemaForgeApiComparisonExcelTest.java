@@ -46,16 +46,15 @@ import static org.mockito.Mockito.when;
  */
 class SchemaForgeApiComparisonExcelTest {
     private static final Pattern ORACLE_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.xlsx");
+            "DPS\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.xlsx");
     private static final Pattern POSTGRESQL_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.xlsx");
+            "DPS\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.xlsx");
 
     @Test
     void shouldAddComparisonWorkbookForEachDatabaseWhenTableAlreadyExists() throws Exception {
-        Path source = Path.of("src", "test", "resources", "samples",
-                "MCB.BIM.TBL.PROVINCES.V1.2.docx");
+        Path source = TestSamplePaths.PROVINCES_V1_2;
 
-        Table databaseTable = Table.builder("BIM", "PROVINCES")
+        Table databaseTable = Table.builder("DPS", "PROVINCES")
                 .addColumn(Column.required("PROVINCE_ID", DataType.numeric("NUMBER", 2, 0)))
                 .addColumn(Column.nullable("PROVINCE_CODE", DataType.varchar("VARCHAR2", 10)))
                 .primaryKey(new PrimaryKey(Identifier.of("PK_PROVINCES"),
@@ -70,12 +69,12 @@ class SchemaForgeApiComparisonExcelTest {
 
             @Override
             public Optional<Table> findTable(String schemaName, String tableName) {
-                return "BIM".equalsIgnoreCase(schemaName) && "PROVINCES".equalsIgnoreCase(tableName)
+                return "DPS".equalsIgnoreCase(schemaName) && "PROVINCES".equalsIgnoreCase(tableName)
                         ? Optional.of(databaseTable) : Optional.empty();
             }
 
             @Override public boolean schemaExists(String schemaName) { return true; }
-            @Override public List<String> findTableSchemas(String tableName) { return List.of("BIM"); }
+            @Override public List<String> findTableSchemas(String tableName) { return List.of("DPS"); }
         };
 
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);

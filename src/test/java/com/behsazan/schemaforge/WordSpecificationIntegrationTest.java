@@ -34,7 +34,7 @@ class WordSpecificationIntegrationTest {
 
     static Stream<Path> wordDocuments() throws Exception {
 
-        Path folder = Path.of("src/test/resources/samples");
+        Path folder = TestSamplePaths.WORD_DIRECTORY;
 
         return Files.list(folder)
                 .filter(Files::isRegularFile)

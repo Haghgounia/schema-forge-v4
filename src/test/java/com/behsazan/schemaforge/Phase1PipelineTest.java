@@ -35,9 +35,7 @@ class Phase1PipelineTest {
 
     @Test
     void shouldParseNormalizeValidateAndExportWordDocument() throws Exception {
-        Path input = Path.of(
-                "src/test/resources/samples/MCB.BIM.TBL.PROVINCES.V1.1.docx"
-        );
+        Path input = TestSamplePaths.PROVINCES_V1_1;
 
         Path output = new OutputFileNamer().create(
                 Path.of("target/test-output"),

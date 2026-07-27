@@ -164,7 +164,9 @@ public final class DdlGenerator {
             sql.append("-- ").append(table.description().value()).append(NL);
         }
         sql.append("CREATE TABLE ")
-                .append(qualifiedName(table.qualifiedName())).append(NL)
+                .append(qualifiedName(table.qualifiedName()))
+                .append(inlineIssueRenderer.render(issueCatalog.forTable(table)))
+                .append(NL)
                 .append("(").append(NL)
                 .append(String.join(NL, definitions)).append(NL)
                 .append(")");

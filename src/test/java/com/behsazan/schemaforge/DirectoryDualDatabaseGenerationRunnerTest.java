@@ -25,7 +25,7 @@ class DirectoryDualDatabaseGenerationRunnerTest {
 
     @Test
     void shouldGenerateScriptsAndBatchDiagnosticReportsForEveryWordFile() throws Exception {
-        Path input = Path.of("src", "test", "resources", "samples");
+        Path input = TestSamplePaths.WORD_DIRECTORY;
         Path output = tempDirectory.resolve("generated");
 
         long expectedDocuments;

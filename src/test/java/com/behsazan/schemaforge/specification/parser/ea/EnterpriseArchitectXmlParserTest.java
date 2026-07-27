@@ -1,5 +1,7 @@
 package com.behsazan.schemaforge.specification.parser.ea;
 
+import com.behsazan.schemaforge.TestSamplePaths;
+
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import org.junit.jupiter.api.Test;
@@ -22,7 +24,7 @@ class EnterpriseArchitectXmlParserTest {
 
     @Test
     void shouldParseEaTablesColumnsKeysForeignKeysAndCompositeIndexes() throws Exception {
-        Path source = Path.of("src", "test", "resources", "ea", "ea-sample.xml");
+        Path source = TestSamplePaths.EA_SAMPLE;
         try (var input = Files.newInputStream(source)) {
             var schema = new EnterpriseArchitectXmlParser("FEE").parse(source.getFileName().toString(), input);
 

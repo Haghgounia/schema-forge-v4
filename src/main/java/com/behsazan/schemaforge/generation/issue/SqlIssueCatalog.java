@@ -44,6 +44,12 @@ public final class SqlIssueCatalog {
         return issues;
     }
 
+    /** Returns issues attached directly to the table itself, excluding column and constraint findings. */
+    public List<ValidationIssue> forTable(Table table) {
+        String path = "tables." + table.qualifiedName().name().value();
+        return issuesByPath.getOrDefault(normalize(path), List.of());
+    }
+
     public List<ValidationIssue> forColumn(Table table, String columnName) {
         String path = "tables." + table.qualifiedName().name().value() + ".columns." + columnName;
         return issuesByPath.getOrDefault(normalize(path), List.of());

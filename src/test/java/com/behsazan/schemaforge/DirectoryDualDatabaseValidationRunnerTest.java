@@ -23,7 +23,7 @@ class DirectoryDualDatabaseValidationRunnerTest {
 
     @Test
     void shouldGenerateBothDialectsAndWriteReportWithoutDatabaseExecution() throws Exception {
-        Path input = Path.of("src", "test", "resources", "samples");
+        Path input = TestSamplePaths.WORD_DIRECTORY;
         Path output = tempDirectory.resolve("validation-output");
 
         long expectedDocuments;

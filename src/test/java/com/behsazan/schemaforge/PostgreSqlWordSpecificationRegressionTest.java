@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Regression coverage that generates a real PostgreSQL SQL file for every Word sample. */
 class PostgreSqlWordSpecificationRegressionTest {
 
-    private static final Path INPUT_DIRECTORY = Path.of("src/test/resources/samples");
+    private static final Path INPUT_DIRECTORY = TestSamplePaths.WORD_DIRECTORY;
     private static final Path OUTPUT_DIRECTORY = Path.of("target/test-output/postgresql");
 
     @Test

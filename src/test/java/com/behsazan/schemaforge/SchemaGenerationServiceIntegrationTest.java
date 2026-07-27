@@ -7,7 +7,6 @@ import com.behsazan.schemaforge.application.SchemaGenerationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,7 +31,7 @@ class SchemaGenerationServiceIntegrationTest {
 
     @Test
     void shouldGeneratePostgreSqlAndJsonFromWordSpecification() throws Exception {
-        Path input = resource("samples/MCB.BIM.TBL.CONTINENTS.V1.0.docx");
+        Path input = TestSamplePaths.CONTINENTS_V1_0;
 
         Clock clock = Clock.fixed(Instant.parse("2026-07-25T01:09:38Z"), ZoneId.of("UTC"));
         GenerationOutput output = new SchemaGenerationService(new OutputFileNamer(clock))
@@ -56,7 +55,4 @@ class SchemaGenerationServiceIntegrationTest {
         assertFalse(sql.contains(" NOORDER"));
     }
 
-    private Path resource(String name) throws URISyntaxException {
-        return Path.of(getClass().getClassLoader().getResource(name).toURI());
-    }
 }

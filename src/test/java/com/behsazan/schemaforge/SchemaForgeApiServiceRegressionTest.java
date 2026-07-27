@@ -45,8 +45,7 @@ class SchemaForgeApiServiceRegressionTest {
 
     @Test
     void restWordGenerationShouldUseLatestParserAndTimestampAllArtifacts() throws Exception {
-        Path source = Path.of("src", "test", "resources", "samples",
-                "MCB.BIM.TBL.PROVINCES.V1.2.docx");
+        Path source = TestSamplePaths.PROVINCES_V1_2;
 
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(MetadataRepository.empty());
@@ -92,19 +91,19 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(oracleSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_CALENDAR_ID"));
-        assertTrue(oracleSql.contains(") TABLESPACE TS_BIM;"));
-        assertTrue(oracleSql.contains("TABLESPACE ITS_BIM"));
+        assertTrue(oracleSql.contains(") TABLESPACE TS_DPS;"));
+        assertTrue(oracleSql.contains("TABLESPACE ITS_DPS"));
         assertTrue(oracleSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DEVELOPER;"));
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DEVELOPER;"));
         assertTrue(oracleSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DESIGNER;"));
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.PROVINCES TO U_DESIGNER;"));
         assertTrue(postgresqlSql.contains("fk_provinces_language_id"));
         assertTrue(postgresqlSql.contains("fk_provinces_country_id"));
         assertTrue(postgresqlSql.contains("fk_provinces_calendar_id"));
         assertTrue(postgresqlSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON bim.provinces TO U_DEVELOPER;"));
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.provinces TO U_DEVELOPER;"));
         assertTrue(postgresqlSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON bim.provinces TO U_DESIGNER;"));
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.provinces TO U_DESIGNER;"));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {
