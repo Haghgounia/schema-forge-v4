@@ -1,5 +1,0 @@
-# Created at 2026-07-27T08:25:14.853
-Boot Manifest-JAR contains absolute paths in classpath 'D:\Projects\schema-forge-v4\target\test-classes'
-Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-'other' has different root
-

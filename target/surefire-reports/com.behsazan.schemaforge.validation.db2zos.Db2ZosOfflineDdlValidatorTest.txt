@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidatorTest
--------------------------------------------------------------------------------
-Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.059 s -- in com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidatorTest
