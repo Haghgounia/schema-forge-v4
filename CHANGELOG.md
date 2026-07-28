@@ -7,6 +7,16 @@
 
 ## Unreleased
 
+### Added - Oracle metadata-based CRUD package generation
+
+- Added `POST /api/v1/generate/oracle/crud` with JSON `schema` and `table` input.
+- Added `OracleCrudGenerationService` using the Oracle metadata repository rather than Word or EA input.
+- Added `OracleCrudPackageGenerator` producing `PKG_<TABLE>` with `CREATE_ROW`, `UPDATE_ROW`, `DELETE_ROW`, `GET_BY_ID`, and `SEARCH`.
+- Added `%TYPE` parameter anchoring, identity/sequence-default key detection, `RETURNING INTO`, audit-column handling, bounded search pagination, and exception-based errors.
+- Kept transaction ownership with the caller; generated packages contain no `COMMIT`, `ROLLBACK`, or autonomous transaction.
+- Added configured `GRANT EXECUTE` generation and regression coverage for generated keys, composite keys, search filters, service orchestration, and REST download responses.
+
+
 ### Fixed - REST ZIP batch fault isolation
 
 - Prevented one malformed or non-specification `.docx` from aborting the entire `/api/v1/generate/zip` request with HTTP 400.

@@ -134,6 +134,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.DEPOSITS TO U_DESIGNER;
 
 The same configuration is used by REST Word/ZIP/EA XML generation and the offline generation pipeline. An empty `grants` list disables standard grants. Explicit table-level `GRANTS` options are retained and merged without duplicate statements.
 
+## Oracle metadata-based CRUD packages
+
+SchemaForge can generate an Oracle CRUD package directly from a live Oracle table; Word and EA input are not involved.
+
+```http
+POST /api/v1/generate/oracle/crud
+Content-Type: application/json
+```
+
+```json
+{
+  "schema": "BIM",
+  "table": "PROVINCES"
+}
+```
+
+The response is `<SCHEMA>.<TABLE>.oracle.crud-package.sql` and contains `PKG_<TABLE>` with `CREATE_ROW`, `UPDATE_ROW`, `DELETE_ROW`, `GET_BY_ID`, and `SEARCH`. Types are anchored with `%TYPE`, generated keys use `RETURNING INTO`, audit timestamps use `SYSTIMESTAMP`, and transaction control remains with the caller. Oracle metadata must be enabled. See [`docs/dialects/ORACLE-CRUD-METADATA.md`](docs/dialects/ORACLE-CRUD-METADATA.md).
+
 ## Document-to-database Excel comparison
 
 When metadata is enabled and the exact document table already exists in a target database, the REST response ZIP also contains a comparison workbook:
