@@ -14,6 +14,15 @@
 
 ## Unreleased
 
+### Added - generated schema bootstrap blocks
+
+- Added one schema bootstrap fragment before generated sequences and tables for every schema that owns generated objects.
+- PostgreSQL now emits idempotent `CREATE SCHEMA IF NOT EXISTS ... AUTHORIZATION CURRENT_USER`.
+- Microsoft SQL Server now emits idempotent `IF SCHEMA_ID(...) IS NULL EXEC(N'CREATE SCHEMA ... AUTHORIZATION [dbo]')` without requiring `GO`, so JDBC execution remains supported.
+- Oracle now emits a non-executable `CREATE USER` provisioning template because an Oracle schema is a database user and secure password/tablespace decisions belong to DBA provisioning.
+- Db2 for z/OS now emits a DSNHSP `CREATE SCHEMA AUTHORIZATION` template because z/OS schema definitions require the schema processor rather than ordinary interactive DDL execution.
+- Added schema counts to the generated object summary and extended SQL Server offline/live validation coverage to include generated schema creation.
+
 ### Added - Oracle metadata-based CRUD package generation
 
 - Added `POST /api/v1/generate/oracle/crud` with JSON `schema` and `table` input.

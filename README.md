@@ -9,6 +9,7 @@ one input.docx -> one JSON model + one SQL file per registered dialect
 The SQL file contains all objects related to that Word specification in one file:
 
 - sequence (when the Word identity marker requires it)
+- schema bootstrap/provisioning block
 - table and columns
 - primary key
 - check constraints
@@ -110,6 +111,21 @@ For example, table `DPS.DEPOSITS` is terminated as:
 and its primary-key, unique-key and standalone indexes use `TABLESPACE ITS_DPS`. Explicit `TABLESPACE`, `INDEX_TABLESPACE` or `PK_TABLESPACE` options in the canonical model take precedence over these defaults. PostgreSQL is unchanged and receives no implicit tablespace.
 
 PostgreSQL scripts begin with `\encoding UTF8` followed by `\set ON_ERROR_STOP on`. The encoding command protects Persian table and column comments when scripts are executed through `psql`; the database itself should also use UTF-8.
+
+## Schema bootstrap behavior
+
+SchemaForge places the schema bootstrap fragment before sequences and tables. Only schemas that own generated tables or sequences are included, and duplicate schema names are emitted once.
+
+| Dialect | Generated behavior |
+|---|---|
+| PostgreSQL | Executable and idempotent `CREATE SCHEMA IF NOT EXISTS <schema> AUTHORIZATION CURRENT_USER;` |
+| Microsoft SQL Server | Executable and idempotent `IF SCHEMA_ID(...) IS NULL EXEC(N'CREATE SCHEMA ... AUTHORIZATION [dbo]');` |
+| Oracle | Non-executable `CREATE USER` provisioning template for DBA review |
+| Db2 for z/OS | Non-executable DSNHSP `CREATE SCHEMA AUTHORIZATION` template |
+
+Oracle does not create a schema with the ANSI `CREATE SCHEMA` statement; the schema is created with its database user. SchemaForge therefore does not generate an executable user with a default password. The generated template uses `TS_<SCHEMA>`, `ITS_<SCHEMA>` and `TEMP` placeholders that must match the approved Oracle storage policy.
+
+Db2 for z/OS schema definitions are processed by DSNHSP and are not mixed into the ordinary executable DDL file. The execution authorization ID must have the required schema and database privileges before running the generated table DDL.
 
 ## Standard database role grants
 

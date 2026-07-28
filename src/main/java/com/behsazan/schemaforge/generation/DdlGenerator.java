@@ -30,6 +30,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -89,6 +90,10 @@ public final class DdlGenerator {
 
         List<String> statements = new ArrayList<>();
         List<String> grantStatements = new ArrayList<>();
+        generatedObjectSchemas(schema).stream()
+                .map(dialect::schemaBootstrapStatement)
+                .filter(statement -> statement != null && !statement.isBlank())
+                .forEach(statements::add);
         if (!schema.sequences().isEmpty()) {
             dialect.require(DialectFeature.SEQUENCE);
             schema.sequences().stream()
@@ -396,6 +401,7 @@ public final class DdlGenerator {
     }
 
     private String summary(DatabaseSchema schema) {
+        int schemaCount = generatedObjectSchemas(schema).size();
         int tableCount = schema.tables().size();
         int columnCount = schema.tables().stream().mapToInt(table -> table.columns().size()).sum();
         int primaryKeyCount = (int) schema.tables().stream().filter(table -> table.primaryKey().isPresent()).count();
@@ -413,6 +419,7 @@ public final class DdlGenerator {
         int emittedIndexCount = indexCount + enforcingIndexCount;
         return "/*" + NL
                 + "SchemaForge Object Summary" + NL
+                + "Schemas      : " + schemaCount + NL
                 + "Sequences    : " + schema.sequences().size() + NL
                 + "Tables       : " + tableCount + NL
                 + "Columns      : " + columnCount + NL
@@ -426,6 +433,24 @@ public final class DdlGenerator {
                 + (enforcingIndexCount == 0 ? ""
                         : "Enforcing    : " + enforcingIndexCount + NL)
                 + "*/";
+    }
+
+    private List<Identifier> generatedObjectSchemas(DatabaseSchema schema) {
+        Map<String, Identifier> schemas = new LinkedHashMap<>();
+        for (Sequence sequence : schema.sequences()) {
+            addSchema(schemas, sequence.qualifiedName().schemaName().orElse(schema.name()));
+        }
+        for (Table table : schema.tables()) {
+            addSchema(schemas, table.qualifiedName().schemaName().orElse(schema.name()));
+        }
+        if (schemas.isEmpty()) {
+            addSchema(schemas, schema.name());
+        }
+        return List.copyOf(schemas.values());
+    }
+
+    private void addSchema(Map<String, Identifier> schemas, Identifier schema) {
+        schemas.putIfAbsent(schema.normalized(), schema);
     }
 
     private String warningHeader(SqlIssueCatalog issueCatalog) {

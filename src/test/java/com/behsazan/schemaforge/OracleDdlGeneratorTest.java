@@ -116,6 +116,9 @@ class OracleDdlGeneratorTest {
 
         String sql = new DdlGenerator(new OracleDialect(), fixedClock).generate(schema);
 
+        assertTrue(sql.contains("Oracle schema BIM is created by CREATE USER"));
+        assertTrue(sql.contains("-- CREATE USER BIM IDENTIFIED BY \"<SECURE_PASSWORD>\""));
+
         // 1. Sequence
         assertTrue(sql.contains("CREATE SEQUENCE BIM.SEQ_CUSTOMERS START WITH 1 INCREMENT BY 1"));
         assertTrue(sql.contains("MAXVALUE 999999999999999999 MINVALUE 1 NOCACHE NOCYCLE NOORDER;"));

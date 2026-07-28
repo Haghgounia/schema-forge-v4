@@ -76,6 +76,7 @@ public final class SqlServerOfflineDdlValidator {
         String normalized = sql.stripLeading().toUpperCase(Locale.ROOT);
         boolean supported = normalized.startsWith("SET XACT_ABORT ")
                 || normalized.startsWith("SET NOCOUNT ")
+                || normalized.startsWith("IF SCHEMA_ID(")
                 || normalized.startsWith("CREATE TABLE ")
                 || normalized.startsWith("CREATE SEQUENCE ")
                 || normalized.startsWith("CREATE INDEX ")

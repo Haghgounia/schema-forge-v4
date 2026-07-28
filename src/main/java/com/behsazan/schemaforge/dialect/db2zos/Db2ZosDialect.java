@@ -144,4 +144,16 @@ public final class Db2ZosDialect implements Dialect {
                 + "-- Schema      : " + schemaName + nl
                 + "-- ==============================================================";
     }
+
+    @Override
+    public String schemaBootstrapStatement(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String schema = quote(schemaName);
+        String nl = System.lineSeparator();
+        return "-- [SCHEMA BOOTSTRAP] Db2 for z/OS CREATE SCHEMA must be processed" + nl
+                + "-- by the DSNHSP schema processor and is not executed in this ordinary DDL file." + nl
+                + "-- DSNHSP template: CREATE SCHEMA AUTHORIZATION " + schema + nl
+                + "-- Ensure the execution authorization ID has the required CREATEIN/DROPIN" + nl
+                + "-- schema privileges and table/database authorities before running this script.";
+    }
 }

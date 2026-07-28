@@ -82,10 +82,7 @@ class SqlServerLiveIT {
 
         Class.forName(driver);
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
-            boolean schemaCreated = false;
             try {
-                execute(connection, "CREATE SCHEMA " + quote(schemaName));
-                schemaCreated = true;
                 for (String sqlStatement : new SqlScriptStatementParser().parse(sql, DatabasePlatform.SQLSERVER)) {
                     execute(connection, sqlStatement);
                 }
@@ -99,9 +96,7 @@ class SqlServerLiveIT {
                         "DROP TABLE " + quote(schemaName) + "." + quote(parentName));
                 executeIgnoringFailure(connection,
                         "DROP SEQUENCE " + quote(schemaName) + "." + quote(sequenceName));
-                if (schemaCreated) {
-                    executeIgnoringFailure(connection, "DROP SCHEMA " + quote(schemaName));
-                }
+                executeIgnoringFailure(connection, "DROP SCHEMA " + quote(schemaName));
             }
         }
     }

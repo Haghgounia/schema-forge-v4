@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -221,5 +222,16 @@ public interface Dialect {
 
     default String warningLine(String text) {
         return "-- " + text;
+    }
+
+    /**
+     * Renders the schema bootstrap fragment that must appear before any generated
+     * object in that schema. Dialects may return executable, idempotent DDL or a
+     * non-executable provisioning template when schema creation is an
+     * administrative/security operation rather than ordinary application DDL.
+     */
+    default String schemaBootstrapStatement(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        return "";
     }
 }

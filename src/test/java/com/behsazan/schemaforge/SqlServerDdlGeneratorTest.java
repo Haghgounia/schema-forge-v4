@@ -79,6 +79,8 @@ class SqlServerDdlGeneratorTest {
 
         assertTrue(sql.contains("SchemaForge Offline Microsoft SQL Server DDL"));
         assertTrue(sql.contains("SET XACT_ABORT ON;"));
+        assertTrue(sql.contains("IF SCHEMA_ID(N'CRM') IS NULL "
+                + "EXEC(N'CREATE SCHEMA CRM AUTHORIZATION [dbo]');"));
         assertTrue(sql.contains("CREATE SEQUENCE CRM.SEQ_CUSTOMERS START WITH 1 INCREMENT BY 1 NO CYCLE NO CACHE;"));
         assertTrue(sql.contains("CUSTOMER_ID DECIMAL(18,0) IDENTITY(1,1) NOT NULL"));
         assertTrue(sql.contains("CREATED_AT DATETIME2(0) DEFAULT SYSDATETIME() NOT NULL"));

@@ -157,4 +157,11 @@ public final class PostgreSqlDialect implements Dialect {
     public String warningLine(String text) {
         return "-- " + text;
     }
+
+    @Override
+    public String schemaBootstrapStatement(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        return "CREATE SCHEMA IF NOT EXISTS " + quote(schemaName)
+                + " AUTHORIZATION CURRENT_USER" + statementTerminator();
+    }
 }

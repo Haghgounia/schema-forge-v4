@@ -162,4 +162,20 @@ public final class OracleDialect implements Dialect {
     public String warningLine(String text) {
         return "PROMPT " + text;
     }
+
+    @Override
+    public String schemaBootstrapStatement(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String schema = quote(schemaName);
+        String nl = System.lineSeparator();
+        return "PROMPT [SCHEMA BOOTSTRAP] Oracle schema " + schema
+                + " is created by CREATE USER and must be provisioned by a DBA." + nl
+                + "-- Secure provisioning template; intentionally not executed by SchemaForge:" + nl
+                + "-- CREATE USER " + schema + " IDENTIFIED BY \"<SECURE_PASSWORD>\"" + nl
+                + "--   DEFAULT TABLESPACE TS_" + schema + " TEMPORARY TABLESPACE TEMP" + nl
+                + "--   QUOTA UNLIMITED ON TS_" + schema + nl
+                + "--   QUOTA UNLIMITED ON ITS_" + schema + ";" + nl
+                + "-- GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE, CREATE VIEW," + nl
+                + "--       CREATE PROCEDURE, CREATE TRIGGER TO " + schema + ";";
+    }
 }

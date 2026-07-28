@@ -190,6 +190,16 @@ public final class SqlServerDialect implements Dialect {
                 + "SET NOCOUNT ON;";
     }
 
+    @Override
+    public String schemaBootstrapStatement(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String metadataSchemaName = escapeLiteral(metadataName(schemaName));
+        String renderedSchemaName = quote(schemaName).replace("'", "''");
+        return "IF SCHEMA_ID(N'" + metadataSchemaName + "') IS NULL "
+                + "EXEC(N'CREATE SCHEMA " + renderedSchemaName
+                + " AUTHORIZATION [dbo]')" + statementTerminator();
+    }
+
     private String filegroupClause(String filegroup) {
         if (filegroup == null || filegroup.isBlank()) return "";
         return " ON " + identifierRenderer.render(Identifier.of(filegroup.trim()));
