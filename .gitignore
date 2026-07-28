@@ -1,0 +1,100 @@
+# =============================================================================
+# SchemaForge V4 - Git ignore rules
+# =============================================================================
+
+# Maven build output
+/target/
+.flattened-pom.xml
+dependency-reduced-pom.xml
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+buildNumber.properties
+.mvn/timing.properties
+
+# Java / JVM generated files
+*.class
+hs_err_pid*
+replay_pid*
+
+# IntelliJ IDEA
+/.idea/
+*.iml
+*.iws
+*.ipr
+
+# Visual Studio Code
+/.vscode/
+
+# Eclipse / Spring Tool Suite
+.classpath
+.project
+.settings/
+.factorypath
+.springBeans
+.sts4-cache/
+
+# Operating-system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs and runtime diagnostics
+/logs/
+*.log
+*.log.*
+*.pid
+*.pid.lock
+
+# Temporary and editor files
+/tmp/
+/temp/
+/work/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+~$*
+
+# Local/generated SchemaForge artifacts
+/output/
+/outputs/
+/generated/
+/test-output/
+/test-reports/
+/validation-output/
+/uploads/
+/downloads/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+**/application-*.local.yml
+**/application-*.local.yaml
+**/application-*.local.properties
+
+# Local certificates and key stores
+*.jks
+*.p12
+*.pfx
+*.keystore
+
+# Local database files
+*.mv.db
+*.trace.db
+*.sqlite
+*.sqlite3

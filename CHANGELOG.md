@@ -1,3 +1,10 @@
+## Unreleased - Repository hygiene
+
+- Added a root `.gitignore` for Maven build output, IDE metadata, logs, temporary files, local generated artifacts, environment-specific configuration, and local credentials/key stores.
+- Removed generated `target` content and IntelliJ `.idea` metadata from the distributable source tree.
+- Preserved Maven Wrapper files under `.mvn/wrapper`.
+
+
 ## 2026-07-28 - ZIP batch regression fixture correction
 
 - Corrected `SchemaForgeApiZipBatchTest` so its invalid DOCX contains a valid metadata table but intentionally omits the column specification table.
