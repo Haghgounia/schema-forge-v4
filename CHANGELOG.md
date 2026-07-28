@@ -1,5 +1,19 @@
+## 2026-07-28 - ZIP batch regression fixture correction
+
+- Corrected `SchemaForgeApiZipBatchTest` so its invalid DOCX contains a valid metadata table but intentionally omits the column specification table.
+- Aligns the fixture with the asserted parser failure: `Column specification table was not found`.
+- No production behavior or REST contract changed in this correction.
+
 
 ## Unreleased
+
+### Fixed - REST ZIP batch fault isolation
+
+- Prevented one malformed or non-specification `.docx` from aborting the entire `/api/v1/generate/zip` request with HTTP 400.
+- Added per-document staging so failed documents cannot leave partial SQL/JSON/Excel artifacts in the response archive.
+- Added `batch-generation-summary.csv` and `batch-generation-errors.log` to every ZIP batch response.
+- Ignored Word lock files (`~$*.docx`), hidden dot files, AppleDouble files, and `__MACOSX` metadata entries.
+- Added regression coverage for mixed valid/invalid ZIP input and all-invalid diagnostic archives.
 
 ### Added - Microsoft SQL Server core dialect
 

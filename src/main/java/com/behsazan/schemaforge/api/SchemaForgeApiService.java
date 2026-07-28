@@ -37,9 +37,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -62,6 +65,8 @@ import java.util.zip.ZipOutputStream;
 @Service
 public class SchemaForgeApiService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaForgeApiService.class);
+    private static final String BATCH_SUMMARY_FILE = "batch-generation-summary.csv";
+    private static final String BATCH_ERROR_FILE = "batch-generation-errors.log";
     private final SchemaPreparationService preparationService;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
     private final EaImportProperties eaImportProperties;
@@ -115,13 +120,64 @@ public class SchemaForgeApiService {
             Path inputDir = Files.createDirectories(work.resolve("input"));
             Path outputDir = Files.createDirectories(work.resolve("output"));
             unzipSafely(file, inputDir);
+
+            List<Path> documents;
             try (var files = Files.walk(inputDir)) {
-                var documents = files.filter(Files::isRegularFile)
-                        .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".docx"))
+                documents = files.filter(Files::isRegularFile)
+                        .filter(SchemaForgeApiService::isProcessableWordDocument)
+                        .sorted(Comparator.comparing(path ->
+                                normalizePath(inputDir.relativize(path)).toLowerCase(Locale.ROOT)))
                         .toList();
-                if (documents.isEmpty()) throw new IllegalArgumentException("ZIP does not contain any DOCX files");
-                for (Path document : documents) generateWordForAll(document, outputDir);
             }
+            if (documents.isEmpty()) {
+                throw new IllegalArgumentException("ZIP does not contain any processable DOCX files");
+            }
+
+            List<String> summary = new ArrayList<>();
+            summary.add("sequence,document,status,generated_files,error");
+            StringBuilder errors = new StringBuilder();
+            int sequence = 0;
+
+            for (Path document : documents) {
+                sequence++;
+                String relativeDocument = normalizePath(inputDir.relativize(document));
+                Path documentOutput = Files.createDirectories(
+                        work.resolve("staging").resolve(String.format(Locale.ROOT, "%05d", sequence)));
+                try {
+                    generateWordForAll(document, documentOutput);
+                    long generatedFiles = countRegularFiles(documentOutput);
+                    moveGeneratedFiles(documentOutput, outputDir);
+                    summary.add(csvLine(
+                            Integer.toString(sequence),
+                            relativeDocument,
+                            "SUCCESS",
+                            Long.toString(generatedFiles),
+                            ""));
+                } catch (Exception exception) {
+                    String message = safeMessage(exception);
+                    LOGGER.warn("ZIP document skipped after generation failure: {} - {}",
+                            relativeDocument, message);
+                    summary.add(csvLine(
+                            Integer.toString(sequence),
+                            relativeDocument,
+                            "FAILED",
+                            "0",
+                            exception.getClass().getSimpleName() + ": " + message));
+                    appendBatchError(errors, sequence, relativeDocument, exception);
+                } finally {
+                    deleteRecursively(documentOutput);
+                }
+            }
+
+            Files.writeString(
+                    outputDir.resolve(BATCH_SUMMARY_FILE),
+                    String.join("\n", summary) + "\n",
+                    StandardCharsets.UTF_8);
+            Files.writeString(
+                    outputDir.resolve(BATCH_ERROR_FILE),
+                    errors.toString(),
+                    StandardCharsets.UTF_8);
+
             return zipDirectory(outputDir);
         } finally {
             deleteRecursively(work);
@@ -572,6 +628,65 @@ public class SchemaForgeApiService {
             Files.write(workbookPath, workbook);
             LOGGER.info("[{}] Comparison workbook generated: {}", platform.name(), workbookPath.getFileName());
         }
+    }
+
+    private static boolean isProcessableWordDocument(Path path) {
+        String name = path.getFileName().toString();
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (!lower.endsWith(".docx")) return false;
+        if (name.startsWith("~$") || name.startsWith("._") || name.startsWith(".")) return false;
+        for (Path segment : path) {
+            if ("__MACOSX".equalsIgnoreCase(segment.toString())) return false;
+        }
+        return true;
+    }
+
+    private static long countRegularFiles(Path directory) throws IOException {
+        try (var files = Files.walk(directory)) {
+            return files.filter(Files::isRegularFile).count();
+        }
+    }
+
+    private static void moveGeneratedFiles(Path source, Path destination) throws IOException {
+        try (var files = Files.walk(source)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                Path target = destination.resolve(source.relativize(file));
+                Files.createDirectories(target.getParent());
+                Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+    }
+
+    private static String normalizePath(Path path) {
+        return path.toString().replace('\\', '/');
+    }
+
+    private static String csvLine(String... values) {
+        List<String> escaped = new ArrayList<>(values.length);
+        for (String value : values) {
+            String safe = value == null ? "" : value;
+            escaped.add("\"" + safe.replace("\"", "\"\"") + "\"");
+        }
+        return String.join(",", escaped);
+    }
+
+    private static String safeMessage(Throwable throwable) {
+        String message = throwable.getMessage();
+        return message == null || message.isBlank() ? throwable.getClass().getSimpleName() : message;
+    }
+
+    private static void appendBatchError(
+            StringBuilder errors, int sequence, String document, Exception exception) {
+        StringWriter stackTrace = new StringWriter();
+        exception.printStackTrace(new PrintWriter(stackTrace));
+        errors.append("============================================================\n")
+                .append("Sequence : ").append(sequence).append('\n')
+                .append("Document : ").append(document).append('\n')
+                .append("Error    : ").append(exception.getClass().getName())
+                .append(": ").append(safeMessage(exception)).append('\n')
+                .append("------------------------------------------------------------\n")
+                .append(stackTrace)
+                .append('\n');
     }
 
     private static void unzipSafely(MultipartFile file, Path destination) throws IOException {

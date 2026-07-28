@@ -20,6 +20,13 @@ OpenAPI JSON: `http://localhost:9090/v3/api-docs`
 
 Every endpoint returns an `application/zip`. Word and Word-ZIP inputs keep the timestamped document-level output and include Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL. EA XML/XMI input produces one SQL file per table for all four registered dialects, consolidated `model.json` and `manifest.json`, dialect-specific `run_all.sql` files, and one comparison workbook per visible database table and metadata-enabled dialect.
 
+For ZIP input, each Word document is isolated. Temporary Office files such as `~$*.docx`, hidden dot files, AppleDouble files, and `__MACOSX` entries are ignored. A malformed or non-specification Word document no longer aborts the whole request; successful documents are generated and the returned archive always includes:
+
+- `batch-generation-summary.csv` — one row per processable Word document with `SUCCESS` or `FAILED` status
+- `batch-generation-errors.log` — full stack traces for failed documents
+
+A ZIP with no processable `.docx` file still returns HTTP 400.
+
 ## Enterprise Architect XML/XMI
 
 EA exports frequently omit the physical schema. Configure the fallback schema in `application.yml`:
