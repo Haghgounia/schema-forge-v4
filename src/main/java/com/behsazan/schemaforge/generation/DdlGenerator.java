@@ -115,11 +115,18 @@ public final class DdlGenerator {
                     statements.add(createUniqueKeyIndex(table, unique));
                 }
             }
+            if (dialect.commentsBeforeForeignKeys()) {
+                // SQL Server descriptions are independent metadata. Emit them before
+                // referential dependencies so they survive a later missing-parent failure.
+                addComments(statements, table);
+            }
+            table.indexes().stream().map(index -> createIndex(table, index)).forEach(statements::add);
             table.foreignKeys().stream()
                     .map(foreignKey -> createForeignKey(table, foreignKey, metadata))
                     .forEach(statements::add);
-            table.indexes().stream().map(index -> createIndex(table, index)).forEach(statements::add);
-            addComments(statements, table);
+            if (!dialect.commentsBeforeForeignKeys()) {
+                addComments(statements, table);
+            }
             addGrants(grantStatements, table);
         }
         // Grants are the final executable statements in the generated script.
@@ -270,10 +277,13 @@ public final class DdlGenerator {
         String name = check.name() == null
                 ? "CHK_" + table.qualifiedName().name().normalized()
                 : dialect.quote(check.name());
-        return "ALTER TABLE " + qualifiedName(table.qualifiedName())
-                + " ADD CONSTRAINT " + name
+        String tableName = qualifiedName(table.qualifiedName());
+        String create = dialect.alterTableAddConstraintPrefix(tableName)
+                + name
                 + " CHECK(" + dialect.expression(check.expression()) + ")"
                 + dialect.constraintValidationClause() + dialect.statementTerminator();
+        String postCreate = dialect.postCreateConstraintStatement(tableName, name);
+        return appendStatement(create, postCreate);
     }
 
     private String createUnique(Table table, UniqueKey unique) {
@@ -298,15 +308,19 @@ public final class DdlGenerator {
                     + qualifiedName(table.qualifiedName()) + "(" + identifiers(foreignKey.columns()) + ") -> "
                     + qualifiedName(referencedTable) + "(" + identifiers(foreignKey.referencedColumns()) + ")");
         }
-        StringBuilder sql = new StringBuilder("ALTER TABLE ").append(qualifiedName(table.qualifiedName()))
-                .append(" ADD CONSTRAINT ").append(name)
+        String tableName = qualifiedName(table.qualifiedName());
+        StringBuilder sql = new StringBuilder(dialect.alterTableAddConstraintPrefix(tableName))
+                .append(name)
                 .append(" FOREIGN KEY (").append(identifiers(foreignKey.columns())).append(")")
                 .append(" REFERENCES ").append(qualifiedName(referencedTable))
                 .append("(").append(identifiers(foreignKey.referencedColumns())).append(")");
         appendReferentialAction(sql, "ON DELETE", foreignKey.onDelete());
         appendReferentialAction(sql, "ON UPDATE", foreignKey.onUpdate());
         sql.append(dialect.deferrabilityClause(foreignKey.deferrable(), foreignKey.initiallyDeferred()));
-        return sql.append(dialect.constraintValidationClause()).append(dialect.statementTerminator()).toString();
+        String create = sql.append(dialect.constraintValidationClause())
+                .append(dialect.statementTerminator()).toString();
+        String postCreate = dialect.postCreateConstraintStatement(tableName, name);
+        return appendStatement(create, postCreate);
     }
 
     private QualifiedName resolvedReferencedTable(Table table, ForeignKey foreignKey, MetadataComparisonResult metadata) {
@@ -322,6 +336,13 @@ public final class DdlGenerator {
 
     private void appendReferentialAction(StringBuilder sql, String clause, ReferentialAction action) {
         sql.append(dialect.referentialActionClause(clause, action));
+    }
+
+    private String appendStatement(String first, String second) {
+        if (second == null || second.isBlank()) {
+            return first;
+        }
+        return first + NL + second;
     }
 
     private String createIndex(Table table, Index index) {

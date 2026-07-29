@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
+import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
@@ -135,6 +136,8 @@ class SqlServerLiveIT {
                 .addColumn(childActive)
                 .primaryKey(new PrimaryKey(
                         Identifier.of("PK_" + childName), List.of(Identifier.of("ID"))))
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_" + childName + "_ACTIVE"), "ACTIVE IN (0, 1)"))
                 .addForeignKey(new ForeignKey(
                         Identifier.of("FK_" + childName + "_PARENT"),
                         List.of(Identifier.of("PARENT_ID")),
@@ -206,7 +209,14 @@ class SqlServerLiveIT {
                 schema));
         assertEquals(1, count(connection,
                 "SELECT COUNT(*) FROM sys.foreign_keys F JOIN sys.tables T ON T.object_id=F.parent_object_id "
-                        + "JOIN sys.schemas S ON S.schema_id=T.schema_id WHERE S.name=?",
+                        + "JOIN sys.schemas S ON S.schema_id=T.schema_id "
+                        + "WHERE S.name=? AND F.is_disabled=0 AND F.is_not_trusted=0",
+                schema));
+        assertEquals(1, count(connection,
+                "SELECT COUNT(*) FROM sys.check_constraints C "
+                        + "JOIN sys.tables T ON T.object_id=C.parent_object_id "
+                        + "JOIN sys.schemas S ON S.schema_id=T.schema_id "
+                        + "WHERE S.name=? AND C.is_disabled=0 AND C.is_not_trusted=0",
                 schema));
         assertEquals(1, count(connection,
                 "SELECT COUNT(*) FROM sys.indexes I JOIN sys.tables T ON T.object_id=I.object_id "

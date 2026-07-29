@@ -143,6 +143,22 @@ public final class SqlServerDialect implements Dialect {
     }
 
     @Override
+    public String alterTableAddConstraintPrefix(String tableName) {
+        return "ALTER TABLE " + tableName + " WITH CHECK ADD CONSTRAINT ";
+    }
+
+    @Override
+    public String postCreateConstraintStatement(String tableName, String constraintName) {
+        return "ALTER TABLE " + tableName + " CHECK CONSTRAINT "
+                + constraintName + statementTerminator();
+    }
+
+    @Override
+    public boolean commentsBeforeForeignKeys() {
+        return true;
+    }
+
+    @Override
     public String indexTail(String includeColumns, String indexTablespace, String predicate) {
         return indexIncludeClause(includeColumns)
                 + partialIndexClause(predicate)

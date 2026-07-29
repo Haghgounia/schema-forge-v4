@@ -94,6 +94,25 @@ public interface Dialect {
         return "";
     }
 
+    /** Renders the opening fragment for an ALTER TABLE ... ADD CONSTRAINT statement. */
+    default String alterTableAddConstraintPrefix(String tableName) {
+        return "ALTER TABLE " + tableName + " ADD CONSTRAINT ";
+    }
+
+    /**
+     * Renders an optional statement issued after a constraint has been created.
+     * SQL Server uses this hook to make CHECK and FOREIGN KEY constraints explicitly
+     * enabled and trusted; most dialects need no follow-up statement.
+     */
+    default String postCreateConstraintStatement(String tableName, String constraintName) {
+        return "";
+    }
+
+    /** Whether table/column comments must be emitted before foreign-key dependencies. */
+    default boolean commentsBeforeForeignKeys() {
+        return false;
+    }
+
     /**
      * Returns the dialect/project default table tablespace for a table when the
      * canonical model does not provide an explicit TABLESPACE physical option.

@@ -1,3 +1,16 @@
+## 2026-07-29 - REST regression schema expectation correction
+
+- Updated Word REST regression fixtures to use the actual `BIM` schema parsed from `MCB.BIM.TBL.PROVINCES.V1.2.docx` instead of the stale `DPS` expectation.
+- Corrected comparison-workbook repository stubs and expected workbook names from `DPS.PROVINCES` to `BIM.PROVINCES`.
+- Corrected Oracle tablespace, grant, PostgreSQL, Db2 for z/OS, and SQL Server assertions to the `BIM` schema.
+- No production generator behavior changed; this release fixes two stale regression tests exposed by the complete Maven suite.
+
+## 2026-07-29 - SQL Server trusted constraints and comment ordering
+
+- SQL Server CHECK and physical FOREIGN KEY constraints are emitted with `WITH CHECK` and an explicit `CHECK CONSTRAINT` statement.
+- Table and column descriptions are emitted before indexes and foreign keys so `MS_Description` metadata is preserved even when a later dependency fails.
+- SQL Server generator regression assertions cover trusted-constraint syntax and comment ordering.
+
 ## Unreleased - Repository hygiene
 
 - Added a root `.gitignore` for Maven build output, IDE metadata, logs, temporary files, local generated artifacts, environment-specific configuration, and local credentials/key stores.
@@ -291,4 +304,3 @@
 - Covered table, column, primary key, foreign key, normal index with included columns, sequence, table descriptions, and column descriptions in the live verification model.
 - Added the inactive `sqlserver-live` Maven profile using Failsafe; normal unit and regression builds remain database-independent.
 - Replaced the deferred live-test notes with staged generate, probe, execute, and integration-test instructions in `docs/testing/SQL-SERVER-VALIDATION.md`.
-
