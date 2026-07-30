@@ -1,3 +1,18 @@
+
+## 2026-07-29 - REST metadata CRUD artifacts
+
+- Added Oracle CRUD package and SQL Server CRUD procedure artifacts to Word and ZIP REST archives.
+- Added timestamped metadata CRUD summary CSV with explicit generated/skipped/failed status.
+- Kept dedicated `/oracle/crud` and `/sqlserver/crud` endpoints unchanged.
+## 2026-07-29 - SQL Server metadata-based CRUD procedures
+
+- Added `POST /api/v1/generate/sqlserver/crud` with JSON `schema` and `table` input.
+- Added `SqlServerCrudGenerationService` using the live SQL Server metadata repository rather than Word or EA input.
+- Added centralized SQL Server CRUD naming and generation for `<TABLE>_CREATE`, `_UPDATE`, `_DELETE`, `_GET_BY_ID`, and `_SEARCH`.
+- Added exact metadata-derived parameter types, identity/sequence/GUID generated-key detection, `OUTPUT INSERTED` output parameters, audit-column handling, bounded pagination, `TRY...CATCH`, and `THROW` error contracts.
+- Kept transaction ownership with the caller; generated procedures contain no `BEGIN TRANSACTION`, `COMMIT`, or `ROLLBACK`.
+- Added configured `GRANT EXECUTE` generation, unit/controller/service coverage, and `SqlServerCrudLiveIT` under the explicit `sqlserver-live` profile.
+
 ## 2026-07-29 - REST regression schema expectation correction
 
 - Updated Word REST regression fixtures to use the actual `BIM` schema parsed from `MCB.BIM.TBL.PROVINCES.V1.2.docx` instead of the stale `DPS` expectation.

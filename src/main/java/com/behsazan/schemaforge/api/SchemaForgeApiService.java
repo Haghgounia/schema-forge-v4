@@ -14,6 +14,10 @@ import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudGenerationOptions;
+import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudPackageGenerator;
+import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudGenerationOptions;
+import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudProcedureGenerator;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
@@ -73,6 +77,10 @@ public class SchemaForgeApiService {
     private final ObjectMapper objectMapper;
     private final OutputFileNamer outputFileNamer = new OutputFileNamer();
     private final SchemaCompareExcelWriter compareExcelWriter = new SchemaCompareExcelWriter();
+    private final OracleCrudPackageGenerator oracleCrudGenerator = new OracleCrudPackageGenerator();
+    private final SqlServerCrudProcedureGenerator sqlServerCrudGenerator = new SqlServerCrudProcedureGenerator();
+    private final OracleCrudGenerationOptions oracleCrudOptions;
+    private final SqlServerCrudGenerationOptions sqlServerCrudOptions;
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
@@ -97,6 +105,13 @@ public class SchemaForgeApiService {
         this.metadataRepositoryResolver = metadataRepositoryResolver;
         this.eaImportProperties = eaImportProperties;
         this.objectMapper = objectMapper;
+        List<String> crudGrantees = grantProperties.getGrants().stream()
+                .filter(SchemaForgeApiService::hasWritePrivilege)
+                .map(GrantProperties.GrantRule::getGrantee)
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
+        this.oracleCrudOptions = OracleCrudGenerationOptions.ofGrantees(crudGrantees);
+        this.sqlServerCrudOptions = SqlServerCrudGenerationOptions.ofGrantees(crudGrantees);
     }
 
     public byte[] generateFromWord(MultipartFile file) throws IOException {
@@ -251,12 +266,123 @@ public class SchemaForgeApiService {
             writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform, dialect);
         }
 
+        writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
+
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
         new JsonExporter().write(output.resolve(timestampedBaseName + ".json"), schema, jsonReport);
     }
 
+
+    /**
+     * Adds Oracle packages and SQL Server CRUD procedures to Word/ZIP REST output.
+     * These artifacts remain metadata-based: they are generated only when the
+     * corresponding repository is enabled and the live table can be resolved.
+     * A per-document summary makes every skip or failure visible to the caller.
+     */
+    private void writeMetadataCrudArtifacts(
+            DatabaseSchema documentSchema, Path output, String timestampedBaseName, String timestamp)
+            throws IOException {
+
+        List<String> summary = new ArrayList<>();
+        summary.add("platform,schema,table,status,file,error");
+
+        writeMetadataCrudArtifactsForPlatform(
+                documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary);
+        writeMetadataCrudArtifactsForPlatform(
+                documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary);
+
+        Files.writeString(
+                output.resolve(timestampedBaseName + ".metadata-crud-summary.csv"),
+                String.join("\n", summary) + "\n",
+                StandardCharsets.UTF_8);
+    }
+
+    private void writeMetadataCrudArtifactsForPlatform(
+            DatabaseSchema documentSchema,
+            Path output,
+            String timestamp,
+            DatabasePlatform platform,
+            List<String> summary) {
+
+        MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
+        for (Table documentTable : documentSchema.tables()) {
+            String schemaName = tableSchema(documentSchema, documentTable);
+            String tableName = documentTable.qualifiedName().name().value();
+
+            if (!repository.available()) {
+                summary.add(csvLine(platform.name(), schemaName, tableName,
+                        "SKIPPED_REPOSITORY_DISABLED", "",
+                        "Metadata repository is not enabled"));
+                continue;
+            }
+
+            try {
+                var liveTable = findMetadataTable(repository, schemaName, tableName);
+                if (liveTable.isEmpty()) {
+                    summary.add(csvLine(platform.name(), schemaName, tableName,
+                            "SKIPPED_TABLE_NOT_FOUND", "",
+                            "Live table was not found"));
+                    LOGGER.warn("[{}] REST CRUD artifact skipped; live table not found: {}.{}",
+                            platform.name(), schemaName, tableName);
+                    continue;
+                }
+
+                String fileName;
+                String sql;
+                if (platform == DatabasePlatform.ORACLE) {
+                    fileName = schemaName.toUpperCase(Locale.ROOT) + "."
+                            + tableName.toUpperCase(Locale.ROOT) + "_" + timestamp
+                            + ".oracle.crud-package.sql";
+                    sql = oracleCrudGenerator.generate(liveTable.get(), oracleCrudOptions);
+                } else {
+                    fileName = schemaName.toUpperCase(Locale.ROOT) + "."
+                            + tableName.toUpperCase(Locale.ROOT) + "_" + timestamp
+                            + ".sqlserver.crud-procedures.sql";
+                    sql = sqlServerCrudGenerator.generate(liveTable.get(), sqlServerCrudOptions);
+                }
+
+                Files.writeString(output.resolve(fileName), sql, StandardCharsets.UTF_8);
+                summary.add(csvLine(platform.name(), schemaName, tableName,
+                        "GENERATED", fileName, ""));
+                LOGGER.info("[{}] REST CRUD artifact generated: {}", platform.name(), fileName);
+            } catch (Exception exception) {
+                String message = safeMessage(exception);
+                summary.add(csvLine(platform.name(), schemaName, tableName,
+                        "FAILED", "", exception.getClass().getSimpleName() + ": " + message));
+                LOGGER.warn("[{}] REST CRUD artifact generation failed for {}.{}: {}",
+                        platform.name(), schemaName, tableName, message);
+            }
+        }
+    }
+
+    private static java.util.Optional<Table> findMetadataTable(
+            MetadataRepository repository, String schemaName, String tableName) {
+        var table = repository.findTable(schemaName, tableName);
+        if (table.isPresent()) {
+            return table;
+        }
+        String matchedSchema = repository.findTableSchemas(tableName).stream()
+                .filter(candidate -> candidate.equalsIgnoreCase(schemaName))
+                .findFirst()
+                .orElse(null);
+        return matchedSchema == null
+                ? java.util.Optional.empty()
+                : repository.findTable(matchedSchema, tableName);
+    }
+
+    private static boolean hasWritePrivilege(GrantProperties.GrantRule rule) {
+        if (rule == null || rule.getPrivileges() == null) {
+            return false;
+        }
+        return rule.getPrivileges().stream()
+                .filter(value -> value != null)
+                .map(value -> value.trim().toUpperCase(Locale.ROOT))
+                .anyMatch(value -> value.equals("INSERT")
+                        || value.equals("UPDATE")
+                        || value.equals("DELETE"));
+    }
 
     /**
      * EA exports can contain many tables. Each table is therefore emitted as an
@@ -318,6 +444,8 @@ public class SchemaForgeApiService {
 
             writeEaRunAll(schema, sqlDirectory, platform, dependencyOrder, timestamp);
         }
+
+        writeMetadataCrudArtifacts(schema, output, baseName + "_" + timestamp, timestamp);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),

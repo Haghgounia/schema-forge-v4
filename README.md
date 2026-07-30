@@ -168,6 +168,24 @@ Content-Type: application/json
 
 The response is `<SCHEMA>.<TABLE>.oracle.crud-package.sql` and contains `PKG_<TABLE>` with `CREATE_ROW`, `UPDATE_ROW`, `DELETE_ROW`, `GET_BY_ID`, and `SEARCH`. Types are anchored with `%TYPE`, generated keys use `RETURNING INTO`, audit timestamps use `SYSTIMESTAMP`, and transaction control remains with the caller. Oracle metadata must be enabled. See [`docs/dialects/ORACLE-CRUD-METADATA.md`](docs/dialects/ORACLE-CRUD-METADATA.md).
 
+## SQL Server metadata-based CRUD procedures
+
+SchemaForge can generate five SQL Server stored procedures directly from a live table in the database catalog:
+
+```http
+POST /api/v1/generate/sqlserver/crud
+Content-Type: application/json
+```
+
+```json
+{
+  "schema": "BIM",
+  "table": "PROVINCES"
+}
+```
+
+The response is `<SCHEMA>.<TABLE>.sqlserver.crud-procedures.sql` and contains `<TABLE>_CREATE`, `<TABLE>_UPDATE`, `<TABLE>_DELETE`, `<TABLE>_GET_BY_ID`, and `<TABLE>_SEARCH`. Generated keys use `OUTPUT INSERTED`, search uses bounded `OFFSET/FETCH`, errors use `THROW`, and transaction control remains with the caller. SQL Server metadata must be enabled. See [`docs/dialects/SQLSERVER-CRUD-METADATA.md`](docs/dialects/SQLSERVER-CRUD-METADATA.md).
+
 ## Document-to-database Excel comparison
 
 When metadata is enabled and the exact document table already exists in a target database, the REST response ZIP also contains a comparison workbook:

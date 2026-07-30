@@ -136,6 +136,7 @@
                                 <configuration>
                                     <includes>
                                         <include>**/SqlServerLiveIT.java</include>
+                                        <include>**/SqlServerCrudLiveIT.java</include>
                                     </includes>
                                 </configuration>
                             </execution>

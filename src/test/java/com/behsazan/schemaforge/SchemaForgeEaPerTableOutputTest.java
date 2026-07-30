@@ -68,7 +68,8 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(14, entries.size());
+        assertEquals(15, entries.size());
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.containsKey("model.json"));
         assertTrue(entries.containsKey("manifest.json"));
         assertTrue(entries.containsKey("oracle/FEE.REGULATORY_RULE.oracle.sql"));
@@ -141,7 +142,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(22, entries.size());
+        assertEquals(23, entries.size());
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));

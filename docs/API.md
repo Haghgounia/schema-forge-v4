@@ -18,6 +18,7 @@ OpenAPI JSON: `http://localhost:9090/v3/api-docs`
 - `POST /api/v1/generate/zip` — multipart field `file`, one `.zip` containing `.docx` files
 - `POST /api/v1/generate/ea-xml` — multipart field `file`, one EA `.xml` or `.xmi`
 - `POST /api/v1/generate/oracle/crud` — JSON body with Oracle `schema` and `table`; returns one `application/sql` CRUD package generated from live Oracle metadata
+- `POST /api/v1/generate/sqlserver/crud` — JSON body with SQL Server `schema` and `table`; returns one `application/sql` CRUD procedure script generated from live SQL Server metadata
 
 The Word, ZIP, and EA endpoints return `application/zip`. The Oracle CRUD endpoint returns one downloadable `application/sql` file. Word and Word-ZIP inputs keep the timestamped document-level output and include Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL. EA XML/XMI input produces one SQL file per table for all four registered dialects, consolidated `model.json` and `manifest.json`, dialect-specific `run_all.sql` files, and one comparison workbook per visible database table and metadata-enabled dialect.
 
@@ -59,3 +60,7 @@ Accept: application/sql
 ```
 
 The endpoint reads the table through the configured Oracle metadata repository and generates `PKG_<TABLE>` with `CREATE_ROW`, `UPDATE_ROW`, `DELETE_ROW`, `GET_BY_ID`, and `SEARCH`. It does not use Word input and it does not perform transaction control. See `docs/dialects/ORACLE-CRUD-METADATA.md`.
+
+## Metadata CRUD artifacts in Word/ZIP responses
+
+`/word` and `/zip` now attempt to add Oracle CRUD packages and SQL Server CRUD procedure scripts for every parsed table. Generation uses live database metadata only. A timestamped `*.metadata-crud-summary.csv` file records `GENERATED`, `SKIPPED_REPOSITORY_DISABLED`, `SKIPPED_TABLE_NOT_FOUND`, or `FAILED` for each platform and table.
