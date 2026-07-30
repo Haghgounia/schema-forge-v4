@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.behsazan.schemaforge.Db2ZosExpressionMapperTest
--------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.behsazan.schemaforge.Db2ZosExpressionMapperTest

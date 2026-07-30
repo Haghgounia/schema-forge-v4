@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlParserTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.051 s -- in com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlParserTest
