@@ -52,6 +52,9 @@ public final class EnterpriseArchitectXmlParser {
             "(?i)FKINFO\\s*=\\s*SRC=([^:;]+):DST=([^:;]+):");
     private static final Pattern COLUMN_PAIR = Pattern.compile(
             "([A-Za-z][A-Za-z0-9_$#]*)\\s*=\\s*([A-Za-z][A-Za-z0-9_$#]*)");
+    private static final Pattern CHECK_WRAPPER = Pattern.compile(
+            "(?is)^CHECK\\s*\\((.*)\\)\\s*;?$");
+    private static final String DEFAULT_SCHEMA = "COL";
     private static final Set<String> SCHEMA_TAGS = Set.of(
             "SCHEMA", "SCHEMA_NAME", "SCHEMANAME", "OWNER", "DATABASE_OWNER",
             "DATABASE_SCHEMA", "DB_SCHEMA", "DBSCHEMA");
@@ -59,12 +62,12 @@ public final class EnterpriseArchitectXmlParser {
     private final String configuredDefaultSchema;
 
     public EnterpriseArchitectXmlParser() {
-        this("EA_SCHEMA");
+        this(DEFAULT_SCHEMA);
     }
 
     public EnterpriseArchitectXmlParser(String configuredDefaultSchema) {
         this.configuredDefaultSchema = sanitizeIdentifier(
-                firstNonBlank(configuredDefaultSchema, "EA_SCHEMA"), "EA_SCHEMA");
+                firstNonBlank(configuredDefaultSchema, DEFAULT_SCHEMA), DEFAULT_SCHEMA);
     }
 
     public DatabaseSchema parse(String fileName, InputStream inputStream) {
@@ -151,8 +154,11 @@ public final class EnterpriseArchitectXmlParser {
         String tableSchema = sanitizeIdentifier(
                 firstNonBlank(schemaFromTags(tableTags), findExplicitSchema(parentElement(tableElement)), defaultSchema),
                 defaultSchema);
-        String description = firstNonBlank(
-                tag(tableTags, "notes"), tag(tableTags, "description"), tag(tableTags, "alias"));
+        String description = normalizeDocumentation(firstNonBlank(
+                tag(tableTags, "documentation"),
+                tag(tableTags, "notes"),
+                tag(tableTags, "description"),
+                tag(tableTags, "alias")));
 
         List<EaColumn> columns = new ArrayList<>();
         int fallbackPosition = 0;
@@ -189,9 +195,12 @@ public final class EnterpriseArchitectXmlParser {
         Integer scale = nullableNonNegativeInt(tag(tags, "scale"));
         String lower = firstNonBlank(tag(tags, "lowerBound"), attribute(attribute, "lower"));
         boolean nullable = lower.isBlank() || nonNegativeInt(lower, 0) == 0;
-        String description = firstNonBlank(
-                tag(tags, "notes"), tag(tags, "description"), tag(tags, "style"),
-                styleExValue(tag(tags, "styleex"), "alias"));
+        String description = normalizeDocumentation(firstNonBlank(
+                tag(tags, "documentation"),
+                tag(tags, "notes"),
+                tag(tags, "description"),
+                tag(tags, "style"),
+                styleExValue(tag(tags, "styleex"), "alias")));
         String defaultExpression = initialValue(attribute, tags);
         boolean generated = truthy(tag(tags, "derived")) && !defaultExpression.isBlank();
         boolean identity = truthy(firstNonBlank(
@@ -325,12 +334,13 @@ public final class EnterpriseArchitectXmlParser {
 
 
     private static void addCheck(Table.Builder builder, EaOperation operation) {
-        String expression = firstNonBlank(
+        String expression = normalizeCheckExpression(firstNonBlank(
                 tag(operation.tags(), "expression"),
                 tag(operation.tags(), "condition"),
                 tag(operation.tags(), "check"),
                 tag(operation.tags(), "definition"),
-                tag(operation.tags(), "body"));
+                tag(operation.tags(), "body"),
+                tag(operation.tags(), "code")));
         if (expression.isBlank()) return;
         builder.addCheck(new CheckConstraint(Identifier.of(operation.name()), expression));
     }
@@ -749,6 +759,30 @@ public final class EnterpriseArchitectXmlParser {
         } catch (NumberFormatException ignored) {
             return null;
         }
+    }
+
+    private static String normalizeDocumentation(String value) {
+        if (value == null || value.isBlank()) return "";
+        return value
+                .replaceAll("(?is)<br\\s*/?>", " ")
+                .replaceAll("(?is)<[^>]+>", " ")
+                .replace("&nbsp;", " ")
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static String normalizeCheckExpression(String value) {
+        if (value == null || value.isBlank()) return "";
+        String normalized = value.trim();
+        Matcher matcher = CHECK_WRAPPER.matcher(normalized);
+        if (matcher.matches()) {
+            return matcher.group(1).trim();
+        }
+        if (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        return normalized;
     }
 
     private static String emptyToNull(String value) {

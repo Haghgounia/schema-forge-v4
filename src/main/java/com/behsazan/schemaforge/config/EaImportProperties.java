@@ -9,7 +9,7 @@ public class EaImportProperties {
      * EA XMI exports frequently omit the physical database schema. This value is
      * applied only when the XML does not provide a schema/owner tagged value.
      */
-    private String defaultSchema = "EA_SCHEMA";
+    private String defaultSchema = "COL";
 
     public String getDefaultSchema() {
         return defaultSchema;

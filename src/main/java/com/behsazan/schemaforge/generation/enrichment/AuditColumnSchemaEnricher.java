@@ -8,14 +8,33 @@ import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Adds configured standard audit columns to the end of every table when absent. */
+/**
+ * Standardizes the four mandatory audit columns at the end of every table.
+ *
+ * <p>If an input document already declares one or more standard audit columns,
+ * those declarations are replaced by the configured standard definitions and
+ * moved to the end. This guarantees identical column order and definitions for
+ * Word, EA/XMI, JSON/Excel and every SQL dialect.</p>
+ */
 public final class AuditColumnSchemaEnricher implements SchemaEnricher {
-    private static final Pattern TYPE_WITH_SIZE = Pattern.compile("^([A-Z0-9_]+)\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\)$");
+    private static final Pattern TYPE_WITH_SIZE = Pattern.compile(
+            "^([A-Z0-9_]+)\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\)$");
+
+    private static final List<String> REQUIRED_AUDIT_COLUMNS = List.of(
+            "CREATED_BY",
+            "CREATED_DATE",
+            "LAST_MODIFIED_BY",
+            "LAST_MODIFIED_DATE"
+    );
 
     private final AuditProperties properties;
 
@@ -34,29 +53,39 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
             return schema;
         }
 
+        List<AuditProperties.AuditColumn> configuredAuditColumns = requiredAuditColumns();
+        Set<String> auditNames = Set.copyOf(REQUIRED_AUDIT_COLUMNS);
+
         DatabaseSchema.Builder result = DatabaseSchema.builder(schema.name().value())
                 .description(schema.description().value());
         schema.metadata().forEach(result::metadata);
-        schema.tables().stream().map(this::enrichTable).forEach(result::addTable);
+        schema.tables().stream()
+                .map(table -> enrichTable(table, configuredAuditColumns, auditNames))
+                .forEach(result::addTable);
         schema.sequences().forEach(result::addSequence);
         return result.build();
     }
 
-    private Table enrichTable(Table table) {
-        String schemaName = table.qualifiedName().schemaName().map(value -> value.value()).orElse(null);
+    private Table enrichTable(
+            Table table,
+            List<AuditProperties.AuditColumn> configuredAuditColumns,
+            Set<String> auditNames) {
+
+        String schemaName = table.qualifiedName().schemaName()
+                .map(value -> value.value())
+                .orElse(null);
         Table.Builder result = Table.builder(schemaName, table.qualifiedName().name().value())
                 .description(table.description().value());
 
-        table.columns().forEach(result::addColumn);
-        int nextOrdinal = table.columns().stream()
-                .map(Column::ordinalPosition)
-                .filter(Objects::nonNull)
-                .max(Integer::compareTo)
-                .orElse(0) + 1;
-        for (AuditProperties.AuditColumn configured : properties.getColumns()) {
-            if (table.findColumn(configured.getName()).isEmpty()) {
-                result.addColumn(toColumn(configured, nextOrdinal++));
+        int ordinal = 1;
+        for (Column column : table.columns()) {
+            if (!auditNames.contains(column.name().normalized())) {
+                result.addColumn(withOrdinal(column, ordinal++));
             }
+        }
+
+        for (AuditProperties.AuditColumn configured : configuredAuditColumns) {
+            result.addColumn(toColumn(configured, ordinal++));
         }
 
         table.primaryKey().ifPresent(result::primaryKey);
@@ -68,12 +97,46 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
         return result.build();
     }
 
-    private Column toColumn(AuditProperties.AuditColumn configured, int ordinalPosition) {
-        if (configured.getName() == null || configured.getName().isBlank()) {
-            throw new IllegalArgumentException("Audit column name must not be blank");
+    private List<AuditProperties.AuditColumn> requiredAuditColumns() {
+        Map<String, AuditProperties.AuditColumn> configuredByName = new LinkedHashMap<>();
+        for (AuditProperties.AuditColumn configured : properties.getColumns()) {
+            if (configured == null || configured.getName() == null || configured.getName().isBlank()) {
+                throw new IllegalArgumentException("Audit column name must not be blank");
+            }
+            String normalizedName = Identifier.of(configured.getName()).normalized();
+            if (configuredByName.putIfAbsent(normalizedName, configured) != null) {
+                throw new IllegalArgumentException("Duplicate audit column configuration: " + normalizedName);
+            }
         }
+
+        if (!configuredByName.keySet().equals(Set.copyOf(REQUIRED_AUDIT_COLUMNS))) {
+            throw new IllegalArgumentException(
+                    "Audit configuration must contain exactly these columns: "
+                            + String.join(", ", REQUIRED_AUDIT_COLUMNS));
+        }
+
+        return REQUIRED_AUDIT_COLUMNS.stream()
+                .map(configuredByName::get)
+                .toList();
+    }
+
+    private Column withOrdinal(Column source, int ordinalPosition) {
+        return new Column(
+                source.name(),
+                source.dataType(),
+                source.nullable(),
+                source.defaultValue(),
+                source.description(),
+                source.identity(),
+                ordinalPosition,
+                source.generatedExpression()
+        );
+    }
+
+    private Column toColumn(AuditProperties.AuditColumn configured, int ordinalPosition) {
         if (configured.getDataType() == null || configured.getDataType().isBlank()) {
-            throw new IllegalArgumentException("Audit column dataType must not be blank: " + configured.getName());
+            throw new IllegalArgumentException(
+                    "Audit column dataType must not be blank: " + configured.getName());
         }
         return new Column(
                 Identifier.of(configured.getName()),
@@ -105,5 +168,4 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
         }
         return DataType.numeric(name, first, null);
     }
-
 }

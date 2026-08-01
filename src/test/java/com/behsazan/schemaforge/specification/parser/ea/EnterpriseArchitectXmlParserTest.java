@@ -6,6 +6,8 @@ import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -56,4 +58,73 @@ class EnterpriseArchitectXmlParserTest {
             assertEquals("RULE_DESCRIPTION", rule.indexes().get(0).columns().get(1).column().value());
         }
     }
+
+    @Test
+    void shouldUseColAsDefaultAndReadDocumentationHtmlAndCodeChecks() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="SAMPLE_TABLE" xmi.id="TABLE_1">
+                          <UML:ModelElement.stereotype>
+                            <UML:Stereotype name="table"/>
+                          </UML:ModelElement.stereotype>
+                          <UML:ModelElement.taggedValue>
+                            <UML:TaggedValue tag="documentation"
+                              value="&lt;span dir=&quot;rtl&quot;&gt;شرح جدول&lt;/span&gt;"/>
+                          </UML:ModelElement.taggedValue>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="ID">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="column"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="description"
+                                  value="&lt;span dir=&quot;rtl&quot;&gt;شناسه&lt;/span&gt;"/>
+                                <UML:TaggedValue tag="type" value="NUMBER"/>
+                                <UML:TaggedValue tag="precision" value="10"/>
+                                <UML:TaggedValue tag="scale" value="0"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_SAMPLE_TABLE">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="PK"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                            <UML:Operation name="CK_SAMPLE_TABLE_ID">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="check"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="code" value="CHECK (ID &gt;= 1)"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser().parse(
+                "sample.xml",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        assertEquals("COL", schema.name().normalized());
+        var table = schema.findTable("SAMPLE_TABLE").orElseThrow();
+        assertEquals("COL.SAMPLE_TABLE", table.qualifiedName().toString());
+        assertEquals("شرح جدول", table.description().value());
+        assertEquals("شناسه", table.findColumn("ID").orElseThrow().description().value());
+        assertEquals(1, table.checkConstraints().size());
+        assertEquals("ID >= 1", table.checkConstraints().getFirst().expression());
+    }
+
 }

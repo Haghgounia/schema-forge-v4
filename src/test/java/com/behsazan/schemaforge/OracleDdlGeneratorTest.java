@@ -183,10 +183,18 @@ class OracleDdlGeneratorTest {
         Column defaultColumn = column("DEFAULT_TEXT",
                 new DataType(Identifier.of("VARCHAR2"), 50, LengthSemantics.DEFAULT, null, null),
                 true, null, "Default semantics", 3);
+        Column defaultCharColumn = column("DEFAULT_CHAR_TEXT",
+                new DataType(Identifier.of("CHAR"), 3, LengthSemantics.DEFAULT, null, null),
+                true, null, "Default CHAR semantics", 4);
+        Column defaultNationalColumn = column("DEFAULT_NATIONAL_TEXT",
+                new DataType(Identifier.of("NVARCHAR2"), 50, LengthSemantics.DEFAULT, null, null),
+                true, null, "National character semantics", 5);
 
         assertEquals("VARCHAR2(50 CHAR)", dialect.sqlType(charColumn));
         assertEquals("VARCHAR2(50 BYTE)", dialect.sqlType(byteColumn));
-        assertEquals("VARCHAR2(50)", dialect.sqlType(defaultColumn));
+        assertEquals("VARCHAR2(50 CHAR)", dialect.sqlType(defaultColumn));
+        assertEquals("CHAR(3 CHAR)", dialect.sqlType(defaultCharColumn));
+        assertEquals("NVARCHAR2(50)", dialect.sqlType(defaultNationalColumn));
     }
 
     @Test

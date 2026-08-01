@@ -73,8 +73,12 @@ public final class OracleDialect implements Dialect {
         return switch (semantics) {
             case BYTE -> " BYTE";
             case CHAR -> " CHAR";
-            case DEFAULT -> "";
+            case DEFAULT -> usesDefaultCharacterSemantics(oracleName) ? " CHAR" : "";
         };
+    }
+
+    private boolean usesDefaultCharacterSemantics(String oracleName) {
+        return oracleName.equals("VARCHAR2") || oracleName.equals("CHAR");
     }
 
     @Override

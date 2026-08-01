@@ -1,3 +1,19 @@
+## 2026-08-01 - Oracle character length semantics
+
+- Oracle now renders unspecified `VARCHAR2(n)` lengths as `VARCHAR2(n CHAR)`.
+- Oracle now renders unspecified `CHAR(n)` lengths as `CHAR(n CHAR)`.
+- Explicit `BYTE` and `CHAR` semantics remain unchanged; `NVARCHAR2` and `NCHAR` are not modified.
+- Added regression coverage for default, explicit byte, explicit char, and national character types.
+
+## 2026-08-01 - EA schema, checks, comments, and audit normalization
+
+- Changed the built-in Enterprise Architect fallback schema from `EA_SCHEMA` to `COL`; `application.yml` now uses `${SCHEMAFORGE_EA_DEFAULT_SCHEMA:COL}`.
+- Added EA check-constraint extraction from the `code` tagged value and removed the outer `CHECK (...)` wrapper before canonical mapping.
+- Added EA table documentation extraction from the `documentation` tagged value.
+- Removed embedded HTML formatting from EA table and column descriptions before comment generation.
+- Standardized `CREATED_BY`, `CREATED_DATE`, `LAST_MODIFIED_BY`, and `LAST_MODIFIED_DATE` exactly once, in fixed order, at the end of every prepared table.
+- Reassigned canonical column positions after audit normalization so SQL and Excel outputs use the same ordering.
+- Added regression coverage for EA defaults/checks/comments and audit replacement/order.
 
 ## 2026-07-29 - REST metadata CRUD artifacts
 

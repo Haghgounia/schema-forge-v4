@@ -19,7 +19,7 @@ schemaforge:
   # Enterprise Architect XMI files often do not contain a physical schema.
   # Override with SCHEMAFORGE_EA_DEFAULT_SCHEMA or edit this value.
   ea:
-    default-schema: ${SCHEMAFORGE_EA_DEFAULT_SCHEMA:EA_SCHEMA}
+    default-schema: ${SCHEMAFORGE_EA_DEFAULT_SCHEMA:COL}
 
   standards:
     audit:
