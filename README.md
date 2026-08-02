@@ -64,12 +64,16 @@ java -jar schema-forge.jar input.docx output-directory sqlserver
 
 ## Timestamped output files
 
-Application-generated JSON and SQL files use a shared Gregorian date/time suffix:
+All generated SQL scripts use the central `OutputFileNamer.scriptFileName(...)` policy and share one Gregorian timestamp per generation request:
 
 ```text
-<input-base-name>_yyyyMMdd_HHmmss_SSS.json
-<input-base-name>_yyyyMMdd_HHmmss_SSS.sql
+<logical-name>_yyyyMMdd_HHmmss_SSS.<database>.sql
+<schema>.<table>_yyyyMMdd_HHmmss_SSS.oracle.crud-package.sql
+<schema>.<table>_yyyyMMdd_HHmmss_SSS.sqlserver.crud-procedures.sql
+<source>_yyyyMMdd_HHmmss_SSS.<database>.run-all.sql
 ```
+
+JSON and report artifacts retain their existing timestamped naming rules.
 
 ## DBMS-aware generated file names
 
@@ -243,7 +247,7 @@ SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, and SQL Server SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, and SQL Server SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
 
 ```text
 oracle/<SCHEMA>.<TABLE>.oracle.sql

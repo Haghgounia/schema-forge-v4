@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,8 +51,10 @@ public class SchemaForgeController {
 
     @PostMapping(value = "/ea-xml", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from Enterprise Architect XML/XMI")
-    public ResponseEntity<byte[]> eaXml(@RequestPart("file") MultipartFile file) throws IOException {
-        return zip(service.generateFromEaXml(file), archiveName("schemaforge-ea-output"));
+    public ResponseEntity<byte[]> eaXml(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "schema", required = false) String schema) throws IOException {
+        return zip(service.generateFromEaXml(file, schema), archiveName("schemaforge-ea-output"));
     }
 
     private static String archiveName(String baseName) {

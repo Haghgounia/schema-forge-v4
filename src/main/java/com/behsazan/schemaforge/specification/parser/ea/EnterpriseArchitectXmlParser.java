@@ -60,17 +60,27 @@ public final class EnterpriseArchitectXmlParser {
             "DATABASE_SCHEMA", "DB_SCHEMA", "DBSCHEMA");
 
     private final String configuredDefaultSchema;
+    private final boolean primaryKeyAsIdentity;
 
     public EnterpriseArchitectXmlParser() {
-        this(DEFAULT_SCHEMA);
+        this(DEFAULT_SCHEMA, false);
     }
 
     public EnterpriseArchitectXmlParser(String configuredDefaultSchema) {
+        this(configuredDefaultSchema, false);
+    }
+
+    public EnterpriseArchitectXmlParser(String configuredDefaultSchema, boolean primaryKeyAsIdentity) {
         this.configuredDefaultSchema = sanitizeIdentifier(
                 firstNonBlank(configuredDefaultSchema, DEFAULT_SCHEMA), DEFAULT_SCHEMA);
+        this.primaryKeyAsIdentity = primaryKeyAsIdentity;
     }
 
     public DatabaseSchema parse(String fileName, InputStream inputStream) {
+        return parse(fileName, inputStream, null);
+    }
+
+    public DatabaseSchema parse(String fileName, InputStream inputStream, String schemaOverride) {
         Objects.requireNonNull(fileName, "fileName must not be null");
         Objects.requireNonNull(inputStream, "inputStream must not be null");
         try {
@@ -83,6 +93,9 @@ public final class EnterpriseArchitectXmlParser {
                         "No Enterprise Architect table elements were found in XML/XMI: " + fileName);
             }
 
+            String requestedSchema = schemaOverride == null || schemaOverride.isBlank()
+                    ? ""
+                    : sanitizeIdentifier(schemaOverride, configuredDefaultSchema);
             String globalXmlSchema = findExplicitSchema(document.getDocumentElement());
             if (globalXmlSchema.isBlank()) {
                 globalXmlSchema = tableElements.stream()
@@ -91,11 +104,13 @@ public final class EnterpriseArchitectXmlParser {
                         .findFirst().orElse("");
             }
             String schemaName = sanitizeIdentifier(
-                    firstNonBlank(globalXmlSchema, configuredDefaultSchema), configuredDefaultSchema);
+                    firstNonBlank(requestedSchema, globalXmlSchema, configuredDefaultSchema),
+                    configuredDefaultSchema);
+            boolean forceRequestedSchema = !requestedSchema.isBlank();
 
             Map<String, EaTable> tablesById = new LinkedHashMap<>();
             for (Element tableElement : tableElements) {
-                EaTable table = parseTableDefinition(tableElement, schemaName);
+                EaTable table = parseTableDefinition(tableElement, schemaName, forceRequestedSchema);
                 tablesById.put(table.xmiId(), table);
             }
 
@@ -115,11 +130,15 @@ public final class EnterpriseArchitectXmlParser {
                     .metadata("source.eaExporter", exporter(document))
                     .metadata("source.eaExporterVersion", exporterVersion(document))
                     .metadata("source.eaDefaultSchema", configuredDefaultSchema)
-                    .metadata("source.eaSchemaResolution", globalXmlSchema.isBlank() ? "CONFIG_DEFAULT" : "XML");
+                    .metadata("source.eaRequestedSchema", requestedSchema)
+                    .metadata("source.eaSchemaResolution", forceRequestedSchema
+                            ? "API_PARAMETER"
+                            : (globalXmlSchema.isBlank() ? "CONFIG_DEFAULT" : "XML"));
 
             for (EaTable eaTable : tablesById.values()) {
                 schema.addTable(buildTable(
-                        eaTable, tablesById, associationBySourceOperation, warnings));
+                        eaTable, tablesById, associationBySourceOperation, warnings,
+                        primaryKeyAsIdentity));
             }
             if (!warnings.isEmpty()) {
                 schema.metadata("recovery.warningCount", Integer.toString(warnings.size()));
@@ -148,12 +167,16 @@ public final class EnterpriseArchitectXmlParser {
         return factory;
     }
 
-    private EaTable parseTableDefinition(Element tableElement, String defaultSchema) {
+    private EaTable parseTableDefinition(
+            Element tableElement, String defaultSchema, boolean forceDefaultSchema) {
         Map<String, String> tableTags = taggedValues(tableElement);
         String tableName = sanitizeIdentifier(attribute(tableElement, "name"), "UNNAMED_TABLE");
-        String tableSchema = sanitizeIdentifier(
-                firstNonBlank(schemaFromTags(tableTags), findExplicitSchema(parentElement(tableElement)), defaultSchema),
-                defaultSchema);
+        String tableSchema = forceDefaultSchema
+                ? defaultSchema
+                : sanitizeIdentifier(
+                        firstNonBlank(schemaFromTags(tableTags),
+                                findExplicitSchema(parentElement(tableElement)), defaultSchema),
+                        defaultSchema);
         String description = normalizeDocumentation(firstNonBlank(
                 tag(tableTags, "documentation"),
                 tag(tableTags, "notes"),
@@ -291,25 +314,35 @@ public final class EnterpriseArchitectXmlParser {
             EaTable eaTable,
             Map<String, EaTable> tablesById,
             Map<String, EaAssociation> associationBySourceOperation,
-            List<String> warnings) {
-
-        Table.Builder builder = Table.builder(eaTable.schema(), eaTable.name())
-                .description(eaTable.description());
-        for (EaColumn column : eaTable.columns()) {
-            builder.addColumn(new Column(
-                    Identifier.of(column.name()),
-                    column.dataType(),
-                    column.nullable(),
-                    new DefaultValue(column.defaultValue()),
-                    new Description(column.description()),
-                    column.identity(),
-                    column.position() + 1,
-                    column.generatedExpression()));
-        }
+            List<String> warnings,
+            boolean primaryKeyAsIdentity) {
 
         EaOperation primaryKey = eaTable.operations().stream()
                 .filter(operation -> operationKind(operation) == OperationKind.PRIMARY_KEY)
                 .findFirst().orElse(null);
+        Set<String> primaryKeyColumns = primaryKey == null
+                ? Set.of()
+                : primaryKey.parameters().stream()
+                        .map(EaParameter::name)
+                        .map(value -> value.toUpperCase(Locale.ROOT))
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+
+        Table.Builder builder = Table.builder(eaTable.schema(), eaTable.name())
+                .description(eaTable.description());
+        for (EaColumn column : eaTable.columns()) {
+            boolean inferredIdentity = primaryKeyAsIdentity
+                    && primaryKeyColumns.contains(column.name().toUpperCase(Locale.ROOT));
+            builder.addColumn(new Column(
+                    Identifier.of(column.name()),
+                    column.dataType(),
+                    inferredIdentity ? false : column.nullable(),
+                    new DefaultValue(inferredIdentity ? null : column.defaultValue()),
+                    new Description(column.description()),
+                    column.identity() || inferredIdentity,
+                    column.position() + 1,
+                    inferredIdentity ? null : column.generatedExpression()));
+        }
+
         if (primaryKey != null && !primaryKey.parameters().isEmpty()) {
             builder.primaryKey(new PrimaryKey(
                     Identifier.of(primaryKey.name()), identifiers(primaryKey.parameters()),

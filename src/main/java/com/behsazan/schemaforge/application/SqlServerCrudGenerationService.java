@@ -18,6 +18,7 @@ public class SqlServerCrudGenerationService {
     private final MetadataRepositoryResolver repositoryResolver;
     private final SqlServerCrudProcedureGenerator generator;
     private final SqlServerCrudGenerationOptions options;
+    private final OutputFileNamer outputFileNamer;
 
     @Autowired
     public SqlServerCrudGenerationService(
@@ -25,6 +26,7 @@ public class SqlServerCrudGenerationService {
             GrantProperties grantProperties) {
         this.repositoryResolver = repositoryResolver;
         this.generator = new SqlServerCrudProcedureGenerator();
+        this.outputFileNamer = new OutputFileNamer();
         List<String> grantees = grantProperties.getGrants().stream()
                 .filter(SqlServerCrudGenerationService::hasWritePrivilege)
                 .map(GrantProperties.GrantRule::getGrantee)
@@ -37,9 +39,18 @@ public class SqlServerCrudGenerationService {
             MetadataRepositoryResolver repositoryResolver,
             SqlServerCrudProcedureGenerator generator,
             SqlServerCrudGenerationOptions options) {
+        this(repositoryResolver, generator, options, new OutputFileNamer());
+    }
+
+    SqlServerCrudGenerationService(
+            MetadataRepositoryResolver repositoryResolver,
+            SqlServerCrudProcedureGenerator generator,
+            SqlServerCrudGenerationOptions options,
+            OutputFileNamer outputFileNamer) {
         this.repositoryResolver = repositoryResolver;
         this.generator = generator;
         this.options = options;
+        this.outputFileNamer = outputFileNamer;
     }
 
     public SqlServerCrudGenerationResult generate(String schemaName, String tableName) {
@@ -54,9 +65,12 @@ public class SqlServerCrudGenerationService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "SQL Server table was not found: " + schema + "." + table));
         String sql = generator.generate(metadata, options);
-        return new SqlServerCrudGenerationResult(
-                schema + "." + table + ".sqlserver.crud-procedures.sql",
-                sql);
+        String fileName = outputFileNamer.scriptFileName(
+                schema + "." + table,
+                DatabasePlatform.SQLSERVER,
+                OutputFileNamer.ScriptKind.CRUD,
+                outputFileNamer.timestamp());
+        return new SqlServerCrudGenerationResult(fileName, sql);
     }
 
     private static boolean hasWritePrivilege(GrantProperties.GrantRule rule) {

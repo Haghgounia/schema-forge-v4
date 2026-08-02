@@ -127,4 +127,22 @@ class EnterpriseArchitectXmlParserTest {
         assertEquals("ID >= 1", table.checkConstraints().getFirst().expression());
     }
 
+    @Test
+    void shouldHonorExplicitSchemaOverrideAndInferPrimaryKeyIdentityWhenEnabled() throws Exception {
+        Path source = TestSamplePaths.EA_SAMPLE;
+        try (var input = Files.newInputStream(source)) {
+            var schema = new EnterpriseArchitectXmlParser("FEE", true)
+                    .parse(source.getFileName().toString(), input, "API_SCHEMA");
+
+            assertEquals("API_SCHEMA", schema.name().normalized());
+            assertEquals("API_PARAMETER", schema.metadata().get("source.eaSchemaResolution"));
+            assertEquals("API_SCHEMA", schema.metadata().get("source.eaRequestedSchema"));
+
+            var rule = schema.findTable("REGULATORY_RULE").orElseThrow();
+            assertEquals("API_SCHEMA.REGULATORY_RULE", rule.qualifiedName().toString());
+            assertTrue(rule.findColumn("REGULATORY_RULE_ID").orElseThrow().identity());
+            assertFalse(rule.findColumn("FEE_VERSION_ID").orElseThrow().identity());
+        }
+    }
+
 }

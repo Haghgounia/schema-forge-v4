@@ -4,8 +4,9 @@
 
 EA XMI exports may omit the physical database schema. SchemaForge resolves the schema in this order:
 
-1. EA `schema`/`owner` tagged value, when present.
-2. `schemaforge.ea.default-schema` from `application.yml`.
+1. REST multipart parameter `schema`, when supplied.
+2. EA `schema`/`owner` tagged value, when present.
+3. `schemaforge.ea.default-schema` from `application.yml`.
 
 ```yaml
 schemaforge:
@@ -38,6 +39,7 @@ Operation input parameters define key/index column order. Composite keys and ind
 ```text
 POST /api/v1/generate/ea-xml
 multipart field: file
+optional multipart/query parameter: schema
 accepted extensions: .xml, .xmi
 ```
 
@@ -55,3 +57,5 @@ manifest.json
 ```
 
 `run_all.sql` lists table scripts in internal foreign-key dependency order. If the EA model contains a dependency cycle, the run-all header identifies the affected tables so the foreign keys can be reviewed before execution. Comparison workbooks are emitted only for tables visible through the configured database metadata connections.
+
+EA imports performed through this REST endpoint treat every primary-key column as an identity column. The inferred identity replaces any default or generated expression on that primary-key column, and the column is emitted as `NOT NULL`.

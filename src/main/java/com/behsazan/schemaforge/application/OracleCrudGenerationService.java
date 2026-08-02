@@ -18,6 +18,7 @@ public class OracleCrudGenerationService {
     private final MetadataRepositoryResolver repositoryResolver;
     private final OracleCrudPackageGenerator generator;
     private final OracleCrudGenerationOptions options;
+    private final OutputFileNamer outputFileNamer;
 
     @Autowired
     public OracleCrudGenerationService(
@@ -25,6 +26,7 @@ public class OracleCrudGenerationService {
             GrantProperties grantProperties) {
         this.repositoryResolver = repositoryResolver;
         this.generator = new OracleCrudPackageGenerator();
+        this.outputFileNamer = new OutputFileNamer();
         List<String> grantees = grantProperties.getGrants().stream()
                 .filter(OracleCrudGenerationService::hasWritePrivilege)
                 .map(GrantProperties.GrantRule::getGrantee)
@@ -37,9 +39,18 @@ public class OracleCrudGenerationService {
             MetadataRepositoryResolver repositoryResolver,
             OracleCrudPackageGenerator generator,
             OracleCrudGenerationOptions options) {
+        this(repositoryResolver, generator, options, new OutputFileNamer());
+    }
+
+    OracleCrudGenerationService(
+            MetadataRepositoryResolver repositoryResolver,
+            OracleCrudPackageGenerator generator,
+            OracleCrudGenerationOptions options,
+            OutputFileNamer outputFileNamer) {
         this.repositoryResolver = repositoryResolver;
         this.generator = generator;
         this.options = options;
+        this.outputFileNamer = outputFileNamer;
     }
 
     public OracleCrudGenerationResult generate(String schemaName, String tableName) {
@@ -54,9 +65,12 @@ public class OracleCrudGenerationService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Oracle table was not found: " + schema + "." + table));
         String sql = generator.generate(metadata, options);
-        return new OracleCrudGenerationResult(
-                schema + "." + table + ".oracle.crud-package.sql",
-                sql);
+        String fileName = outputFileNamer.scriptFileName(
+                schema + "." + table,
+                DatabasePlatform.ORACLE,
+                OutputFileNamer.ScriptKind.CRUD,
+                outputFileNamer.timestamp());
+        return new OracleCrudGenerationResult(fileName, sql);
     }
 
 

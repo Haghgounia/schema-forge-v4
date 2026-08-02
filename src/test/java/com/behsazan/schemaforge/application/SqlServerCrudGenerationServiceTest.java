@@ -11,6 +11,9 @@ import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,14 +32,17 @@ class SqlServerCrudGenerationServiceTest {
         when(resolver.resolve(DatabasePlatform.SQLSERVER)).thenReturn(repository);
         when(repository.available()).thenReturn(true);
         when(repository.findTable("BIM", "PROVINCES")).thenReturn(Optional.of(table()));
+        OutputFileNamer namer = new OutputFileNamer(Clock.fixed(
+                Instant.parse("2026-08-02T10:11:12.345Z"), ZoneId.of("UTC")));
         SqlServerCrudGenerationService service = new SqlServerCrudGenerationService(
                 resolver,
                 new SqlServerCrudProcedureGenerator(),
-                new SqlServerCrudGenerationOptions(1000, List.of()));
+                new SqlServerCrudGenerationOptions(1000, List.of()),
+                namer);
 
         var result = service.generate("bim", "provinces");
 
-        assertEquals("BIM.PROVINCES.sqlserver.crud-procedures.sql", result.fileName());
+        assertEquals("BIM.PROVINCES_20260802_101112_345.sqlserver.crud-procedures.sql", result.fileName());
         assertTrue(result.sql().contains("CREATE OR ALTER PROCEDURE [BIM].[PROVINCES_CREATE]"));
     }
 

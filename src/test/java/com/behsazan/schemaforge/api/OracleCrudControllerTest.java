@@ -16,7 +16,7 @@ class OracleCrudControllerTest {
         OracleCrudGenerationService service = mock(OracleCrudGenerationService.class);
         when(service.generate("BIM", "PROVINCES"))
                 .thenReturn(new OracleCrudGenerationService.OracleCrudGenerationResult(
-                        "BIM.PROVINCES.oracle.crud-package.sql",
+                        "BIM.PROVINCES_20260802_101112_345.oracle.crud-package.sql",
                         "CREATE OR REPLACE PACKAGE BIM.PKG_PROVINCES AS END;"));
         OracleCrudController controller = new OracleCrudController(service);
 
@@ -24,7 +24,7 @@ class OracleCrudControllerTest {
 
         assertEquals(200, response.getStatusCode().value());
         assertTrue(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)
-                .contains("BIM.PROVINCES.oracle.crud-package.sql"));
+                .contains("BIM.PROVINCES_20260802_101112_345.oracle.crud-package.sql"));
         assertTrue(new String(response.getBody()).contains("PKG_PROVINCES"));
     }
 }

@@ -15,6 +15,7 @@ import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Sequence;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
+import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.generation.issue.InlineIssueRenderer;
@@ -90,13 +91,14 @@ public final class DdlGenerator {
 
         List<String> statements = new ArrayList<>();
         List<String> grantStatements = new ArrayList<>();
+        List<Sequence> emittedSequences = emittedSequences(schema);
         generatedObjectSchemas(schema).stream()
                 .map(dialect::schemaBootstrapStatement)
                 .filter(statement -> statement != null && !statement.isBlank())
                 .forEach(statements::add);
-        if (!schema.sequences().isEmpty()) {
+        if (!emittedSequences.isEmpty()) {
             dialect.require(DialectFeature.SEQUENCE);
-            schema.sequences().stream()
+            emittedSequences.stream()
                     .sorted(Comparator.comparing(sequence -> sequence.qualifiedName().toString()))
                     .map(this::createSequence)
                     .forEach(statements::add);
@@ -171,7 +173,7 @@ public final class DdlGenerator {
         for (int index = 0; index < columns.size(); index++) {
             Column column = columns.get(index);
             String path = MetadataComparisonValidator.path(table, column);
-            String definition = columnDefinition(column, metadata.frequency(path), metadata.metadataAvailable());
+            String definition = columnDefinition(table, column, metadata.frequency(path), metadata.metadataAvailable());
             if (index < columns.size() - 1 || hasPrimaryKey) {
                 definition += ",";
             }
@@ -198,7 +200,8 @@ public final class DdlGenerator {
         return sql.append(dialect.statementTerminator()).toString();
     }
 
-    private String columnDefinition(Column column, long metadataFrequency, boolean metadataAvailable) {
+    private String columnDefinition(
+            Table table, Column column, long metadataFrequency, boolean metadataAvailable) {
         StringBuilder sql = new StringBuilder("  ");
         if (metadataAvailable) {
             sql.append("/* ").append(String.format(Locale.ROOT, "%3d", metadataFrequency)).append("*/  ");
@@ -214,6 +217,9 @@ public final class DdlGenerator {
             // Word specifications use IDENTITY as a logical marker. When the parser has
             // supplied a sequence NEXTVAL expression, sequence-based identity is emitted.
             sql.append(dialect.defaultClause(column));
+        } else if (column.identity() && dialect.identityUsesNamedSequence()) {
+            dialect.require(DialectFeature.SEQUENCE);
+            sql.append(dialect.identitySequenceClause(identitySequenceName(table, column)));
         } else if (column.identity()) {
             dialect.require(DialectFeature.IDENTITY_COLUMN);
             sql.append(dialect.identityClause(column));
@@ -421,6 +427,38 @@ public final class DdlGenerator {
         return dialect.scriptPreamble(source, schema.name().normalized());
     }
 
+    private List<Sequence> emittedSequences(DatabaseSchema schema) {
+        Map<String, Sequence> sequences = new LinkedHashMap<>();
+        for (Sequence sequence : schema.sequences()) {
+            sequences.put(sequence.qualifiedName().toString().toUpperCase(Locale.ROOT), sequence);
+        }
+        if (dialect.identityUsesNamedSequence()) {
+            for (Table table : schema.tables()) {
+                for (Column column : identityColumnsWithoutDefault(table)) {
+                    QualifiedName name = identitySequenceName(table, column);
+                    sequences.putIfAbsent(
+                            name.toString().toUpperCase(Locale.ROOT),
+                            new Sequence(name, 1, 1, null, null, false, null, Description.empty()));
+                }
+            }
+        }
+        return List.copyOf(sequences.values());
+    }
+
+    private QualifiedName identitySequenceName(Table table, Column column) {
+        boolean multipleIdentityColumns = identityColumnsWithoutDefault(table).size() > 1;
+        return dialect.identitySequenceName(
+                table.qualifiedName(), column, multipleIdentityColumns);
+    }
+
+    private List<Column> identityColumnsWithoutDefault(Table table) {
+        return table.columns().stream()
+                .filter(Column::identity)
+                .filter(column -> !column.generated())
+                .filter(column -> !column.defaultValue().isPresent())
+                .toList();
+    }
+
     private String summary(DatabaseSchema schema) {
         int schemaCount = generatedObjectSchemas(schema).size();
         int tableCount = schema.tables().size();
@@ -441,7 +479,7 @@ public final class DdlGenerator {
         return "/*" + NL
                 + "SchemaForge Object Summary" + NL
                 + "Schemas      : " + schemaCount + NL
-                + "Sequences    : " + schema.sequences().size() + NL
+                + "Sequences    : " + emittedSequences(schema).size() + NL
                 + "Tables       : " + tableCount + NL
                 + "Columns      : " + columnCount + NL
                 + "Primary Keys : " + primaryKeyCount + NL

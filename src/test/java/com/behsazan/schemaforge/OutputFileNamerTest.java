@@ -10,14 +10,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Verifies the behavior and regression expectations of Output File Namer.
- *
- * <p>This test documents expected behavior and protects against regression.</p>
- *
- * @since 4.1
- */
+/** Verifies the single naming rule used by every generated SQL script. */
 class OutputFileNamerTest {
 
     @Test
@@ -39,6 +34,51 @@ class OutputFileNamerTest {
         assertEquals(
                 Path.of("target/output/MCB.BIM.TBL.CONTINENTS.V1.0_20260725_120945_123.postgresql.sql"),
                 names.sqlFile());
+    }
+
+    @Test
+    void shouldUseOnePublicRuleForDdlCrudAndRunAllScripts() {
+        OutputFileNamer namer = new OutputFileNamer();
+        String timestamp = "20260802_101112_345";
+
+        assertEquals(
+                "DPS.DEPOSIT_PRODUCT_20260802_101112_345.oracle.sql",
+                namer.scriptFileName(
+                        "DPS.DEPOSIT_PRODUCT",
+                        DatabasePlatform.ORACLE,
+                        OutputFileNamer.ScriptKind.DDL,
+                        timestamp));
+        assertEquals(
+                "DPS.DEPOSIT_PRODUCT_20260802_101112_345.oracle.crud-package.sql",
+                namer.scriptFileName(
+                        "DPS.DEPOSIT_PRODUCT",
+                        DatabasePlatform.ORACLE,
+                        OutputFileNamer.ScriptKind.CRUD,
+                        timestamp));
+        assertEquals(
+                "DPS.DEPOSIT_PRODUCT_20260802_101112_345.sqlserver.crud-procedures.sql",
+                namer.scriptFileName(
+                        "DPS.DEPOSIT_PRODUCT",
+                        DatabasePlatform.SQLSERVER,
+                        OutputFileNamer.ScriptKind.CRUD,
+                        timestamp));
+        assertEquals(
+                "Deposit2_20260802_101112_345.oracle.run-all.sql",
+                namer.scriptFileName(
+                        "Deposit2",
+                        DatabasePlatform.ORACLE,
+                        OutputFileNamer.ScriptKind.RUN_ALL,
+                        timestamp));
+    }
+
+    @Test
+    void shouldRejectCrudNameForUnsupportedPlatform() {
+        OutputFileNamer namer = new OutputFileNamer();
+        assertThrows(IllegalArgumentException.class, () -> namer.scriptFileName(
+                "DPS.DEPOSIT_PRODUCT",
+                DatabasePlatform.POSTGRESQL,
+                OutputFileNamer.ScriptKind.CRUD,
+                "20260802_101112_345"));
     }
 
     @Test

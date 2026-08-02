@@ -93,6 +93,11 @@ public final class OracleDialect implements Dialect {
     }
 
     @Override
+    public boolean identityUsesNamedSequence() {
+        return true;
+    }
+
+    @Override
     public String sequenceCacheClause(Integer cacheSize) {
         return cacheSize == null || cacheSize == 0 ? " NOCACHE" : " CACHE " + cacheSize;
     }

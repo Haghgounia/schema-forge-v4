@@ -1,3 +1,33 @@
+## 2026-08-02 - Central SQL script naming policy
+
+- Added one public `OutputFileNamer.scriptFileName(...)` rule for every generated SQL script.
+- Standardized DDL names as `<logical-name>_<yyyyMMdd_HHmmss_SSS>.<database>.sql`.
+- Standardized Oracle and SQL Server CRUD names with the same timestamp rule.
+- Added timestamped EA run-all names as `<source>_<timestamp>.<database>.run-all.sql`.
+- Updated EA REST DDL generation, Word/ZIP REST generation, standalone CRUD services, run-all references, manifests, and regression tests to use the same naming policy.
+- Removed direct SQL file-name concatenation from production services.
+
+## 2026-08-02 - REST CRUD path regression test fix
+
+- Updated REST comparison test expectations for `oracle/crud/` and `sqlserver/crud/`.
+- Updated the EA per-table CRUD placement fixture with a non-primary-key column so CRUD generation has an updatable column.
+- No production behavior changed; this patch aligns regression tests with the new CRUD directory layout.
+## 2026-08-02 - REST CRUD placement and Oracle identity sequences
+
+- REST-generated Oracle CRUD packages are stored under `oracle/crud/`.
+- REST-generated SQL Server CRUD procedures are stored under `sqlserver/crud/`.
+- Metadata CRUD summary CSV entries now contain the relative artifact path inside the ZIP.
+- Oracle renders logical identity columns with a named `SEQ_<TABLE>` sequence and `DEFAULT <SCHEMA>.SEQ_<TABLE>.NEXTVAL` instead of native identity syntax.
+- Other dialects retain their existing identity behavior, including SQL Server `IDENTITY(1,1)`.
+- Added end-to-end regression coverage for CRUD directory placement and Oracle sequence-based identity generation.
+
+## 2026-08-02 - EA API schema override and primary-key identity
+
+- Added optional `schema` parameter to `POST /api/v1/generate/ea-xml`.
+- An explicit API schema now overrides EA schema/owner tagged values and the configured fallback schema.
+- EA primary-key columns imported through the REST API are normalized as identity and `NOT NULL`; conflicting defaults/generated expressions are removed.
+- Added parser and end-to-end REST service regression coverage for schema override and identity generation.
+
 ## 2026-08-01 - Oracle character length semantics
 
 - Oracle now renders unspecified `VARCHAR2(n)` lengths as `VARCHAR2(n CHAR)`.

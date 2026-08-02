@@ -200,15 +200,22 @@ public class SchemaForgeApiService {
     }
 
     public byte[] generateFromEaXml(MultipartFile file) throws IOException {
+        return generateFromEaXml(file, null);
+    }
+
+    public byte[] generateFromEaXml(MultipartFile file, String schemaName) throws IOException {
         String name = safeName(file.getOriginalFilename(), "ea-model.xml");
         String lower = name.toLowerCase(Locale.ROOT);
-        if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) throw new IllegalArgumentException("EA file must be XML or XMI");
+        if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
+            throw new IllegalArgumentException("EA file must be XML or XMI");
+        }
         Path work = Files.createTempDirectory("schemaforge-ea-");
         try {
             DatabaseSchema parsed;
             try (InputStream inputStream = file.getInputStream()) {
                 parsed = new EnterpriseArchitectXmlParser(
-                        eaImportProperties.getDefaultSchema()).parse(name, inputStream);
+                        eaImportProperties.getDefaultSchema(), true)
+                        .parse(name, inputStream, schemaName);
             }
             PreparedSchema prepared = preparationService.prepare(parsed);
             Path output = Files.createDirectories(work.resolve("output"));
@@ -239,7 +246,7 @@ public class SchemaForgeApiService {
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
 
         // All artifacts for one source document share the same timestamp.
-        String timestamp = outputFileNamer.create(output, baseName, DatabasePlatform.ORACLE).timestamp();
+        String timestamp = outputFileNamer.timestamp();
         String timestampedBaseName = baseName + "_" + timestamp;
 
         // Metadata is queried once per database output. The same comparison result is
@@ -259,7 +266,8 @@ public class SchemaForgeApiService {
 
             String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
             Files.writeString(
-                    output.resolve(timestampedBaseName + "." + platform.commandLineName() + ".sql"),
+                    output.resolve(outputFileNamer.scriptFileName(
+                            baseName, platform, OutputFileNamer.ScriptKind.DDL, timestamp)),
                     sql,
                     StandardCharsets.UTF_8);
 
@@ -329,24 +337,22 @@ public class SchemaForgeApiService {
                     continue;
                 }
 
-                String fileName;
-                String sql;
-                if (platform == DatabasePlatform.ORACLE) {
-                    fileName = schemaName.toUpperCase(Locale.ROOT) + "."
-                            + tableName.toUpperCase(Locale.ROOT) + "_" + timestamp
-                            + ".oracle.crud-package.sql";
-                    sql = oracleCrudGenerator.generate(liveTable.get(), oracleCrudOptions);
-                } else {
-                    fileName = schemaName.toUpperCase(Locale.ROOT) + "."
-                            + tableName.toUpperCase(Locale.ROOT) + "_" + timestamp
-                            + ".sqlserver.crud-procedures.sql";
-                    sql = sqlServerCrudGenerator.generate(liveTable.get(), sqlServerCrudOptions);
-                }
+                String logicalName = schemaName.toUpperCase(Locale.ROOT) + "."
+                        + tableName.toUpperCase(Locale.ROOT);
+                String fileName = outputFileNamer.scriptFileName(
+                        logicalName, platform, OutputFileNamer.ScriptKind.CRUD, timestamp);
+                String sql = platform == DatabasePlatform.ORACLE
+                        ? oracleCrudGenerator.generate(liveTable.get(), oracleCrudOptions)
+                        : sqlServerCrudGenerator.generate(liveTable.get(), sqlServerCrudOptions);
 
-                Files.writeString(output.resolve(fileName), sql, StandardCharsets.UTF_8);
+                Path crudDirectory = Files.createDirectories(
+                        output.resolve(platform.commandLineName()).resolve("crud"));
+                String relativeFileName = platform.commandLineName() + "/crud/" + fileName;
+                Files.writeString(crudDirectory.resolve(fileName), sql, StandardCharsets.UTF_8);
                 summary.add(csvLine(platform.name(), schemaName, tableName,
-                        "GENERATED", fileName, ""));
-                LOGGER.info("[{}] REST CRUD artifact generated: {}", platform.name(), fileName);
+                        "GENERATED", relativeFileName, ""));
+                LOGGER.info("[{}] REST CRUD artifact generated: {}",
+                        platform.name(), relativeFileName);
             } catch (Exception exception) {
                 String message = safeMessage(exception);
                 summary.add(csvLine(platform.name(), schemaName, tableName,
@@ -394,7 +400,7 @@ public class SchemaForgeApiService {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
-        String timestamp = outputFileNamer.create(output, baseName, DatabasePlatform.ORACLE).timestamp();
+        String timestamp = outputFileNamer.timestamp();
 
         Map<String, Map<String, Object>> manifestTables = new LinkedHashMap<>();
         for (Table table : schema.tables()) {
@@ -427,7 +433,7 @@ public class SchemaForgeApiService {
                 ValidationReport tableReport = validationForTable(report, table);
                 MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
                 String sql = new DdlGenerator(dialect).generate(tableSchema, tableReport, tableMetadata);
-                String sqlFileName = eaSqlFileName(schema, table, platform);
+                String sqlFileName = eaSqlFileName(schema, table, platform, timestamp);
                 Files.writeString(sqlDirectory.resolve(sqlFileName), sql, StandardCharsets.UTF_8);
 
                 Map<String, Object> item = manifestTables.get(tableKey(table));
@@ -442,7 +448,7 @@ public class SchemaForgeApiService {
                 }
             }
 
-            writeEaRunAll(schema, sqlDirectory, platform, dependencyOrder, timestamp);
+            writeEaRunAll(schema, sqlDirectory, platform, dependencyOrder, baseName, timestamp);
         }
 
         writeMetadataCrudArtifacts(schema, output, baseName + "_" + timestamp, timestamp);
@@ -514,6 +520,7 @@ public class SchemaForgeApiService {
             Path sqlDirectory,
             DatabasePlatform platform,
             DependencyOrder order,
+            String sourceBaseName,
             String timestamp) throws IOException {
 
         StringBuilder script = new StringBuilder();
@@ -532,7 +539,7 @@ public class SchemaForgeApiService {
         script.append(System.lineSeparator());
 
         for (Table table : order.tables()) {
-            String fileName = eaSqlFileName(schema, table, platform);
+            String fileName = eaSqlFileName(schema, table, platform, timestamp);
             switch (platform) {
                 case ORACLE -> script.append("@@").append(fileName);
                 case POSTGRESQL -> script.append("\\ir ").append(fileName);
@@ -541,7 +548,9 @@ public class SchemaForgeApiService {
             }
             script.append(System.lineSeparator());
         }
-        Files.writeString(sqlDirectory.resolve("run_all.sql"), script.toString(), StandardCharsets.UTF_8);
+        String runAllFileName = outputFileNamer.scriptFileName(
+                sourceBaseName, platform, OutputFileNamer.ScriptKind.RUN_ALL, timestamp);
+        Files.writeString(sqlDirectory.resolve(runAllFileName), script.toString(), StandardCharsets.UTF_8);
     }
 
     private DatabaseSchema singleTableSchema(DatabaseSchema source, Table table) {
@@ -671,9 +680,16 @@ public class SchemaForgeApiService {
                 .orElse(null);
     }
 
-    private String eaSqlFileName(DatabaseSchema schema, Table table, DatabasePlatform platform) {
-        return eaArtifactBaseName(schema, table, platform)
-                + "." + platform.commandLineName() + ".sql";
+    private String eaSqlFileName(
+            DatabaseSchema schema,
+            Table table,
+            DatabasePlatform platform,
+            String timestamp) {
+        return outputFileNamer.scriptFileName(
+                eaArtifactBaseName(schema, table, platform),
+                platform,
+                OutputFileNamer.ScriptKind.DDL,
+                timestamp);
     }
 
     private String eaArtifactBaseName(DatabaseSchema schema, Table table, DatabasePlatform platform) {
