@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -109,9 +108,14 @@ public final class EnterpriseArchitectXmlParser {
             boolean forceRequestedSchema = !requestedSchema.isBlank();
 
             Map<String, EaTable> tablesById = new LinkedHashMap<>();
+            Map<String, EaTable> logicalTablesByQualifiedName = new LinkedHashMap<>();
+            Map<String, Integer> tableElementCountsByQualifiedName = new LinkedHashMap<>();
             for (Element tableElement : tableElements) {
                 EaTable table = parseTableDefinition(tableElement, schemaName, forceRequestedSchema);
                 tablesById.put(table.xmiId(), table);
+                String logicalTableKey = logicalTableKey(table);
+                logicalTablesByQualifiedName.putIfAbsent(logicalTableKey, table);
+                tableElementCountsByQualifiedName.merge(logicalTableKey, 1, Integer::sum);
             }
 
             List<EaAssociation> associations = parseAssociations(document);
@@ -135,7 +139,7 @@ public final class EnterpriseArchitectXmlParser {
                             ? "API_PARAMETER"
                             : (globalXmlSchema.isBlank() ? "CONFIG_DEFAULT" : "XML"));
 
-            for (EaTable eaTable : tablesById.values()) {
+            for (EaTable eaTable : logicalTablesByQualifiedName.values()) {
                 schema.addTable(buildTable(
                         eaTable, tablesById, associationBySourceOperation, warnings,
                         primaryKeyAsIdentity));
@@ -144,7 +148,26 @@ public final class EnterpriseArchitectXmlParser {
                 schema.metadata("recovery.warningCount", Integer.toString(warnings.size()));
                 schema.metadata("recovery.warnings", String.join(System.lineSeparator(), warnings));
             }
-            schema.metadata("source.eaTableCount", Integer.toString(tablesById.size()));
+            int duplicateTableElementCount = tableElementCountsByQualifiedName.values().stream()
+                    .filter(count -> count > 1)
+                    .mapToInt(count -> count - 1)
+                    .sum();
+            String duplicateTables = tableElementCountsByQualifiedName.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 1)
+                    .map(entry -> entry.getKey() + "=" + entry.getValue())
+                    .collect(java.util.stream.Collectors.joining(","));
+
+            schema.metadata("source.eaTableElementCount", Integer.toString(tableElements.size()));
+            schema.metadata("source.eaTableCount", Integer.toString(logicalTablesByQualifiedName.size()));
+            schema.metadata("source.eaDuplicateTableCount", Integer.toString(
+                    (int) tableElementCountsByQualifiedName.values().stream()
+                            .filter(count -> count > 1)
+                            .count()));
+            schema.metadata("source.eaDuplicateTableElementCount",
+                    Integer.toString(duplicateTableElementCount));
+            if (!duplicateTables.isBlank()) {
+                schema.metadata("source.eaDuplicateTables", duplicateTables);
+            }
             return schema.build();
         } catch (IllegalArgumentException exception) {
             throw exception;
@@ -722,6 +745,11 @@ public final class EnterpriseArchitectXmlParser {
     private static String operationKey(String tableId, String operationName) {
         return firstNonBlank(tableId, "").toUpperCase(Locale.ROOT) + "|"
                 + firstNonBlank(operationName, "").toUpperCase(Locale.ROOT);
+    }
+
+    private static String logicalTableKey(EaTable table) {
+        return table.schema().toUpperCase(Locale.ROOT) + "."
+                + table.name().toUpperCase(Locale.ROOT);
     }
 
     private static String styleExValue(String styleEx, String key) {

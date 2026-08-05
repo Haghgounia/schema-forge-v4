@@ -1,3 +1,11 @@
+## 2026-08-05 - EA duplicate physical-table collapse
+
+- Fixed `duplicate table: <SCHEMA>.<TABLE>` failures when Enterprise Architect exports the same physical table into multiple domain/package branches with different XMI IDs.
+- Kept every EA table element in the XMI-ID lookup so foreign-key associations can still resolve against any package copy.
+- Added a separate logical-table index keyed by normalized `<SCHEMA>.<TABLE>` and generated each physical table only once.
+- Added EA import metadata for physical table-element count, logical table count, duplicate logical table count, duplicate element count, and duplicate-table summary.
+- Added regression coverage for repeated `CIF.PARTY` table copies.
+
 ## 2026-08-03 - Legacy Word authoritative raw-metadata precedence
 
 - Kept the bounded raw DOC metadata result separate from the noisy HWPF aggregate during table/entity resolution.

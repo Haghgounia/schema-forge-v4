@@ -34,6 +34,22 @@ The same value can be overridden with `SCHEMAFORGE_EA_DEFAULT_SCHEMA`.
 
 Operation input parameters define key/index column order. Composite keys and indexes are preserved.
 
+## Repeated table copies in EA packages
+
+Enterprise Architect may export the same physical table more than once when it is reused in
+multiple domain or diagram packages. These copies have different XMI IDs but the same normalized
+physical qualified name, for example several package copies of `CIF.PARTY`.
+
+SchemaForge keeps all table elements in the XMI-ID lookup so association targets remain resolvable,
+but collapses output tables by normalized `<SCHEMA>.<TABLE>`. Consequently, only one SQL/model table
+is produced for the physical table. Import diagnostics are exposed through these model metadata keys:
+
+- `source.eaTableElementCount`
+- `source.eaTableCount`
+- `source.eaDuplicateTableCount`
+- `source.eaDuplicateTableElementCount`
+- `source.eaDuplicateTables`
+
 ## REST
 
 ```text
