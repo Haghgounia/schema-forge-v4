@@ -48,6 +48,7 @@ public final class JsonExporter {
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("schema", table.qualifiedName().schemaName().map(Identifier::value).orElse(null));
         value.put("name", table.qualifiedName().name().value());
+        value.put("persianName", table.persianName().value());
         value.put("description", table.description().value());
         value.put("columns", table.columns().stream().map(this::column).toList());
         value.put("primaryKey", table.primaryKey().map(this::primaryKey).orElse(null));

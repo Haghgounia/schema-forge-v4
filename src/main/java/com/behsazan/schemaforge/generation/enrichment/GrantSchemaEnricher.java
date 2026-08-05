@@ -40,6 +40,7 @@ public final class GrantSchemaEnricher implements SchemaEnricher {
     private Table enrichTable(Table table) {
         String schemaName = table.qualifiedName().schemaName().map(value -> value.value()).orElse(null);
         Table.Builder result = Table.builder(schemaName, table.qualifiedName().name().value())
+                .persianName(table.persianName().value())
                 .description(table.description().value());
 
         table.columns().forEach(result::addColumn);

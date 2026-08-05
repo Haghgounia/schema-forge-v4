@@ -59,3 +59,13 @@ manifest.json
 `run_all.sql` lists table scripts in internal foreign-key dependency order. If the EA model contains a dependency cycle, the run-all header identifies the affected tables so the foreign keys can be reviewed before execution. Comparison workbooks are emitted only for tables visible through the configured database metadata connections.
 
 EA imports performed through this REST endpoint treat every primary-key column as an identity column. The inferred identity replaces any default or generated expression on that primary-key column, and the column is emitted as `NOT NULL`.
+
+## Table name, Persian name and description
+
+SchemaForge treats these EA values as separate metadata fields:
+
+- `UML:Class/@name` -> technical table name
+- table tagged value `alias` -> Persian table name (`Table.persianName`)
+- table tagged value `documentation`, `notes` or `description` -> full table description
+
+For generated database table comments, SchemaForge uses `alias` first and falls back to the full description only when Alias is empty. The Excel `COMMENT_STATUS` comparison applies the same rule. For backward compatibility, when an older EA export contains only `alias`, that value is also used as the table description. When both `alias` and `documentation` exist, they remain separate.

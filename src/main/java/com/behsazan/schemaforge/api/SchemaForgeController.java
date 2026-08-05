@@ -43,6 +43,15 @@ public class SchemaForgeController {
         return zip(service.generateFromWord(file), archiveName("schemaforge-word-output"));
     }
 
+    @PostMapping(value = "/legacy-word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
+    @Operation(summary = "Generate from one legacy Word table specification")
+    public ResponseEntity<byte[]> legacyWord(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam("schema") String schema) throws IOException {
+        return zip(service.generateFromLegacyWord(file, schema),
+                archiveName("schemaforge-legacy-word-output"));
+    }
+
     @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from a ZIP containing Word specifications")
     public ResponseEntity<byte[]> zip(@RequestPart("file") MultipartFile file) throws IOException {

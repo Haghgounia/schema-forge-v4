@@ -1,3 +1,35 @@
+## 2026-08-03 - Legacy Word authoritative raw-metadata precedence
+
+- Kept the bounded raw DOC metadata result separate from the noisy HWPF aggregate during table/entity resolution.
+- When the raw pair matches the table token in the source file name and contains a valid Persian entity title, it is now used as the authoritative table-title source.
+- Prevented a later-page header or a field-tail candidate from replacing the correct Persian title after the raw scanner had already recovered it.
+- This correction targets the five remaining Legacy Word regressions in metadata confidence, canonical Persian table name, Oracle table comments and the Legacy REST output path.
+
+## 2026-08-03 - Legacy Word metadata-pair selection fix
+
+- Kept `poi-ooxml` and `poi-scratchpad` aligned with Legacy Word Parser Core 0.5.8 at Apache POI 5.5.1.
+- Fixed duplicate legacy DOC metadata handling: when HWPF exposes an early blank or truncated entity header and the bounded raw-container scan later exposes the complete header for the same table, the parser now ranks matching pairs instead of accepting the first labelled pair.
+- Preferred a valid normalized Persian entity title, then a technical entity value, while preserving deterministic source order for equivalent candidates.
+- Restored `MetadataConfidence.TRUSTED`, canonical `Table.persianName`, Oracle `COMMENT ON TABLE`, and the legacy REST output path for the affected regression documents.
+
+## 2026-08-03 - EA Alias table-comment alignment
+
+- Generated `COMMENT ON TABLE` now uses the EA table Alias/Persian name when available.
+- Preserved the full EA documentation as separate descriptive metadata and as a non-executable SQL header comment.
+- Kept backward compatibility by falling back to the table description when Alias is empty.
+- Updated Excel `COMMENT_STATUS` to compare the database comment with the Persian name, using the same fallback rule.
+- Added Oracle DDL, EA REST output and Excel comparison regression coverage.
+
+## 2026-08-03 - EA table Persian name separation
+
+- Added `Table.persianName` to the canonical model.
+- EA XMI `alias` is now preserved independently from `documentation`/table description.
+- Kept the legacy fallback where Alias is the only table text, so existing EA inputs continue to produce table comments.
+- Added `persianName` to `model.json`.
+- Added a `TABLE_METADATA` sheet to comparison workbooks.
+- Added the Persian table name to generated SQL as a non-executable header comment.
+- Preserved the value through audit and grant enrichment.
+
 ## 2026-08-02 - Central SQL script naming policy
 
 - Added one public `OutputFileNamer.scriptFileName(...)` rule for every generated SQL script.
@@ -365,3 +397,18 @@
 - Covered table, column, primary key, foreign key, normal index with included columns, sequence, table descriptions, and column descriptions in the live verification model.
 - Added the inactive `sqlserver-live` Maven profile using Failsafe; normal unit and regression builds remain database-independent.
 - Replaced the deferred live-test notes with staged generate, probe, execute, and integration-test instructions in `docs/testing/SQL-SERVER-VALIDATION.md`.
+
+## 2026-08-03 - Legacy Word parser first integration
+
+- Added `POST /api/v1/generate/legacy-word?schema=<SCHEMA>` for legacy `.doc` and `.docx` table specifications that do not declare a schema.
+- Integrated Legacy Word Parser Core 0.5.8 under `com.behsazan.schemaforge.specification.parser.legacy`.
+- Legacy documents are mapped to the existing canonical `DatabaseSchema`, `Table`, `Column`, `PrimaryKey`, `UniqueKey`, `Index`, `IndexColumn`, and `ForeignKey` classes; the generation pipeline and output layout are shared with current Word documents.
+- Added `poi-scratchpad` for binary `.doc` support.
+- Added `WordDirectoryOracleGenerationIT`, an explicitly invoked recursive directory test that generates only Oracle DDL scripts for accepted current or legacy Word table documents.
+
+## 2026-08-03 - Legacy DOC authoritative Persian title parsing
+
+- Fixed canonical raw DOC metadata parsing for entity titles that legitimately begin with `تاریخچه تغییرات`.
+- Added a dedicated bounded parser for `LegacyDocRawMetadataScanner` output instead of reusing the unbounded HWPF stop rules.
+- Preserved short, clean history-title phrases while continuing to reject change-log grids, dated history rows, field metadata, and embedded labels.
+- No REST contract, canonical domain model, output archive layout, or DDL generator behavior was changed.

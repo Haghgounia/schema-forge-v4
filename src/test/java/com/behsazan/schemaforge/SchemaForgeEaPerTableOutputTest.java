@@ -254,6 +254,9 @@ class SchemaForgeEaPerTableOutputTest {
         String oracleSql = new String(entries.get(oracleRegulatoryRule), StandardCharsets.UTF_8);
         assertTrue(oracleSql.contains(
                 "CREATE SEQUENCE API_SCHEMA.SEQ_REGULATORY_RULE START WITH 1 INCREMENT BY 1"));
+        assertTrue(oracleSql.contains("-- Persian table name: قانون نظارتی"));
+        assertTrue(oracleSql.contains(
+                "COMMENT ON TABLE API_SCHEMA.REGULATORY_RULE IS 'قانون نظارتی';"));
         assertTrue(oracleSql.contains(
                 "REGULATORY_RULE_ID NUMBER(3,0) DEFAULT API_SCHEMA.SEQ_REGULATORY_RULE.NEXTVAL NOT NULL"));
         String sqlServerSql = new String(
@@ -270,6 +273,7 @@ class SchemaForgeEaPerTableOutputTest {
             if (!"REGULATORY_RULE".equals(table.path("name").asText())) {
                 continue;
             }
+            assertEquals("قانون نظارتی", table.path("persianName").asText());
             for (JsonNode column : table.path("columns")) {
                 if ("REGULATORY_RULE_ID".equals(column.path("name").asText())) {
                     identityFound = column.path("identity").asBoolean();

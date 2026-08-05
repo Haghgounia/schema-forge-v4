@@ -26,6 +26,7 @@ import com.behsazan.schemaforge.reporting.SchemaCompareExcelWriter;
 import com.behsazan.schemaforge.specification.json.JsonExporter;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
+import com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParser;
 import com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlParser;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
@@ -76,6 +77,7 @@ public class SchemaForgeApiService {
     private final EaImportProperties eaImportProperties;
     private final ObjectMapper objectMapper;
     private final OutputFileNamer outputFileNamer = new OutputFileNamer();
+    private final LegacyWordSpecificationParser legacyWordSpecificationParser = new LegacyWordSpecificationParser();
     private final SchemaCompareExcelWriter compareExcelWriter = new SchemaCompareExcelWriter();
     private final OracleCrudPackageGenerator oracleCrudGenerator = new OracleCrudPackageGenerator();
     private final SqlServerCrudProcedureGenerator sqlServerCrudGenerator = new SqlServerCrudProcedureGenerator();
@@ -122,6 +124,25 @@ public class SchemaForgeApiService {
             file.transferTo(input);
             Path output = Files.createDirectories(work.resolve("output"));
             generateWordForAll(input, output);
+            return zipDirectory(output);
+        } finally {
+            deleteRecursively(work);
+        }
+    }
+
+    public byte[] generateFromLegacyWord(MultipartFile file, String schemaName) throws IOException {
+        requireWordExtension(file);
+        String schema = requireText(schemaName, "Legacy Word schema parameter is required");
+        Path work = Files.createTempDirectory("schemaforge-legacy-word-");
+        try {
+            String fallback = file.getOriginalFilename() != null
+                    && file.getOriginalFilename().toLowerCase(Locale.ROOT).endsWith(".docx")
+                    ? "input.docx"
+                    : "input.doc";
+            Path input = work.resolve(safeName(file.getOriginalFilename(), fallback));
+            file.transferTo(input);
+            Path output = Files.createDirectories(work.resolve("output"));
+            generateLegacyWordForAll(input, output, schema);
             return zipDirectory(output);
         } finally {
             deleteRecursively(work);
@@ -236,6 +257,13 @@ public class SchemaForgeApiService {
             parsed = new WordSpecificationParser().parse(
                     new SpecificationSource(input.getFileName().toString(), stream));
         }
+        PreparedSchema prepared = preparationService.prepare(parsed);
+        writeAllDatabaseOutputs(prepared, output, stripExtension(input.getFileName().toString()));
+    }
+
+    private void generateLegacyWordForAll(Path input, Path output, String schemaName) throws IOException {
+        DatabaseSchema parsed = legacyWordSpecificationParser.parse(
+                input.getParent(), input, schemaName);
         PreparedSchema prepared = preparationService.prepare(parsed);
         writeAllDatabaseOutputs(prepared, output, stripExtension(input.getFileName().toString()));
     }
@@ -858,6 +886,22 @@ public class SchemaForgeApiService {
             }
         }
         return bytes.toByteArray();
+    }
+
+    private static void requireWordExtension(MultipartFile file) {
+        String name = safeName(file.getOriginalFilename(), "upload");
+        if (file.isEmpty()) throw new IllegalArgumentException("Uploaded file is empty");
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (!lower.endsWith(".doc") && !lower.endsWith(".docx")) {
+            throw new IllegalArgumentException("Expected .doc or .docx file");
+        }
+    }
+
+    private static String requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
     }
 
     private static void requireExtension(MultipartFile file, String extension) {

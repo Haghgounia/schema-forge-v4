@@ -275,3 +275,13 @@ schemaforge:
 ```
 
 An explicit schema/owner tagged value in the XML overrides this fallback.
+
+## Legacy Word table specifications
+
+Legacy Word documents that do not contain a schema use a separate REST entry point while retaining the standard SchemaForge output pipeline:
+
+```text
+POST /api/v1/generate/legacy-word?schema=DPS
+```
+
+Upload one `.doc` or `.docx` file as multipart field `file`. The schema parameter is required. See `docs/integration/LEGACY-WORD-PARSER.md` for the recursive Oracle-only directory test.

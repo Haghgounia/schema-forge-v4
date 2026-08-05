@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
  */
 public final class Table implements SchemaObject {
     private final QualifiedName qualifiedName;
+    private final PersianName persianName;
     private final Description description;
     private final List<Column> columns;
     private final PrimaryKey primaryKey;
@@ -26,6 +27,7 @@ public final class Table implements SchemaObject {
 
     private Table(Builder b) {
         this.qualifiedName = Objects.requireNonNull(b.qualifiedName);
+        this.persianName = b.persianName == null ? PersianName.empty() : b.persianName;
         this.description = b.description == null ? Description.empty() : b.description;
         this.columns = List.copyOf(b.columns);
         this.primaryKey = b.primaryKey;
@@ -57,6 +59,7 @@ public final class Table implements SchemaObject {
     public static Builder builder(String schema, String name) { return new Builder(QualifiedName.of(schema, name)); }
     @Override public QualifiedName qualifiedName() { return qualifiedName; }
     @Override public ObjectType objectType() { return ObjectType.TABLE; }
+    public PersianName persianName() { return persianName; }
     @Override public Description description() { return description; }
     public List<Column> columns() { return columns; }
     public Optional<PrimaryKey> primaryKey() { return Optional.ofNullable(primaryKey); }
@@ -69,6 +72,7 @@ public final class Table implements SchemaObject {
 
     public static final class Builder {
         private final QualifiedName qualifiedName;
+        private PersianName persianName;
         private Description description;
         private final List<Column> columns = new ArrayList<>();
         private PrimaryKey primaryKey;
@@ -78,6 +82,7 @@ public final class Table implements SchemaObject {
         private final List<Index> indexes = new ArrayList<>();
         private final Map<String,String> physicalOptions = new LinkedHashMap<>();
         private Builder(QualifiedName qualifiedName) { this.qualifiedName = qualifiedName; }
+        public Builder persianName(String value) { this.persianName = new PersianName(value); return this; }
         public Builder description(String value) { this.description = new Description(value); return this; }
         public Builder addColumn(Column value) { columns.add(Objects.requireNonNull(value)); return this; }
         public Builder primaryKey(PrimaryKey value) { this.primaryKey = value; return this; }

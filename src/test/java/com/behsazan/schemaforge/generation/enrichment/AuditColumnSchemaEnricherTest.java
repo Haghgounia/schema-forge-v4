@@ -24,12 +24,14 @@ class AuditColumnSchemaEnricherTest {
     @Test
     void appendsMissingAuditColumnsInStandardOrder() {
         Table table = Table.builder("APP", "CUSTOMER")
+                .persianName("مشتری")
                 .addColumn(Column.required("ID", DataType.simple("NUMBER")))
                 .build();
         DatabaseSchema schema = DatabaseSchema.builder("TEST").addTable(table).build();
 
         Table enriched = enricher.enrich(schema).tables().getFirst();
 
+        assertEquals("مشتری", enriched.persianName().value());
         assertEquals(List.of("ID", "CREATED_BY", "CREATED_DATE", "LAST_MODIFIED_BY", "LAST_MODIFIED_DATE"),
                 enriched.columns().stream().map(column -> column.name().normalized()).toList());
         assertEquals(List.of(1, 2, 3, 4, 5),

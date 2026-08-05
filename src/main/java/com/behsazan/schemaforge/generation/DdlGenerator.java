@@ -184,7 +184,12 @@ public final class DdlGenerator {
         table.primaryKey().map(primaryKey -> primaryKeyDefinition(table, primaryKey)).ifPresent(definitions::add);
 
         StringBuilder sql = new StringBuilder();
-        if (!table.description().isEmpty()) {
+        if (!table.persianName().isEmpty()) {
+            sql.append("-- Persian table name: ").append(table.persianName().value()).append(NL);
+        }
+        if (!table.description().isEmpty()
+                && !normalizeCommentText(table.description().value())
+                        .equals(normalizeCommentText(table.persianName().value()))) {
             sql.append("-- ").append(table.description().value()).append(NL);
         }
         sql.append("CREATE TABLE ")
@@ -379,10 +384,17 @@ public final class DdlGenerator {
         return indexColumn.direction() == SortDirection.DESC ? value + " DESC" : value;
     }
 
+    private static String normalizeCommentText(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    }
+
     private void addComments(List<String> statements, Table table) {
-        if (dialect.supports(DialectFeature.TABLE_COMMENT) && !table.description().isEmpty()) {
+        String tableComment = table.persianName().isEmpty()
+                ? table.description().value()
+                : table.persianName().value();
+        if (dialect.supports(DialectFeature.TABLE_COMMENT) && !tableComment.isBlank()) {
             statements.add(dialect.tableCommentStatement(
-                    table.qualifiedName(), table.description().value()));
+                    table.qualifiedName(), tableComment));
         }
         if (!dialect.supports(DialectFeature.COLUMN_COMMENT)) {
             return;

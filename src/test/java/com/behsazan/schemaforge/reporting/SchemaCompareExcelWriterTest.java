@@ -214,6 +214,8 @@ class SchemaCompareExcelWriterTest {
     @Test
     void shouldWriteBordersAndComparePrimaryKeyForeignKeyIndexAndUniqueIndex() throws Exception {
         Table document = Table.builder("BIM", "CUSTOMERS")
+                .persianName("مشتریان")
+                .description("اطلاعات مشتریان")
                 .addColumn(column("F1", DataType.numeric("NUMBER", 10, null), false, 1))
                 .addColumn(column("F2", DataType.numeric("NUMBER", 10, null), true, 2))
                 .addColumn(column("F3", DataType.varchar("VARCHAR2", 30), true, 3))
@@ -243,6 +245,7 @@ class SchemaCompareExcelWriterTest {
                 .build();
 
         Table database = Table.builder("BIM", "CUSTOMERS")
+                .description("مشتریان")
                 .addColumn(column("F1", DataType.numeric("NUMBER", 10, 0), false, 1))
                 .addColumn(column("F2", DataType.numeric("NUMBER", 10, 0), true, 2))
                 .addColumn(column("F3", DataType.varchar("VARCHAR2", 30), true, 3))
@@ -259,7 +262,13 @@ class SchemaCompareExcelWriterTest {
                 document, database, Map.of(), DatabasePlatform.ORACLE);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
-            assertEquals(5, workbook.getNumberOfSheets());
+            assertEquals(6, workbook.getNumberOfSheets());
+            var metadata = workbook.getSheet("TABLE_METADATA");
+            assertEquals("BIM.CUSTOMERS", metadata.getRow(1).getCell(0).getStringCellValue());
+            assertEquals("مشتریان", metadata.getRow(1).getCell(1).getStringCellValue());
+            assertEquals("اطلاعات مشتریان", metadata.getRow(1).getCell(2).getStringCellValue());
+            assertEquals("مشتریان", metadata.getRow(1).getCell(3).getStringCellValue());
+            assertEquals("SAME", metadata.getRow(1).getCell(4).getStringCellValue());
             assertObjectStatus(workbook, "PRIMARY_KEY_COMPARE", "PK_CUSTOMERS_NEW", "MODIFY");
             assertObjectStatus(workbook, "FOREIGN_KEYS_COMPARE", "FK_CUSTOMERS_F2", "ADD");
             assertObjectStatus(workbook, "INDEXES_COMPARE", "IX_CUSTOMERS_F2_F3", "ADD");
@@ -274,6 +283,29 @@ class SchemaCompareExcelWriterTest {
             var indexes = workbook.getSheet("INDEXES_COMPARE");
             assertEquals(BorderStyle.THIN, indexes.getRow(0).getCell(0).getCellStyle().getBorderLeft());
             assertEquals(BorderStyle.THIN, indexes.getRow(1).getCell(0).getCellStyle().getBorderRight());
+        }
+    }
+
+
+    @Test
+    void shouldFallbackToDescriptionWhenPersianNameIsMissingForCommentComparison() throws Exception {
+        Table document = Table.builder("BIM", "CUSTOMERS")
+                .description("Customer master")
+                .addColumn(column("CUSTOMER_ID", DataType.numeric("NUMBER", 10, 0), false, 1))
+                .build();
+        Table database = Table.builder("BIM", "CUSTOMERS")
+                .description("Customer master")
+                .addColumn(column("CUSTOMER_ID", DataType.numeric("NUMBER", 10, 0), false, 1))
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.ORACLE);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var metadata = workbook.getSheet("TABLE_METADATA");
+            assertEquals("Customer master", metadata.getRow(1).getCell(2).getStringCellValue());
+            assertEquals("Customer master", metadata.getRow(1).getCell(3).getStringCellValue());
+            assertEquals("SAME", metadata.getRow(1).getCell(4).getStringCellValue());
         }
     }
 

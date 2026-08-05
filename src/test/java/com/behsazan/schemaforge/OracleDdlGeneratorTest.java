@@ -34,6 +34,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColumnContains;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColumnGeneratedOnce;
@@ -171,6 +172,27 @@ class OracleDdlGeneratorTest {
         assertTrue(Files.size(output) > 0);
     }
 
+
+    @Test
+    void shouldUsePersianNameAsTableCommentAndKeepDescriptionAsHeader() {
+        Table table = Table.builder("BIM", "CUSTOMERS")
+                .persianName("مشتریان")
+                .description("شرح کامل اطلاعات مشتریان")
+                .addColumn(column("CUSTOMER_ID", DataType.numeric("NUMBER", 18, 0), false, null,
+                        "شناسه مشتری", 1))
+                .build();
+
+        DatabaseSchema schema = DatabaseSchema.builder("CUSTOMER_SCHEMA")
+                .addTable(table)
+                .build();
+
+        String sql = new DdlGenerator(new OracleDialect(), Clock.systemUTC()).generate(schema);
+
+        assertTrue(sql.contains("-- Persian table name: مشتریان"));
+        assertTrue(sql.contains("-- شرح کامل اطلاعات مشتریان"));
+        assertTrue(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'مشتریان';"));
+        assertFalse(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'شرح کامل اطلاعات مشتریان';"));
+    }
 
 
     @Test

@@ -68,6 +68,13 @@ public final class SchemaCompareExcelWriter {
 
     private static final int[] OBJECT_WIDTHS = {22, 34, 72, 34, 72, 16, 42};
 
+    private static final String[] TABLE_METADATA_HEADERS = {
+            "TECHNICAL_NAME", "PERSIAN_NAME", "DOCUMENT_DESCRIPTION",
+            "DATABASE_COMMENT", "COMMENT_STATUS"
+    };
+
+    private static final int[] TABLE_METADATA_WIDTHS = {34, 34, 80, 80, 18};
+
     private static final Pattern SHORT_MARKER =
             Pattern.compile("(?:^|_)([UI]\\d+(?:\\.\\d+)?)$", Pattern.CASE_INSENSITIVE);
 
@@ -123,6 +130,7 @@ public final class SchemaCompareExcelWriter {
             }
 
             configureSheet(sheet, Math.max(1, rowNumber - 1));
+            writeTableMetadataSheet(workbook, documentTable, databaseTable, styles);
             writePrimaryKeySheet(workbook, documentTable, databaseTable, styles);
             writeObjectComparisonSheet(workbook, "FOREIGN_KEYS_COMPARE",
                     foreignKeySnapshots(documentTable), foreignKeySnapshots(databaseTable), styles);
@@ -139,6 +147,42 @@ public final class SchemaCompareExcelWriter {
         }
     }
 
+
+    private static void writeTableMetadataSheet(
+            XSSFWorkbook workbook,
+            Table documentTable,
+            Table databaseTable,
+            Styles styles) {
+        Sheet sheet = workbook.createSheet(uniqueSheetName(workbook, "TABLE_METADATA"));
+        Row header = sheet.createRow(0);
+        header.setHeightInPoints(30);
+        for (int index = 0; index < TABLE_METADATA_HEADERS.length; index++) {
+            setCell(header, index, TABLE_METADATA_HEADERS[index], styles.header);
+        }
+
+        String documentDescription = documentTable.description().value();
+        String expectedDatabaseComment = documentTable.persianName().isEmpty()
+                ? documentDescription
+                : documentTable.persianName().value();
+        String databaseComment = databaseTable.description().value();
+        boolean commentsEqual = normalizeText(expectedDatabaseComment).equals(normalizeText(databaseComment));
+
+        Row row = sheet.createRow(1);
+        row.setHeightInPoints(42);
+        CellStyle style = commentsEqual ? styles.normal : styles.changed;
+        setCell(row, 0, documentTable.qualifiedName().toString(), style);
+        setCell(row, 1, documentTable.persianName().value(), style);
+        setCell(row, 2, documentDescription, style);
+        setCell(row, 3, databaseComment, style);
+        setCell(row, 4, commentsEqual ? "SAME" : "DIFFERENT", style);
+
+        sheet.createFreezePane(0, 1);
+        sheet.setAutoFilter(new CellRangeAddress(0, 1, 0, TABLE_METADATA_HEADERS.length - 1));
+        sheet.setDisplayGridlines(false);
+        for (int index = 0; index < TABLE_METADATA_WIDTHS.length; index++) {
+            sheet.setColumnWidth(index, TABLE_METADATA_WIDTHS[index] * 256);
+        }
+    }
 
     private static void writePrimaryKeySheet(
             XSSFWorkbook workbook,

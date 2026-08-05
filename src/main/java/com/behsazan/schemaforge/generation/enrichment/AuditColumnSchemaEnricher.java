@@ -75,6 +75,7 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
                 .map(value -> value.value())
                 .orElse(null);
         Table.Builder result = Table.builder(schemaName, table.qualifiedName().name().value())
+                .persianName(table.persianName().value())
                 .description(table.description().value());
 
         int ordinal = 1;

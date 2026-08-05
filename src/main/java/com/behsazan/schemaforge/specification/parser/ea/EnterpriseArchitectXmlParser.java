@@ -177,10 +177,12 @@ public final class EnterpriseArchitectXmlParser {
                         firstNonBlank(schemaFromTags(tableTags),
                                 findExplicitSchema(parentElement(tableElement)), defaultSchema),
                         defaultSchema);
+        String persianName = normalizeDocumentation(tag(tableTags, "alias"));
         String description = normalizeDocumentation(firstNonBlank(
                 tag(tableTags, "documentation"),
                 tag(tableTags, "notes"),
                 tag(tableTags, "description"),
+                // Backward compatibility for older EA exports that used Alias as the only table text.
                 tag(tableTags, "alias")));
 
         List<EaColumn> columns = new ArrayList<>();
@@ -203,6 +205,7 @@ public final class EnterpriseArchitectXmlParser {
                 firstNonBlank(xmiId(tableElement), tableName),
                 tableSchema,
                 tableName,
+                persianName,
                 description,
                 List.copyOf(columns),
                 List.copyOf(operations));
@@ -328,6 +331,7 @@ public final class EnterpriseArchitectXmlParser {
                         .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         Table.Builder builder = Table.builder(eaTable.schema(), eaTable.name())
+                .persianName(eaTable.persianName())
                 .description(eaTable.description());
         for (EaColumn column : eaTable.columns()) {
             boolean inferredIdentity = primaryKeyAsIdentity
@@ -835,6 +839,7 @@ public final class EnterpriseArchitectXmlParser {
             String xmiId,
             String schema,
             String name,
+            String persianName,
             String description,
             List<EaColumn> columns,
             List<EaOperation> operations) { }

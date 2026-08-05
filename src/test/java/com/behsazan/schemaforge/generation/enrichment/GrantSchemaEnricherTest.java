@@ -29,6 +29,7 @@ class GrantSchemaEnricherTest {
     @Test
     void shouldApplyConfiguredRoleGrantsAndRenderThemAtTheEndForBothDialects() {
         Table table = Table.builder("DPS", "DEPOSITS")
+                .persianName("سپرده‌ها")
                 .description("Deposit master")
                 .addColumn(new Column(
                         Identifier.of("DEPOSIT_ID"),
@@ -45,6 +46,7 @@ class GrantSchemaEnricherTest {
                 .build();
 
         DatabaseSchema enriched = new GrantSchemaEnricher(GrantProperties.defaults()).enrich(source);
+        assertEquals("سپرده‌ها", enriched.tables().getFirst().persianName().value());
         String grants = enriched.tables().getFirst().physicalOptions().get("GRANTS");
 
         assertTrue(grants.contains("SELECT, INSERT, UPDATE, DELETE TO U_DEVELOPER"));

@@ -36,6 +36,7 @@ class EnterpriseArchitectXmlParserTest {
 
             var rule = schema.findTable("REGULATORY_RULE").orElseThrow();
             assertEquals("FEE.REGULATORY_RULE", rule.qualifiedName().toString());
+            assertEquals("قانون نظارتی", rule.persianName().value());
             assertEquals("قانون نظارتی", rule.description().value());
             assertEquals(3, rule.columns().size());
             assertFalse(rule.findColumn("REGULATORY_RULE_ID").orElseThrow().nullable());
@@ -72,6 +73,7 @@ class EnterpriseArchitectXmlParserTest {
                             <UML:Stereotype name="table"/>
                           </UML:ModelElement.stereotype>
                           <UML:ModelElement.taggedValue>
+                            <UML:TaggedValue tag="alias" value="نام فارسی جدول"/>
                             <UML:TaggedValue tag="documentation"
                               value="&lt;span dir=&quot;rtl&quot;&gt;شرح جدول&lt;/span&gt;"/>
                           </UML:ModelElement.taggedValue>
@@ -121,6 +123,7 @@ class EnterpriseArchitectXmlParserTest {
         assertEquals("COL", schema.name().normalized());
         var table = schema.findTable("SAMPLE_TABLE").orElseThrow();
         assertEquals("COL.SAMPLE_TABLE", table.qualifiedName().toString());
+        assertEquals("نام فارسی جدول", table.persianName().value());
         assertEquals("شرح جدول", table.description().value());
         assertEquals("شناسه", table.findColumn("ID").orElseThrow().description().value());
         assertEquals(1, table.checkConstraints().size());

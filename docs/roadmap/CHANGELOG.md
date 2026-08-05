@@ -1,5 +1,11 @@
 # SchemaForge V4 Changelog
 
+## 2026-08-03 - EA table Persian name separation
+
+- Preserved EA table `alias` as `Table.persianName`, independently from table description.
+- Added the Persian name to JSON, SQL headers, and comparison workbook table metadata.
+- Preserved the value through schema enrichment.
+
 ## 2026-07-25 - Consolidated JSON validation findings
 
 - Added the validation warning abbreviation reference.
