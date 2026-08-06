@@ -304,9 +304,63 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains(") TABLESPACE TS_DPS;"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.PK_DEPOSITS_DEPOSIT_ID ON DPS.DEPOSITS(DEPOSIT_ID) TABLESPACE ITS_DPS"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.UK_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS"));
-        assertTrue(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS;"));
+        assertFalse(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS;"));
     }
 
+
+
+    @Test
+    void shouldRenderOracleSafeReservedIdentifiersAndDropInvalidDefaults() {
+        Table table = Table.builder("TSTSHMA", "USER")
+                .addColumn(column("ROWID", DataType.numeric("NUMBER", 3, 0), false, null,
+                        "Legacy row id", 1))
+                .addColumn(column("DESC", DataType.varchar("VARCHAR2", 50), true, null,
+                        "Legacy description", 2))
+                .addColumn(column("TIMEX", DataType.numeric("TIMESTAMP", 9, null), true, "0",
+                        "Invalid temporal default", 3))
+                .addColumn(column("RESULTTYPE", DataType.numeric("NUMBER", 2, 0), true, "999",
+                        "Invalid precision default", 4))
+                .addColumn(column("PAYLOAD", DataType.varchar("VARCHAR2", 7000), true, null,
+                        "Large payload", 5))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_USER"), List.of(Identifier.of("ROWID"))))
+                .addIndex(new Index(Identifier.of("IX_USER_ROWID"),
+                        List.of(new IndexColumn(Identifier.of("ROWID"), SortDirection.ASC),
+                                new IndexColumn(Identifier.of("ROWID"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+
+        String sql = new DdlGenerator(new OracleDialect()).generate(
+                DatabaseSchema.builder("TSTSHMA").addTable(table).build());
+
+        assertTrue(sql.contains("CREATE TABLE TSTSHMA.SF_USER"));
+        assertTrue(sql.contains("SF_ROWID NUMBER(3,0) NOT NULL"));
+        assertTrue(sql.contains("SF_DESC VARCHAR2(50 CHAR)"));
+        assertTrue(sql.contains("TIMEX TIMESTAMP(9)"));
+        assertFalse(sql.contains("TIMEX TIMESTAMP(9) DEFAULT 0"));
+        assertTrue(sql.contains("RESULTTYPE NUMBER(2,0)"));
+        assertFalse(sql.contains("RESULTTYPE NUMBER(2,0) DEFAULT 999"));
+        assertTrue(sql.contains("PAYLOAD CLOB"));
+        assertTrue(sql.contains("PRIMARY KEY (SF_ROWID)"));
+        assertFalse(sql.contains("CREATE INDEX TSTSHMA.IX_USER_ROWID"));
+    }
+
+    @Test
+    void shouldDeduplicateRepeatedColumnsInsideStandaloneIndex() {
+        Table table = Table.builder("TSTSHMA", "LOCK_CHQ")
+                .addColumn(column("UNBLOCKID", DataType.numeric("NUMBER", 10, 0), true, null,
+                        "Unblock id", 1))
+                .addIndex(new Index(Identifier.of("IX_LOCK_CHQ"),
+                        List.of(new IndexColumn(Identifier.of("UNBLOCKID"), SortDirection.ASC),
+                                new IndexColumn(Identifier.of("UNBLOCKID"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+
+        String sql = new DdlGenerator(new OracleDialect()).generate(
+                DatabaseSchema.builder("TSTSHMA").addTable(table).build());
+
+        assertTrue(sql.contains("CREATE INDEX TSTSHMA.IX_LOCK_CHQ ON TSTSHMA.LOCK_CHQ(UNBLOCKID)"));
+        assertFalse(sql.contains("UNBLOCKID,UNBLOCKID"));
+    }
 
     private static Column column(String name, DataType type, boolean nullable, String defaultExpression,
                                  String description, int ordinalPosition) {

@@ -30,6 +30,7 @@ import com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificat
 import com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlParser;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
+import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.application.PreparedSchema;
 import com.behsazan.schemaforge.application.OutputFileNamer;
 import com.behsazan.schemaforge.application.SchemaPreparationService;
@@ -83,6 +84,7 @@ public class SchemaForgeApiService {
     private final SqlServerCrudProcedureGenerator sqlServerCrudGenerator = new SqlServerCrudProcedureGenerator();
     private final OracleCrudGenerationOptions oracleCrudOptions;
     private final SqlServerCrudGenerationOptions sqlServerCrudOptions;
+    private final OracleDdlSanityChecker oracleDdlSanityChecker = new OracleDdlSanityChecker();
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
@@ -293,11 +295,10 @@ public class SchemaForgeApiService {
                     .forEach(jsonIssues::add);
 
             String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
-            Files.writeString(
-                    output.resolve(outputFileNamer.scriptFileName(
-                            baseName, platform, OutputFileNamer.ScriptKind.DDL, timestamp)),
-                    sql,
-                    StandardCharsets.UTF_8);
+            String sqlFileName = outputFileNamer.scriptFileName(
+                    baseName, platform, OutputFileNamer.ScriptKind.DDL, timestamp);
+            requireValidOracleDdl(platform, sql, sqlFileName);
+            Files.writeString(output.resolve(sqlFileName), sql, StandardCharsets.UTF_8);
 
             writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform, dialect);
         }
@@ -462,6 +463,7 @@ public class SchemaForgeApiService {
                 MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
                 String sql = new DdlGenerator(dialect).generate(tableSchema, tableReport, tableMetadata);
                 String sqlFileName = eaSqlFileName(schema, table, platform, timestamp);
+                requireValidOracleDdl(platform, sql, sqlFileName);
                 Files.writeString(sqlDirectory.resolve(sqlFileName), sql, StandardCharsets.UTF_8);
 
                 Map<String, Object> item = manifestTables.get(tableKey(table));
@@ -541,6 +543,12 @@ public class SchemaForgeApiService {
         Files.write(output.resolve(fileName), workbook);
         LOGGER.info("[{}] EA comparison workbook generated: {}", platform.name(), fileName);
         return fileName;
+    }
+
+    private void requireValidOracleDdl(DatabasePlatform platform, String sql, String source) {
+        if (platform == DatabasePlatform.ORACLE) {
+            oracleDdlSanityChecker.requireValid(sql, source);
+        }
     }
 
     private void writeEaRunAll(

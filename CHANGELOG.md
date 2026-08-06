@@ -1,10 +1,39 @@
-## 2026-08-05 - EA duplicate physical-table collapse
+## 2026-08-06 - Oracle execution root-cause hardening
 
-- Fixed `duplicate table: <SCHEMA>.<TABLE>` failures when Enterprise Architect exports the same physical table into multiple domain/package branches with different XMI IDs.
-- Kept every EA table element in the XMI-ID lookup so foreign-key associations can still resolve against any package copy.
-- Added a separate logical-table index keyed by normalized `<SCHEMA>.<TABLE>` and generated each physical table only once.
-- Added EA import metadata for physical table-element count, logical table count, duplicate logical table count, duplicate element count, and duplicate-table summary.
-- Added regression coverage for repeated `CIF.PARTY` table copies.
+- Added deterministic Oracle-safe rendering for exact reserved identifiers such as `ROWID`, `DESC`, `ROWNUM`, `GROUP`, `COMMENT`, `UID`, `ROW`, `USER`, and `LEVEL`; every table, column, PK, FK, index, and comment reference uses the same `SF_` physical-name mapping.
+- Strengthened `LegacyDefaultValueNormalizer` with datatype compatibility, `NUMBER(p,s)` capacity, quoted-numeric, string-length, malformed signed-literal, and leaked datatype-declaration checks.
+- Added a final Oracle default-expression guard in `OracleDialect` so an invalid default cannot reach executable DDL even when a non-legacy input path bypasses the legacy normalizer.
+- Mapped oversized `VARCHAR2`/`CHAR` to `CLOB`, oversized `NVARCHAR2`/`NCHAR` to `NCLOB`, and oversized `RAW` to `BLOB` under the conservative Oracle `MAX_STRING_SIZE=STANDARD` policy.
+- Suppressed standalone indexes that duplicate PK/UK column signatures and removed repeated columns inside a single index.
+- Expanded `OracleDdlSanityChecker` for reserved names, datatype/default mismatches, numeric default capacity, string default length, malformed defaults, and standard Oracle character-length limits.
+- Added `HISTORICAL` and `FULL` execution modes to `OracleSqlDirectoryExecutionTest`. Historical mode skips cross-table foreign keys and grants by default, stops a file after its `CREATE TABLE` fails, and reports cleanup counts separately to prevent cascaded errors from hiding root causes.
+- Added regression coverage for the Oracle errors observed in the 4,766-file execution report: `ORA-03050`, `ORA-00932`, `ORA-01438`, `ORA-01722`, `ORA-00936`, `ORA-00910`, `ORA-01401`, `ORA-01408`, and `ORA-00957`.
+
+## 2026-08-06 - Recursive Oracle SQL execution audit test
+
+- Added `OracleSqlDirectoryExecutionTest` for recursively executing generated Oracle SQL files through JDBC.
+- Continues after statement-level errors and writes detailed error, per-file and summary reports.
+- Added guarded `dropBeforeCreate` mode for validating multiple historical versions in a disposable schema.
+- Added SQL*Plus command filtering, quoted-semicolon handling and PL/SQL slash-terminator support.
+- Added `docs/ORACLE-SQL-DIRECTORY-EXECUTION-TEST.md` with Windows execution instructions and safety controls.
+
+## 2026-08-05 - EA Party probe compile and deduplication regression fix
+
+- Fixed `EnterpriseArchitectPartyProbeTest` to use the canonical table accessor `qualifiedName().name()` instead of the nonexistent `Table.name()` method.
+- Restored logical EA table deduplication by normalized `<SCHEMA>.<TABLE>` while retaining every XMI element ID for association and foreign-key resolution.
+- Prevented EA internal `owner` references such as `EAID_*`, `EAPK_*`, and GUID values from being interpreted as physical database schema names.
+- Verified the supplied `Party_14050514.xml` probe with Java 21: 46 EA table elements resolve to 41 logical tables and `DPS.PARTY` is emitted once.
+
+## 2026-08-05 - Legacy Oracle default, precision, and pre-write safety gate
+
+- Added `LegacyDefaultValueNormalizer` to the actual canonical-column construction path for legacy DOC/DOCX parsing; explanatory text after numeric defaults is removed before `Column.defaultValue` is created.
+- Applied the same normalization to the standard DOCX parser so a legacy-shaped DOCX cannot bypass the safety rule by being accepted by the standard parser first.
+- Unsafe or unresolved natural-language defaults are omitted from executable DDL and recorded as `LEGACY_DEFAULT_DROPPED`; recoverable values are recorded as `LEGACY_DEFAULT_NORMALIZED`.
+- Bounded Oracle rendering to `NUMBER` precision 38, `NUMBER` scale 127, and `TIMESTAMP` fractional-seconds precision 9.
+- Added `OracleDdlSanityChecker` immediately before Oracle SQL file writes in the REST/ZIP path, EA per-table path, offline generation service, and recursive Legacy Word batch runner.
+- The safety gate rejects leaked natural-language defaults, trailing default annotations, smart quotes, unknown bare identifiers, unbalanced/default-invalid tokens, and out-of-range Oracle precision before a file reaches the output directory.
+- Added focused normalizer, Oracle safety-gate, and end-to-end parser-to-DDL regression tests for the reported `JTMSCUSTOMERS` values.
+- Repaired and re-audited the supplied 4,766-file Oracle output set: all 4,766 files still contain `CREATE TABLE`; the reported default signatures, `NUMBER` precision above 38, `TIMESTAMP` precision above 9, and safety-gate findings are all zero after repair.
 
 ## 2026-08-03 - Legacy Word authoritative raw-metadata precedence
 

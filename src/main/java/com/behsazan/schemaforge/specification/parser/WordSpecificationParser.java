@@ -24,6 +24,7 @@ import com.behsazan.schemaforge.specification.normalization.NumericRangeParser;
 import com.behsazan.schemaforge.specification.validation.IdentifierValidator;
 import com.behsazan.schemaforge.specification.recovery.DataTypeNormalizer;
 import com.behsazan.schemaforge.specification.recovery.RecoveryResult;
+import com.behsazan.schemaforge.specification.parser.legacy.LegacyDefaultValueNormalizer;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -47,6 +48,7 @@ public final class WordSpecificationParser implements SpecificationParser {
     private final NumericRangeParser numericRangeParser = new NumericRangeParser();
     private final CheckConstraintNormalizer checkConstraintNormalizer = new CheckConstraintNormalizer();
     private final DataTypeNormalizer dataTypeNormalizer = new DataTypeNormalizer();
+    private final LegacyDefaultValueNormalizer defaultValueNormalizer = new LegacyDefaultValueNormalizer();
 
 
     private static final Pattern DATA_TYPE = Pattern.compile(
@@ -119,7 +121,9 @@ public final class WordSpecificationParser implements SpecificationParser {
                 || warning.startsWith("COLUMN_DATATYPE_MISSING|")
                 || warning.startsWith("COLUMN_DESCRIPTION_MISSING|")
                 || warning.startsWith("FK_REFERENCE_NORMALIZED|")
-                || warning.startsWith("FK_REFERENCE_INVALID|");
+                || warning.startsWith("FK_REFERENCE_INVALID|")
+                || warning.startsWith("LEGACY_DEFAULT_NORMALIZED|")
+                || warning.startsWith("LEGACY_DEFAULT_DROPPED|");
     }
 
     private Table buildTable(
@@ -133,7 +137,23 @@ public final class WordSpecificationParser implements SpecificationParser {
 
         for (int index = 0; index < parsedColumns.size(); index++) {
             ParsedColumn parsed = parsedColumns.get(index);
-            String defaultExpression = parsed.identity() ? sequenceExpression : emptyToNull(parsed.defaultValue());
+            String defaultExpression;
+            if (parsed.identity()) {
+                defaultExpression = sequenceExpression;
+            } else {
+                LegacyDefaultValueNormalizer.Result defaultResult =
+                        defaultValueNormalizer.normalize(parsed.defaultValue(), parsed.dataType());
+                defaultExpression = defaultResult.expression();
+                if (defaultResult.changed()) {
+                    String code = defaultResult.dropped()
+                            ? "LEGACY_DEFAULT_DROPPED"
+                            : "LEGACY_DEFAULT_NORMALIZED";
+                    recoveryWarnings.add(code + "|column=" + parsed.name()
+                            + "|reason=" + defaultResult.reason()
+                            + "|raw=" + normalizeWarningValue(defaultResult.rawValue())
+                            + "|normalized=" + normalizeWarningValue(defaultResult.expression()));
+                }
+            }
             table.addColumn(new Column(
                     identifierValidator.toIdentifier(parsed.name(), "column"),
                     parsed.dataType(),

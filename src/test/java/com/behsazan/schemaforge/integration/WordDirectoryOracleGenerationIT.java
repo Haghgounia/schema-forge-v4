@@ -10,6 +10,7 @@ import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
 import com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParser;
+import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -47,6 +48,7 @@ class WordDirectoryOracleGenerationIT {
     private final LegacyWordSpecificationParser legacyParser = new LegacyWordSpecificationParser();
     private final SchemaPreparationService preparationService = new SchemaPreparationService();
     private final OutputFileNamer outputFileNamer = new OutputFileNamer();
+    private final OracleDdlSanityChecker sanityChecker = new OracleDdlSanityChecker();
 
     @Test
     void recursivelyGeneratesOracleScriptForEveryWordTableDocument() throws Exception {
@@ -92,6 +94,7 @@ class WordDirectoryOracleGenerationIT {
                         baseName, DatabasePlatform.ORACLE,
                         OutputFileNamer.ScriptKind.DDL, timestamp);
                 Path target = targetDirectory.resolve(fileName);
+                sanityChecker.requireValid(sql, relative);
                 Files.writeString(target, sql, StandardCharsets.UTF_8);
                 generated++;
                 System.out.println("[GENERATED] " + relative + " -> " + target);

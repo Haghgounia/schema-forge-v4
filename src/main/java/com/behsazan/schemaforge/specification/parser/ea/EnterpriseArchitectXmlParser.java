@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -711,9 +712,21 @@ public final class EnterpriseArchitectXmlParser {
     private static String schemaFromTags(Map<String, String> tags) {
         for (String name : SCHEMA_TAGS) {
             String value = tag(tags, name);
-            if (!value.isBlank()) return value;
+            if (!value.isBlank() && !looksLikeEaModelReference(value)) return value;
         }
         return "";
+    }
+
+    /**
+     * EA uses the generic {@code owner} tagged value for internal model-element
+     * references as well as, in some exports, for a physical database owner.
+     * Internal references must never be interpreted as schema names.
+     */
+    private static boolean looksLikeEaModelReference(String value) {
+        String normalized = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("EAID_")
+                || normalized.startsWith("EAPK_")
+                || normalized.matches("\\{?[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\\}?");
     }
 
     private static Element parentElement(Node node) {

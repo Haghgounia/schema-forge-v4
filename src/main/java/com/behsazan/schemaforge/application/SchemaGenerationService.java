@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.specification.json.JsonExporter;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
+import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,6 +69,9 @@ public final class SchemaGenerationService {
         new JsonExporter().write(jsonOutput, enriched, report);
         Dialect dialect = DialectFactory.create(platform);
         String sql = new DdlGenerator(dialect).generate(enriched, report);
+        if (platform == DatabasePlatform.ORACLE) {
+            new OracleDdlSanityChecker().requireValid(sql, sqlOutput.getFileName().toString());
+        }
         Files.writeString(sqlOutput, sql, StandardCharsets.UTF_8);
 
         return new GenerationOutput(jsonOutput, sqlOutput, platform, report.valid());

@@ -20,6 +20,14 @@ The SQL file contains all objects related to that Word specification in one file
 - grants
 - parser recovery warnings and generation footer
 
+## Legacy Oracle default and precision safety gate
+
+Legacy Word defaults are normalized before they enter the canonical `Column.defaultValue`. A cell such as `0 1- دائم 2- موقت` is reduced to executable `0`; an unsafe value that cannot be reduced conservatively is omitted from the DDL and reported in recovery metadata rather than emitted as invalid SQL.
+
+Oracle rendering additionally bounds `NUMBER(p)` to `p <= 38`, `NUMBER(p,s)` to `s <= 127`, and `TIMESTAMP(p)` to `p <= 9`. Every production Oracle write path runs `OracleDdlSanityChecker` immediately before `Files.writeString`; a script containing leaked explanatory text or an out-of-range precision fails the generation item and is not written.
+
+The recursive Word batch path records the affected document as failed and continues with the remaining documents, preserving batch-level diagnostics without publishing a syntactically unsafe Oracle file.
+
 ## Build
 
 ```bash

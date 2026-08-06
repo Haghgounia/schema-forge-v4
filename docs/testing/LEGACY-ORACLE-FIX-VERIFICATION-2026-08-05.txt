@@ -1,0 +1,32 @@
+SchemaForge V4 Legacy Oracle Fix Verification - 2026-08-05
+
+Java runtime/compiler: Java 21
+
+Offline compilation checks
+--------------------------
+Canonical domain + all dialects + LegacyDefaultValueNormalizer + OracleDdlSanityChecker: PASS
+LegacyWordSpecificationParser adapter with public DTOs and a compile stub for WordTableParser: PASS
+Standard WordSpecificationParser with compile stubs for POI/YAML-dependent types: PASS
+DdlGenerator + OracleDialect + metadata/validation core: PASS
+
+Parser-to-DDL smoke result
+--------------------------
+  SHAHABSTATUS NUMBER(1) DEFAULT 0,
+  CUSTSTATUS NUMBER(1) DEFAULT 1,
+  REFIDSH NUMBER(16) DEFAULT 0,
+  BIGVAL NUMBER(38),
+  TSVAL TIMESTAMP(9) DEFAULT CURRENT_TIMESTAMP
+OracleDdlSanityChecker: PASS
+
+Supplied 4,766-file output audit
+--------------------------------
+Before: 1,877 affected files / 11,889 safety findings
+After : 0 affected files / 0 safety findings
+SQL files preserved: 4,766
+CREATE TABLE files preserved: 4,766
+Transformations: 6,745
+
+Maven status
+------------
+The complete Maven build was attempted through ./mvnw. The isolated environment could not fetch
+apache-maven-3.9.9-bin.zip from Maven Central, so a complete Maven suite result is not claimed.

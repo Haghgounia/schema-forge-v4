@@ -32,10 +32,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -122,7 +124,9 @@ public final class DdlGenerator {
                 // referential dependencies so they survive a later missing-parent failure.
                 addComments(statements, table);
             }
-            table.indexes().stream().map(index -> createIndex(table, index)).forEach(statements::add);
+            emittedIndexes(table).stream()
+                    .map(index -> createIndex(table, index))
+                    .forEach(statements::add);
             table.foreignKeys().stream()
                     .map(foreignKey -> createForeignKey(table, foreignKey, metadata))
                     .forEach(statements::add);
@@ -354,6 +358,61 @@ public final class DdlGenerator {
             return first;
         }
         return first + NL + second;
+    }
+
+    private List<Index> emittedIndexes(Table table) {
+        Set<String> signatures = new LinkedHashSet<>();
+        table.primaryKey().ifPresent(primaryKey ->
+                signatures.add(identifierSignature(primaryKey.columns())));
+        for (UniqueKey uniqueKey : table.uniqueKeys()) {
+            signatures.add(identifierSignature(uniqueKey.columns()));
+        }
+
+        List<Index> result = new ArrayList<>();
+        for (Index index : table.indexes()) {
+            List<IndexColumn> normalizedColumns = deduplicateIndexColumns(index.columns());
+            String signature = indexSignature(normalizedColumns);
+            if (!signatures.add(signature)) {
+                continue;
+            }
+            if (normalizedColumns.equals(index.columns())) {
+                result.add(index);
+            } else {
+                result.add(new Index(index.name(), normalizedColumns, index.type(), index.description(),
+                        index.includeColumns(), index.predicate()));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private List<IndexColumn> deduplicateIndexColumns(List<IndexColumn> columns) {
+        Set<String> seen = new LinkedHashSet<>();
+        List<IndexColumn> result = new ArrayList<>();
+        for (IndexColumn column : columns) {
+            String signature = indexColumnSignature(column);
+            if (seen.add(signature)) {
+                result.add(column);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private String identifierSignature(List<Identifier> columns) {
+        return columns.stream()
+                .map(identifier -> dialect.quote(identifier).toUpperCase(Locale.ROOT) + ":ASC")
+                .collect(Collectors.joining("|"));
+    }
+
+    private String indexSignature(List<IndexColumn> columns) {
+        return columns.stream().map(this::indexColumnSignature).collect(Collectors.joining("|"));
+    }
+
+    private String indexColumnSignature(IndexColumn column) {
+        if (column.expressionBased()) {
+            return "EXPR:" + column.expression().replaceAll("\\s+", " ")
+                    .trim().toUpperCase(Locale.ROOT) + ":" + column.direction();
+        }
+        return dialect.quote(column.column()).toUpperCase(Locale.ROOT) + ":" + column.direction();
     }
 
     private String createIndex(Table table, Index index) {

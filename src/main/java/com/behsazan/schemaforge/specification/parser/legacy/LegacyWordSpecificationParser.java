@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
  * and foreign-key classes and the same generation pipeline.</p>
  */
 public final class LegacyWordSpecificationParser {
-    public static final String PARSER_VERSION = "0.5.8";
+    public static final String PARSER_VERSION = "0.5.9";
     private static final long DEFAULT_MAX_FILE_BYTES = 64L * 1024L * 1024L;
     private static final Pattern TYPE_DECLARATION = Pattern.compile(
             "(?i)^\\s*([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\))?\\s*$");
@@ -51,6 +51,7 @@ public final class LegacyWordSpecificationParser {
             "(?i)^(PK|PFK|UK|UQ|UIX|IX|IDX|INDEX|I|X)(\\d*)(?:[_:,](\\d+))?$");
 
     private final WordTableParser parser;
+    private final LegacyDefaultValueNormalizer defaultValueNormalizer = new LegacyDefaultValueNormalizer();
     private final IdentifierValidator identifierValidator = new IdentifierValidator();
     private final IdentifierSanitizer identifierSanitizer = new IdentifierSanitizer();
 
@@ -59,7 +60,11 @@ public final class LegacyWordSpecificationParser {
     }
 
     public LegacyWordSpecificationParser(long maxFileBytes) {
-        this.parser = WordTableParser.create(maxFileBytes);
+        this(WordTableParser.create(maxFileBytes));
+    }
+
+    LegacyWordSpecificationParser(WordTableParser parser) {
+        this.parser = Objects.requireNonNull(parser, "parser must not be null");
     }
 
     public boolean supports(Path document) {
@@ -169,12 +174,22 @@ public final class LegacyWordSpecificationParser {
                 && hasText(source.persianName())
                 ? source.persianName().trim()
                 : "";
-        String defaultValue = normalizeDefault(source.defaultValue());
+        LegacyDefaultValueNormalizer.Result defaultResult =
+                defaultValueNormalizer.normalize(source.defaultValue(), dataType);
+        if (defaultResult.changed()) {
+            String code = defaultResult.dropped()
+                    ? "LEGACY_DEFAULT_DROPPED"
+                    : "LEGACY_DEFAULT_NORMALIZED";
+            warnings.add(code + "|column=" + columnName
+                    + "|reason=" + defaultResult.reason()
+                    + "|raw=" + safe(defaultResult.rawValue())
+                    + "|normalized=" + safe(defaultResult.expression()));
+        }
         Column column = new Column(
                 Identifier.of(columnName),
                 dataType,
                 nullable,
-                new DefaultValue(defaultValue),
+                new DefaultValue(defaultResult.expression()),
                 new Description(description),
                 false,
                 source.sequence() > 0 ? source.sequence() : null,
@@ -461,16 +476,6 @@ public final class LegacyWordSpecificationParser {
         String normalized = raw.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_$#]", "_")
                 .replaceAll("_+", "_");
         return normalized.length() <= 128 ? normalized : normalized.substring(0, 128);
-    }
-
-    private static String normalizeDefault(String value) {
-        String normalized = trimToNull(value);
-        if (normalized == null) {
-            return null;
-        }
-        return normalized.endsWith(";")
-                ? normalized.substring(0, normalized.length() - 1).trim()
-                : normalized;
     }
 
     private static String renderIssue(ParserIssue issue) {

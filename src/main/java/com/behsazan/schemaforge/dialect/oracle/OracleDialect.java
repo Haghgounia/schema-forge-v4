@@ -14,6 +14,13 @@ import java.util.Set;
 
 /** Oracle-specific type and identifier rendering. */
 public final class OracleDialect implements Dialect {
+    static final int MAX_NUMBER_PRECISION = 38;
+    static final int MAX_NUMBER_SCALE = 127;
+    static final int MAX_TIMESTAMP_PRECISION = 9;
+    static final int MAX_VARCHAR2_STANDARD_LENGTH = 4000;
+    static final int MAX_NVARCHAR2_STANDARD_LENGTH = 2000;
+    static final int MAX_CHAR_STANDARD_LENGTH = 2000;
+    static final int MAX_RAW_STANDARD_LENGTH = 2000;
     private static final Set<DialectFeature> FEATURES = Set.of(
             DialectFeature.SEQUENCE,
             DialectFeature.IDENTITY_COLUMN,
@@ -50,16 +57,58 @@ public final class OracleDialect implements Dialect {
         };
 
         if (type.length() != null) {
+            String largeObjectType = largeObjectFallback(oracleName, type.length());
+            if (largeObjectType != null) {
+                return largeObjectType;
+            }
             String semantics = renderLengthSemantics(oracleName, type.lengthSemantics());
             return oracleName + "(" + type.length() + semantics + ")";
         }
         if (type.precision() != null) {
-            if (type.scale() != null) {
-                return oracleName + "(" + type.precision() + "," + type.scale() + ")";
+            int precision = boundedPrecision(oracleName, type.precision());
+            Integer scale = type.scale();
+            if (oracleName.equals("NUMBER") && scale != null) {
+                scale = Math.min(scale, MAX_NUMBER_SCALE);
             }
-            return oracleName + "(" + type.precision() + ")";
+            if (oracleName.startsWith("TIMESTAMP")) {
+                String suffix = oracleName.substring("TIMESTAMP".length());
+                return "TIMESTAMP(" + precision + ")" + suffix;
+            }
+            if (scale != null) {
+                return oracleName + "(" + precision + "," + scale + ")";
+            }
+            return oracleName + "(" + precision + ")";
         }
         return oracleName;
+    }
+
+    private String largeObjectFallback(String oracleName, int length) {
+        if (oracleName.equals("VARCHAR2") && length > MAX_VARCHAR2_STANDARD_LENGTH) {
+            return "CLOB";
+        }
+        if (oracleName.equals("NVARCHAR2") && length > MAX_NVARCHAR2_STANDARD_LENGTH) {
+            return "NCLOB";
+        }
+        if (oracleName.equals("CHAR") && length > MAX_CHAR_STANDARD_LENGTH) {
+            return "CLOB";
+        }
+        if (oracleName.equals("NCHAR") && length > MAX_NVARCHAR2_STANDARD_LENGTH) {
+            return "NCLOB";
+        }
+        if (oracleName.equals("RAW") && length > MAX_RAW_STANDARD_LENGTH) {
+            return "BLOB";
+        }
+        return null;
+    }
+
+    private int boundedPrecision(String oracleName, int precision) {
+        if (oracleName.equals("NUMBER")) {
+            return Math.min(precision, MAX_NUMBER_PRECISION);
+        }
+        if (oracleName.startsWith("TIMESTAMP")) {
+            return Math.min(precision, MAX_TIMESTAMP_PRECISION);
+        }
+        return precision;
     }
 
     private String renderLengthSemantics(String oracleName, LengthSemantics semantics) {
@@ -84,7 +133,15 @@ public final class OracleDialect implements Dialect {
     @Override
     public String quote(Identifier identifier) {
         Objects.requireNonNull(identifier, "identifier must not be null");
-        return identifier.normalized();
+        return OracleIdentifierPolicy.render(identifier);
+    }
+
+    @Override
+    public String defaultClause(Column column) {
+        Objects.requireNonNull(column, "column must not be null");
+        OracleDefaultExpressionPolicy.Decision decision =
+                OracleDefaultExpressionPolicy.evaluate(column);
+        return decision.accepted() ? " DEFAULT " + decision.expression() : "";
     }
 
     @Override
