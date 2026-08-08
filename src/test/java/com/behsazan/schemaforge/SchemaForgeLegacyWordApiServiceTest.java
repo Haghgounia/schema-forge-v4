@@ -26,6 +26,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+
+/**
+ * Integration-style test for the legacy Word REST service pipeline.
+ *
+ * <p>It verifies that a binary Word specification is mapped with the requested schema and
+ * packaged through the standard multi-artifact output path, including Oracle DDL, canonical
+ * metadata and CRUD summary artifacts.</p>
+ */
 class SchemaForgeLegacyWordApiServiceTest {
 
     @Test

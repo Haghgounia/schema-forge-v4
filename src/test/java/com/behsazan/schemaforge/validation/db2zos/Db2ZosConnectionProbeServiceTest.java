@@ -6,6 +6,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Verifies failure reporting of the DB2 for z/OS JDBC connection probe.
+ *
+ * <p>A deliberately missing driver confirms that connection diagnostics are returned without
+ * attempting schema changes or DDL execution.</p>
+ */
 class Db2ZosConnectionProbeServiceTest {
 
     @Test

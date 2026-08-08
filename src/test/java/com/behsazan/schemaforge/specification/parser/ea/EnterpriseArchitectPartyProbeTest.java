@@ -5,6 +5,14 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+
+/**
+ * Diagnostic probe for parsing the representative Enterprise Architect Party XMI export.
+ *
+ * <p>The test exercises the real resource and prints aggregate table, column, key, index and
+ * check-constraint counts. It is primarily a human-readable regression aid for EA import and
+ * duplicate-table resolution rather than a replacement for assertion-based parser tests.</p>
+ */
 class EnterpriseArchitectPartyProbeTest {
     @Test
     void probe() throws Exception {

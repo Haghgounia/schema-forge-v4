@@ -6,6 +6,14 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+
+/**
+ * Verifies conservative normalization of physical data-type evidence from legacy specifications.
+ *
+ * <p>The tests distinguish contextual abbreviations from unsupported tokens, reject index or
+ * constraint text that leaked into type cells and ensure unknown physical types are reported
+ * rather than guessed.</p>
+ */
 class LegacyDataTypeNormalizerTest {
     @ParameterizedTest
     @CsvSource({

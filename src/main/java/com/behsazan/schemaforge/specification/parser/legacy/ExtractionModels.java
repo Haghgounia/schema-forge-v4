@@ -5,10 +5,20 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Defines the immutable intermediate data model used by the legacy Word extraction pipeline.
+ *
+ * <p>The nested enums and records capture source-format detection, extracted table metadata,
+ * column evidence, warnings, per-file outcomes and run-level statistics. These types retain
+ * raw source values alongside normalized values so that downstream mapping and audit reports
+ * can explain every recovery decision. They are deliberately package-private and are not the
+ * canonical database domain model.</p>
+ */
 final class ExtractionModels {
     private ExtractionModels() {
     }
 
+    /** Classifies the outcome of processing one source document. */
     enum Status {
         SUCCESS,
         PARTIAL,
@@ -16,18 +26,24 @@ final class ExtractionModels {
         IGNORED
     }
 
+    /** Defines the audit severity assigned to an extraction finding. */
     enum Severity {
         INFO,
         WARNING,
         ERROR
     }
 
+    /** Identifies the detected physical Microsoft Word container format. */
     enum WordFormat {
         DOC,
         DOCX,
         UNKNOWN
     }
 
+    /**
+     * Captures normalized table-level metadata and the evidence source selected for the
+     * Persian table title.
+     */
     record Metadata(
             String documentType,
             String systemName,
@@ -41,6 +57,7 @@ final class ExtractionModels {
     ) {
     }
 
+    /** Records a recoverable extraction issue without discarding the source document. */
     record ExtractionWarning(
             Severity severity,
             String code,
@@ -51,6 +68,10 @@ final class ExtractionModels {
     ) {
     }
 
+    /**
+     * Represents one extracted legacy field row, including raw cells, normalized names and
+     * physical database hints that are consumed by the canonical mapping stage.
+     */
     record ColumnDefinition(
             int sequence,
             int sourceTableIndex,
@@ -73,6 +94,9 @@ final class ExtractionModels {
     ) {
     }
 
+    /**
+     * Aggregates the complete outcome and audit evidence for one Word document.
+     */
     record FileResult(
             Path sourceFile,
             String relativePath,
@@ -162,6 +186,7 @@ final class ExtractionModels {
         }
     }
 
+    /** Summarizes throughput, outcomes, warnings and memory usage for a parser run. */
     record RunSummary(
             String runName,
             Path inputDirectory,

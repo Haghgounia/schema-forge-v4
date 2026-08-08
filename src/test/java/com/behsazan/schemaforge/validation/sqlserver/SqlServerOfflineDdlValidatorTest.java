@@ -16,6 +16,13 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Tests offline SQL Server DDL validation against generated and deliberately invalid scripts.
+ *
+ * <p>The suite protects rejection of Oracle-only tokens, decimal precision overflow, oversized
+ * bounded character types and unsupported temporal precision.</p>
+ */
 class SqlServerOfflineDdlValidatorTest {
     private final SqlServerOfflineDdlValidator validator = new SqlServerOfflineDdlValidator();
 
@@ -59,4 +66,14 @@ class SqlServerOfflineDdlValidatorTest {
         assertTrue(result.issues().stream().anyMatch(issue -> issue.code().equals("TYPE_LENGTH_OUT_OF_RANGE")));
         assertTrue(result.issues().stream().anyMatch(issue -> issue.code().equals("TEMPORAL_PRECISION_OUT_OF_RANGE")));
     }
+    @Test
+    void rejectsNegativeScaleAndScaleAbovePrecision() {
+        String sql = "CREATE TABLE [dbo].[BAD] (A DECIMAL(18,-2), B DECIMAL(5,6));";
+
+        SqlServerOfflineValidationResult result = validator.validate(sql);
+
+        assertFalse(result.valid());
+        assertTrue(result.issues().stream().filter(issue -> issue.code().equals("DECIMAL_SCALE_OUT_OF_RANGE")).count() == 2);
+    }
+
 }

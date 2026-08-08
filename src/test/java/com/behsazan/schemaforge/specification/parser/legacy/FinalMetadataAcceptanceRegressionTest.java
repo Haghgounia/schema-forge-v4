@@ -10,6 +10,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Protects final acceptance rules for legacy table names and Persian entity titles.
+ *
+ * <p>The resource-based cases verify rejection of field-name tails and change-history noise,
+ * selection of the metadata pair that matches the file token, and correct classification when
+ * explicit source metadata is absent.</p>
+ */
 class FinalMetadataAcceptanceRegressionTest {
     @Test
     void recoversStandaloneLegacyPersianTitleAfterRejectingFieldTail() throws Exception {

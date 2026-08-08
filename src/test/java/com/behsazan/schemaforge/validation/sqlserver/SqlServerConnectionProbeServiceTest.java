@@ -6,6 +6,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Verifies failure reporting of the SQL Server JDBC connection probe.
+ *
+ * <p>A deliberately missing driver confirms that diagnostics are returned without attempting
+ * database DDL or metadata operations.</p>
+ */
 class SqlServerConnectionProbeServiceTest {
 
     @Test

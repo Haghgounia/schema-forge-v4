@@ -10,6 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Verifies the public legacy Word parser API and its immutable result contract.
+ *
+ * <p>The test ensures callers receive structured extraction data directly, without relying on
+ * an intermediate CSV serialization round trip.</p>
+ */
 class SchemaForgeWordTableParserApiTest {
     @Test
     void exposesImmutablePublicResultWithoutCsvRoundTrip() throws Exception {

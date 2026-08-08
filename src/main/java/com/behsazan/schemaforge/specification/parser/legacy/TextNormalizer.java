@@ -7,6 +7,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+/**
+ * Provides shared Unicode and layout normalization for legacy Persian/English Word content.
+ *
+ * <p>Operations canonicalize Persian letter variants, convert Arabic and Persian digits when
+ * required, remove Word control markers, preserve optional cell-paragraph boundaries and
+ * normalize technical identifiers. The functions are deterministic and side-effect free so
+ * all parser stages apply the same comparison and tokenization rules.</p>
+ */
 final class TextNormalizer {
     static final char CELL_PARAGRAPH_SEPARATOR = '\u001E';
     private static final Pattern MULTI_SPACE = Pattern.compile("[\\p{Zs}\\t\\x0B\\f]+", Pattern.UNICODE_CHARACTER_CLASS);

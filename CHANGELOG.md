@@ -1,3 +1,23 @@
+## 2026-08-07 - Recursive Oracle/PostgreSQL/SQL Server Legacy DDL generation
+
+- Added `WordDirectoryMultiDatabaseGenerationIT` to parse and prepare each Legacy/standard Word document once and render the same canonical model for Oracle, PostgreSQL and Microsoft SQL Server.
+- Added per-platform output directories while preserving the input subdirectory structure and the centralized timestamped SQL naming policy.
+- Added CSV and text summaries that distinguish parse failures, generation failures and scripts generated with static-validation findings.
+- Added `PostgreSqlDdlSanityChecker` for cross-dialect leakage, malformed delimiters, explicit numeric/temporal precision and character-length checks.
+- Hardened SQL Server exact-numeric mapping and offline validation so `DECIMAL` precision 0, negative scale, and scale greater than precision are reported before live execution.
+- Reused the existing `OracleDdlSanityChecker` and `SqlServerOfflineDdlValidator` so all three generated dialects report pre-execution issues consistently.
+- Kept discovery mode non-failing by default (`schemaforge.word.failOnErrors=false`) so a problem in one dialect or document does not prevent the rest of the 4,766-document corpus from being generated.
+
+## 2026-08-06 - Complete class-level JavaDoc coverage
+
+- Completed class-level JavaDoc for all 164 production and 83 test top-level Java types.
+- Expanded Oracle and SQL Server CRUD controller documentation to state delegation, response and error-mapping boundaries.
+- Documented the Legacy Word parser support types and their immutable intermediate extraction records.
+- Added regression-boundary documentation to the remaining 23 undocumented test classes.
+- Added `docs/CLASS-DOCUMENTATION-COVERAGE.md` and linked it from the documentation index.
+- No runtime behavior, public API, SQL generation rule or package structure changed.
+- Maven wrapper verification was attempted, but Maven 3.9.9 could not be downloaded in the execution environment.
+
 ## 2026-08-06 - Oracle execution root-cause hardening
 
 - Added deterministic Oracle-safe rendering for exact reserved identifiers such as `ROWID`, `DESC`, `ROWNUM`, `GROUP`, `COMMENT`, `UID`, `ROW`, `USER`, and `LEVEL`; every table, column, PK, FK, index, and comment reference uses the same `SF_` physical-name mapping.

@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  */
 public final class SqlServerOfflineDdlValidator {
     private static final Pattern EXACT_NUMERIC = Pattern.compile(
-            "\\b(?:DECIMAL|NUMERIC)\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\)",
+            "\\b(?:DECIMAL|NUMERIC)\\s*\\(\\s*(\\d+)\\s*(?:,\\s*([+-]?\\d+)\\s*)?\\)",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern CHARACTER_LENGTH = Pattern.compile(
             "\\b(N?VARCHAR|N?CHAR|VARBINARY|BINARY)\\s*\\(\\s*(\\d+)\\s*\\)",

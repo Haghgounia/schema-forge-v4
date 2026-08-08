@@ -16,6 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Regression tests for Oracle CRUD package rendering from the canonical table model.
+ *
+ * <p>The scenarios cover sequence-backed and composite primary keys, audit/default handling,
+ * generated search filters, configurable grants and rejection of tables without a primary key.
+ * The assertions also protect the transaction-neutral contract of generated packages.</p>
+ */
 class OracleCrudPackageGeneratorTest {
 
     @Test

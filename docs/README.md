@@ -25,6 +25,12 @@
 - [Microsoft SQL Server core dialect](dialects/SQL-SERVER-DIALECT.md)
 - [Microsoft SQL Server metadata comparison](dialects/SQL-SERVER-METADATA.md)
 
+
+## Integration
+
+- [Legacy Word parser and multi-database directory generation](integration/LEGACY-WORD-PARSER.md)
+- [Oracle SQL directory execution test](ORACLE-SQL-DIRECTORY-EXECUTION-TEST.md)
+
 ## Testing and validation
 
 - [PostgreSQL Word regression fix](testing/POSTGRESQL-WORD-REGRESSION-FIX.md)
@@ -37,3 +43,8 @@
 
 - [Roadmap change log](roadmap/CHANGELOG.md)
 - [Gap matrix](roadmap/GAP-MATRIX.md)
+## Codebase documentation
+
+- [Class-level JavaDoc coverage](CLASS-DOCUMENTATION-COVERAGE.md)
+- [V4.1 documentation and cleanup](V4.1-DOCUMENTATION-CLEANUP.md)
+

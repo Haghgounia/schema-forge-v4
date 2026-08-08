@@ -3,6 +3,14 @@ package com.behsazan.schemaforge.specification.parser.legacy;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Interprets the legacy field cell that may contain a reference, default value or description.
+ *
+ * <p>The parser recognizes explicit Persian and English default labels and labelled reference
+ * targets. A bare technical identifier is treated as a reference only when no explicit default
+ * is present. The original normalized text is retained as description evidence so downstream
+ * stages can review ambiguous legacy content.</p>
+ */
 final class FieldSupplementParser {
     private static final Pattern PERSIAN_DEFAULT = Pattern.compile(
             "(?iu)(?:مقدار\\s*)?پیش\\s*فرض\\s*[:=]?\\s*(.+)$"
@@ -41,6 +49,7 @@ final class FieldSupplementParser {
         return matcher.find() ? TextNormalizer.cleanCell(matcher.group(1)) : "";
     }
 
+    /** Holds the reference, default and normalized descriptive evidence extracted from a cell. */
     record Supplement(String referenceTable, String defaultValue, String description) {
     }
 }

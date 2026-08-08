@@ -9,6 +9,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+
+/**
+ * Verifies the HTTP response contract of {@link OracleCrudController} without database access.
+ *
+ * <p>The generation service is mocked so the test can focus on status, attachment naming and
+ * UTF-8 SQL response content.</p>
+ */
 class OracleCrudControllerTest {
 
     @Test

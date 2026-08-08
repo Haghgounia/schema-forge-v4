@@ -16,6 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Regression tests for SQL Server CRUD procedure rendering from the canonical table model.
+ *
+ * <p>The scenarios cover sequence-backed and composite primary keys, audit/default handling,
+ * generated search filters and rejection of tables without a primary key.</p>
+ */
 class SqlServerCrudProcedureGeneratorTest {
 
     @Test

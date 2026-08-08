@@ -16,6 +16,15 @@ import java.util.zip.ZipFile;
 
 import static com.behsazan.schemaforge.specification.parser.legacy.ExtractionModels.WordFormat;
 
+/**
+ * Detects whether a path contains a supported and readable Microsoft Word document.
+ *
+ * <p>Detection uses both the declared extension and the physical container signature. OLE2
+ * documents must contain a {@code WordDocument} stream, OOXML packages must contain
+ * {@code word/document.xml}, and encrypted OOXML containers or spreadsheets renamed as
+ * {@code .doc} are rejected. Temporary Word files are identified separately so batch scans can
+ * ignore them without treating them as parser failures.</p>
+ */
 final class WordFileDetector {
     private WordFileDetector() {
     }

@@ -16,7 +16,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-/** Exposes Oracle metadata-based CRUD package generation. */
+/**
+ * REST adapter for generating an Oracle CRUD package from live database metadata.
+ *
+ * <p>The controller validates the request envelope, delegates table discovery and SQL
+ * generation to {@link OracleCrudGenerationService}, and returns the generated script as
+ * a UTF-8 attachment. Domain-validation failures are mapped to HTTP 400, while unavailable
+ * metadata infrastructure is mapped to HTTP 503. The controller does not query Oracle or
+ * generate SQL directly.</p>
+ */
 @RestController
 @RequestMapping("/api/v1/generate/oracle")
 @Tag(name = "Oracle CRUD Generation",

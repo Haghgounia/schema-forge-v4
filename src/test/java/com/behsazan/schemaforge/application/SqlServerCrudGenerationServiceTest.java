@@ -23,6 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+
+/**
+ * Tests orchestration of SQL Server metadata lookup, CRUD procedure generation and artifact naming.
+ *
+ * <p>The suite covers the successful live-metadata path and the fail-fast behavior used when
+ * the SQL Server metadata repository is disabled or unavailable.</p>
+ */
 class SqlServerCrudGenerationServiceTest {
 
     @Test

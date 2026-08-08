@@ -12,6 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Verifies mapping of an extracted legacy Word table into the canonical schema model and Oracle DDL.
+ *
+ * <p>The resource-based regression protects table/column identity, keys, descriptions and the
+ * generated SQL representation across the parser-to-domain boundary.</p>
+ */
 class LegacyWordSpecificationParserMappingTest {
 
     @Test

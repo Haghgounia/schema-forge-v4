@@ -6,6 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Exercises supported and ambiguous legacy length, precision and scale encodings.
+ *
+ * <p>The suite covers Persian separators, RTL parentheses, Word run splitting, tracked-change
+ * concatenation and known punctuation artifacts while ensuring genuinely competing numeric
+ * values remain marked as ambiguous.</p>
+ */
 class LengthValueParserTest {
     @Test
     void parsesPrecisionAndScaleWithCommaOrDot() {

@@ -81,9 +81,13 @@ public final class SqlServerTypeMapper {
         if (precision == null) {
             return "DECIMAL(38,0)";
         }
-        if (precision > MAX_DECIMAL_PRECISION) {
+        if (precision < 1 || precision > MAX_DECIMAL_PRECISION) {
             throw new IllegalArgumentException(
-                    "SQL Server DECIMAL precision exceeds 38: " + renderSource(type));
+                    "SQL Server DECIMAL precision must be between 1 and 38: " + renderSource(type));
+        }
+        if (scale < 0 || scale > precision) {
+            throw new IllegalArgumentException(
+                    "SQL Server DECIMAL scale must be between 0 and precision: " + renderSource(type));
         }
         if (strategy == NumericMappingStrategy.OPTIMIZED) {
             DataType explicitScale = type.scale() == null

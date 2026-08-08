@@ -18,6 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * End-to-end regression test for the legacy Word-to-Oracle DDL generation path.
+ *
+ * <p>The test ensures default normalization and Oracle precision bounds are applied before the
+ * canonical column reaches the dialect renderer, preventing helper classes from being present
+ * but bypassed by the production pipeline.</p>
+ */
 class LegacyOracleGenerationPipelineTest {
 
     @TempDir

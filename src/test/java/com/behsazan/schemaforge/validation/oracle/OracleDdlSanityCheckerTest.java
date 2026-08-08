@@ -6,6 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Regression tests for the final Oracle DDL safety gate.
+ *
+ * <p>The suite accepts normalized legacy scripts and Unicode literals, then verifies rejection
+ * of explanatory default leaks, unknown identifiers, reserved names, incompatible default
+ * types, precision overflow and oversized character definitions before files are written.</p>
+ */
 class OracleDdlSanityCheckerTest {
     private final OracleDdlSanityChecker checker = new OracleDdlSanityChecker();
 

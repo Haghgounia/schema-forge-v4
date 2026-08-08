@@ -18,6 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Tests offline DB2 for z/OS DDL validation against generated and deliberately invalid scripts.
+ *
+ * <p>The suite covers accepted explicit constraint indexes, Oracle-token rejection, DB2 decimal
+ * precision limits and the requirement for enforcing indexes on primary keys.</p>
+ */
 class Db2ZosOfflineDdlValidatorTest {
 
     private final Db2ZosOfflineDdlValidator validator = new Db2ZosOfflineDdlValidator();

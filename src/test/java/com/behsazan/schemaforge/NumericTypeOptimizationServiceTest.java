@@ -7,6 +7,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Verifies lossless narrowing of exact numeric types to native integer types.
+ *
+ * <p>The tests protect the precision boundaries used by optimized dialect mappings and ensure
+ * decimal, unbounded and out-of-profile numeric definitions remain unchanged.</p>
+ */
 class NumericTypeOptimizationServiceTest {
     private static final NumericTypeOptimizationService.NumericIntegerProfile POSTGRESQL =
             new NumericTypeOptimizationService.NumericIntegerProfile(

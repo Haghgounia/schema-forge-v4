@@ -13,6 +13,15 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+/**
+ * Reads plain text directly from selected OOXML parts of a DOCX package.
+ *
+ * <p>The extractor is a defensive fallback for cases where higher-level Apache POI text
+ * extraction does not expose all metadata needed by the legacy parser. It reads the main
+ * document and header XML parts with StAX, disables DTD and external-entity processing,
+ * preserves structural separators, and enforces a bounded output size. It intentionally
+ * performs no table-specification interpretation.</p>
+ */
 final class DocxXmlTextExtractor {
     private static final int MAX_XML_TEXT_CHARS = 64 * 1024 * 1024;
 

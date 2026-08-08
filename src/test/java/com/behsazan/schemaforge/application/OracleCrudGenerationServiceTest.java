@@ -23,6 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+
+/**
+ * Tests orchestration of Oracle metadata lookup, CRUD package generation and artifact naming.
+ *
+ * <p>The suite covers the successful live-metadata path and the fail-fast behavior used when
+ * the Oracle metadata repository is disabled or unavailable.</p>
+ */
 class OracleCrudGenerationServiceTest {
 
     @Test

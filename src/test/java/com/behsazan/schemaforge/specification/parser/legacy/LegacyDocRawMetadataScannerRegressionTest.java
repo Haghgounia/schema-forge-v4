@@ -7,6 +7,13 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Verifies raw OLE2 metadata recovery for legacy DOC files that defeat normal text extraction.
+ *
+ * <p>The cases protect Persian titles that begin with history-related words and selection of
+ * the table/entity metadata pair that belongs to the requested page or file token.</p>
+ */
 class LegacyDocRawMetadataScannerRegressionTest {
     @Test
     void preservesPersianEntityStartingWithTarikhcheh() throws Exception {

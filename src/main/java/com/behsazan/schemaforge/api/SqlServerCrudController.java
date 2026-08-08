@@ -16,7 +16,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-/** Exposes SQL Server metadata-based CRUD stored-procedure generation. */
+/**
+ * REST adapter for generating SQL Server CRUD procedures from live database metadata.
+ *
+ * <p>The controller validates the request envelope, delegates metadata resolution and SQL
+ * generation to {@link SqlServerCrudGenerationService}, and returns the generated script as
+ * a UTF-8 attachment. Invalid requests are mapped to HTTP 400 and unavailable metadata
+ * infrastructure is mapped to HTTP 503. No database access or procedure rendering is
+ * performed in the web layer.</p>
+ */
 @RestController
 @RequestMapping("/api/v1/generate/sqlserver")
 @Tag(name = "SQL Server CRUD Generation",

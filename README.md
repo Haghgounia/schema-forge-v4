@@ -292,4 +292,4 @@ Legacy Word documents that do not contain a schema use a separate REST entry poi
 POST /api/v1/generate/legacy-word?schema=DPS
 ```
 
-Upload one `.doc` or `.docx` file as multipart field `file`. The schema parameter is required. See `docs/integration/LEGACY-WORD-PARSER.md` for the recursive Oracle-only directory test.
+Upload one `.doc` or `.docx` file as multipart field `file`. The schema parameter is required. See `docs/integration/LEGACY-WORD-PARSER.md` for recursive Oracle-only and Oracle/PostgreSQL/SQL Server directory generation.

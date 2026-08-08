@@ -3,6 +3,14 @@ package com.behsazan.schemaforge.specification.parser.legacy;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Parses legacy length, precision and scale values without making unsafe assumptions.
+ *
+ * <p>The parser normalizes Persian digits and separators and repairs a limited set of verified
+ * Word-layout artifacts, including split trailing zeroes, reversed parentheses and tracked
+ * precision/scale revisions. Values that contain competing numeric groups are marked ambiguous
+ * rather than collapsed into a guessed database type definition.</p>
+ */
 final class LengthValueParser {
     private static final Pattern SINGLE = Pattern.compile("^\\(?\\s*(\\d+)\\s*\\)?$");
     private static final Pattern PRECISION_SCALE = Pattern.compile("^\\(?\\s*(\\d+)\\s*[,.]\\s*(\\d+)\\s*\\)?$");
@@ -134,6 +142,10 @@ final class LengthValueParser {
         }
     }
 
+    /**
+     * Returns the normalized source together with either a length or precision/scale pair and
+     * an ambiguity flag for values that require manual or later-stage resolution.
+     */
     record ParsedLength(
             String normalized,
             Integer length,

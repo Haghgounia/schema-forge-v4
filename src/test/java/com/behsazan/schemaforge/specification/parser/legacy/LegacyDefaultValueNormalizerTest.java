@@ -8,6 +8,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * Regression suite for safe normalization of legacy column default values.
+ *
+ * <p>It covers explanatory-text removal, quote and timestamp normalization, preservation of
+ * recognized SQL expressions, rejection of unresolved natural language, type compatibility,
+ * numeric precision and character-length constraints.</p>
+ */
 class LegacyDefaultValueNormalizerTest {
     private final LegacyDefaultValueNormalizer normalizer = new LegacyDefaultValueNormalizer();
 

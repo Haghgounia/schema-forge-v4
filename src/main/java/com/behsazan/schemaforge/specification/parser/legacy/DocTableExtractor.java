@@ -43,6 +43,19 @@ import static com.behsazan.schemaforge.specification.parser.legacy.ExtractionMod
 import static com.behsazan.schemaforge.specification.parser.legacy.ExtractionModels.Status;
 import static com.behsazan.schemaforge.specification.parser.legacy.ExtractionModels.WordFormat;
 
+/**
+ * Extracts table specifications and audit evidence from legacy Microsoft Word documents.
+ *
+ * <p>This package-private parser supports both binary {@code .doc} and OOXML {@code .docx}
+ * inputs. It combines document text, headers, Word tables, file-name evidence and raw
+ * metadata recovery to identify table documents and map field rows into immutable
+ * {@link ExtractionModels} records. Persian/English labels and known Word layout artifacts
+ * are normalized conservatively; uncertain values are reported as warnings instead of being
+ * silently guessed.</p>
+ *
+ * <p>The extractor produces an intermediate evidence model only. Mapping to the canonical
+ * SchemaForge domain model and database-specific DDL is performed by later pipeline stages.</p>
+ */
 final class DocTableExtractor {
     private static final Pattern TABLE_NAME = Pattern.compile(
             "نام\\s*جدول\\s*[:：]?\\s*[.\\s]*([A-Za-z][A-Za-z0-9_$#]*(?:\\s*\\.\\s*[A-Za-z][A-Za-z0-9_$#]*)*)",
