@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.integration;
 
+import com.behsazan.schemaforge.application.CollisionSafeScriptTargetAllocator;
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.application.OutputFileNamer;
@@ -22,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -76,28 +78,42 @@ class CanonicalJsonDirectoryToDdlIT {
                     .toList();
         }
 
+        SnapshotSelection snapshotSelection = selectSnapshots(inputRoot, snapshots);
+        List<Path> selectedSnapshots = snapshotSelection.selected();
+
         String timestamp = outputFileNamer.timestamp();
         List<String> summary = new ArrayList<>();
         summary.add("snapshot,source,platform,status,validation_issue_count,output_file,error");
         List<String> issues = new ArrayList<>();
         issues.add("snapshot,source,platform,stage,location,code,message,fragment");
+        List<String> outputCollisions = new ArrayList<>();
+        outputCollisions.add("snapshot,source,platform,original_output,resolved_output,reason");
 
+        Map<DatabasePlatform, CollisionSafeScriptTargetAllocator> targetAllocators =
+                new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Set<Path>> writtenTargets = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> generated = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> generatedWithIssues = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> failed = new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Dialect> dialects = new EnumMap<>(DatabasePlatform.class);
         platforms.forEach(platform -> {
             generated.put(platform, 0);
             generatedWithIssues.put(platform, 0);
             failed.put(platform, 0);
+            targetAllocators.put(platform, new CollisionSafeScriptTargetAllocator(outputFileNamer));
+            writtenTargets.put(platform, new LinkedHashSet<>());
             try {
                 Files.createDirectories(outputRoot.resolve(platform.commandLineName()));
+                Dialect dialect = DialectFactory.create(platform);
+                verifyDialectInvariants(platform, dialect);
+                dialects.put(platform, dialect);
             } catch (Exception exception) {
-                throw new IllegalStateException("Cannot create output directory for " + platform, exception);
+                throw new IllegalStateException("Cannot initialize DDL generation for " + platform, exception);
             }
         });
 
         int snapshotFailures = 0;
-        for (Path snapshotPath : snapshots) {
+        for (Path snapshotPath : selectedSnapshots) {
             String relativeSnapshot = normalize(inputRoot.relativize(snapshotPath));
             CanonicalSchemaSnapshot snapshot;
             PreparedSchema prepared;
@@ -122,27 +138,53 @@ class CanonicalJsonDirectoryToDdlIT {
 
             for (DatabasePlatform platform : platforms) {
                 generate(inputRoot, outputRoot, snapshotPath, relativeSnapshot, snapshot, prepared, platform,
-                        timestamp, summary, issues, generated, generatedWithIssues, failed);
+                        dialects.get(platform), timestamp, summary, issues, outputCollisions,
+                        targetAllocators.get(platform), writtenTargets.get(platform),
+                        generated, generatedWithIssues, failed);
             }
         }
 
         Path reportDirectory = Files.createDirectories(outputRoot.resolve("reports"));
         Path summaryFile = reportDirectory.resolve("canonical-json-ddl-summary_" + timestamp + ".csv");
         Path issueFile = reportDirectory.resolve("canonical-json-ddl-issues_" + timestamp + ".csv");
+        Path duplicateFile = reportDirectory.resolve("canonical-json-ddl-duplicates_" + timestamp + ".csv");
+        Path collisionFile = reportDirectory.resolve("canonical-json-ddl-output-collisions_" + timestamp + ".csv");
         Path textFile = reportDirectory.resolve("canonical-json-ddl-summary_" + timestamp + ".txt");
         Files.writeString(summaryFile, String.join(System.lineSeparator(), summary) + System.lineSeparator(),
                 StandardCharsets.UTF_8);
         Files.writeString(issueFile, String.join(System.lineSeparator(), issues) + System.lineSeparator(),
                 StandardCharsets.UTF_8);
-        Files.writeString(textFile, textSummary(inputRoot, outputRoot, snapshots.size(), snapshotFailures,
-                platforms, generated, generatedWithIssues, failed), StandardCharsets.UTF_8);
+        List<String> duplicateLines = new ArrayList<>();
+        duplicateLines.add("duplicate_snapshot,kept_snapshot,normalized_source,sha256");
+        for (DuplicateSnapshot duplicate : snapshotSelection.duplicates()) {
+            duplicateLines.add(csvLine(duplicate.duplicateSnapshot(), duplicate.keptSnapshot(),
+                    duplicate.normalizedSource(), duplicate.sha256()));
+        }
+        Files.writeString(duplicateFile, String.join(System.lineSeparator(), duplicateLines) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+        Files.writeString(collisionFile, String.join(System.lineSeparator(), outputCollisions) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+        Files.writeString(textFile, textSummary(inputRoot, outputRoot, snapshots.size(), selectedSnapshots.size(),
+                snapshotSelection.duplicates().size(), outputCollisions.size() - 1, snapshotFailures, platforms,
+                generated, generatedWithIssues, failed), StandardCharsets.UTF_8);
+
+        for (DatabasePlatform platform : platforms) {
+            int successful = generated.get(platform) + generatedWithIssues.get(platform);
+            if (writtenTargets.get(platform).size() != successful) {
+                throw new IllegalStateException("Generated SQL file count mismatch for " + platform.commandLineName()
+                        + ": successful=" + successful + ", uniqueFiles=" + writtenTargets.get(platform).size());
+            }
+        }
 
         int totalGenerated = generated.values().stream().mapToInt(Integer::intValue).sum()
                 + generatedWithIssues.values().stream().mapToInt(Integer::intValue).sum();
         int totalFailed = failed.values().stream().mapToInt(Integer::intValue).sum();
 
-        System.out.println("Snapshots         : " + snapshots.size());
-        System.out.println("Snapshot failures : " + snapshotFailures);
+        System.out.println("Snapshots discovered : " + snapshots.size());
+        System.out.println("Snapshots selected   : " + selectedSnapshots.size());
+        System.out.println("Exact duplicates     : " + snapshotSelection.duplicates().size());
+        System.out.println("Output collisions    : " + (outputCollisions.size() - 1));
+        System.out.println("Snapshot failures    : " + snapshotFailures);
         for (DatabasePlatform platform : platforms) {
             System.out.println(platform.commandLineName() + " generated       : " + generated.get(platform));
             System.out.println(platform.commandLineName() + " with issues     : " + generatedWithIssues.get(platform));
@@ -151,6 +193,8 @@ class CanonicalJsonDirectoryToDdlIT {
         System.out.println("Output            : " + outputRoot);
         System.out.println("Summary report    : " + summaryFile);
         System.out.println("Validation issues : " + issueFile);
+        System.out.println("Duplicates report : " + duplicateFile);
+        System.out.println("Collisions report : " + collisionFile);
 
         assertTrue(totalGenerated > 0, "No SQL was generated from canonical JSON snapshots");
         if (failOnErrors) {
@@ -167,9 +211,13 @@ class CanonicalJsonDirectoryToDdlIT {
             CanonicalSchemaSnapshot snapshot,
             PreparedSchema prepared,
             DatabasePlatform platform,
+            Dialect dialect,
             String timestamp,
             List<String> summary,
             List<String> issues,
+            List<String> outputCollisions,
+            CollisionSafeScriptTargetAllocator targetAllocator,
+            Set<Path> writtenTargets,
             Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> generatedWithIssues,
             Map<DatabasePlatform, Integer> failed) {
@@ -177,24 +225,35 @@ class CanonicalJsonDirectoryToDdlIT {
         String source = snapshot.source() == null ? "" : snapshot.source().relativePath();
         Path target = null;
         try {
-            Dialect dialect = DialectFactory.create(platform);
-            verifyDialectInvariants(platform, dialect);
             String sql = new DdlGenerator(dialect).generate(prepared.schema(), prepared.validationReport());
             Path sourcePath = safeSourcePath(source, snapshotPath.getFileName().toString());
             Path relativeParent = sourcePath.getParent();
-            Path platformRoot = outputRoot.resolve(platform.commandLineName());
+            Path platformRoot = Files.createDirectories(outputRoot.resolve(platform.commandLineName()));
             Path targetDirectory = relativeParent == null
                     ? platformRoot : Files.createDirectories(platformRoot.resolve(relativeParent));
             String sourceFileName = snapshot.source() == null || snapshot.source().fileName() == null
                     ? stripSnapshotSuffix(snapshotPath.getFileName().toString()) : snapshot.source().fileName();
-            String fileName = outputFileNamer.scriptFileName(
-                    stripExtension(sourceFileName), platform, OutputFileNamer.ScriptKind.DDL, timestamp);
-            target = targetDirectory.resolve(fileName);
+            String logicalName = stripExtension(sourceFileName);
+            String sourceIdentity = relativeSnapshot + "|" + source + "|"
+                    + (snapshot.source() == null || snapshot.source().sha256() == null
+                    ? "" : snapshot.source().sha256());
+            CollisionSafeScriptTargetAllocator.Allocation allocation = targetAllocator.reserveDdl(
+                    targetDirectory, logicalName, platform, timestamp, sourceIdentity);
+            target = allocation.resolvedTarget();
+            if (allocation.collisionResolved()) {
+                outputCollisions.add(csvLine(relativeSnapshot, source, platform.commandLineName(),
+                        normalize(outputRoot.relativize(allocation.requestedTarget())),
+                        normalize(outputRoot.relativize(allocation.resolvedTarget())),
+                        "OUTPUT_NAME_COLLISION"));
+            }
 
             List<ValidationFinding> findings = new ArrayList<>();
             findings.addAll(mappingFindings(platform, prepared.schema()));
             findings.addAll(validate(platform, sql));
             Files.writeString(target, sql, StandardCharsets.UTF_8);
+            if (!writtenTargets.add(target.toAbsolutePath().normalize())) {
+                throw new IllegalStateException("DDL output target was written twice in one run: " + target);
+            }
             if (findings.isEmpty()) {
                 generated.compute(platform, (key, value) -> value + 1);
                 summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(), "GENERATED", "0",
@@ -223,7 +282,7 @@ class CanonicalJsonDirectoryToDdlIT {
             return;
         }
         String probe = dialect.qualifyIndexName(
-                com.behsazan.schemaforge.domain.valueobject.QualifiedName.of("TSTSHMA", "__PROBE__"),
+                com.behsazan.schemaforge.domain.valueobject.QualifiedName.of("TSTSHMA", "SCHEMAFORGE_PROBE"),
                 "ix_schemaforge_probe");
         if (probe.contains(".")) {
             throw new IllegalStateException(
@@ -305,6 +364,55 @@ class CanonicalJsonDirectoryToDdlIT {
         };
     }
 
+    private SnapshotSelection selectSnapshots(Path inputRoot, List<Path> discovered) {
+        Map<String, Path> seen = new LinkedHashMap<>();
+        List<Path> selected = new ArrayList<>();
+        List<DuplicateSnapshot> duplicates = new ArrayList<>();
+        for (Path path : discovered) {
+            try {
+                CanonicalSchemaSnapshot snapshot = store.readSnapshot(path);
+                CanonicalSchemaSnapshot.SourceSnapshot source = snapshot.source();
+                String sourcePath = source == null || source.relativePath() == null || source.relativePath().isBlank()
+                        ? normalize(inputRoot.relativize(path)) : source.relativePath();
+                String sha256 = source == null || source.sha256() == null ? "" : source.sha256().trim();
+                if (sha256.isBlank()) {
+                    selected.add(path);
+                    continue;
+                }
+                String normalizedSource = canonicalSourcePath(sourcePath);
+                String key = normalizedSource.toLowerCase(Locale.ROOT) + "|" + sha256.toLowerCase(Locale.ROOT);
+                Path kept = seen.putIfAbsent(key, path);
+                if (kept == null) {
+                    selected.add(path);
+                } else {
+                    duplicates.add(new DuplicateSnapshot(
+                            normalize(inputRoot.relativize(path)),
+                            normalize(inputRoot.relativize(kept)),
+                            normalizedSource,
+                            sha256));
+                }
+            } catch (Exception unreadable) {
+                // Keep unreadable snapshots in the normal flow so they are reported as SNAPSHOT_FAILED.
+                selected.add(path);
+            }
+        }
+        return new SnapshotSelection(List.copyOf(selected), List.copyOf(duplicates));
+    }
+
+    private static String canonicalSourcePath(String sourcePath) {
+        String normalized = sourcePath == null ? "" : sourcePath.replace('\\', '/').trim();
+        int slash = normalized.lastIndexOf('/');
+        String parent = slash < 0 ? "" : normalized.substring(0, slash + 1);
+        String fileName = slash < 0 ? normalized : normalized.substring(slash + 1);
+        int dot = fileName.lastIndexOf('.');
+        if (dot > 0) {
+            fileName = fileName.substring(0, dot).stripTrailing() + fileName.substring(dot);
+        } else {
+            fileName = fileName.stripTrailing();
+        }
+        return parent + fileName;
+    }
+
     private static Path safeSourcePath(String source, String fallback) {
         if (source == null || source.isBlank()) return Path.of(fallback);
         Path path = Path.of(source.replace('/', java.io.File.separatorChar)).normalize();
@@ -352,16 +460,20 @@ class CanonicalJsonDirectoryToDdlIT {
     }
 
     private static String textSummary(
-            Path inputRoot, Path outputRoot, int snapshots, int snapshotFailures,
-            List<DatabasePlatform> platforms, Map<DatabasePlatform, Integer> generated,
+            Path inputRoot, Path outputRoot, int snapshotsDiscovered, int snapshotsSelected, int duplicateSnapshots,
+            int outputCollisions, int snapshotFailures, List<DatabasePlatform> platforms,
+            Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> withIssues, Map<DatabasePlatform, Integer> failed) {
         StringBuilder result = new StringBuilder();
         result.append("SchemaForge canonical JSON to DDL summary").append(System.lineSeparator());
         result.append("=========================================").append(System.lineSeparator());
         result.append("Snapshot directory : ").append(inputRoot).append(System.lineSeparator());
         result.append("Output directory   : ").append(outputRoot).append(System.lineSeparator());
-        result.append("Snapshots          : ").append(snapshots).append(System.lineSeparator());
-        result.append("Snapshot failures  : ").append(snapshotFailures).append(System.lineSeparator());
+        result.append("Snapshots discovered: ").append(snapshotsDiscovered).append(System.lineSeparator());
+        result.append("Snapshots selected  : ").append(snapshotsSelected).append(System.lineSeparator());
+        result.append("Exact duplicates    : ").append(duplicateSnapshots).append(System.lineSeparator());
+        result.append("Output collisions   : ").append(outputCollisions).append(System.lineSeparator());
+        result.append("Snapshot failures   : ").append(snapshotFailures).append(System.lineSeparator());
         for (DatabasePlatform platform : platforms) {
             result.append(System.lineSeparator()).append(platform.commandLineName()).append(System.lineSeparator());
             result.append("  Generated        : ").append(generated.get(platform)).append(System.lineSeparator());
@@ -400,6 +512,14 @@ class CanonicalJsonDirectoryToDdlIT {
 
     private static String safeMessage(Exception exception) {
         return exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+    }
+
+    /** Selected canonical snapshots plus exact duplicate source/hash pairs skipped for DDL generation. */
+    private record SnapshotSelection(List<Path> selected, List<DuplicateSnapshot> duplicates) {
+    }
+
+    private record DuplicateSnapshot(
+            String duplicateSnapshot, String keptSnapshot, String normalizedSource, String sha256) {
     }
 
     /** One normalized static-validation finding independent from its DBMS-specific validator. */

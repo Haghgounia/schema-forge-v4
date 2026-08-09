@@ -67,6 +67,15 @@ class SqlServerDirectoryExecutionTest {
                     + "|ALTER\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?(?:ONLY\\s+)?"
                     + ")(" + QUALIFIED_NAME + ")");
 
+    private static final Pattern ADD_FOREIGN_KEY = Pattern.compile(
+            "(?is)^\\s*ALTER\\s+TABLE\\s+(" + QUALIFIED_NAME + ")"
+                    + "\\s+WITH\\s+CHECK\\s+ADD\\s+CONSTRAINT\\s+(" + IDENTIFIER + ")"
+                    + "\\s+FOREIGN\\s+KEY\\b");
+
+    private static final Pattern CHECK_CONSTRAINT = Pattern.compile(
+            "(?is)^\\s*ALTER\\s+TABLE\\s+(" + QUALIFIED_NAME + ")"
+                    + "\\s+CHECK\\s+CONSTRAINT\\s+(" + IDENTIFIER + ")\\s*;?\\s*$");
+
     @Test
     void executeAllSqlServerScriptsRecursivelyAndCollectErrors() throws Exception {
         Config config = Config.load();
@@ -147,6 +156,7 @@ class SqlServerDirectoryExecutionTest {
         int ignored = 0;
         List<SqlUnit> statements;
         Set<String> tables = new LinkedHashSet<>();
+        Set<String> skippedForeignKeyConstraints = new LinkedHashSet<>();
 
         try {
             String script = Files.readString(file, StandardCharsets.UTF_8);
@@ -178,9 +188,23 @@ class SqlServerDirectoryExecutionTest {
                 statementIndex++;
                 StatementType type = StatementType.of(unit.sql());
                 if (config.shouldSkip(type)) {
+                    if (type == StatementType.ALTER_FOREIGN_KEY) {
+                        String key = foreignKeyConstraintKey(unit.sql());
+                        if (!key.isBlank()) {
+                            skippedForeignKeyConstraints.add(key);
+                        }
+                    }
                     skipped++;
                     report.skipped++;
                     continue;
+                }
+                if (config.executionMode() == ExecutionMode.HISTORICAL) {
+                    String key = checkedConstraintKey(unit.sql());
+                    if (!key.isBlank() && skippedForeignKeyConstraints.remove(key)) {
+                        skipped++;
+                        report.skipped++;
+                        continue;
+                    }
                 }
 
                 report.executed++;
@@ -235,7 +259,7 @@ class SqlServerDirectoryExecutionTest {
             String table) throws SQLException {
 
         verifyDestructiveTableOwner(table, config.expectedSchema());
-        String sql = "DROP TABLE IF EXISTS " + table + " CASCADE";
+        String sql = dropTableSql(table);
         report.cleanupAttempted++;
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(config.statementTimeoutSeconds());
@@ -248,6 +272,13 @@ class SqlServerDirectoryExecutionTest {
                 throw exception;
             }
         }
+    }
+
+    static String dropTableSql(String table) {
+        // SQL Server supports DROP TABLE IF EXISTS, but unlike PostgreSQL it does not
+        // support a trailing CASCADE clause. HISTORICAL mode already skips cross-table
+        // foreign-key creation, so the plain SQL Server DROP TABLE form is sufficient.
+        return "DROP TABLE IF EXISTS " + table;
     }
 
     private static List<Path> findSqlFiles(Path root, String suffix, int maxFiles) throws IOException {
@@ -319,6 +350,21 @@ class SqlServerDirectoryExecutionTest {
             return trimmed.substring(1, trimmed.length() - 1).replace("\"\"", "\"");
         }
         return trimmed;
+    }
+
+    static String foreignKeyConstraintKey(String sql) {
+        Matcher matcher = ADD_FOREIGN_KEY.matcher(stripLeadingComments(sql));
+        return matcher.find() ? constraintKey(matcher.group(1), matcher.group(2)) : "";
+    }
+
+    static String checkedConstraintKey(String sql) {
+        Matcher matcher = CHECK_CONSTRAINT.matcher(stripLeadingComments(sql));
+        return matcher.find() ? constraintKey(matcher.group(1), matcher.group(2)) : "";
+    }
+
+    private static String constraintKey(String tableName, String constraintName) {
+        return normalizeName(tableName).toUpperCase(Locale.ROOT)
+                + "|" + unquoteIdentifier(constraintName).toUpperCase(Locale.ROOT);
     }
 
     private static boolean connectionFailure(SQLException exception) {

@@ -1,3 +1,26 @@
+## 2026-08-09 - Canonical JSON DDL output-collision preservation
+
+- Fixed the 4,768-snapshot to 4,766-file overwrite gap caused by two Legacy Word source pairs whose names differ only by a space immediately before `.doc`.
+- Added `CollisionSafeScriptTargetAllocator`: normal output names remain unchanged; only an actual same-run path collision receives a deterministic `__sf_<hash>` suffix while preserving the `.oracle.sql`, `.postgresql.sql`, or `.sqlserver.sql` suffix.
+- Added a dedicated output-collision CSV report and an end-of-run invariant that the number of successful generations equals the number of unique SQL files written for every platform.
+- Kept all 4,768 canonical snapshots; no Word re-parse, snapshot-format change, or dialect change is involved.
+- Direct Java 21 verification confirms the two whitespace-normalized logical names reserve distinct Oracle SQL targets.
+
+## 2026-08-09 - Canonical JSON PostgreSQL fail-fast probe correction
+
+- Fixed `CanonicalJsonDirectoryToDdlIT` PostgreSQL invariant probe to use the valid identifier `SCHEMAFORGE_PROBE`; the previous `__PROBE__` value was rejected by the canonical `Identifier` contract before any DDL could be generated.
+- Moved dialect invariant initialization outside the per-snapshot loop so a global dialect regression fails once and immediately instead of producing thousands of identical `GENERATION_FAILED` rows.
+- Added exact duplicate snapshot suppression for the JSON-to-DDL path using normalized source path plus SHA-256; raw snapshot files are preserved and duplicates are reported separately.
+- Kept the PostgreSQL `CREATE INDEX` fix: index names remain unqualified while target table names remain schema-qualified.
+- No Legacy Word Parser or canonical JSON snapshot format changes.
+- Java 21 offline probes verified PostgreSQL index rendering, Oracle reserved identifier rendering, and SQL Server precision bounding.
+
+## 2026-08-08 - Canonical JSON clean-output directory recreation fix
+
+- Fixed `CanonicalJsonDirectoryToDdlIT` so `cleanOutput=true` recreates the platform output directory before writing root-level snapshot DDL files.
+- Prevents all generated files from failing with a missing-output-directory error after a clean generation run.
+- No Legacy Word Parser or canonical snapshot format changes.
+
 ## 2026-08-08 - PostgreSQL CREATE INDEX regression guard
 
 - Added a dedicated fast regression test that proves PostgreSQL index names are never schema-qualified while table names remain schema-qualified.
@@ -504,3 +527,14 @@
 - Added a dedicated bounded parser for `LegacyDocRawMetadataScanner` output instead of reusing the unbounded HWPF stop rules.
 - Preserved short, clean history-title phrases while continuing to reject change-log grids, dated history rows, field metadata, and embedded labels.
 - No REST contract, canonical domain model, output archive layout, or DDL generator behavior was changed.
+
+## 2026-08-09 - SQL Server historical cleanup syntax fix
+- Fixed `SqlServerDirectoryExecutionTest` cleanup SQL from PostgreSQL-style `DROP TABLE IF EXISTS ... CASCADE` to SQL Server `DROP TABLE IF EXISTS ...`.
+- Added a regression test to prevent the PostgreSQL-only `CASCADE` clause from returning.
+
+## 2026-08-09 - SQL Server HISTORICAL FK validation skip fix
+
+- Fixed `SqlServerDirectoryExecutionTest` so a `CHECK CONSTRAINT` statement is skipped only when it matches a foreign key that was intentionally skipped earlier in the same script under `HISTORICAL` mode.
+- Prevents SQL Server error 4917 (`Constraint ... does not exist`) after skipped cross-table foreign keys.
+- Ordinary CHECK constraint validation remains executable and is not broadly suppressed.
+- Added `SqlServerHistoricalForeignKeySkipTest` regression coverage.
