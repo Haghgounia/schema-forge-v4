@@ -1,3 +1,38 @@
+## 2026-08-08 - PostgreSQL CREATE INDEX regression guard
+
+- Added a dedicated fast regression test that proves PostgreSQL index names are never schema-qualified while table names remain schema-qualified.
+- Added `POSTGRESQL_SCHEMA_QUALIFIED_INDEX_NAME` to the PostgreSQL static DDL sanity checker so invalid `CREATE INDEX schema.index ...` output can no longer be reported as clean generation.
+- Corrected the stale PostgreSQL generator assertion that still expected a schema-qualified unique index name.
+- Added a PostgreSQL dialect invariant check to JSON-to-DDL batch generation.
+- Added optional `schemaforge.snapshot.ddl.cleanOutput=true` to delete only the selected platform output directories before regeneration and prevent old timestamped SQL files from mixing with a new run.
+- Java 21 smoke verification confirms the dialect returns an unqualified index name and the sanity checker rejects schema-qualified PostgreSQL index names.
+
+## 2026-08-08 - JSON-driven PostgreSQL/SQL Server dialect hardening
+
+- Corrected PostgreSQL `CREATE INDEX` rendering so the index name is not schema-qualified while the target table remains schema-qualified.
+- Bounded SQL Server exact numeric precision above 38 to `DECIMAL(38,s)` and temporal precision above 7 to `DATETIME2/DATETIMEOFFSET/TIME(7)` without changing the canonical JSON snapshot.
+- Added dialect-mapping findings to `CanonicalJsonDirectoryToDdlIT` so bounded SQL Server mappings remain auditable in the generation report.
+- Added `SqlServerDirectoryExecutionTest` with recursive JDBC execution, `HISTORICAL`/`FULL` modes, guarded drop-before-create, `GO` batch-separator filtering, SQLSTATE/vendor-code classification, and CSV/text reports.
+- Verified the changed dialect code with Java 21 smoke tests: PostgreSQL index names are unqualified, `NUMBER(70)` renders as `DECIMAL(38,0)`, `NUMBER(115,5)` as `DECIMAL(38,5)`, and `TIMESTAMP(26)` as `DATETIME2(7)`.
+- Kept the Legacy Word parser and the canonical snapshot contents unchanged.
+
+## 2026-08-08 - Canonical JSON snapshot cache for Legacy Word
+
+- Added a versioned DBMS-neutral canonical snapshot DTO separate from the domain model and from all SQL dialects.
+- Added lossless `DatabaseSchema` snapshot mapping for tables, columns, PK/FK/UK/check constraints, indexes, sequences, metadata, descriptions and physical options.
+- Added SHA-256 source identity, parser/model/snapshot version cache invalidation and atomic UTF-8 JSON writes.
+- Added `WordDirectoryToCanonicalJsonIT` for one-time/incremental Word-to-JSON materialization with `manifest.json` audit status.
+- Added `CanonicalJsonDirectoryToDdlIT` so Oracle/PostgreSQL/SQL Server DDL can be regenerated without reopening Word documents.
+- Added round-trip regression coverage and `docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md`.
+- Kept the Legacy Word parser and existing Word-to-DDL path behavior unchanged.
+
+## 2026-08-08 - PostgreSQL directory execution test
+
+- Added `PostgreSqlDirectoryExecutionTest` for recursive JDBC execution of generated PostgreSQL DDL.
+- Added PostgreSQL SQLSTATE reporting, historical/full execution modes, safe drop-before-create support, and per-file CSV reports.
+- Added PostgreSQL-aware splitting that skips `psql` meta-commands and preserves quoted/dollar-quoted SQL content.
+- Smoke-verified the splitter against all 4,766 generated PostgreSQL scripts: 4,766 CREATE TABLE statements detected and 9,532 psql commands skipped.
+
 ## 2026-08-07 - Recursive Oracle/PostgreSQL/SQL Server Legacy DDL generation
 
 - Added `WordDirectoryMultiDatabaseGenerationIT` to parse and prepare each Legacy/standard Word document once and render the same canonical model for Oracle, PostgreSQL and Microsoft SQL Server.

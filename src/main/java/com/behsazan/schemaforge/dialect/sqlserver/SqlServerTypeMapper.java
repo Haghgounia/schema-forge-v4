@@ -81,24 +81,24 @@ public final class SqlServerTypeMapper {
         if (precision == null) {
             return "DECIMAL(38,0)";
         }
-        if (precision < 1 || precision > MAX_DECIMAL_PRECISION) {
+        if (precision < 1) {
             throw new IllegalArgumentException(
-                    "SQL Server DECIMAL precision must be between 1 and 38: " + renderSource(type));
+                    "SQL Server DECIMAL precision must be positive: " + renderSource(type));
         }
-        if (scale < 0 || scale > precision) {
+        int effectivePrecision = Math.min(precision, MAX_DECIMAL_PRECISION);
+        if (scale < 0 || scale > effectivePrecision) {
             throw new IllegalArgumentException(
-                    "SQL Server DECIMAL scale must be between 0 and precision: " + renderSource(type));
+                    "SQL Server DECIMAL scale must be between 0 and effective precision "
+                            + effectivePrecision + ": " + renderSource(type));
         }
         if (strategy == NumericMappingStrategy.OPTIMIZED) {
-            DataType explicitScale = type.scale() == null
-                    ? DataType.numeric(type.name().value(), precision, 0)
-                    : type;
+            DataType explicitScale = DataType.numeric(type.name().value(), effectivePrecision, scale);
             var optimized = optimizer.optimize(explicitScale, NumericIntegerProfiles.SQL_SERVER);
             if (optimized.isPresent()) {
                 return optimized.get();
             }
         }
-        return "DECIMAL(" + precision + "," + scale + ")";
+        return "DECIMAL(" + effectivePrecision + "," + scale + ")";
     }
 
     private String variableCharacter(String target, DataType type, int maximumLength) {
@@ -130,11 +130,11 @@ public final class SqlServerTypeMapper {
 
     private String temporal(String target, DataType type, int defaultPrecision) {
         int precision = type.precision() == null ? defaultPrecision : type.precision();
-        if (precision > MAX_TEMPORAL_PRECISION) {
+        if (precision < 0) {
             throw new IllegalArgumentException(
-                    "SQL Server " + target + " precision exceeds 7: " + precision);
+                    "SQL Server " + target + " precision must not be negative: " + precision);
         }
-        return target + "(" + precision + ")";
+        return target + "(" + Math.min(precision, MAX_TEMPORAL_PRECISION) + ")";
     }
 
     private String renderUnknown(DataType type, String sourceName) {

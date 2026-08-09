@@ -61,4 +61,19 @@ class PostgreSqlDdlSanityCheckerTest {
         assertTrue(checker.inspect(sql).isEmpty());
     }
 
+    @Test
+    void rejectsSchemaQualifiedIndexName() {
+        String sql = """
+                CREATE TABLE tstshma.customer
+                (
+                  id NUMERIC(18,0) NOT NULL
+                );
+                CREATE INDEX tstshma.ix_customer_id ON tstshma.customer(id);
+                """;
+
+        var issues = checker.inspect(sql);
+        assertTrue(issues.stream().anyMatch(issue ->
+                issue.code().equals("POSTGRESQL_SCHEMA_QUALIFIED_INDEX_NAME")));
+    }
+
 }

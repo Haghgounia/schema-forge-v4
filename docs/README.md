@@ -29,7 +29,10 @@
 ## Integration
 
 - [Legacy Word parser and multi-database directory generation](integration/LEGACY-WORD-PARSER.md)
+- [Canonical JSON snapshot cache](integration/CANONICAL-JSON-SNAPSHOT-CACHE.md)
 - [Oracle SQL directory execution test](ORACLE-SQL-DIRECTORY-EXECUTION-TEST.md)
+- [PostgreSQL SQL directory execution test](POSTGRESQL-SQL-DIRECTORY-EXECUTION-TEST.md)
+- [SQL Server SQL directory execution test](integration/SQLSERVER-SQL-DIRECTORY-EXECUTION-TEST.md)
 
 ## Testing and validation
 

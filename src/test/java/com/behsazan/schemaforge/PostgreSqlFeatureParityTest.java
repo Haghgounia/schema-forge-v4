@@ -85,7 +85,7 @@ class PostgreSqlFeatureParityTest {
         assertTrue(sql.contains("PRIMARY KEY (order_id) USING INDEX TABLESPACE its_bim DEFERRABLE INITIALLY IMMEDIATE"));
         assertTrue(sql.contains("UNIQUE(reference_code) USING INDEX TABLESPACE its_bim DEFERRABLE INITIALLY DEFERRED;"));
         assertTrue(sql.contains("REFERENCES bim.customers(customer_id) DEFERRABLE INITIALLY DEFERRED;"));
-        assertTrue(sql.contains("CREATE INDEX bim.idx_orders_active_customer ON bim.orders(customer_id) INCLUDE (reference_code,total_amount) TABLESPACE its_bim WHERE STATUS = 'OPEN';"));
-        assertTrue(sql.contains("CREATE INDEX bim.idx_orders_reference_lower ON bim.orders((LOWER(REFERENCE_CODE))) TABLESPACE its_bim;"));
+        assertTrue(sql.contains("CREATE INDEX idx_orders_active_customer ON bim.orders(customer_id) INCLUDE (reference_code,total_amount) TABLESPACE its_bim WHERE STATUS = 'OPEN';"));
+        assertTrue(sql.contains("CREATE INDEX idx_orders_reference_lower ON bim.orders((LOWER(REFERENCE_CODE))) TABLESPACE its_bim;"));
     }
 }

@@ -28,6 +28,10 @@ Oracle rendering additionally bounds `NUMBER(p)` to `p <= 38`, `NUMBER(p,s)` to 
 
 The recursive Word batch path records the affected document as failed and continues with the remaining documents, preserving batch-level diagnostics without publishing a syntactically unsafe Oracle file.
 
+## Canonical JSON snapshot cache
+
+For large Legacy Word corpora, Word parsing can be materialized once as versioned DBMS-neutral `*.schema.json` snapshots. Subsequent Oracle/PostgreSQL/SQL Server dialect work reads JSON instead of reopening Word documents. Cache reuse is guarded by source SHA-256 plus snapshot/model/parser versions, so a dialect-only change does not trigger a multi-hour Word reparse. See [`docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md`](docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md).
+
 ## Build
 
 ```bash

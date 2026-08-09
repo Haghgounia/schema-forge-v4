@@ -14,9 +14,9 @@ can be reviewed together rather than filled with repetitive comments.
 
 | Source set | Top-level types | Documented | Missing |
 |---|---:|---:|---:|
-| `src/main/java` | 165 | 165 | 0 |
-| `src/test/java` | 85 | 85 | 0 |
-| **Total** | **250** | **250** | **0** |
+| `src/main/java` | 171 | 171 | 0 |
+| `src/test/java` | 89 | 89 | 0 |
+| **Total** | **260** | **260** | **0** |
 
 The following nested legacy-parser types were also documented because they form the intermediate
 extraction contract:
@@ -96,3 +96,19 @@ The Maven wrapper was also invoked, but Maven 3.9.9 could not be downloaded from
 the execution environment. Since this pass changes comments only, no Java executable statement or
 signature was modified; nevertheless, a complete `mvn clean verify` should be run in the project
 environment before release.
+
+## Canonical JSON snapshot-cache types
+
+The snapshot-cache extension added six documented production types and three documented test/integration types:
+
+- `CanonicalSchemaSnapshot`
+- `CanonicalSnapshotVersions`
+- `CanonicalSnapshotMapper`
+- `CanonicalSnapshotJsonStore`
+- `CanonicalSnapshotManifest`
+- `SnapshotFileHash`
+- `CanonicalSnapshotMapperTest`
+- `WordDirectoryToCanonicalJsonIT`
+- `CanonicalJsonDirectoryToDdlIT`
+
+`PostgreSqlDirectoryExecutionTest`, added after the previous documentation count, is also documented.

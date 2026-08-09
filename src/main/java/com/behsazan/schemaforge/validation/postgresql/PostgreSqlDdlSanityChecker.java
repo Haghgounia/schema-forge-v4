@@ -30,6 +30,9 @@ public final class PostgreSqlDdlSanityChecker {
             "(?i)\\b(?:VARCHAR|CHAR|CHARACTER)\\s*\\(\\s*(\\d+)\\s*\\)");
     private static final Pattern TEMPORAL = Pattern.compile(
             "(?i)\\b(?:TIMESTAMP|TIME)\\s*\\(\\s*(\\d+)\\s*\\)");
+    private static final Pattern SCHEMA_QUALIFIED_INDEX_NAME = Pattern.compile(
+            "(?is)^\\s*CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?"
+                    + "(?:\"[^\"]+\"|[A-Za-z_][A-Za-z0-9_$]*)\\s*\\.");
 
     private static final List<ForbiddenToken> FORBIDDEN = List.of(
             new ForbiddenToken("ORACLE_VARCHAR2", Pattern.compile("\\bN?VARCHAR2\\s*\\(", Pattern.CASE_INSENSITIVE)),
@@ -61,6 +64,7 @@ public final class PostgreSqlDdlSanityChecker {
             }
             String structuralSql = maskSingleQuotedLiterals(sql);
             inspectStatementKind(sql, statementNumber, issues);
+            inspectIndexNameQualification(sql, statementNumber, issues);
             inspectBalancedDelimiters(sql, statementNumber, issues);
             inspectNumeric(structuralSql, statementNumber, issues);
             inspectCharacterLength(structuralSql, statementNumber, issues);
@@ -108,6 +112,15 @@ public final class PostgreSqlDdlSanityChecker {
         if (!supported) {
             issues.add(new Issue(statementNumber, "POSTGRESQL_UNEXPECTED_STATEMENT",
                     "Unexpected statement type.", firstLine(sql)));
+        }
+    }
+
+    private void inspectIndexNameQualification(String sql, int statementNumber, List<Issue> issues) {
+        Matcher matcher = SCHEMA_QUALIFIED_INDEX_NAME.matcher(sql);
+        if (matcher.find()) {
+            issues.add(new Issue(statementNumber, "POSTGRESQL_SCHEMA_QUALIFIED_INDEX_NAME",
+                    "PostgreSQL CREATE INDEX does not allow a schema-qualified index name; "
+                            + "qualify the table name only.", firstLine(sql)));
         }
     }
 

@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -113,6 +114,13 @@ public final class PostgreSqlDialect implements Dialect {
     public String indexTablespaceClause(String tablespace) {
         if (tablespace == null || tablespace.isBlank()) return "";
         return " TABLESPACE " + IDENTIFIER_RENDERER.render(Identifier.of(tablespace.trim()));
+    }
+
+    @Override
+    public String qualifyIndexName(QualifiedName tableName, String renderedIndexName) {
+        // PostgreSQL creates an index in the same schema as its table and does not allow
+        // a schema-qualified index name in CREATE INDEX.
+        return renderedIndexName;
     }
 
     @Override
