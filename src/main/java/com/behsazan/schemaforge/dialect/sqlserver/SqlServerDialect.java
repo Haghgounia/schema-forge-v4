@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.dialect.sqlserver;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
+import com.behsazan.schemaforge.dialect.ForeignKeyTypeCompatibilityPolicy;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
@@ -13,7 +14,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Microsoft SQL Server-specific type, identifier, expression and DDL rendering rules. */
-public final class SqlServerDialect implements Dialect {
+public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibilityPolicy {
     private static final Set<DialectFeature> FEATURES = Set.of(
             DialectFeature.SEQUENCE,
             DialectFeature.IDENTITY_COLUMN,
@@ -54,6 +55,11 @@ public final class SqlServerDialect implements Dialect {
     public String sqlType(Column column) {
         Objects.requireNonNull(column, "column must not be null");
         return typeMapper.map(column.dataType());
+    }
+
+    @Override
+    public String foreignKeyComparableType(Column column) {
+        return sqlType(column).replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
     }
 
     @Override

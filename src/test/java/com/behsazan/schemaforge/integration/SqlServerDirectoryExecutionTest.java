@@ -156,7 +156,9 @@ class SqlServerDirectoryExecutionTest {
         int ignored = 0;
         List<SqlUnit> statements;
         Set<String> tables = new LinkedHashSet<>();
+        List<ForeignKeyDefinition> foreignKeys = new ArrayList<>();
         Set<String> skippedForeignKeyConstraints = new LinkedHashSet<>();
+        Set<String> failedForeignKeyConstraints = new LinkedHashSet<>();
 
         try {
             String script = Files.readString(file, StandardCharsets.UTF_8);
@@ -164,9 +166,16 @@ class SqlServerDirectoryExecutionTest {
             statements = split.statements();
             report.batchSeparatorsSkipped += split.batchSeparatorsSkipped();
             for (SqlUnit unit : statements) {
-                Matcher matcher = CREATE_TABLE.matcher(stripLeadingComments(unit.sql()));
+                String executableSql = stripLeadingComments(unit.sql());
+                Matcher matcher = CREATE_TABLE.matcher(executableSql);
                 if (matcher.find()) {
                     tables.add(normalizeName(matcher.group(1)));
+                }
+                Matcher foreignKeyMatcher = ADD_FOREIGN_KEY.matcher(executableSql);
+                if (foreignKeyMatcher.find()) {
+                    foreignKeys.add(new ForeignKeyDefinition(
+                            normalizeName(foreignKeyMatcher.group(1)),
+                            foreignKeyMatcher.group(2)));
                 }
             }
         } catch (Exception exception) {
@@ -175,6 +184,12 @@ class SqlServerDirectoryExecutionTest {
         }
 
         if (config.dropBeforeCreate()) {
+            if (config.executionMode() == ExecutionMode.FULL) {
+                for (ForeignKeyDefinition foreignKey : foreignKeys) {
+                    dropForeignKeyIfExists(
+                            connection, config, report, file, fileSequence, foreignKey);
+                }
+            }
             for (String table : tables) {
                 dropTable(connection, config, report, file, fileSequence, table);
             }
@@ -198,9 +213,12 @@ class SqlServerDirectoryExecutionTest {
                     report.skipped++;
                     continue;
                 }
-                if (config.executionMode() == ExecutionMode.HISTORICAL) {
-                    String key = checkedConstraintKey(unit.sql());
-                    if (!key.isBlank() && skippedForeignKeyConstraints.remove(key)) {
+                String checkedKey = checkedConstraintKey(unit.sql());
+                if (!checkedKey.isBlank()) {
+                    boolean skippedHistoricalForeignKey = config.executionMode() == ExecutionMode.HISTORICAL
+                            && skippedForeignKeyConstraints.remove(checkedKey);
+                    boolean failedForeignKey = failedForeignKeyConstraints.remove(checkedKey);
+                    if (skippedHistoricalForeignKey || failedForeignKey) {
                         skipped++;
                         report.skipped++;
                         continue;
@@ -223,6 +241,12 @@ class SqlServerDirectoryExecutionTest {
                         actionable++;
                     } else {
                         ignored++;
+                    }
+                    if (type == StatementType.ALTER_FOREIGN_KEY) {
+                        String key = foreignKeyConstraintKey(unit.sql());
+                        if (!key.isBlank()) {
+                            failedForeignKeyConstraints.add(key);
+                        }
                     }
                     if (connectionFailure(exception)) {
                         throw new SQLException(
@@ -248,6 +272,72 @@ class SqlServerDirectoryExecutionTest {
                 statements.size(), succeeded, failed, actionable, ignored, skipped,
                 Duration.between(fileStarted, Instant.now()).toMillis(),
                 String.join("|", tables)));
+    }
+
+
+    private void dropForeignKeyIfExists(
+            Connection connection,
+            Config config,
+            RunReport report,
+            Path file,
+            int fileSequence,
+            ForeignKeyDefinition foreignKey) throws SQLException {
+
+        verifyDestructiveTableOwner(foreignKey.table(), config.expectedSchema());
+        report.foreignKeyCleanupAttempted++;
+
+        try {
+            if (!foreignKeyExists(connection, foreignKey)) {
+                report.foreignKeyCleanupSucceeded++;
+                return;
+            }
+
+            String sql = dropForeignKeySql(foreignKey.table(), foreignKey.constraintName());
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(config.statementTimeoutSeconds());
+                statement.execute(sql);
+            }
+            report.foreignKeyCleanupSucceeded++;
+        } catch (SQLException exception) {
+            report.foreignKeyCleanupFailed++;
+            report.addCleanupError(
+                    file,
+                    fileSequence,
+                    dropForeignKeySql(foreignKey.table(), foreignKey.constraintName()),
+                    foreignKey.table() + "." + unquoteIdentifier(foreignKey.constraintName()),
+                    exception);
+            if (connectionFailure(exception)) {
+                throw exception;
+            }
+        }
+    }
+
+    private static boolean foreignKeyExists(
+            Connection connection,
+            ForeignKeyDefinition foreignKey) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM sys.foreign_keys "
+                        + "WHERE parent_object_id = OBJECT_ID(?) AND name = ?")) {
+            statement.setString(1, sqlServerObjectIdName(foreignKey.table()));
+            statement.setString(2, unquoteIdentifier(foreignKey.constraintName()));
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    static String dropForeignKeySql(String table, String constraintName) {
+        return "ALTER TABLE " + table + " DROP CONSTRAINT " + constraintName;
+    }
+
+    private static String sqlServerObjectIdName(String qualifiedName) {
+        int separator = unquotedDot(qualifiedName);
+        if (separator < 0) {
+            return unquoteIdentifier(qualifiedName);
+        }
+        String schema = unquoteIdentifier(qualifiedName.substring(0, separator).trim());
+        String table = unquoteIdentifier(qualifiedName.substring(separator + 1).trim());
+        return schema + "." + table;
     }
 
     private void dropTable(
@@ -450,6 +540,9 @@ class SqlServerDirectoryExecutionTest {
         }
     }
 
+    private record ForeignKeyDefinition(String table, String constraintName) {
+    }
+
     private record SqlUnit(String sql, int startLine) {
     }
 
@@ -637,6 +730,9 @@ class SqlServerDirectoryExecutionTest {
         private long ignoredFailed;
         private long skipped;
         private long batchSeparatorsSkipped;
+        private long foreignKeyCleanupAttempted;
+        private long foreignKeyCleanupSucceeded;
+        private long foreignKeyCleanupFailed;
         private long cleanupAttempted;
         private long cleanupSucceeded;
         private long cleanupFailed;
@@ -774,6 +870,9 @@ class SqlServerDirectoryExecutionTest {
             System.out.println("Ignored failures     : " + ignoredFailed);
             System.out.println("Statements skipped   : " + skipped);
             System.out.println("batch separators skipped: " + batchSeparatorsSkipped);
+            System.out.println("FK cleanup attempted : " + foreignKeyCleanupAttempted);
+            System.out.println("FK cleanup succeeded : " + foreignKeyCleanupSucceeded);
+            System.out.println("FK cleanup failed    : " + foreignKeyCleanupFailed);
             System.out.println("Cleanup attempted    : " + cleanupAttempted);
             System.out.println("Cleanup succeeded    : " + cleanupSucceeded);
             System.out.println("Cleanup failed       : " + cleanupFailed);
@@ -845,6 +944,9 @@ class SqlServerDirectoryExecutionTest {
                     .append("Ignored failures      : ").append(ignoredFailed).append('\n')
                     .append("Statements skipped    : ").append(skipped).append('\n')
                     .append("batch separators skipped : ").append(batchSeparatorsSkipped).append('\n')
+                    .append("FK cleanup attempted  : ").append(foreignKeyCleanupAttempted).append('\n')
+                    .append("FK cleanup succeeded  : ").append(foreignKeyCleanupSucceeded).append('\n')
+                    .append("FK cleanup failed     : ").append(foreignKeyCleanupFailed).append('\n')
                     .append("Cleanup attempted     : ").append(cleanupAttempted).append('\n')
                     .append("Cleanup succeeded     : ").append(cleanupSucceeded).append('\n')
                     .append("Cleanup failed        : ").append(cleanupFailed).append('\n')

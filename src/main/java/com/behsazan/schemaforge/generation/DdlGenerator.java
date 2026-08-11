@@ -62,6 +62,84 @@ public final class DdlGenerator {
         this.inlineIssueRenderer = new InlineIssueRenderer();
     }
 
+    /**
+     * Renders schema bootstrap and sequence statements for integrated deployment.
+     *
+     * <p>This API deliberately reuses the exact statement renderers used by {@link #generate(DatabaseSchema)}
+     * so the integrated deployment path cannot drift from the already validated historical DDL syntax.</p>
+     */
+    public List<String> renderIntegratedPreTableStatements(DatabaseSchema schema) {
+        Objects.requireNonNull(schema, "schema must not be null");
+        List<String> statements = new ArrayList<>();
+        generatedObjectSchemas(schema).stream()
+                .map(dialect::schemaBootstrapStatement)
+                .filter(statement -> statement != null && !statement.isBlank())
+                .forEach(statements::add);
+        List<Sequence> sequences = emittedSequences(schema);
+        if (!sequences.isEmpty()) {
+            dialect.require(DialectFeature.SEQUENCE);
+            sequences.stream()
+                    .sorted(Comparator.comparing(sequence -> sequence.qualifiedName().toString()))
+                    .map(this::createSequence)
+                    .forEach(statements::add);
+        }
+        return List.copyOf(statements);
+    }
+
+    /** Renders only CREATE TABLE (including the primary key) for integrated phase 1. */
+    public String renderIntegratedCreateTable(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        DatabaseSchema singleTableSchema = DatabaseSchema.builder(
+                        table.qualifiedName().schemaName().map(Identifier::value).orElse("INTEGRATED"))
+                .addTable(table)
+                .build();
+        SqlIssueCatalog issues = SqlIssueCatalog.from(
+                singleTableSchema, new ValidationReport(true, List.of()));
+        MetadataComparisonResult metadata = new MetadataComparisonResult(
+                List.of(), Map.of(), Map.of(), false);
+        return createTable(table, issues, metadata);
+    }
+
+    /**
+     * Renders table-local post-create objects for integrated phase 2.
+     * Foreign keys, comments and grants are intentionally excluded.
+     */
+    public List<String> renderIntegratedTableLocalStatements(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        List<String> statements = new ArrayList<>();
+        if (dialect.requiresExplicitConstraintIndexes()) {
+            table.primaryKey().map(primaryKey -> createPrimaryKeyIndex(table, primaryKey))
+                    .ifPresent(statements::add);
+        }
+        table.checkConstraints().stream().map(check -> createCheck(table, check)).forEach(statements::add);
+        for (UniqueKey unique : table.uniqueKeys()) {
+            statements.add(createUnique(table, unique));
+            if (dialect.requiresExplicitConstraintIndexes()) {
+                statements.add(createUniqueKeyIndex(table, unique));
+            }
+        }
+        emittedIndexes(table).stream().map(index -> createIndex(table, index)).forEach(statements::add);
+        return List.copyOf(statements);
+    }
+
+    /** Renders one resolved physical foreign key for integrated phase 3. */
+    public String renderIntegratedForeignKey(
+            Table table, ForeignKey foreignKey, QualifiedName referencedTable) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(foreignKey, "foreignKey must not be null");
+        Objects.requireNonNull(referencedTable, "referencedTable must not be null");
+        return createForeignKey(table, foreignKey, referencedTable);
+    }
+
+    /** Renders comments/descriptions and grants for integrated phase 4. */
+    public List<String> renderIntegratedMetadataStatements(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        List<String> statements = new ArrayList<>();
+        addComments(statements, table);
+        addGrants(statements, table);
+        return List.copyOf(statements);
+    }
+
     /** Returns one SQL text containing all sequences, tables, constraints, indexes, comments and grants. */
     public String generate(DatabaseSchema schema) {
         return generate(schema, new ValidationReport(true, List.of()));
@@ -314,10 +392,13 @@ public final class DdlGenerator {
     }
 
     private String createForeignKey(Table table, ForeignKey foreignKey, MetadataComparisonResult metadata) {
+        return createForeignKey(table, foreignKey, resolvedReferencedTable(table, foreignKey, metadata));
+    }
+
+    private String createForeignKey(Table table, ForeignKey foreignKey, QualifiedName referencedTable) {
         String name = foreignKey.name() == null
                 ? "FK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(foreignKey.columns())
                 : dialect.quote(foreignKey.name());
-        QualifiedName referencedTable = resolvedReferencedTable(table, foreignKey, metadata);
         if (!foreignKey.physicalReference()) {
             return dialect.warningLine("[LOGICAL FOREIGN KEY] " + name + ": "
                     + qualifiedName(table.qualifiedName()) + "(" + identifiers(foreignKey.columns()) + ") -> "

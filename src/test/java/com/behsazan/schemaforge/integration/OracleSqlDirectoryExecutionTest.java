@@ -373,11 +373,11 @@ class OracleSqlDirectoryExecutionTest {
         }
     }
 
-    private record SqlUnit(String sql, int startLine) {
+    record SqlUnit(String sql, int startLine) {
     }
 
     /** Splits generated Oracle DDL while ignoring SQL*Plus commands and comment semicolons. */
-    private static final class OracleStatementSplitter {
+    static final class OracleStatementSplitter {
         private static final List<String> CLIENT_COMMANDS = List.of(
                 "PROMPT", "SET ", "WHENEVER ", "SPOOL", "EXIT", "SHOW ",
                 "REM ", "REMARK ", "DEFINE ", "UNDEFINE ", "COLUMN ");
@@ -395,8 +395,12 @@ class OracleSqlDirectoryExecutionTest {
                 String trimmed = line.trim();
                 int lineNumber = lineIndex + 1;
 
-                if (current.toString().isBlank() && !state.active()
-                        && (clientCommand(trimmed) || trimmed.equals("/"))) {
+                if (!state.active()
+                        && (clientCommand(trimmed) || trimmed.equals("/"))
+                        && (current.toString().isBlank() || onlyComments(current.toString()))) {
+                    // SQL*Plus commands are client directives, not JDBC SQL. Integrated scripts
+                    // may place comments before PROMPT/SET lines, so a comment-only buffer must
+                    // not cause the directive to be merged with the following CREATE statement.
                     current.setLength(0);
                     startLine = 0;
                     continue;

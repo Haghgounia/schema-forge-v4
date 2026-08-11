@@ -1,3 +1,48 @@
+## 2026-08-10 - SQL Server FULL cleanup foreign-key pre-drop
+
+- Fixed `SqlServerDirectoryExecutionTest` FULL-mode destructive cleanup when target tables are still linked by foreign keys from a previous integrated run.
+- The runner now discovers foreign keys declared by the integrated script and drops any matching existing SQL Server constraints before dropping target tables.
+- Added separate FK-cleanup counters to the execution summary while preserving table cleanup counters.
+- HISTORICAL behavior and production DDL generation are unchanged.
+- Added regression coverage for SQL Server `ALTER TABLE ... DROP CONSTRAINT` cleanup syntax.
+- Java 21 offline compilation passed for the updated runner and regression tests; Maven wrapper execution was unavailable in the packaging environment because it could not download Maven.
+
+## 2026-08-10 - Oracle integrated SQL*Plus directive splitter fix
+
+- Fixed `OracleSqlDirectoryExecutionTest` so SQL*Plus client directives such as `PROMPT` are skipped even when they are preceded by a comment-only integrated-deployment header.
+- Prevented a `PROMPT` line from being merged with the following `CREATE TABLE` and sent to Oracle JDBC as one invalid statement (`ORA-00900`).
+- The fix is test-runner-only: no change was made to the Word parser, canonical JSON, deployment planner, integrated renderer, `DdlGenerator`, or any Oracle/PostgreSQL/SQL Server dialect.
+- Added `OracleStatementSplitterTest` covering the integrated header/PROMPT case and quoted `PROMPT` text inside a real SQL literal.
+- Java 21 compilation plus direct regression probe passed (`ORACLE_SPLITTER_PROMPT_FIX_OK`). Maven wrapper execution remains unavailable in the packaging environment because the wrapper cannot download Maven.
+
+## 2026-08-10 - Integrated SQL renderer baseline
+
+- Added `IntegratedSqlRenderer` and `IntegratedSqlScript` to render one ordered integrated deployment for Oracle, PostgreSQL and SQL Server from `IntegratedSchemaDeploymentPlan`.
+- Added public integrated-rendering entry points to `DdlGenerator`; all statement syntax delegates to the same private renderers already used by the proven HISTORICAL pipeline.
+- Integrated ordering is now pre-table schema/sequence work, phase 1 CREATE TABLE/PK, phase 2 CHECK/UNIQUE/index, phase 3 physical FK, and phase 4 comments/grants.
+- Circular FK dependencies remain deployable because every table is rendered before phase-3 foreign keys.
+- Added cross-dialect renderer tests, including the PostgreSQL unqualified index-name regression and SQL Server post-create `CHECK CONSTRAINT` behavior.
+- Java 21 offline compilation and runtime smoke tests passed for all three dialects. Fixed-clock SHA-256 comparison proved the existing HISTORICAL `DdlGenerator.generate(...)` output is byte-for-byte unchanged for Oracle, PostgreSQL and SQL Server.
+- Maven wrapper execution is not available in the packaging environment because it cannot download Maven; the user-side Maven regression command is provided separately.
+
+## 2026-08-10 - Integrated schema deployment planner baseline
+
+- Added `IntegratedSchemaDeploymentPlanner` as a DBMS-neutral layer on top of the proven FK analyzer without changing the stable Oracle/PostgreSQL/SQL Server generators or HISTORICAL runners.
+- Added deterministic deployment collections for pre-table sequences, phase-1 tables, phase-2 check/unique/index objects, phase-3 physical foreign keys, and phase-4 tables containing comments/grant metadata.
+- Physical foreign keys with omitted target schemas are resolved to the owner-table schema and are scheduled only after all CREATE TABLE work; logical foreign keys remain analysis-only.
+- FK cycles remain deployable because all physical FKs are isolated in phase 3. Blocking FK analysis findings stop planning with `INTEGRATED_DEPLOYMENT_BLOCKED`.
+- Added `IntegratedSchemaDeploymentPlannerTest` covering deterministic ordering, same-schema resolution, logical-FK exclusion, missing-parent blocking, and circular dependencies.
+- Java 21 offline compilation plus runtime smoke probes verified phase planning and cycle handling; Maven could not be executed in the packaging environment because Maven wrapper download access is unavailable.
+
+## 2026-08-09 - Integrated foreign-key analysis baseline
+
+- Added a DBMS-neutral integrated FK analysis layer without changing the proven Oracle/PostgreSQL/SQL Server DDL generators or HISTORICAL execution runners.
+- Defined the production integrated-input contract: every qualified table/sequence must be supplied exactly once; multiple historical versions are rejected as `INPUT_DUPLICATE_TABLE`/`INPUT_DUPLICATE_SEQUENCE` instead of being auto-selected.
+- Added physical-FK resolution for omitted target schemas, missing parent/column detection, canonical PK/UNIQUE target validation, logical-FK reporting, self-reference reporting, and dependency-cycle detection.
+- Added `CanonicalJsonForeignKeyAnalysisIT` to analyze canonical JSON directly without reopening Word documents and to write summary, issue, duplicate, and snapshot-error reports.
+- Dependency cycles are warnings rather than blockers because the planned integrated deployment uses a two-phase `CREATE TABLE` then `ADD FOREIGN KEY` strategy.
+- Java 21 offline probes verified valid FK resolution and strict duplicate-table rejection; full Maven execution remains environment-dependent.
+
 ## 2026-08-09 - Canonical JSON DDL output-collision preservation
 
 - Fixed the 4,768-snapshot to 4,766-file overwrite gap caused by two Legacy Word source pairs whose names differ only by a space immediately before `.doc`.
@@ -538,3 +583,28 @@
 - Prevents SQL Server error 4917 (`Constraint ... does not exist`) after skipped cross-table foreign keys.
 - Ordinary CHECK constraint validation remains executable and is not broadly suppressed.
 - Added `SqlServerHistoricalForeignKeySkipTest` regression coverage.
+
+## Integrated deployment pilot from canonical JSON
+
+- Added `CanonicalJsonIntegratedDeploymentPilotIT` as a test-only real-data pilot runner.
+- Keeps the production integrated input contract strict: one definition per `schema.table`.
+- Historical multi-version selection is opt-in and test-only; every selected snapshot/source is reported.
+- Builds an FK-compatible dependency closure, validates it, renders ordered integrated SQL for Oracle, PostgreSQL and SQL Server, and performs no database execution.
+
+## 2026-08-10 - Integrated SQL Server FK type compatibility
+
+- Added pre-render dialect-specific FK column type validation for integrated deployment.
+- SQL Server now blocks incompatible FK pairs before database execution with `SQLSERVER_FK_TYPE_MISMATCH`.
+- Historical generation remains unchanged.
+- Integrated pilot auto-selection now requires the selected closure to render successfully on every requested platform.
+- SQL Server execution runner suppresses the derivative `CHECK CONSTRAINT` after a failed FK creation so reports keep the root failure only.
+
+## 2026-08-10 - Integrated Large Pilot selection
+
+- Extended `CanonicalJsonIntegratedDeploymentPilotIT` with configurable large-pilot requirements.
+- Added deterministic expansion from an FK-connected seed toward a target table count.
+- Added cross-dialect compatibility checks for every expansion candidate.
+- Added optional disconnected expansion for test-only historical corpora when one connected component is too small.
+- Added minimum physical-FK count and FK-chain-depth requirements.
+- Added summary metrics for chain depth, connected components, and self references.
+- No production parser, canonical model, dialect, DDL generator, or historical execution behavior changed.
