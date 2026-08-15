@@ -1,0 +1,12 @@
+SchemaForge Diagram Export Extension
+===================================
+Base baseline : SCHEMAFORGE-V4-FINAL-20260814
+Extension     : MERMAID-PHASE2-CANONICAL-JSON-PILOT
+Date          : 2026-08-14
+
+Phase 1 adds Mermaid ER and dependency export as a DBMS-neutral extension over the frozen V4 canonical model.
+Phase 2 adds a test-only canonical JSON pilot that selects a deterministic FK-compatible table set from the
+historical snapshot corpus (only when explicitly enabled) and emits real UTF-8 .mmd artifacts plus selection,
+manifest, and summary reports.
+
+No pre-existing production Java source file is changed by Phase 2.

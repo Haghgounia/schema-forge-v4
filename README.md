@@ -32,6 +32,10 @@ The recursive Word batch path records the affected document as failed and contin
 
 For large Legacy Word corpora, Word parsing can be materialized once as versioned DBMS-neutral `*.schema.json` snapshots. Subsequent Oracle/PostgreSQL/SQL Server dialect work reads JSON instead of reopening Word documents. Cache reuse is guarded by source SHA-256 plus snapshot/model/parser versions, so a dialect-only change does not trigger a multi-hour Word reparse. See [`docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md`](docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md).
 
+## Mermaid diagram export
+
+The canonical model can also be exported as Mermaid ER or table-dependency diagrams without invoking a SQL dialect. Phase 1 supports whole-schema, selected-table, single-table, and bounded dependency scopes and writes UTF-8 `.mmd` artifacts. Phase 2 adds a test-only canonical JSON pilot for generating real diagrams from the historical snapshot corpus with explicit, reported historical-version selection. See [`docs/diagram/MERMAID-EXPORT-PHASE1.md`](docs/diagram/MERMAID-EXPORT-PHASE1.md) and [`docs/diagram/MERMAID-CANONICAL-JSON-PILOT.md`](docs/diagram/MERMAID-CANONICAL-JSON-PILOT.md).
+
 ## Build
 
 ```bash

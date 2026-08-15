@@ -1,3 +1,23 @@
+# 2026-08-14 - Mermaid canonical JSON pilot
+
+- Added `CanonicalJsonMermaidPilotIT` to generate real Mermaid artifacts directly from canonical JSON snapshots without reopening Word documents, generating SQL, or connecting to a database.
+- Preserved the production one-definition-per-qualified-table rule; historical duplicate-version selection is test-only, opt-in via `schemaforge.diagram.pilot.allowHistoricalSelection`, deterministic, and fully reported.
+- Added FK-compatible closure selection plus optional connected/disconnected expansion for useful multi-table diagram pilots.
+- Generates four UTF-8 `.mmd` artifacts: full ER, full dependency, root-depth ER, and root-depth dependency diagrams, together with selected-version, manifest, and summary reports.
+- Added configurable seed table, target/max table counts, minimum physical FKs, minimum FK-chain depth, dependency depth, column visibility, and datatype visibility.
+- No existing production Java source was changed; this phase validates the Phase-1 Mermaid exporter against real canonical data.
+- Targeted Java 21 compilation of the new integration runner and its required production classes passed. Full Maven execution remains user-environment validation because the packaging environment cannot download Maven 3.9.9.
+
+# 2026-08-14 - Mermaid diagram export phase 1
+
+- Added a DBMS-neutral `DiagramExporter` extension over the frozen canonical `Table` model.
+- Added Mermaid ER and dependency renderers without changing the Legacy Word parser, snapshot format, DDL generators, SQL dialects, or deployment behavior.
+- Added scopes `ALL`, `SCHEMA`, `TABLE`, `TABLE_WITH_DEPENDENCIES`, and `SELECTED_TABLES`, including bounded dependency traversal via `dependencyDepth`.
+- Physical FK relationships are rendered by default; optional logical relationships use dashed dependency arrows.
+- Preserved the strict duplicate-table rule via `INPUT_DUPLICATE_TABLE` and added same-schema resolution for unqualified FK targets.
+- Added UTF-8 `.mmd` file writing, Mermaid-safe node identifiers, unresolved-FK comments, sample outputs, and focused regression tests.
+- Java 21 direct compilation and runtime smoke verification passed. Full Maven execution remains user-environment validation because the packaging environment cannot download Maven 3.9.9.
+
 # 2026-08-14 - SchemaForge V4 final baseline freeze
 
 - Froze baseline `SCHEMAFORGE-V4-FINAL-20260814` after a full regression result of 270 tests, 0 failures, 0 errors and 3 intentionally skipped database-execution integration tests.
