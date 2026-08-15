@@ -1,0 +1,3 @@
+Production Java files: 189
+Test Java files: 106
+Production+test source byte-for-byte unchanged during final packaging: YES

@@ -51,3 +51,5 @@
 - [Class-level JavaDoc coverage](CLASS-DOCUMENTATION-COVERAGE.md)
 - [V4.1 documentation and cleanup](V4.1-DOCUMENTATION-CLEANUP.md)
 
+
+- [V4 Baseline Freeze](integration/V4-BASELINE-FREEZE.md)

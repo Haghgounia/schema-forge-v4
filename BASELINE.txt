@@ -1,0 +1,35 @@
+SchemaForge V4 Final Baseline
+=============================
+Baseline ID : SCHEMAFORGE-V4-FINAL-20260814
+Date        : 2026-08-14
+POM version : 4.0.0-SNAPSHOT
+Status      : FROZEN
+
+Full regression:
+  Tests   : 270
+  Failed  : 0
+  Errors  : 0
+  Skipped : 3 (database execution ITs disabled by default assumptions)
+
+Real DB validation:
+  Historical Oracle      : PASS
+  Historical PostgreSQL  : PASS
+  Historical SQL Server  : PASS
+  Integrated Oracle      : PASS
+  Integrated PostgreSQL  : PASS
+  Integrated SQL Server  : PASS
+
+Integrated large pilot:
+  Tables : 15
+  FKs    : 13
+  Oracle / PostgreSQL / SQL Server : PASS
+
+Dependency coverage:
+  Canonical snapshots        : 4768
+  Distinct tables            : 2391
+  Physical FK definitions    : 1285
+  Distinct physical FK rels  : 605
+  Distinct self references   : 5
+  Aggregate cycle candidates : 2 (both HISTORICAL_AGGREGATE_ONLY)
+
+See docs/release/V4-FINAL-BASELINE.md for details.

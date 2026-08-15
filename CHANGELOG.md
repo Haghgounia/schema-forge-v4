@@ -1,3 +1,22 @@
+# 2026-08-14 - SchemaForge V4 final baseline freeze
+
+- Froze baseline `SCHEMAFORGE-V4-FINAL-20260814` after a full regression result of 270 tests, 0 failures, 0 errors and 3 intentionally skipped database-execution integration tests.
+- Recorded successful real-database historical validation for Oracle, PostgreSQL and SQL Server.
+- Recorded successful integrated FK validation on all three DBMS, including the 15-table / 13-FK large pilot in FULL mode.
+- Recorded canonical dependency coverage: 1,285 physical FK definitions, 605 distinct physical FK relations, 5 distinct self-reference relations, and 2 cycle candidates classified as `HISTORICAL_AGGREGATE_ONLY`.
+- Added final baseline, release-note and validation-evidence documents under `docs/release/`.
+- Final packaging does not change Java production or test source.
+
+## 2026-08-11 - V4 freeze preparation: historical dependency coverage
+
+- Added `CanonicalJsonDependencyCoverageIT`, a test-only canonical-JSON coverage runner for self-referencing foreign keys and multi-table dependency-cycle candidates across the full historical regression corpus.
+- The coverage runner intentionally accepts multiple historical definitions of the same qualified table and never selects an effective production version; production `INTEGRATED` input remains strictly one definition per qualified table.
+- Added separate CSV reports for self references, aggregate dependency edges, aggregate cycle candidates, missing referenced tables, and snapshot-read errors.
+- Historical multi-table SCCs are explicitly labeled `HISTORICAL_AGGREGATE_CANDIDATE` because edges from different versions may not coexist in a normal production input; self references are intrinsic to the individual canonical table definition.
+- Added `HistoricalDependencyCoverageTest` covering duplicate-version counting, self-reference detection, three-table cycle detection, and missing-target handling.
+- No production source, Legacy Word parser, canonical snapshot format, DDL generator, dialect, deployment planner, renderer, or database execution behavior changed.
+- Java 21 direct compilation and smoke execution passed for the new dependency-coverage core. Full Maven regression could not be executed in the packaging environment because the Maven wrapper requires an unavailable Maven download; run `mvnw.cmd clean test` in the project environment before declaring the baseline frozen.
+
 ## 2026-08-10 - SQL Server FULL cleanup foreign-key pre-drop
 
 - Fixed `SqlServerDirectoryExecutionTest` FULL-mode destructive cleanup when target tables are still linked by foreign keys from a previous integrated run.
@@ -608,3 +627,20 @@
 - Added minimum physical-FK count and FK-chain-depth requirements.
 - Added summary metrics for chain depth, connected components, and self references.
 - No production parser, canonical model, dialect, DDL generator, or historical execution behavior changed.
+
+## 2026-08-11 - Self-reference and cycle freeze coverage pilots
+
+- Added `CanonicalJsonSpecialDependencyPilotIT` as a test-only freeze-coverage runner for real self-referencing foreign keys and historical aggregate cycle candidates.
+- Added deterministic `SpecialDependencyPilotSelector` logic that selects a cross-dialect deployable self-reference closure without changing the production one-version-per-table input rule.
+- Added cycle classification that distinguishes a real coexisting deployable cycle from `HISTORICAL_AGGREGATE_ONLY`, canonical blockers, cross-dialect portability blockers, and an explicit combination-limit inconclusive state.
+- Generates dedicated Oracle, PostgreSQL, and SQL Server integrated SQL only when a self-reference/cycle can coexist in one canonical schema and pass all requested DBMS render checks.
+- Added four focused regression scenarios covering self-reference, external closure, a true two-table cycle, and a historical aggregate-only cycle.
+- No `src/main` production source, parser, canonical model, dialect, historical generator, or execution behavior was changed.
+
+## 2026-08-11 - Special dependency self-reference fallback
+
+- Fixed `CanonicalJsonSpecialDependencyPilotIT` so historical self-reference coverage does not abort before cycle assessment when unrelated historical FK targets cannot be resolved.
+- Added test-only `ISOLATED_SELF_REFERENCE` fallback: preserves the real table definition, local constraints/indexes/comments/options, and only the real self-referencing physical FK(s); unrelated external physical FKs are omitted only in this dedicated coverage pilot.
+- Added explicit self-reference status/reason/mode and omitted-FK counts to special dependency reports.
+- Added regression coverage for a real self-reference whose unrelated external FK closure is unavailable.
+- Production `src/main` remains byte-for-byte unchanged from the previous baseline.

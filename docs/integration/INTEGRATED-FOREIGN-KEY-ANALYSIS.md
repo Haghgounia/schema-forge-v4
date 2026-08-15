@@ -66,3 +66,34 @@ target columns, or non-unique referenced keys remain blockers and cause planning
 
 The planner deliberately does not choose among historical versions. `IntegratedSchemaAssembler`
 remains the gate that rejects duplicate qualified table/sequence definitions.
+
+## Historical dependency coverage (test-only)
+
+The production `INTEGRATED` input contract remains one definition per qualified table. The complete
+Legacy regression corpus is different: it intentionally contains historical versions of the same
+logical table. `CanonicalJsonDependencyCoverageIT` exists only to answer coverage questions across
+that corpus without silently selecting an effective version.
+
+Run:
+
+```bat
+mvnw.cmd -Dtest=CanonicalJsonDependencyCoverageIT test ^
+  -Dschemaforge.dependency.inputDir="D:\get-git-doc-files-master\SchemaForgeCanonicalJson" ^
+  -Dschemaforge.dependency.outputDir="D:\get-git-doc-files-master\SchemaForgeDependencyCoverage" ^
+  -Dschemaforge.dependency.failOnSnapshotErrors=true
+```
+
+The summary reports physical/logical FK definitions, distinct physical relations, self-reference
+definitions and distinct self-reference relations. Multi-table strongly connected components are
+reported as `HISTORICAL_AGGREGATE_CANDIDATE`, not as production deployment errors, because edges
+from different historical versions may contribute to the same aggregate graph even though those
+versions would never be supplied together in a normal integrated input.
+
+Reports:
+
+- `canonical-json-dependency-coverage-summary_*.txt`
+- `canonical-json-dependency-self-references_*.csv`
+- `canonical-json-dependency-cycles_*.csv`
+- `canonical-json-dependency-edges_*.csv`
+- `canonical-json-dependency-missing-targets_*.csv`
+- `canonical-json-dependency-snapshot-errors_*.csv`
