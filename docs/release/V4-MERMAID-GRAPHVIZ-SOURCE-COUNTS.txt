@@ -1,0 +1,6 @@
+SchemaForge V4 + Mermaid + Graphviz final source counts
+======================================================
+src/main/java Java files : 204
+src/test/java Java files : 116
+Final Maven regression   : 313 tests, 0 failures, 0 errors, 3 skipped
+Baseline ID              : SCHEMAFORGE-V4-MERMAID-GRAPHVIZ-FINAL-20260815

@@ -714,3 +714,12 @@
 - Organized `generateFromZip(...)` output into `oracle/`, `postgresql/`, `sqlserver/`, `db2zos/`, `excel/`, `json/`, `mermaid/`, and `reports/` directories.
 - Moved per-table Mermaid files to `mermaid/tables/` and batch Mermaid artifacts to `mermaid/batch/`.
 - Kept artifact generation logic unchanged; this change only affects placement inside ZIP batch output.
+
+## 2026-08-15 - Mermaid + Graphviz final baseline
+
+- Froze Mermaid per-table and batch ER/dependency output after real 75-document ZIP validation.
+- Froze Graphviz DOT Phase 1 and Phase 2 after per-table, batch dependency, clustered, compact, and overview validation.
+- Preserved strict duplicate qualified-table handling with no automatic historical version selection.
+- Preserved DOT-only runtime behavior; SchemaForge does not execute Graphviz binaries.
+- Final regression: 313 tests, 0 failures, 0 errors, 3 skipped; BUILD SUCCESS.
+- Baseline ID: `SCHEMAFORGE-V4-MERMAID-GRAPHVIZ-FINAL-20260815`.
