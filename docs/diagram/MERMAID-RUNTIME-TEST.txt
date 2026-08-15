@@ -1,0 +1,47 @@
+SchemaForge V4 - Mermaid Runtime Test on Windows
+=================================================
+
+This package contains two root-level Windows commands so the runtime test does
+not depend on hand-written curl paths, D:\Temp, or placeholder file names.
+
+1) Open Command Prompt #1 in the project directory and run:
+
+   scripts\RUN-MERMAID-API.cmd
+
+   Wait until Spring Boot reports that the application started on port 9090.
+   Keep this window open.
+
+2) Open Command Prompt #2 in the same project directory and run:
+
+   scripts\TEST-MERMAID-API.cmd
+
+   By default it searches the first *.schema.json under:
+
+   D:\get-git-doc-files-master\SchemaForgeCanonicalJson
+
+   and writes the result under:
+
+   target\mermaid-runtime-test\
+
+   You can also pass an exact snapshot path:
+
+   scripts\TEST-MERMAID-API.cmd "D:\path\table.schema.json"
+
+   Or pass both input and output paths:
+
+   scripts\TEST-MERMAID-API.cmd "D:\path\table.schema.json" "D:\my-output"
+
+Expected final result:
+
+   [PASS] Mermaid API returned a valid ER artifact.
+
+The generated Mermaid file is:
+
+   target\mermaid-runtime-test\schemaforge-single-er.mmd
+
+Notes
+-----
+- The API script disables live metadata DB connections only for this runtime
+  smoke test. It does not change application.yml or production source code.
+- Production duplicate-table policy is unchanged.
+- No historical version is selected automatically by the production endpoint.

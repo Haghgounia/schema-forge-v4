@@ -301,3 +301,11 @@ POST /api/v1/generate/legacy-word?schema=DPS
 ```
 
 Upload one `.doc` or `.docx` file as multipart field `file`. The schema parameter is required. See `docs/integration/LEGACY-WORD-PARSER.md` for recursive Oracle-only and Oracle/PostgreSQL/SQL Server directory generation.
+
+### Mermaid diagram export
+
+The supported Spring Boot runtime exposes Mermaid generation at:
+
+`POST /api/v1/diagram/mermaid/canonical-json`
+
+Upload one `*.schema.json` canonical snapshot or a ZIP containing a unique one-version-per-table canonical set. The response is a UTF-8 `.mmd` file. See `docs/diagram/MERMAID-PRODUCTION-INTEGRATION.md` for parameters and examples.

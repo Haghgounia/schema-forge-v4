@@ -1,0 +1,32 @@
+SchemaForge V4 + Mermaid - Repository Root Cleanup
+===================================================
+Date: 2026-08-15
+
+Scope:
+- Packaging/repository cleanup only.
+- No Java source, pom.xml, parser, canonical model, DDL generator, Mermaid renderer, or output-generation logic changed.
+
+Moved:
+- BASELINE.txt -> docs/release/BASELINE-20260814.txt
+- MERMAID-RUNTIME-TEST.txt -> docs/diagram/MERMAID-RUNTIME-TEST.txt
+- RUN-MERMAID-API.cmd -> scripts/RUN-MERMAID-API.cmd
+- TEST-MERMAID-API.cmd -> scripts/TEST-MERMAID-API.cmd
+
+Removed from root:
+- README.txt (obsolete historical note; README.md remains canonical)
+- mvn (zero-byte stray file)
+- javac.*.args (transient compiler argument files)
+- DIAGRAM-EXTENSION.txt (superseded by docs/diagram/MERMAID-EXPORT-PHASE1.md and MERMAID-CANONICAL-JSON-PILOT.md)
+- MERMAID-PRODUCTION-INTEGRATION.txt (superseded by docs/diagram/MERMAID-PRODUCTION-INTEGRATION.md)
+- target/ and .idea/ if present
+- accidental [Help]/[Help] files if present
+
+Script path adjustment:
+- Mermaid runtime CMD files now live under scripts/ and resolve the project root as their working directory.
+
+Last supplied pre-cleanup regression:
+- Tests: 294
+- Failures: 0
+- Errors: 0
+- Skipped: 3
+- Result: BUILD SUCCESS

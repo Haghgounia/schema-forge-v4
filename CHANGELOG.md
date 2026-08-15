@@ -1,3 +1,14 @@
+# 2026-08-15 - Batch Mermaid diagrams in ZIP generation
+
+- Added batch-level Mermaid ER and dependency diagrams to the normal ZIP generation pipeline.
+- Per-document `.mermaid.mmd` files remain unchanged and continue to be generated beside Oracle/PostgreSQL/SQL Server/Db2/JSON outputs.
+- Added `MermaidBatchDiagramExporter`; it combines only qualified table names that occur exactly once in the batch.
+- Duplicate qualified table names are never auto-selected. Every definition of a duplicated name is excluded from the batch graph and reported as `INPUT_DUPLICATE_TABLE`.
+- Foreign keys targeting an excluded duplicate table are reported as `INPUT_DUPLICATE_TABLE_TARGET`; targets outside the unique batch are reported as `MISSING_REFERENCED_TABLE`.
+- Added `batch-schema-er.mmd`, `batch-schema-dependency.mmd`, `batch-mermaid-issues.csv`, and `batch-mermaid-summary.txt` to generated ZIP output.
+- Added focused regression coverage plus the `SchemaDocuments3ZipMermaidOutputIT` assertions for the new batch artifacts.
+- Direct Java 21 compilation and smoke verification of the batch exporter passed. Full Maven validation remains user-environment execution because the packaging environment cannot download Maven 3.9.9.
+
 # 2026-08-14 - Mermaid canonical JSON pilot
 
 - Added `CanonicalJsonMermaidPilotIT` to generate real Mermaid artifacts directly from canonical JSON snapshots without reopening Word documents, generating SQL, or connecting to a database.
@@ -664,3 +675,20 @@
 - Added explicit self-reference status/reason/mode and omitted-FK counts to special dependency reports.
 - Added regression coverage for a real self-reference whose unrelated external FK closure is unavailable.
 - Production `src/main` remains byte-for-byte unchanged from the previous baseline.
+
+## 2026-08-15 - Mermaid Production REST Integration
+
+- Added production canonical JSON diagram input loader with strict one-version-per-qualified-table policy.
+- Added production Mermaid generation service returning deterministic `.mmd` artifacts.
+- Added `POST /api/v1/diagram/mermaid/canonical-json` to the supported Spring Boot REST runtime.
+- Endpoint accepts one `*.schema.json` snapshot or a ZIP of unique snapshots.
+- Added ER/dependency type and ALL/SCHEMA/TABLE/TABLE_WITH_DEPENDENCIES/SELECTED_TABLES request options.
+- Added ZIP traversal, entry-count, and uncompressed-size guards.
+- Historical duplicate definitions fail with `INPUT_DUPLICATE_TABLE`; production code performs no historical version selection.
+- Legacy Word parsing and existing Oracle/PostgreSQL/Db2/SQL Server DDL generation sources were not modified by this phase.
+
+## 2026-08-15 - Batch ZIP output packaging
+
+- Organized `generateFromZip(...)` output into `oracle/`, `postgresql/`, `sqlserver/`, `db2zos/`, `excel/`, `json/`, `mermaid/`, and `reports/` directories.
+- Moved per-table Mermaid files to `mermaid/tables/` and batch Mermaid artifacts to `mermaid/batch/`.
+- Kept artifact generation logic unchanged; this change only affects placement inside ZIP batch output.

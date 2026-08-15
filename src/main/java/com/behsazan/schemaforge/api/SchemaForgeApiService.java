@@ -13,6 +13,9 @@ import com.behsazan.schemaforge.domain.model.Sequence;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.diagram.DiagramExportOptions;
+import com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramExporter;
+import com.behsazan.schemaforge.diagram.mermaid.MermaidBatchDiagramExporter;
 import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudGenerationOptions;
 import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudPackageGenerator;
@@ -73,6 +76,10 @@ public class SchemaForgeApiService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaForgeApiService.class);
     private static final String BATCH_SUMMARY_FILE = "batch-generation-summary.csv";
     private static final String BATCH_ERROR_FILE = "batch-generation-errors.log";
+    private static final String REPORTS_DIRECTORY = "reports";
+    private static final String MERMAID_DIRECTORY = "mermaid";
+    private static final String MERMAID_TABLES_DIRECTORY = "tables";
+    private static final String MERMAID_BATCH_DIRECTORY = "batch";
     private final SchemaPreparationService preparationService;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
     private final EaImportProperties eaImportProperties;
@@ -85,6 +92,8 @@ public class SchemaForgeApiService {
     private final OracleCrudGenerationOptions oracleCrudOptions;
     private final SqlServerCrudGenerationOptions sqlServerCrudOptions;
     private final OracleDdlSanityChecker oracleDdlSanityChecker = new OracleDdlSanityChecker();
+    private final MermaidDiagramExporter mermaidDiagramExporter = new MermaidDiagramExporter();
+    private final MermaidBatchDiagramExporter mermaidBatchDiagramExporter = new MermaidBatchDiagramExporter();
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
@@ -175,6 +184,7 @@ public class SchemaForgeApiService {
             summary.add("sequence,document,status,generated_files,error");
             StringBuilder errors = new StringBuilder();
             int sequence = 0;
+            List<Table> batchDiagramTables = new ArrayList<>();
 
             for (Path document : documents) {
                 sequence++;
@@ -182,7 +192,8 @@ public class SchemaForgeApiService {
                 Path documentOutput = Files.createDirectories(
                         work.resolve("staging").resolve(String.format(Locale.ROOT, "%05d", sequence)));
                 try {
-                    generateWordForAll(document, documentOutput);
+                    PreparedSchema prepared = generateWordForAll(document, documentOutput);
+                    batchDiagramTables.addAll(prepared.schema().tables());
                     long generatedFiles = countRegularFiles(documentOutput);
                     moveGeneratedFiles(documentOutput, outputDir);
                     summary.add(csvLine(
@@ -207,12 +218,17 @@ public class SchemaForgeApiService {
                 }
             }
 
+            if (!batchDiagramTables.isEmpty()) {
+                writeBatchMermaidArtifacts(batchDiagramTables, outputDir);
+            }
+
+            Path reportsDirectory = Files.createDirectories(outputDir.resolve(REPORTS_DIRECTORY));
             Files.writeString(
-                    outputDir.resolve(BATCH_SUMMARY_FILE),
+                    reportsDirectory.resolve(BATCH_SUMMARY_FILE),
                     String.join("\n", summary) + "\n",
                     StandardCharsets.UTF_8);
             Files.writeString(
-                    outputDir.resolve(BATCH_ERROR_FILE),
+                    reportsDirectory.resolve(BATCH_ERROR_FILE),
                     errors.toString(),
                     StandardCharsets.UTF_8);
 
@@ -253,7 +269,7 @@ public class SchemaForgeApiService {
      * Parses and enriches the Word model only once. All registered database dialects are generated
      * from the exact same enriched model, so configured audit columns cannot diverge.
      */
-    private void generateWordForAll(Path input, Path output) throws IOException {
+    private PreparedSchema generateWordForAll(Path input, Path output) throws IOException {
         DatabaseSchema parsed;
         try (InputStream stream = Files.newInputStream(input)) {
             parsed = new WordSpecificationParser().parse(
@@ -261,6 +277,7 @@ public class SchemaForgeApiService {
         }
         PreparedSchema prepared = preparationService.prepare(parsed);
         writeAllDatabaseOutputs(prepared, output, stripExtension(input.getFileName().toString()));
+        return prepared;
     }
 
     private void generateLegacyWordForAll(Path input, Path output, String schemaName) throws IOException {
@@ -304,11 +321,69 @@ public class SchemaForgeApiService {
         }
 
         writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
+        writeMermaidArtifact(schema, output, timestampedBaseName);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
         new JsonExporter().write(output.resolve(timestampedBaseName + ".json"), schema, jsonReport);
+    }
+
+
+    /**
+     * Writes one Mermaid ER artifact beside the normal per-document SQL/JSON/Excel outputs.
+     * The diagram is rendered from the same prepared canonical schema used by all SQL dialects,
+     * so no source document is reparsed and no historical version selection is performed.
+     */
+    private void writeMermaidArtifact(DatabaseSchema schema, Path output, String timestampedBaseName)
+            throws IOException {
+        String mermaid = mermaidDiagramExporter.export(schema.tables(), DiagramExportOptions.erAll());
+        Files.writeString(
+                output.resolve(timestampedBaseName + ".mermaid.mmd"),
+                mermaid,
+                StandardCharsets.UTF_8);
+    }
+
+
+    /**
+     * Writes batch-level Mermaid ER and dependency diagrams for ZIP generation. Duplicate qualified
+     * table names are never auto-selected: every duplicated name is excluded from the batch graph
+     * and recorded in the issues report. Per-document Mermaid files are unaffected.
+     */
+    private void writeBatchMermaidArtifacts(List<Table> tableDefinitions, Path output) throws IOException {
+        MermaidBatchDiagramExporter.Result result = mermaidBatchDiagramExporter.export(tableDefinitions);
+        Path batchDirectory = Files.createDirectories(
+                output.resolve(MERMAID_DIRECTORY).resolve(MERMAID_BATCH_DIRECTORY));
+
+        Files.writeString(batchDirectory.resolve("schema-er.mmd"), result.er(), StandardCharsets.UTF_8);
+        Files.writeString(batchDirectory.resolve("schema-dependency.mmd"), result.dependency(), StandardCharsets.UTF_8);
+
+        List<String> issues = new ArrayList<>();
+        issues.add("code,source_table,target_table,occurrences,detail");
+        for (MermaidBatchDiagramExporter.Issue issue : result.issues()) {
+            issues.add(csvLine(
+                    issue.code(),
+                    issue.sourceTable(),
+                    issue.targetTable(),
+                    Integer.toString(issue.occurrences()),
+                    issue.detail()));
+        }
+        Files.writeString(
+                batchDirectory.resolve("issues.csv"),
+                String.join("\n", issues) + "\n",
+                StandardCharsets.UTF_8);
+
+        String summary = "SchemaForge batch Mermaid summary\n"
+                + "=================================\n"
+                + "Table definitions       : " + result.tableDefinitions() + "\n"
+                + "Distinct table names    : " + result.distinctTableNames() + "\n"
+                + "Duplicate table names   : " + result.duplicateTableNames() + "\n"
+                + "Exported unique tables  : " + result.exportedTables() + "\n"
+                + "Physical FKs (exported) : " + result.physicalForeignKeys() + "\n"
+                + "Resolved physical FKs   : " + result.resolvedPhysicalForeignKeys() + "\n"
+                + "Issues                   : " + result.issues().size() + "\n"
+                + "Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION\n";
+        Files.writeString(batchDirectory.resolve("summary.txt"), summary, StandardCharsets.UTF_8);
     }
 
 
@@ -830,11 +905,57 @@ public class SchemaForgeApiService {
     private static void moveGeneratedFiles(Path source, Path destination) throws IOException {
         try (var files = Files.walk(source)) {
             for (Path file : files.filter(Files::isRegularFile).toList()) {
-                Path target = destination.resolve(source.relativize(file));
+                Path target = packagedBatchTarget(source, file, destination);
                 Files.createDirectories(target.getParent());
                 Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
             }
         }
+    }
+
+    /**
+     * Maps the flat per-document staging output into the stable batch archive layout.
+     * Generation itself remains unchanged; this method only decides where already-generated
+     * artifacts are placed in the ZIP returned by {@link #generateFromZip(MultipartFile)}.
+     */
+    private static Path packagedBatchTarget(Path source, Path file, Path destination) {
+        Path relative = source.relativize(file);
+        if (relative.getNameCount() > 1) {
+            String first = relative.getName(0).toString().toLowerCase(Locale.ROOT);
+            if (first.equals("oracle") || first.equals("postgresql")
+                    || first.equals("sqlserver") || first.equals("db2zos")) {
+                return destination.resolve(relative);
+            }
+        }
+
+        String fileName = file.getFileName().toString();
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".oracle.sql")) {
+            return destination.resolve("oracle").resolve(fileName);
+        }
+        if (lower.endsWith(".postgresql.sql")) {
+            return destination.resolve("postgresql").resolve(fileName);
+        }
+        if (lower.endsWith(".sqlserver.sql")) {
+            return destination.resolve("sqlserver").resolve(fileName);
+        }
+        if (lower.endsWith(".db2zos.sql")) {
+            return destination.resolve("db2zos").resolve(fileName);
+        }
+        if (lower.endsWith(".xlsx")) {
+            return destination.resolve("excel").resolve(fileName);
+        }
+        if (lower.endsWith(".json")) {
+            return destination.resolve("json").resolve(fileName);
+        }
+        if (lower.endsWith(".mermaid.mmd")) {
+            return destination.resolve(MERMAID_DIRECTORY)
+                    .resolve(MERMAID_TABLES_DIRECTORY)
+                    .resolve(fileName);
+        }
+        if (lower.endsWith(".metadata-crud-summary.csv")) {
+            return destination.resolve(REPORTS_DIRECTORY).resolve(fileName);
+        }
+        return destination.resolve(relative);
     }
 
     private static String normalizePath(Path path) {

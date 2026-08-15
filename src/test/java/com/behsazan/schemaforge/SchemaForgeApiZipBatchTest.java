@@ -47,19 +47,26 @@ class SchemaForgeApiZipBatchTest {
 
         Map<String, byte[]> output = unzip(service().generateFromZip(upload("batch.zip", upload)));
 
-        assertTrue(output.keySet().stream().anyMatch(name -> name.endsWith(".oracle.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.endsWith(".postgresql.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.endsWith(".db2zos.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.endsWith(".sqlserver.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.endsWith(".json")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("oracle/") && name.endsWith(".oracle.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("postgresql/") && name.endsWith(".postgresql.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("db2zos/") && name.endsWith(".db2zos.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("sqlserver/") && name.endsWith(".sqlserver.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("json/") && name.endsWith(".json")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mermaid/tables/") && name.endsWith(".mermaid.mmd")));
+        assertTrue(output.containsKey("mermaid/batch/schema-er.mmd"));
+        assertTrue(output.containsKey("mermaid/batch/schema-dependency.mmd"));
+        assertTrue(output.containsKey("mermaid/batch/issues.csv"));
+        assertTrue(output.containsKey("mermaid/batch/summary.txt"));
+        assertTrue(text(output, "mermaid/batch/schema-er.mmd").startsWith("erDiagram"));
+        assertTrue(text(output, "mermaid/batch/schema-dependency.mmd").startsWith("flowchart LR"));
 
-        String summary = text(output, "batch-generation-summary.csv");
+        String summary = text(output, "reports/batch-generation-summary.csv");
         assertTrue(summary.contains("MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SUCCESS"));
         assertTrue(summary.contains("notes.docx\",\"FAILED"));
         assertTrue(summary.contains("Column specification table was not found"));
         assertFalse(summary.contains("~$MCB.BIM.TBL.PROVINCES.V1.2.docx"));
 
-        String errors = text(output, "batch-generation-errors.log");
+        String errors = text(output, "reports/batch-generation-errors.log");
         assertTrue(errors.contains("Document : specifications/notes.docx"));
         assertTrue(errors.contains("Column specification table was not found"));
     }
@@ -84,11 +91,13 @@ class SchemaForgeApiZipBatchTest {
 
         Map<String, byte[]> output = unzip(service().generateFromZip(upload("invalid.zip", upload)));
 
-        String summary = text(output, "batch-generation-summary.csv");
+        String summary = text(output, "reports/batch-generation-summary.csv");
         assertTrue(summary.contains("notes.docx\",\"FAILED"));
-        assertTrue(text(output, "batch-generation-errors.log")
+        assertTrue(text(output, "reports/batch-generation-errors.log")
                 .contains("Column specification table was not found"));
         assertFalse(output.keySet().stream().anyMatch(name -> name.endsWith(".sql")));
+        assertFalse(output.containsKey("mermaid/batch/schema-er.mmd"));
+        assertFalse(output.containsKey("mermaid/batch/schema-dependency.mmd"));
     }
 
     private static SchemaForgeApiService service() {

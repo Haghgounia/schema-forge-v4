@@ -96,12 +96,13 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(12, entries.size());
+        assertEquals(13, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "oracle/crud/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "sqlserver/crud/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.crud-procedures\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
 
         String oracleName = entries.keySet().stream().filter(name -> ORACLE_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();
