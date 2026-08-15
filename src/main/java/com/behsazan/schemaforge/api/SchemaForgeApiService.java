@@ -14,6 +14,8 @@ import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.diagram.DiagramExportOptions;
+import com.behsazan.schemaforge.diagram.graphviz.GraphvizDiagramExporter;
+import com.behsazan.schemaforge.diagram.graphviz.GraphvizBatchDiagramExporter;
 import com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramExporter;
 import com.behsazan.schemaforge.diagram.mermaid.MermaidBatchDiagramExporter;
 import com.behsazan.schemaforge.generation.DdlGenerator;
@@ -80,6 +82,9 @@ public class SchemaForgeApiService {
     private static final String MERMAID_DIRECTORY = "mermaid";
     private static final String MERMAID_TABLES_DIRECTORY = "tables";
     private static final String MERMAID_BATCH_DIRECTORY = "batch";
+    private static final String GRAPHVIZ_DIRECTORY = "graphviz";
+    private static final String GRAPHVIZ_TABLES_DIRECTORY = "tables";
+    private static final String GRAPHVIZ_BATCH_DIRECTORY = "batch";
     private final SchemaPreparationService preparationService;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
     private final EaImportProperties eaImportProperties;
@@ -94,6 +99,8 @@ public class SchemaForgeApiService {
     private final OracleDdlSanityChecker oracleDdlSanityChecker = new OracleDdlSanityChecker();
     private final MermaidDiagramExporter mermaidDiagramExporter = new MermaidDiagramExporter();
     private final MermaidBatchDiagramExporter mermaidBatchDiagramExporter = new MermaidBatchDiagramExporter();
+    private final GraphvizDiagramExporter graphvizDiagramExporter = new GraphvizDiagramExporter();
+    private final GraphvizBatchDiagramExporter graphvizBatchDiagramExporter = new GraphvizBatchDiagramExporter();
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
@@ -220,6 +227,7 @@ public class SchemaForgeApiService {
 
             if (!batchDiagramTables.isEmpty()) {
                 writeBatchMermaidArtifacts(batchDiagramTables, outputDir);
+                writeBatchGraphvizArtifacts(batchDiagramTables, outputDir);
             }
 
             Path reportsDirectory = Files.createDirectories(outputDir.resolve(REPORTS_DIRECTORY));
@@ -322,6 +330,7 @@ public class SchemaForgeApiService {
 
         writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
         writeMermaidArtifact(schema, output, timestampedBaseName);
+        writeGraphvizArtifact(schema, output, timestampedBaseName);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
@@ -341,6 +350,20 @@ public class SchemaForgeApiService {
         Files.writeString(
                 output.resolve(timestampedBaseName + ".mermaid.mmd"),
                 mermaid,
+                StandardCharsets.UTF_8);
+    }
+
+
+    /**
+     * Writes one Graphviz ER artifact beside the normal per-document SQL/JSON/Excel outputs.
+     * Only textual DOT is generated; SchemaForge does not execute a Graphviz binary.
+     */
+    private void writeGraphvizArtifact(DatabaseSchema schema, Path output, String timestampedBaseName)
+            throws IOException {
+        String dot = graphvizDiagramExporter.export(schema.tables(), DiagramExportOptions.erAll());
+        Files.writeString(
+                output.resolve(timestampedBaseName + ".graphviz.dot"),
+                dot,
                 StandardCharsets.UTF_8);
     }
 
@@ -383,6 +406,66 @@ public class SchemaForgeApiService {
                 + "Resolved physical FKs   : " + result.resolvedPhysicalForeignKeys() + "\n"
                 + "Issues                   : " + result.issues().size() + "\n"
                 + "Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION\n";
+        Files.writeString(batchDirectory.resolve("summary.txt"), summary, StandardCharsets.UTF_8);
+    }
+
+
+    /**
+     * Writes batch Graphviz dependency diagrams. The duplicate policy is intentionally identical
+     * to the Mermaid batch exporter: duplicated qualified table names are excluded, never selected.
+     */
+    private void writeBatchGraphvizArtifacts(List<Table> tableDefinitions, Path output) throws IOException {
+        GraphvizBatchDiagramExporter.Result result = graphvizBatchDiagramExporter.export(tableDefinitions);
+        Path batchDirectory = Files.createDirectories(
+                output.resolve(GRAPHVIZ_DIRECTORY).resolve(GRAPHVIZ_BATCH_DIRECTORY));
+
+        Files.writeString(
+                batchDirectory.resolve("schema-dependency.dot"),
+                result.dependency(),
+                StandardCharsets.UTF_8);
+        Files.writeString(
+                batchDirectory.resolve("schema-clustered.dot"),
+                result.clusteredDependency(),
+                StandardCharsets.UTF_8);
+        Files.writeString(
+                batchDirectory.resolve("schema-compact.dot"),
+                result.compactDependency(),
+                StandardCharsets.UTF_8);
+        Files.writeString(
+                batchDirectory.resolve("schema-overview.dot"),
+                result.overviewDependency(),
+                StandardCharsets.UTF_8);
+
+        List<String> issues = new ArrayList<>();
+        issues.add("code,source_table,target_table,occurrences,detail");
+        for (GraphvizBatchDiagramExporter.Issue issue : result.issues()) {
+            issues.add(csvLine(
+                    issue.code(),
+                    issue.sourceTable(),
+                    issue.targetTable(),
+                    Integer.toString(issue.occurrences()),
+                    issue.detail()));
+        }
+        Files.writeString(
+                batchDirectory.resolve("issues.csv"),
+                String.join("\n", issues) + "\n",
+                StandardCharsets.UTF_8);
+
+        String summary = "SchemaForge batch Graphviz summary\n"
+                + "=================================\n"
+                + "Table definitions       : " + result.tableDefinitions() + "\n"
+                + "Distinct table names    : " + result.distinctTableNames() + "\n"
+                + "Duplicate table names   : " + result.duplicateTableNames() + "\n"
+                + "Exported unique tables  : " + result.exportedTables() + "\n"
+                + "Connected tables        : " + result.connectedTables() + "\n"
+                + "Physical FKs (exported) : " + result.physicalForeignKeys() + "\n"
+                + "Resolved physical FKs   : " + result.resolvedPhysicalForeignKeys() + "\n"
+                + "Issues                   : " + result.issues().size() + "\n"
+                + "Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION\n"
+                + "Full profile             : disconnected=true, labels=true, clusterBySchema=true\n"
+                + "Compact profile          : disconnected=false, labels=true, clusterBySchema=true\n"
+                + "Overview profile         : disconnected=false, labels=false, clusterBySchema=true\n"
+                + "Renderer                 : DOT_ONLY_NO_GRAPHVIZ_EXECUTION\n";
         Files.writeString(batchDirectory.resolve("summary.txt"), summary, StandardCharsets.UTF_8);
     }
 
@@ -950,6 +1033,11 @@ public class SchemaForgeApiService {
         if (lower.endsWith(".mermaid.mmd")) {
             return destination.resolve(MERMAID_DIRECTORY)
                     .resolve(MERMAID_TABLES_DIRECTORY)
+                    .resolve(fileName);
+        }
+        if (lower.endsWith(".graphviz.dot")) {
+            return destination.resolve(GRAPHVIZ_DIRECTORY)
+                    .resolve(GRAPHVIZ_TABLES_DIRECTORY)
                     .resolve(fileName);
         }
         if (lower.endsWith(".metadata-crud-summary.csv")) {

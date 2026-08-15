@@ -53,12 +53,23 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("sqlserver/") && name.endsWith(".sqlserver.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("json/") && name.endsWith(".json")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mermaid/tables/") && name.endsWith(".mermaid.mmd")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("graphviz/tables/") && name.endsWith(".graphviz.dot")));
         assertTrue(output.containsKey("mermaid/batch/schema-er.mmd"));
         assertTrue(output.containsKey("mermaid/batch/schema-dependency.mmd"));
         assertTrue(output.containsKey("mermaid/batch/issues.csv"));
         assertTrue(output.containsKey("mermaid/batch/summary.txt"));
+        assertTrue(output.containsKey("graphviz/batch/schema-dependency.dot"));
+        assertTrue(output.containsKey("graphviz/batch/schema-clustered.dot"));
+        assertTrue(output.containsKey("graphviz/batch/schema-compact.dot"));
+        assertTrue(output.containsKey("graphviz/batch/schema-overview.dot"));
+        assertTrue(output.containsKey("graphviz/batch/issues.csv"));
+        assertTrue(output.containsKey("graphviz/batch/summary.txt"));
         assertTrue(text(output, "mermaid/batch/schema-er.mmd").startsWith("erDiagram"));
         assertTrue(text(output, "mermaid/batch/schema-dependency.mmd").startsWith("flowchart LR"));
+        assertTrue(text(output, "graphviz/batch/schema-dependency.dot").startsWith("digraph SchemaForge_Dependency"));
+        assertTrue(text(output, "graphviz/batch/schema-clustered.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(text(output, "graphviz/batch/schema-compact.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(text(output, "graphviz/batch/schema-overview.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
 
         String summary = text(output, "reports/batch-generation-summary.csv");
         assertTrue(summary.contains("MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SUCCESS"));
@@ -98,6 +109,10 @@ class SchemaForgeApiZipBatchTest {
         assertFalse(output.keySet().stream().anyMatch(name -> name.endsWith(".sql")));
         assertFalse(output.containsKey("mermaid/batch/schema-er.mmd"));
         assertFalse(output.containsKey("mermaid/batch/schema-dependency.mmd"));
+        assertFalse(output.containsKey("graphviz/batch/schema-dependency.dot"));
+        assertFalse(output.containsKey("graphviz/batch/schema-clustered.dot"));
+        assertFalse(output.containsKey("graphviz/batch/schema-compact.dot"));
+        assertFalse(output.containsKey("graphviz/batch/schema-overview.dot"));
     }
 
     private static SchemaForgeApiService service() {

@@ -1,3 +1,25 @@
+# 2026-08-15 - Graphviz readability phase 2
+
+- Added Graphviz-specific readability profiles without changing the canonical model, parsers, SQL generators, Mermaid exporter, or database deployment logic.
+- Added `GraphvizRenderOptions` with `includeDisconnectedTables`, `showFkLabels`, and `clusterBySchema`.
+- Preserved the Phase-1 default output exactly (`all selected tables`, FK labels visible, no clustering unless requested).
+- Added batch `schema-compact.dot`: connected tables only, FK labels visible, clustered by schema.
+- Added batch `schema-overview.dot`: connected tables only, FK labels hidden, clustered by schema.
+- Existing `schema-dependency.dot` and `schema-clustered.dot` remain for backward compatibility.
+- Added connected-table counts and explicit Full/Compact/Overview profile definitions to `graphviz/batch/summary.txt`.
+- Extended focused Graphviz and ZIP-pipeline tests for disconnected-table filtering, FK-label suppression, clustering, deterministic output, and new packaged artifacts.
+
+# 2026-08-15 - Graphviz DOT export phase 1
+
+- Added Graphviz as a second textual diagram exporter beside the frozen Mermaid implementation.
+- Added per-document `.graphviz.dot` output generated from the same prepared canonical schema used by SQL/JSON/Mermaid generation.
+- Added batch `schema-dependency.dot` and schema-clustered `schema-clustered.dot` outputs under `graphviz/batch/`.
+- Batch Graphviz applies the same strict duplicate policy as Mermaid: no historical version is auto-selected; duplicate and missing FK targets are reported in `issues.csv`.
+- Added `graphviz/batch/summary.txt` with table/FK counts and explicit `DOT_ONLY_NO_GRAPHVIZ_EXECUTION` renderer mode.
+- Added focused exporter/batch tests and extended the ZIP pipeline regressions to assert Graphviz packaging.
+- Direct Java 21 compilation passed, and generated ER/dependency/clustered DOT smoke artifacts were successfully parsed by an external Graphviz `dot -Tsvg` validation probe.
+- No parser, canonical-model, DDL-dialect, Mermaid-renderer, or database deployment logic was changed.
+
 # 2026-08-15 - Batch Mermaid diagrams in ZIP generation
 
 - Added batch-level Mermaid ER and dependency diagrams to the normal ZIP generation pipeline.

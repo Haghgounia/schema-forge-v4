@@ -24,6 +24,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -92,6 +93,7 @@ class SchemaDocuments3ZipMermaidOutputIT {
         long db2zos = countFiles(extracted, ".db2zos.sql");
         long json = countFiles(extracted, ".json");
         long mermaid = countFiles(extracted, ".mermaid.mmd");
+        long graphviz = countFiles(extracted, ".graphviz.dot");
         long excel = countFiles(extracted, ".xlsx");
 
         assertTrue(Files.isDirectory(extracted.resolve("oracle")), "oracle directory missing");
@@ -101,6 +103,8 @@ class SchemaDocuments3ZipMermaidOutputIT {
         assertTrue(Files.isDirectory(extracted.resolve("json")), "json directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("mermaid").resolve("tables")), "mermaid/tables directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("mermaid").resolve("batch")), "mermaid/batch directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("graphviz").resolve("tables")), "graphviz/tables directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("graphviz").resolve("batch")), "graphviz/batch directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("reports")), "reports directory missing");
 
         Path batchEr = extracted.resolve("mermaid").resolve("batch").resolve("schema-er.mmd");
@@ -116,6 +120,35 @@ class SchemaDocuments3ZipMermaidOutputIT {
         String batchMermaidSummaryText = Files.readString(batchMermaidSummary, StandardCharsets.UTF_8);
         assertTrue(batchMermaidSummaryText.contains("Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION"));
 
+        Path batchGraphvizDependency = extracted.resolve("graphviz").resolve("batch").resolve("schema-dependency.dot");
+        Path batchGraphvizClustered = extracted.resolve("graphviz").resolve("batch").resolve("schema-clustered.dot");
+        Path batchGraphvizCompact = extracted.resolve("graphviz").resolve("batch").resolve("schema-compact.dot");
+        Path batchGraphvizOverview = extracted.resolve("graphviz").resolve("batch").resolve("schema-overview.dot");
+        Path batchGraphvizIssues = extracted.resolve("graphviz").resolve("batch").resolve("issues.csv");
+        Path batchGraphvizSummary = extracted.resolve("graphviz").resolve("batch").resolve("summary.txt");
+        assertTrue(Files.isRegularFile(batchGraphvizDependency), "Batch Graphviz dependency diagram was not generated");
+        assertTrue(Files.isRegularFile(batchGraphvizClustered), "Batch Graphviz clustered diagram was not generated");
+        assertTrue(Files.isRegularFile(batchGraphvizCompact), "Batch Graphviz compact diagram was not generated");
+        assertTrue(Files.isRegularFile(batchGraphvizOverview), "Batch Graphviz overview diagram was not generated");
+        assertTrue(Files.isRegularFile(batchGraphvizIssues), "Batch Graphviz issues report was not generated");
+        assertTrue(Files.isRegularFile(batchGraphvizSummary), "Batch Graphviz summary was not generated");
+        assertTrue(Files.readString(batchGraphvizDependency, StandardCharsets.UTF_8)
+                .startsWith("digraph SchemaForge_Dependency"));
+        assertTrue(Files.readString(batchGraphvizClustered, StandardCharsets.UTF_8)
+                .startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(Files.readString(batchGraphvizCompact, StandardCharsets.UTF_8)
+                .startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(Files.readString(batchGraphvizOverview, StandardCharsets.UTF_8)
+                .startsWith("digraph SchemaForge_Clustered_Dependency"));
+        String batchGraphvizOverviewText = Files.readString(batchGraphvizOverview, StandardCharsets.UTF_8);
+        assertFalse(batchGraphvizOverviewText.contains("[label=\"FK_"),
+                "Overview profile must suppress FK labels");
+        String batchGraphvizSummaryText = Files.readString(batchGraphvizSummary, StandardCharsets.UTF_8);
+        assertTrue(batchGraphvizSummaryText.contains("Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION"));
+        assertTrue(batchGraphvizSummaryText.contains("Compact profile          : disconnected=false, labels=true, clusterBySchema=true"));
+        assertTrue(batchGraphvizSummaryText.contains("Overview profile         : disconnected=false, labels=false, clusterBySchema=true"));
+        assertTrue(batchGraphvizSummaryText.contains("Renderer                 : DOT_ONLY_NO_GRAPHVIZ_EXECUTION"));
+
         assertTrue(successfulDocuments > 0,
                 "No document was successfully processed. Inspect reports/batch-generation-errors.log under " + extracted);
         assertEquals(successfulDocuments, oracle,
@@ -130,6 +163,8 @@ class SchemaDocuments3ZipMermaidOutputIT {
                 "Every successful document must have one canonical JSON output");
         assertEquals(successfulDocuments, mermaid,
                 "Every successful document must have one Mermaid ER output beside the normal artifacts");
+        assertEquals(successfulDocuments, graphviz,
+                "Every successful document must have one Graphviz DOT output beside the normal artifacts");
 
         try (var paths = Files.walk(extracted)) {
             for (Path diagram : paths.filter(Files::isRegularFile)
@@ -140,6 +175,18 @@ class SchemaDocuments3ZipMermaidOutputIT {
                 String content = Files.readString(diagram, StandardCharsets.UTF_8);
                 assertTrue(content.startsWith("erDiagram"),
                         "Invalid Mermaid ER artifact: " + diagram);
+            }
+        }
+
+        try (var paths = Files.walk(extracted)) {
+            for (Path diagram : paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)
+                            .endsWith(".graphviz.dot"))
+                    .sorted()
+                    .toList()) {
+                String content = Files.readString(diagram, StandardCharsets.UTF_8);
+                assertTrue(content.startsWith("digraph SchemaForge_ER"),
+                        "Invalid Graphviz per-table artifact: " + diagram);
             }
         }
 
@@ -160,11 +207,20 @@ class SchemaDocuments3ZipMermaidOutputIT {
         System.out.println("Db2 z/OS SQL         : " + db2zos);
         System.out.println("Canonical JSON       : " + json);
         System.out.println("Mermaid ER           : " + mermaid);
+        System.out.println("Graphviz DOT         : " + graphviz);
         System.out.println("Comparison Excel     : " + excel + " (live metadata disabled in this test)");
         System.out.println("Batch Mermaid ER     : " + batchEr);
         System.out.println("Batch dependency     : " + batchDependency);
+        System.out.println("Batch Graphviz dep.  : " + batchGraphvizDependency);
+        System.out.println("Batch Graphviz clust.: " + batchGraphvizClustered);
+        System.out.println("Batch Graphviz comp. : " + batchGraphvizCompact);
+        System.out.println("Batch Graphviz over. : " + batchGraphvizOverview);
         System.out.println("Batch Mermaid summary:");
         for (String line : batchMermaidSummaryText.lines().toList()) {
+            System.out.println("  " + line);
+        }
+        System.out.println("Batch Graphviz summary:");
+        for (String line : batchGraphvizSummaryText.lines().toList()) {
             System.out.println("  " + line);
         }
         System.out.println("Result               : PASS");

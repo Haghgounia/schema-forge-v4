@@ -55,7 +55,7 @@ class SchemaForgeLegacyWordApiServiceTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromLegacyWord(file, "DPS"));
 
-        assertEquals(7, entries.size());
+        assertEquals(8, entries.size());
         String oracleName = entries.keySet().stream()
                 .filter(name -> name.endsWith(".oracle.sql"))
                 .findFirst().orElseThrow();
@@ -65,6 +65,7 @@ class SchemaForgeLegacyWordApiServiceTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".json")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {
