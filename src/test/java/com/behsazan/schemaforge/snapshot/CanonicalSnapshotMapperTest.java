@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regression tests for lossless canonical domain/snapshot round trips. */
@@ -82,4 +84,34 @@ class CanonicalSnapshotMapperTest {
         assertEquals(table.physicalOptions(), actual.physicalOptions());
         assertTrue(CanonicalSnapshotVersions.cacheCompatible(snapshot));
     }
+    @Test
+    void distinguishesPersistedSourceCompatibilityFromWordCacheFreshness() {
+        DatabaseSchema schema = DatabaseSchema.builder("TSTSHMA")
+                .addTable(Table.builder("TSTSHMA", "SAMPLE")
+                        .addColumn(Column.required("ID", DataType.numeric("NUMBER", 10, 0)))
+                        .build())
+                .build();
+        CanonicalSnapshotMapper mapper = new CanonicalSnapshotMapper();
+        CanonicalSchemaSnapshot current = mapper.toSnapshot(schema,
+                new CanonicalSchemaSnapshot.SourceSnapshot(
+                        "legacy/SAMPLE.doc", "SAMPLE.doc", "abc", 10L,
+                        "2026-08-08T00:00:00Z", "legacy-word"),
+                "2026-08-08T00:00:01Z");
+        CanonicalSchemaSnapshot stale = new CanonicalSchemaSnapshot(
+                current.snapshotVersion(), current.modelVersion(), "word-pipeline-v4-2026-08-08",
+                current.generatedAtUtc(), current.source(), current.schema());
+
+        assertTrue(CanonicalSnapshotVersions.contractCompatible(stale));
+        assertFalse(CanonicalSnapshotVersions.parserCurrent(stale));
+        assertFalse(CanonicalSnapshotVersions.cacheCompatible(stale));
+        assertThrows(IllegalArgumentException.class, () -> mapper.toDomain(stale));
+        DatabaseSchema restored = mapper.toDomainPersistedSource(stale);
+        assertEquals(schema.name(), restored.name());
+        assertEquals(1, restored.tables().size());
+        Table expectedTable = schema.tables().getFirst();
+        Table actualTable = restored.tables().getFirst();
+        assertEquals(expectedTable.qualifiedName(), actualTable.qualifiedName());
+        assertEquals(expectedTable.columns(), actualTable.columns());
+    }
+
 }

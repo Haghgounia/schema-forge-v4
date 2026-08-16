@@ -266,6 +266,7 @@ public final class LegacyDefaultValueNormalizer {
             return "CURRENT_TIMESTAMP";
         }
         return switch (upper) {
+            case "صفر" -> "0";
             case "CURRENT TIMESTAMP", "CURRENT_TIME_STAMP", "CURRENTTIME_STAMP" -> "CURRENT_TIMESTAMP";
             case "CURRENT DATE" -> "CURRENT_DATE";
             case "NULL", "SYSDATE", "SYSTIMESTAMP", "CURRENT_DATE", "CURRENT_TIMESTAMP",

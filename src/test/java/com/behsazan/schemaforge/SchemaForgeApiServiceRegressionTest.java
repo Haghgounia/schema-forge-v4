@@ -108,7 +108,8 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(oracleSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(oracleSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
         assertFalse(oracleSql.contains("ADD CONSTRAINT FK_PROVINCES_CALENDAR_ID"));
-        assertTrue(oracleSql.contains(") TABLESPACE TS_BIM;"));
+        assertTrue(oracleSql.contains("TABLESPACE TS_BIM;"));
+        assertTrue(oracleSql.contains("-- ORACLE TABLE PHYSICAL OPTIONS"));
         assertTrue(oracleSql.contains("TABLESPACE ITS_BIM"));
         assertTrue(oracleSql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DEVELOPER;"));

@@ -162,6 +162,54 @@ public interface Dialect {
         return tablespace == null || tablespace.isBlank() ? "" : " TABLESPACE " + tablespace.trim();
     }
 
+    /**
+     * Combines the already-active table placement clause with a new commented
+     * physical candidate block. Dialects override this only when grammar order
+     * requires placement to precede the physical block.
+     */
+    default String tableTailWithPhysical(String activePlacementClause, String physicalCommentBlock) {
+        String physical = physicalCommentBlock == null ? "" : physicalCommentBlock;
+        String placement = activePlacementClause == null ? "" : activePlacementClause;
+        return physical + placement;
+    }
+
+    /**
+     * Renders a primary-key definition while preserving active placement and
+     * inserting a non-executable physical index block at the grammar-correct location.
+     */
+    default String primaryKeyConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        return primaryKeyConstraint(
+                constraintName, tableName, columns, qualifiedIndexName,
+                indexTablespace, deferrable, initiallyDeferred);
+    }
+
+    /** Same contract as primaryKeyConstraintWithPhysical for UNIQUE constraints. */
+    default String uniqueConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        return uniqueConstraint(
+                constraintName, tableName, columns, qualifiedIndexName,
+                indexTablespace, deferrable, initiallyDeferred);
+    }
+
+    /**
+     * Renders CREATE INDEX tail fragments with the physical comment positioned
+     * according to the target DBMS grammar.
+     */
+    default String indexTailWithPhysical(
+            String includeColumns, String physicalIndexComment,
+            String indexTablespace, String predicate) {
+        String physical = physicalIndexComment == null ? "" : physicalIndexComment;
+        return indexIncludeClause(includeColumns)
+                + physical
+                + indexTablespaceClause(indexTablespace)
+                + partialIndexClause(predicate);
+    }
+
     /** Renders an index name in the namespace required by the target database. */
     default String qualifyIndexName(QualifiedName tableName, String renderedIndexName) {
         return tableName.schemaName()

@@ -150,6 +150,40 @@ public final class PostgreSqlDialect implements Dialect {
     }
 
     @Override
+    public String primaryKeyConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        return "CONSTRAINT " + constraintName + " PRIMARY KEY (" + columns + ")"
+                + physicalIndexComment
+                + constraintIndexTablespaceClause(indexTablespace)
+                + deferrabilityClause(deferrable, initiallyDeferred);
+    }
+
+    @Override
+    public String uniqueConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        return "ALTER TABLE " + tableName
+                + " ADD CONSTRAINT " + constraintName + " UNIQUE(" + columns + ")"
+                + physicalIndexComment
+                + constraintIndexTablespaceClause(indexTablespace)
+                + deferrabilityClause(deferrable, initiallyDeferred)
+                + statementTerminator();
+    }
+
+    @Override
+    public String indexTailWithPhysical(
+            String includeColumns, String physicalIndexComment,
+            String indexTablespace, String predicate) {
+        return indexIncludeClause(includeColumns)
+                + physicalIndexComment
+                + indexTablespaceClause(indexTablespace)
+                + partialIndexClause(predicate);
+    }
+
+    @Override
     public String scriptPreamble(String source, String schemaName) {
         String nl = System.lineSeparator();
         return "-- ==============================================================" + nl

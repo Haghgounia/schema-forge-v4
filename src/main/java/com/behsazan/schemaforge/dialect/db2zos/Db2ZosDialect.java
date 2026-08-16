@@ -64,7 +64,7 @@ public final class Db2ZosDialect implements Dialect {
 
     @Override
     public String defaultClause(Column column) {
-        return " DEFAULT " + expression(column.defaultValue().expression());
+        return " WITH DEFAULT " + expression(column.defaultValue().expression());
     }
 
     @Override
@@ -133,6 +133,13 @@ public final class Db2ZosDialect implements Dialect {
     @Override
     public String indexTablespaceClause(String tablespace) {
         return "";
+    }
+
+    @Override
+    public String tableTailWithPhysical(String activePlacementClause, String physicalCommentBlock) {
+        String placement = activePlacementClause == null ? "" : activePlacementClause;
+        String physical = physicalCommentBlock == null ? "" : physicalCommentBlock;
+        return placement + physical;
     }
 
     @Override

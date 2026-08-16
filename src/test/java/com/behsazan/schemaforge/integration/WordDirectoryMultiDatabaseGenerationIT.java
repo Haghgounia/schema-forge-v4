@@ -11,6 +11,7 @@ import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
 import com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParser;
+import com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidator;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.validation.postgresql.PostgreSqlDdlSanityChecker;
 import com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidator;
@@ -35,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Explicitly invoked recursive Legacy/standard Word batch generator for multiple DBMS dialects.
  *
  * <p>Each Word document is parsed and prepared exactly once. The same canonical model is then
- * rendered independently for Oracle, PostgreSQL and Microsoft SQL Server (or the configured
+ * rendered independently for Oracle, PostgreSQL, Microsoft SQL Server and Db2 for z/OS (or the configured
  * subset). Generated scripts are written under a per-platform directory while generation and
  * offline-validation findings are collected in CSV reports.</p>
  *
@@ -50,11 +51,13 @@ class WordDirectoryMultiDatabaseGenerationIT {
     private static final String LEGACY_SCHEMA = "schemaforge.word.legacySchema";
     private static final String PLATFORMS = "schemaforge.word.platforms";
     private static final String FAIL_ON_ERRORS = "schemaforge.word.failOnErrors";
+    private static final String PARSER_MODE = "schemaforge.word.parserMode";
 
     private static final List<DatabasePlatform> DEFAULT_PLATFORMS = List.of(
             DatabasePlatform.ORACLE,
             DatabasePlatform.POSTGRESQL,
-            DatabasePlatform.SQLSERVER);
+            DatabasePlatform.SQLSERVER,
+            DatabasePlatform.DB2_ZOS);
 
     private final LegacyWordSpecificationParser legacyParser = new LegacyWordSpecificationParser();
     private final SchemaPreparationService preparationService = new SchemaPreparationService();
@@ -62,6 +65,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
     private final OracleDdlSanityChecker oracleSanityChecker = new OracleDdlSanityChecker();
     private final PostgreSqlDdlSanityChecker postgreSqlSanityChecker = new PostgreSqlDdlSanityChecker();
     private final SqlServerOfflineDdlValidator sqlServerValidator = new SqlServerOfflineDdlValidator();
+    private final Db2ZosOfflineDdlValidator db2ZosValidator = new Db2ZosOfflineDdlValidator();
 
     @Test
     void recursivelyGeneratesConfiguredDatabaseScriptsForEveryWordTableDocument() throws Exception {
@@ -69,6 +73,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
         Path outputRoot = outputDirectory(inputRoot);
         String legacySchema = trimToNull(System.getProperty(LEGACY_SCHEMA));
         List<DatabasePlatform> platforms = configuredPlatforms();
+        ParserMode parserMode = configuredParserMode();
         boolean failOnErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_ERRORS, "false"));
         Files.createDirectories(outputRoot);
 
@@ -108,7 +113,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
             String relative = normalize(inputRoot.relativize(document));
             PreparedSchema prepared;
             try {
-                DatabaseSchema parsed = parse(inputRoot, document, legacySchema);
+                DatabaseSchema parsed = parse(inputRoot, document, legacySchema, parserMode);
                 if (parsed.tables().isEmpty()) {
                     skipped++;
                     for (DatabasePlatform platform : platforms) {
@@ -156,12 +161,13 @@ class WordDirectoryMultiDatabaseGenerationIT {
         Files.writeString(issueFile, String.join(System.lineSeparator(), issues) + System.lineSeparator(),
                 StandardCharsets.UTF_8);
         Files.writeString(textFile, textSummary(inputRoot, outputRoot, documents.size(), skipped, parseFailures,
-                platforms, generated, generatedWithIssues, failed, timestamp), StandardCharsets.UTF_8);
+                parserMode, platforms, generated, generatedWithIssues, failed, timestamp), StandardCharsets.UTF_8);
 
         int totalGenerated = generated.values().stream().mapToInt(Integer::intValue).sum()
                 + generatedWithIssues.values().stream().mapToInt(Integer::intValue).sum();
         int totalFailed = failed.values().stream().mapToInt(Integer::intValue).sum();
 
+        System.out.println("Parser mode       : " + parserMode.name().toLowerCase(Locale.ROOT));
         System.out.println("Word files        : " + documents.size());
         System.out.println("Skipped           : " + skipped);
         System.out.println("Parse failures    : " + parseFailures);
@@ -258,13 +264,25 @@ class WordDirectoryMultiDatabaseGenerationIT {
                     .map(issue -> new ValidationFinding(
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), ""))
                     .toList();
-            case DB2_ZOS -> List.of();
+            case DB2_ZOS -> db2ZosValidator.validate(sql).issues().stream()
+                    .map(issue -> new ValidationFinding(
+                            "statement " + issue.statementNumber(), issue.code(), issue.message(), ""))
+                    .toList();
         };
     }
 
-    private DatabaseSchema parse(Path inputRoot, Path document, String legacySchema) throws Exception {
+    private DatabaseSchema parse(
+            Path inputRoot, Path document, String legacySchema, ParserMode parserMode) throws Exception {
+        if (parserMode == ParserMode.LEGACY) {
+            return parseLegacy(inputRoot, document, legacySchema);
+        }
+
         String lower = document.getFileName().toString().toLowerCase(Locale.ROOT);
         if (lower.endsWith(".doc")) {
+            if (parserMode == ParserMode.STANDARD) {
+                throw new IllegalArgumentException(
+                        "Standard parser mode accepts .docx only: " + document.getFileName());
+            }
             return parseLegacy(inputRoot, document, legacySchema);
         }
 
@@ -273,6 +291,9 @@ class WordDirectoryMultiDatabaseGenerationIT {
             return new WordSpecificationParser().parse(
                     new SpecificationSource(document.getFileName().toString(), input));
         } catch (Exception exception) {
+            if (parserMode == ParserMode.STANDARD) {
+                throw exception;
+            }
             standardFailure = exception;
         }
 
@@ -307,10 +328,6 @@ class WordDirectoryMultiDatabaseGenerationIT {
         for (String token : value.split("[,;\\s]+")) {
             if (!token.isBlank()) {
                 DatabasePlatform platform = DatabasePlatform.parse(token);
-                if (platform == DatabasePlatform.DB2_ZOS) {
-                    throw new IllegalArgumentException(
-                            "This runner is intentionally limited to oracle, postgresql and sqlserver");
-                }
                 result.add(platform);
             }
         }
@@ -318,6 +335,24 @@ class WordDirectoryMultiDatabaseGenerationIT {
             throw new IllegalArgumentException("System property " + PLATFORMS + " does not select any platform");
         }
         return List.copyOf(result);
+    }
+
+
+    private static ParserMode configuredParserMode() {
+        String value = trimToNull(System.getProperty(PARSER_MODE));
+        if (value == null) return ParserMode.AUTO;
+        return switch (value.toLowerCase(Locale.ROOT)) {
+            case "auto" -> ParserMode.AUTO;
+            case "standard", "new", "new-word" -> ParserMode.STANDARD;
+            case "legacy", "legacy-word" -> ParserMode.LEGACY;
+            default -> throw new IllegalArgumentException(
+                    "Unsupported " + PARSER_MODE + ": " + value
+                            + ". Supported values: auto, standard, legacy");
+        };
+    }
+
+    private enum ParserMode {
+        AUTO, STANDARD, LEGACY
     }
 
     private static Path requiredDirectory(String propertyName) {
@@ -362,6 +397,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
             int documents,
             int skipped,
             int parseFailures,
+            ParserMode parserMode,
             List<DatabasePlatform> platforms,
             Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> generatedWithIssues,
@@ -374,6 +410,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
         result.append("Run timestamp      : ").append(timestamp).append(System.lineSeparator());
         result.append("Input directory    : ").append(inputRoot.toAbsolutePath()).append(System.lineSeparator());
         result.append("Output directory   : ").append(outputRoot.toAbsolutePath()).append(System.lineSeparator());
+        result.append("Parser mode        : ").append(parserMode.name().toLowerCase(Locale.ROOT)).append(System.lineSeparator());
         result.append("Documents          : ").append(documents).append(System.lineSeparator());
         result.append("Skipped            : ").append(skipped).append(System.lineSeparator());
         result.append("Parse failures     : ").append(parseFailures).append(System.lineSeparator());

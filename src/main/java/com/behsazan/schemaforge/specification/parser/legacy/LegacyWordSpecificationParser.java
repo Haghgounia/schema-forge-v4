@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
  * and foreign-key classes and the same generation pipeline.</p>
  */
 public final class LegacyWordSpecificationParser {
-    public static final String PARSER_VERSION = "0.5.9";
+    public static final String PARSER_VERSION = "0.6.0";
     private static final long DEFAULT_MAX_FILE_BYTES = 64L * 1024L * 1024L;
     private static final Pattern TYPE_DECLARATION = Pattern.compile(
             "(?i)^\\s*([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\))?\\s*$");

@@ -58,6 +58,14 @@ public final class DataTypeNormalizer {
                             + "(?:[,\\.]\\s*(\\d+)\\s*)?\\(?$"
             );
 
+    // Real design documents occasionally contain NUMBER)5) instead of NUMBER(5).
+    // Recover only this narrow reversed-opening-parenthesis defect; do not guess
+    // arbitrary malformed text.
+    private static final Pattern NUMBER_REVERSED_OPEN =
+            Pattern.compile(
+                    "(?i)^NUMBER\\s*\\)\\s*(\\d+)\\s*\\)$"
+            );
+
     /**
      * Normalizes a raw datatype value extracted from a DOCX cell.
      *
@@ -128,6 +136,27 @@ public final class DataTypeNormalizer {
 
             warnings.add(
                     "Recovered attached NUMBER precision and scale '"
+                            + original
+                            + "' as '"
+                            + recovered
+                            + "'"
+            );
+
+            return new RecoveryResult(
+                    recovered,
+                    warnings
+            );
+        }
+
+        Matcher reversedOpen =
+                NUMBER_REVERSED_OPEN.matcher(value);
+
+        if (reversedOpen.matches()) {
+            String recovered =
+                    "NUMBER(" + reversedOpen.group(1) + ")";
+
+            warnings.add(
+                    "Recovered reversed NUMBER parenthesis '"
                             + original
                             + "' as '"
                             + recovered

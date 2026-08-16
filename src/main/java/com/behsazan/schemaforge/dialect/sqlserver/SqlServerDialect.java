@@ -172,6 +172,47 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     }
 
     @Override
+    public String tableTailWithPhysical(String activePlacementClause, String physicalCommentBlock) {
+        String placement = activePlacementClause == null ? "" : activePlacementClause;
+        String physical = physicalCommentBlock == null ? "" : physicalCommentBlock;
+        return placement + physical;
+    }
+
+    @Override
+    public String primaryKeyConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        return "CONSTRAINT " + constraintName + " PRIMARY KEY (" + columns + ")"
+                + physicalIndexComment
+                + filegroupClause(indexTablespace)
+                + deferrabilityClause(deferrable, initiallyDeferred);
+    }
+
+    @Override
+    public String uniqueConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        return "ALTER TABLE " + tableName
+                + " ADD CONSTRAINT " + constraintName + " UNIQUE(" + columns + ")"
+                + physicalIndexComment
+                + filegroupClause(indexTablespace)
+                + deferrabilityClause(deferrable, initiallyDeferred)
+                + statementTerminator();
+    }
+
+    @Override
+    public String indexTailWithPhysical(
+            String includeColumns, String physicalIndexComment,
+            String indexTablespace, String predicate) {
+        return indexIncludeClause(includeColumns)
+                + partialIndexClause(predicate)
+                + physicalIndexComment
+                + indexTablespaceClause(indexTablespace);
+    }
+
+    @Override
     public String referentialActionClause(String clause, ReferentialAction action) {
         if (action == ReferentialAction.RESTRICT) {
             return " " + clause + " NO ACTION";

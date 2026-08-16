@@ -1,3 +1,25 @@
+
+- Fixed the Physical Phase 1 PostgreSQL LOB golden assertion to follow the existing PostgreSQL identifier-rendering contract (ordinary identifiers are emitted in lower case). Production DDL behavior is unchanged.
+# 2026-08-16 - Physical DDL phase 1 Maven regression fix
+
+- Fixed `OracleDdlSanityChecker` so inline `/* ... */` physical candidate blocks are excluded from executable Oracle validation while original line numbers are preserved.
+- Fixed CREATE TABLE scope tracking in the Oracle safety gate using parenthesis depth, preventing later `ALTER`, `COMMENT`, `GRANT`, and summary text from being misclassified as column definitions after table-level physical comments were introduced.
+- Updated the PostgreSQL generator regression expectation so inline physical comment blocks may appear before the statement terminator without changing the logical constraint/index assertion.
+- Added an Oracle sanity regression covering inline physical comments followed by active tablespace, ALTER, COMMENT, and GRANT statements.
+- Direct Java 21 compilation and focused Oracle/PostgreSQL smoke verification passed. Full Maven suite requires rerun in the project environment.
+
+# 2026-08-16 - Physical DDL phase 1 (inline DBA review)
+
+- Added comment-only Physical Phase 1 for Oracle, PostgreSQL, SQL Server, and Db2 for z/OS without adding service/API physical override parameters or REVIEW/APPLY modes.
+- Preserved all previously active placement behavior; Oracle `TS_<SCHEMA>` / `ITS_<SCHEMA>` defaults remain executable, and source-driven PostgreSQL/SQL Server/Db2 placement remains executable.
+- Added inline table/index physical comment blocks at DBMS-correct grammar positions for DBA review and manual activation.
+- Added Oracle PCTFREE/INITRANS guidance, PostgreSQL fillfactor guidance, SQL Server fill/compression/index-option guidance, and Db2 z/OS table/index storage-option guidance.
+- Added Db2 z/OS `FOR MIXED DATA` for CHAR/VARCHAR and source-driven `WITH DEFAULT` rendering; nullable columns without an explicit source default do not receive a default.
+- Added FK supporting-index analysis using same-order leading-column matching across PK, unique keys, and explicit indexes; missing coverage emits `PHYS-FK-INDEX-001` and never auto-creates an index.
+- Added Db2 varying-character index-key detection with a DBA placeholder for `PADDED/NOT PADDED`.
+- Added focused Physical Phase 1 regression coverage and `docs/PHYSICAL-PHASE1.md`.
+- Direct Java 21 compilation and four-dialect physical smoke/regression verification passed. Full Maven execution remains environment validation because the Maven wrapper cannot download Maven 3.9.9 in the packaging environment.
+
 # 2026-08-15 - Graphviz readability phase 2
 
 - Added Graphviz-specific readability profiles without changing the canonical model, parsers, SQL generators, Mermaid exporter, or database deployment logic.
@@ -723,3 +745,51 @@
 - Preserved DOT-only runtime behavior; SchemaForge does not execute Graphviz binaries.
 - Final regression: 313 tests, 0 failures, 0 errors, 3 skipped; BUILD SUCCESS.
 - Baseline ID: `SCHEMAFORGE-V4-MERMAID-GRAPHVIZ-FINAL-20260815`.
+
+## 2026-08-16 - Physical Phase 1 corpus hardening: LOB boundary and Word variants
+
+- Added regression coverage that keeps BLOB/LOB placement outside Physical Phase 1 for Oracle, PostgreSQL, SQL Server, and Db2/zOS.
+- Confirmed Phase 1 does not emit Oracle LOB storage clauses, SQL Server `TEXTIMAGE_ON`, or Db2 auxiliary/LOB tablespace provisioning.
+- Added conservative recovery for the real DOCX datatype typo `NUMBER)5)` -> `NUMBER(5)`.
+- Added support for the real column-header variant `Data RANGE` as a datatype header while keeping the ordinary `Range` column distinct.
+- Added an in-memory Word regression fixture for those two document defects; the fixture intentionally excludes `SPACE_FREE_NAME`.
+- Previous project regression checkpoint: 320 tests, 0 failures, 0 errors, 3 skipped; `BUILD SUCCESS`.
+
+### 2026-08-16 - Physical Phase 1 real-source regression corpus
+- Added `RealSourcePhysicalPhase1RegressionTest` over four project-supplied table-design documents.
+- Covers `COUNTRIES`, `VOUCHER_TEMPLATE_HEADER_ROWS`, `CTSMSServiceDetails`, and `CTMSourcePermissionDetail` through the actual Word/legacy parser path and all four DDL dialects.
+- Freezes Oracle active `TS_<SCHEMA>` / `ITS_<SCHEMA>` placement, Db2 `FOR MIXED DATA`, physical comment blocks, indexed VARCHAR review placeholder, and source-only default behavior.
+- `SPACE_FREE_NAME` is intentionally not used as a regression contract.
+- Legacy schema values remain explicit API inputs; no schema is inferred from the legacy document name.
+
+### 2026-08-16 - Legacy revision-history default reconciliation
+- Fixed the real `CTMSourcePermissionDetail` regression exposed by the Physical Phase 1 real-source corpus.
+- Legacy default normalization now treats the explicit Persian numeric word `صفر` as SQL numeric literal `0`.
+- Added conservative revision-history reconciliation: an already-extracted field-grid default is removed only when a later change-log entry explicitly says that the default was removed for that technical field.
+- One-character technical-name typos in revision rows are tolerated only when the match to a real column is unique; this covers the source typo `ReuestAmnt` -> `RequestAmnt` without broad fuzzy matching.
+- The resolver never creates a default from revision prose; it only removes stale grid defaults.
+- Bumped the legacy parser version to `0.6.0` and the canonical snapshot parser version so cached snapshots are reparsed under the corrected semantics.
+
+### 2026-08-16 - two-source corpus bulk validation preparation
+- Added `CorpusInventoryIT` to inventory the new-format Word corpus and classify/version-check legacy JSON before long bulk runs.
+- Added `schemaforge.word.parserMode=standard|legacy|auto`; `standard` keeps the new-format Word corpus isolated from legacy fallback.
+- Extended `WordDirectoryMultiDatabaseGenerationIT` to Db2 for z/OS and Db2 offline validation.
+- Extended `CanonicalJsonDirectoryToDdlIT` to Db2 for z/OS and Db2 offline validation.
+- Documented the separate New Word and Legacy JSON bulk workflows in `docs/integration/CORPUS-BULK-VALIDATION.md`.
+
+### 2026-08-16 - persisted JSON compatibility split
+- Split canonical snapshot compatibility into contract compatibility (`snapshotVersion` + `modelVersion`) and strict Word-cache compatibility (contract + current `parserVersion`).
+- Kept Word cache reuse strict; stale parser snapshots are still rejected by the normal cache path.
+- Added `CanonicalSnapshotMapper.toDomainPersistedSource(...)` for a persisted JSON corpus that is itself the input source.
+- Updated `CorpusInventoryIT` to report contract-compatible, cache-compatible, stale-parser, bulk-DDL-eligible and incompatible-contract counts separately.
+- Updated `CanonicalJsonDirectoryToDdlIT` to accept contract-compatible persisted JSON while reporting stale parser provenance in the batch summary.
+- Added regression coverage proving a stale-parser snapshot is not cache-compatible but remains mappable as a persisted JSON source.
+
+## 2026-08-16 - Bulk canonical JSON mapping diagnostics
+- Expanded `CanonicalJsonDirectoryToDdlIT` dialect-mapping diagnostics to Oracle, PostgreSQL and Db2/zOS.
+- Db2/zOS lossless numeric blockers are now reported per table/column before generation (`DB2_NUMBER_PRECISION_REQUIRED`, `DB2_DECIMAL_PRECISION_UNSUPPORTED`) instead of only as a generic generator exception.
+- Oracle now reports bounded NUMBER/TIMESTAMP precision and conservative LOB fallbacks used by the existing dialect renderer.
+- PostgreSQL now reports explicit TIMESTAMP precision currently dropped by the existing mapper; this release does not change production mapping semantics.
+- No production DDL generation behavior was changed by this diagnostics-only update.
+- Fixed `CanonicalSnapshotMapperTest.distinguishesPersistedSourceCompatibilityFromWordCacheFreshness` to compare restored table semantics instead of `Table` object identity. No production behavior changed.
+

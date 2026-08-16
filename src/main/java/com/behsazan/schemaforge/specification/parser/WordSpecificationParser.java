@@ -822,7 +822,8 @@ public final class WordSpecificationParser implements SpecificationParser {
             if (value.contains("COLUMN NAME") || value.contains("نام ستون")) return COLUMN_NAME;
             if (value.contains("نام فارسی ستون") || value.contains("شرح ستون")
                     || value.contains("COLUMN DESCRIPTION") || value.contains("PERSIAN COLUMN")) return COLUMN_DESCRIPTION;
-            if (value.contains("DATA TYPE") || value.contains("DATATYPE") || value.contains("نوع داده")) return DATA_TYPE;
+            if (value.contains("DATA TYPE") || value.contains("DATATYPE")
+                    || value.equals("DATA RANGE") || value.contains("نوع داده")) return DATA_TYPE;
             if (value.contains("PRIMARY") || value.contains("FOREIGN") || value.contains("کلید")) return KEY;
             if (value.contains("UNIQUE") || value.contains("یکتا")) return UNIQUE;
             if (value.equals("INDEX") || value.contains("INDEX NAME")

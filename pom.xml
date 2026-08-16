@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springdoc.version>2.8.13</springdoc.version>
-        <!-- Legacy Word Parser 0.5.9 is regression-tested with Apache POI 5.5.1. -->
+        <!-- Legacy Word Parser 0.6.0 is regression-tested with Apache POI 5.5.1. -->
         <poi.version>5.5.1</poi.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <archunit.version>1.4.1</archunit.version>

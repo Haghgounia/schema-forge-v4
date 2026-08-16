@@ -88,9 +88,13 @@ class SqlServerDdlGeneratorTest {
         assertTrue(sql.contains("EFFECTIVE_STATUS AS (COALESCE(STATUS, 0))"));
         assertFalse(sql.contains("EFFECTIVE_STATUS DECIMAL"));
         assertFalse(sql.contains("EFFECTIVE_STATUS AS (COALESCE(STATUS, 0)) NOT NULL"));
-        assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID) ON INDEX_FG"));
-        assertTrue(sql.contains(") ON DATA_FG;"));
-        assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE) ON INDEX_FG;"));
+        assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID)"));
+        assertTrue(sql.contains("-- SQL SERVER INDEX PHYSICAL OPTIONS"));
+        assertTrue(sql.contains("ON INDEX_FG"));
+        assertTrue(sql.contains(") ON DATA_FG"));
+        assertTrue(sql.contains("-- SQL SERVER TABLE PHYSICAL OPTIONS"));
+        assertTrue(sql.contains("WITH (DATA_COMPRESSION = NONE)"));
+        assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE)"));
         assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS WITH CHECK ADD CONSTRAINT CK_CUSTOMERS_STATUS"
                 + " CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS CHECK CONSTRAINT CK_CUSTOMERS_STATUS;"));
@@ -98,7 +102,8 @@ class SqlServerDdlGeneratorTest {
         assertTrue(sql.contains("REFERENCES CRM.BRANCHES(BRANCH_ID) ON DELETE CASCADE;"));
         assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS CHECK CONSTRAINT FK_CUSTOMERS_BRANCH;"));
         assertTrue(sql.contains("CREATE INDEX IX_CUSTOMERS_STATUS ON CRM.CUSTOMERS(STATUS DESC)"
-                + " INCLUDE (CUSTOMER_CODE) WHERE STATUS = 1 ON INDEX_FG;"));
+                + " INCLUDE (CUSTOMER_CODE) WHERE STATUS = 1"));
+        assertTrue(sql.contains("DATA_COMPRESSION = NONE"));
         assertTrue(sql.contains("EXEC sys.sp_addextendedproperty @name=N'MS_Description',"
                 + " @value=N'Customer''s master'"));
         assertTrue(sql.contains("@level2type=N'COLUMN', @level2name=N'CUSTOMER_CODE';"));

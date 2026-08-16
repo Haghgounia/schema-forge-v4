@@ -92,4 +92,27 @@ class OracleDdlSanityCheckerTest {
         assertTrue(exception.getMessage().contains("ORACLE_VARCHAR2_LENGTH"));
     }
 
+    @Test
+    void ignoresInlinePhysicalCommentBlocksAndStopsAtTheEndOfTheTableBody() {
+        String sql = """
+                CREATE TABLE ACC.TEST_PHYSICAL
+                (
+                  ID NUMBER(10) NOT NULL,
+                  NAME VARCHAR2(100 CHAR),
+                  CONSTRAINT PK_TEST_PHYSICAL PRIMARY KEY (ID)
+                )
+                /*
+                -- ORACLE TABLE PHYSICAL OPTIONS
+                PCTFREE 10
+                INITRANS 1
+                */
+                TABLESPACE TS_ACC;
+
+                ALTER TABLE ACC.TEST_PHYSICAL ADD CONSTRAINT UK_TEST_PHYSICAL UNIQUE(NAME);
+                COMMENT ON TABLE ACC.TEST_PHYSICAL IS 'test';
+                GRANT SELECT ON ACC.TEST_PHYSICAL TO APP_ROLE;
+                """;
+        assertDoesNotThrow(() -> checker.requireValid(sql, "TEST_PHYSICAL"));
+    }
+
 }

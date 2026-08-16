@@ -12,6 +12,8 @@ import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.snapshot.CanonicalSchemaSnapshot;
 import com.behsazan.schemaforge.snapshot.CanonicalSnapshotJsonStore;
 import com.behsazan.schemaforge.snapshot.CanonicalSnapshotMapper;
+import com.behsazan.schemaforge.snapshot.CanonicalSnapshotVersions;
+import com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidator;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.validation.postgresql.PostgreSqlDdlSanityChecker;
 import com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidator;
@@ -37,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>No Word document is opened by this runner. Each compatible snapshot is mapped back to the
  * canonical domain model, prepared once, and then rendered for the configured dialects. This is the
- * fast development path for repeated Oracle/PostgreSQL/SQL Server dialect corrections.</p>
+ * fast development path for repeated Oracle/PostgreSQL/SQL Server/Db2 for z/OS dialect corrections.</p>
  */
 class CanonicalJsonDirectoryToDdlIT {
     private static final String INPUT_DIR = "schemaforge.snapshot.ddl.inputDir";
@@ -47,7 +49,8 @@ class CanonicalJsonDirectoryToDdlIT {
     private static final String CLEAN_OUTPUT = "schemaforge.snapshot.ddl.cleanOutput";
 
     private static final List<DatabasePlatform> DEFAULT_PLATFORMS = List.of(
-            DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL, DatabasePlatform.SQLSERVER);
+            DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
+            DatabasePlatform.SQLSERVER, DatabasePlatform.DB2_ZOS);
 
     private final CanonicalSnapshotJsonStore store = new CanonicalSnapshotJsonStore();
     private final CanonicalSnapshotMapper mapper = new CanonicalSnapshotMapper();
@@ -56,6 +59,7 @@ class CanonicalJsonDirectoryToDdlIT {
     private final OracleDdlSanityChecker oracleSanityChecker = new OracleDdlSanityChecker();
     private final PostgreSqlDdlSanityChecker postgreSqlSanityChecker = new PostgreSqlDdlSanityChecker();
     private final SqlServerOfflineDdlValidator sqlServerValidator = new SqlServerOfflineDdlValidator();
+    private final Db2ZosOfflineDdlValidator db2ZosValidator = new Db2ZosOfflineDdlValidator();
 
     @Test
     void recursivelyGeneratesConfiguredDatabaseScriptsFromCanonicalJson() throws Exception {
@@ -113,6 +117,7 @@ class CanonicalJsonDirectoryToDdlIT {
         });
 
         int snapshotFailures = 0;
+        int staleParserSnapshots = 0;
         for (Path snapshotPath : selectedSnapshots) {
             String relativeSnapshot = normalize(inputRoot.relativize(snapshotPath));
             CanonicalSchemaSnapshot snapshot;
@@ -121,7 +126,10 @@ class CanonicalJsonDirectoryToDdlIT {
             try {
                 snapshot = store.readSnapshot(snapshotPath);
                 source = snapshot.source() == null ? "" : snapshot.source().relativePath();
-                DatabaseSchema schema = mapper.toDomain(snapshot);
+                if (!CanonicalSnapshotVersions.parserCurrent(snapshot)) {
+                    staleParserSnapshots++;
+                }
+                DatabaseSchema schema = mapper.toDomainPersistedSource(snapshot);
                 prepared = preparationService.prepare(schema);
             } catch (Exception exception) {
                 snapshotFailures++;
@@ -165,8 +173,8 @@ class CanonicalJsonDirectoryToDdlIT {
         Files.writeString(collisionFile, String.join(System.lineSeparator(), outputCollisions) + System.lineSeparator(),
                 StandardCharsets.UTF_8);
         Files.writeString(textFile, textSummary(inputRoot, outputRoot, snapshots.size(), selectedSnapshots.size(),
-                snapshotSelection.duplicates().size(), outputCollisions.size() - 1, snapshotFailures, platforms,
-                generated, generatedWithIssues, failed), StandardCharsets.UTF_8);
+                snapshotSelection.duplicates().size(), outputCollisions.size() - 1, snapshotFailures,
+                staleParserSnapshots, platforms, generated, generatedWithIssues, failed), StandardCharsets.UTF_8);
 
         for (DatabasePlatform platform : platforms) {
             int successful = generated.get(platform) + generatedWithIssues.get(platform);
@@ -185,6 +193,7 @@ class CanonicalJsonDirectoryToDdlIT {
         System.out.println("Exact duplicates     : " + snapshotSelection.duplicates().size());
         System.out.println("Output collisions    : " + (outputCollisions.size() - 1));
         System.out.println("Snapshot failures    : " + snapshotFailures);
+        System.out.println("Stale parser sources : " + staleParserSnapshots);
         for (DatabasePlatform platform : platforms) {
             System.out.println(platform.commandLineName() + " generated       : " + generated.get(platform));
             System.out.println(platform.commandLineName() + " with issues     : " + generatedWithIssues.get(platform));
@@ -224,6 +233,18 @@ class CanonicalJsonDirectoryToDdlIT {
 
         String source = snapshot.source() == null ? "" : snapshot.source().relativePath();
         Path target = null;
+        MappingAssessment mappingAssessment = mappingAssessment(platform, prepared.schema());
+        if (mappingAssessment.fatal()) {
+            failed.compute(platform, (key, value) -> value + 1);
+            for (ValidationFinding finding : mappingAssessment.findings()) {
+                issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.stage(),
+                        finding.location(), finding.code(), finding.message(), finding.fragment()));
+            }
+            summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(),
+                    "GENERATION_BLOCKED_BY_MAPPING", Integer.toString(mappingAssessment.findings().size()), "",
+                    "Fatal dialect mapping finding(s): " + mappingAssessment.findings().size()));
+            return;
+        }
         try {
             String sql = new DdlGenerator(dialect).generate(prepared.schema(), prepared.validationReport());
             Path sourcePath = safeSourcePath(source, snapshotPath.getFileName().toString());
@@ -247,8 +268,7 @@ class CanonicalJsonDirectoryToDdlIT {
                         "OUTPUT_NAME_COLLISION"));
             }
 
-            List<ValidationFinding> findings = new ArrayList<>();
-            findings.addAll(mappingFindings(platform, prepared.schema()));
+            List<ValidationFinding> findings = new ArrayList<>(mappingAssessment.findings());
             findings.addAll(validate(platform, sql));
             Files.writeString(target, sql, StandardCharsets.UTF_8);
             if (!writtenTargets.add(target.toAbsolutePath().normalize())) {
@@ -311,41 +331,136 @@ class CanonicalJsonDirectoryToDdlIT {
         }
     }
 
-    private List<ValidationFinding> mappingFindings(DatabasePlatform platform, DatabaseSchema schema) {
-        if (platform != DatabasePlatform.SQLSERVER) {
-            return List.of();
-        }
+    private MappingAssessment mappingAssessment(DatabasePlatform platform, DatabaseSchema schema) {
         Set<String> exactNumeric = Set.of("NUMBER", "NUMERIC", "DECIMAL", "DEC");
         Set<String> temporal = Set.of(
                 "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
                 "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE",
                 "DATETIME2", "DATETIMEOFFSET", "TIME");
         List<ValidationFinding> findings = new ArrayList<>();
+        boolean fatal = false;
+
         for (var table : schema.tables()) {
             for (var column : table.columns()) {
                 var type = column.dataType();
                 String sourceName = type.name().normalized().toUpperCase(Locale.ROOT);
                 String location = table.qualifiedName() + "." + column.name().value();
-                if (exactNumeric.contains(sourceName) && type.precision() != null && type.precision() > 38) {
-                    int scale = type.scale() == null ? 0 : type.scale();
-                    findings.add(new ValidationFinding(
-                            "DIALECT_MAPPING", location, "SQLSERVER_DECIMAL_PRECISION_BOUNDED",
-                            "Canonical " + sourceName + "(" + type.precision()
-                                    + (type.scale() == null ? "" : "," + type.scale())
-                                    + ") is rendered as DECIMAL(38," + scale + ") for SQL Server", ""));
-                }
-                if (temporal.contains(sourceName) && type.precision() != null && type.precision() > 7) {
-                    String target = sourceName.startsWith("TIMESTAMP WITH")
-                            || sourceName.startsWith("TIMESTAMP_WITH") || sourceName.equals("DATETIMEOFFSET")
-                            ? "DATETIMEOFFSET" : sourceName.equals("TIME") ? "TIME" : "DATETIME2";
-                    findings.add(new ValidationFinding(
-                            "DIALECT_MAPPING", location, "SQLSERVER_TEMPORAL_PRECISION_BOUNDED",
-                            "Canonical " + sourceName + "(" + type.precision()
-                                    + ") is rendered as " + target + "(7) for SQL Server", ""));
+
+                switch (platform) {
+                    case ORACLE -> {
+                        if (exactNumeric.contains(sourceName) && type.precision() != null && type.precision() > 38) {
+                            int scale = type.scale() == null ? 0 : Math.min(type.scale(), 127);
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "ORACLE_DECIMAL_PRECISION_BOUNDED",
+                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
+                                            + " is rendered with Oracle NUMBER precision 38"
+                                            + (type.scale() == null ? "" : " and scale " + scale), ""));
+                        }
+                        if (exactNumeric.contains(sourceName) && type.scale() != null && type.scale() > 127) {
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "ORACLE_DECIMAL_SCALE_BOUNDED",
+                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
+                                            + " is rendered with Oracle NUMBER scale 127", ""));
+                        }
+                        if (isOracleTimestamp(sourceName) && type.precision() != null && type.precision() > 9) {
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "ORACLE_TEMPORAL_PRECISION_BOUNDED",
+                                    "Canonical " + sourceName + "(" + type.precision()
+                                            + ") is rendered with Oracle TIMESTAMP precision 9", ""));
+                        }
+                        addOracleLargeObjectFallbackFinding(findings, location, sourceName, type.length());
+                    }
+                    case POSTGRESQL -> {
+                        if (isPostgreSqlTimestamp(sourceName) && type.precision() != null) {
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "POSTGRESQL_TEMPORAL_PRECISION_DROPPED",
+                                    "Canonical " + sourceName + "(" + type.precision()
+                                            + ") is rendered without an explicit PostgreSQL temporal precision", ""));
+                        }
+                    }
+                    case SQLSERVER -> {
+                        if (exactNumeric.contains(sourceName) && type.precision() != null && type.precision() > 38) {
+                            int scale = type.scale() == null ? 0 : type.scale();
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "SQLSERVER_DECIMAL_PRECISION_BOUNDED",
+                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
+                                            + " is rendered as DECIMAL(38," + scale + ") for SQL Server", ""));
+                        }
+                        if (temporal.contains(sourceName) && type.precision() != null && type.precision() > 7) {
+                            String target = sourceName.startsWith("TIMESTAMP WITH")
+                                    || sourceName.startsWith("TIMESTAMP_WITH") || sourceName.equals("DATETIMEOFFSET")
+                                    ? "DATETIMEOFFSET" : sourceName.equals("TIME") ? "TIME" : "DATETIME2";
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "SQLSERVER_TEMPORAL_PRECISION_BOUNDED",
+                                    "Canonical " + sourceName + "(" + type.precision()
+                                            + ") is rendered as " + target + "(7) for SQL Server", ""));
+                        }
+                    }
+                    case DB2_ZOS -> {
+                        if (exactNumeric.contains(sourceName) && type.precision() == null) {
+                            fatal = true;
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "DB2_NUMBER_PRECISION_REQUIRED",
+                                    "Canonical " + sourceName
+                                            + " has no explicit precision; Db2 z/OS cannot map it losslessly to DECIMAL", ""));
+                        } else if (exactNumeric.contains(sourceName) && type.precision() > 31) {
+                            fatal = true;
+                            findings.add(new ValidationFinding(
+                                    "DIALECT_MAPPING", location, "DB2_DECIMAL_PRECISION_UNSUPPORTED",
+                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
+                                            + " exceeds the Db2 z/OS DECIMAL precision limit 31", ""));
+                        }
+                    }
                 }
             }
         }
-        return List.copyOf(findings);
+        return new MappingAssessment(List.copyOf(findings), fatal);
+    }
+
+    private static boolean isOracleTimestamp(String sourceName) {
+        return sourceName.equals("TIMESTAMP")
+                || sourceName.equals("TIMESTAMP WITH TIME ZONE")
+                || sourceName.equals("TIMESTAMP_WITH_TIME_ZONE")
+                || sourceName.equals("TIMESTAMP WITH LOCAL TIME ZONE")
+                || sourceName.equals("TIMESTAMP_WITH_LOCAL_TIME_ZONE");
+    }
+
+    private static boolean isPostgreSqlTimestamp(String sourceName) {
+        return isOracleTimestamp(sourceName);
+    }
+
+    private static String renderType(String sourceName, Integer precision, Integer scale) {
+        if (precision == null) return sourceName;
+        return sourceName + "(" + precision + (scale == null ? "" : "," + scale) + ")";
+    }
+
+    private static void addOracleLargeObjectFallbackFinding(
+            List<ValidationFinding> findings, String location, String sourceName, Integer length) {
+        if (length == null) return;
+        String target = null;
+        int limit = 0;
+        if ((sourceName.equals("VARCHAR") || sourceName.equals("VARCHAR2")) && length > 4000) {
+            target = "CLOB";
+            limit = 4000;
+        } else if ((sourceName.equals("NVARCHAR") || sourceName.equals("NVARCHAR2")) && length > 2000) {
+            target = "NCLOB";
+            limit = 2000;
+        } else if ((sourceName.equals("CHAR") || sourceName.equals("CHARACTER")) && length > 2000) {
+            target = "CLOB";
+            limit = 2000;
+        } else if (sourceName.equals("NCHAR") && length > 2000) {
+            target = "NCLOB";
+            limit = 2000;
+        } else if (sourceName.equals("RAW") && length > 2000) {
+            target = "BLOB";
+            limit = 2000;
+        }
+        if (target != null) {
+            findings.add(new ValidationFinding(
+                    "DIALECT_MAPPING", location, "ORACLE_LARGE_OBJECT_FALLBACK",
+                    "Canonical " + sourceName + "(" + length + ") exceeds the conservative Oracle limit "
+                            + limit + " and is rendered as " + target, ""));
+        }
     }
 
     private List<ValidationFinding> validate(DatabasePlatform platform, String sql) {
@@ -360,7 +475,9 @@ class CanonicalJsonDirectoryToDdlIT {
             case SQLSERVER -> sqlServerValidator.validate(sql).issues().stream()
                     .map(issue -> new ValidationFinding("STATIC_VALIDATION",
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
-            case DB2_ZOS -> List.of();
+            case DB2_ZOS -> db2ZosValidator.validate(sql).issues().stream()
+                    .map(issue -> new ValidationFinding("STATIC_VALIDATION",
+                            "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
         };
     }
 
@@ -434,9 +551,6 @@ class CanonicalJsonDirectoryToDdlIT {
         for (String token : value.split("[,;\\s]+")) {
             if (!token.isBlank()) {
                 DatabasePlatform platform = DatabasePlatform.parse(token);
-                if (platform == DatabasePlatform.DB2_ZOS) {
-                    throw new IllegalArgumentException("This runner supports oracle, postgresql and sqlserver");
-                }
                 result.add(platform);
             }
         }
@@ -461,7 +575,7 @@ class CanonicalJsonDirectoryToDdlIT {
 
     private static String textSummary(
             Path inputRoot, Path outputRoot, int snapshotsDiscovered, int snapshotsSelected, int duplicateSnapshots,
-            int outputCollisions, int snapshotFailures, List<DatabasePlatform> platforms,
+            int outputCollisions, int snapshotFailures, int staleParserSnapshots, List<DatabasePlatform> platforms,
             Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> withIssues, Map<DatabasePlatform, Integer> failed) {
         StringBuilder result = new StringBuilder();
@@ -474,6 +588,10 @@ class CanonicalJsonDirectoryToDdlIT {
         result.append("Exact duplicates    : ").append(duplicateSnapshots).append(System.lineSeparator());
         result.append("Output collisions   : ").append(outputCollisions).append(System.lineSeparator());
         result.append("Snapshot failures   : ").append(snapshotFailures).append(System.lineSeparator());
+        result.append("Stale parser sources: ").append(staleParserSnapshots).append(System.lineSeparator());
+        result.append("Parser freshness    : provenance warning only for persisted JSON sources; ")
+                .append("snapshot/model contract remains the DDL eligibility gate")
+                .append(System.lineSeparator());
         for (DatabasePlatform platform : platforms) {
             result.append(System.lineSeparator()).append(platform.commandLineName()).append(System.lineSeparator());
             result.append("  Generated        : ").append(generated.get(platform)).append(System.lineSeparator());
@@ -520,6 +638,10 @@ class CanonicalJsonDirectoryToDdlIT {
 
     private record DuplicateSnapshot(
             String duplicateSnapshot, String keptSnapshot, String normalizedSource, String sha256) {
+    }
+
+    /** Dialect-mapping findings plus whether generation must stop before emitting unsafe SQL. */
+    private record MappingAssessment(List<ValidationFinding> findings, boolean fatal) {
     }
 
     /** One normalized static-validation finding independent from its DBMS-specific validator. */

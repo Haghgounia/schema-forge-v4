@@ -280,6 +280,7 @@ final class DocTableExtractor {
             List<ExtractionWarning> warnings = new ArrayList<>();
             List<ColumnDefinition> columns = extractColumns(parsed.tables(), warnings);
             columns = sanitizeColumnQuality(columns, warnings);
+            columns = LegacyRevisionDefaultOverrideResolver.apply(columns, parsed.rawMainText(), warnings);
             MetadataSanitization metadataSanitization = sanitizeMetadataAgainstColumns(
                     metadata, columns, parsed.rawMainText()
             );

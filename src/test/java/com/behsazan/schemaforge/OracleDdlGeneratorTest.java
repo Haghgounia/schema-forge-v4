@@ -129,7 +129,10 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("CREATE TABLE BIM.CUSTOMERS"));
         assertTrue(sql.contains("CUSTOMER_ID NUMBER(18,0) NOT NULL"));
         assertTrue(sql.contains("NAME VARCHAR2(100 CHAR) DEFAULT 'UNKNOWN'"));
-        assertTrue(sql.contains(") TABLESPACE TS_BIM;"));
+        assertTrue(sql.contains("TABLESPACE TS_BIM;"));
+        assertTrue(sql.contains("-- ORACLE TABLE PHYSICAL OPTIONS"));
+        assertTrue(sql.contains("PCTFREE 10"));
+        assertTrue(sql.contains("INITRANS 1"));
 
         // 3. Primary key
         assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS_CUSTOMER_ID PRIMARY KEY (CUSTOMER_ID)"));
@@ -147,7 +150,9 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("ALTER TABLE BIM.CUSTOMERS ADD CONSTRAINT FK_CUSTOMERS_BRANCH_ID FOREIGN KEY (BRANCH_ID) REFERENCES BIM.BRANCHES(BRANCH_ID) ENABLE;"));
 
         // 7. Index
-        assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_NAME ON BIM.CUSTOMERS(NAME) TABLESPACE ITS_BIM;"));
+        assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_NAME ON BIM.CUSTOMERS(NAME)"));
+        assertTrue(sql.contains("-- ORACLE INDEX PHYSICAL OPTIONS"));
+        assertTrue(sql.contains("TABLESPACE ITS_BIM;"));
 
         // 8. Comments (plus the already-supported grant and footer)
         assertTrue(sql.contains("-- Customer master"));
@@ -301,10 +306,11 @@ class OracleDdlGeneratorTest {
         String sql = new DdlGenerator(new OracleDialect()).generate(
                 DatabaseSchema.builder("DPS").addTable(table).build());
 
-        assertTrue(sql.contains(") TABLESPACE TS_DPS;"));
-        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.PK_DEPOSITS_DEPOSIT_ID ON DPS.DEPOSITS(DEPOSIT_ID) TABLESPACE ITS_DPS"));
-        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.UK_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS"));
-        assertFalse(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID) TABLESPACE ITS_DPS;"));
+        assertTrue(sql.contains("TABLESPACE TS_DPS;"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.PK_DEPOSITS_DEPOSIT_ID ON DPS.DEPOSITS(DEPOSIT_ID)"));
+        assertTrue(sql.contains("TABLESPACE ITS_DPS"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.UK_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID)"));
+        assertFalse(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID)"));
     }
 
 

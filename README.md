@@ -309,3 +309,7 @@ The supported Spring Boot runtime exposes Mermaid generation at:
 `POST /api/v1/diagram/mermaid/canonical-json`
 
 Upload one `*.schema.json` canonical snapshot or a ZIP containing a unique one-version-per-table canonical set. The response is a UTF-8 `.mmd` file. See `docs/diagram/MERMAID-PRODUCTION-INTEGRATION.md` for parameters and examples.
+
+## Physical DDL phase 1
+
+SchemaForge can now enrich Oracle, PostgreSQL, Microsoft SQL Server, and Db2 for z/OS DDL with inline, non-executable physical-option blocks for DBA review. Existing active placement remains unchanged; new tuning/storage guidance is placed inside `/* ... */` at the DBMS-correct position in the statement. Phase 1 deliberately has no `REVIEW/APPLY` service mode and does not provision tablespaces, filegroups, stogroups, LOB storage, or partitions. Db2 for z/OS also renders `FOR MIXED DATA` for `CHAR`/`VARCHAR` and analyzes FK supporting-index coverage without creating indexes automatically. See `docs/PHYSICAL-PHASE1.md`.

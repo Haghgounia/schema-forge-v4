@@ -24,6 +24,7 @@ class LegacyDefaultValueNormalizerTest {
         assertEquals("0", normalize("0 1- دائم 2- موقت", DataType.numeric("NUMBER", 1, 0)).expression());
         assertEquals("1", normalize("1 1- فعال 0- غیرفعال", DataType.numeric("NUMBER", 1, 0)).expression());
         assertEquals("0", normalize("0 CTShahabInquiry", DataType.numeric("NUMBER", 16, 0)).expression());
+        assertEquals("0", normalize("پیش فرض: صفر", DataType.numeric("NUMBER", 20, 5)).expression());
     }
 
     @Test

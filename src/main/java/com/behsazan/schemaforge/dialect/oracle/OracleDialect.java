@@ -213,6 +213,36 @@ public final class OracleDialect implements Dialect {
     }
 
     @Override
+    public String primaryKeyConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        String nl = System.lineSeparator();
+        return "CONSTRAINT " + constraintName + " PRIMARY KEY (" + columns + ")"
+                + nl + "USING INDEX (CREATE UNIQUE INDEX " + qualifiedIndexName
+                + " ON " + tableName + "(" + columns + ")"
+                + physicalIndexComment
+                + indexTablespaceClause(indexTablespace) + ")"
+                + deferrabilityClause(deferrable, initiallyDeferred);
+    }
+
+    @Override
+    public String uniqueConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            boolean deferrable, boolean initiallyDeferred) {
+        String nl = System.lineSeparator();
+        return "ALTER TABLE " + tableName
+                + " ADD CONSTRAINT " + constraintName + " UNIQUE(" + columns + ")"
+                + nl + " USING INDEX (CREATE UNIQUE INDEX " + qualifiedIndexName
+                + " ON " + tableName + "(" + columns + ")"
+                + physicalIndexComment
+                + indexTablespaceClause(indexTablespace) + ")"
+                + deferrabilityClause(deferrable, initiallyDeferred)
+                + statementTerminator();
+    }
+
+    @Override
     public String scriptPreamble(String source, String schemaName) {
         String nl = System.lineSeparator();
         return "PROMPT ==============================================================" + nl

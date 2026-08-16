@@ -83,11 +83,14 @@ class PostgreSqlDdlGeneratorTest {
         assertTrue(sql.contains("external_id NUMERIC(18,0) DEFAULT nextval('bim.seq_customers') NOT NULL"));
         assertTrue(sql.contains("effective_status NUMERIC(1,0) GENERATED ALWAYS AS (COALESCE(STATUS, 0)) STORED"));
         assertTrue(sql.contains("CONSTRAINT pk_customers PRIMARY KEY (customer_id)"));
-        assertTrue(sql.contains("ADD CONSTRAINT uk_customers_code UNIQUE(customer_code) USING INDEX TABLESPACE its_bim;"));
+        assertTrue(sql.contains("ADD CONSTRAINT uk_customers_code UNIQUE(customer_code)"));
+        assertTrue(sql.contains("-- POSTGRESQL INDEX PHYSICAL OPTIONS"));
+        assertTrue(sql.contains("USING INDEX TABLESPACE its_bim;"));
         assertTrue(sql.contains("CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("USING INDEX TABLESPACE its_bim"));
         assertTrue(sql.contains("REFERENCES bim.branches(branch_id) ON DELETE CASCADE ON UPDATE RESTRICT;"));
-        assertTrue(sql.contains("CREATE INDEX idx_customers_status ON bim.customers(status DESC) TABLESPACE its_bim;"));
+        assertTrue(sql.contains("CREATE INDEX idx_customers_status ON bim.customers(status DESC)"));
+        assertTrue(sql.contains("TABLESPACE its_bim;"));
         assertTrue(sql.contains("COMMENT ON TABLE bim.customers IS 'Customer master';"));
         assertTrue(sql.contains("Dialect      : PostgreSql"));
         assertFalse(sql.contains("PROMPT "));
@@ -126,9 +129,10 @@ class PostgreSqlDdlGeneratorTest {
                 DatabaseSchema.builder("BIM").addTable(table).build());
 
         assertTrue(sql.contains("CONSTRAINT pk_country_languages PRIMARY KEY (country_id,language_id)"));
-        assertTrue(sql.contains("ADD CONSTRAINT uk_country_language_priority UNIQUE(country_id,priority);"));
+        assertTrue(sql.contains("ADD CONSTRAINT uk_country_language_priority UNIQUE(country_id,priority)"));
+        assertTrue(sql.contains("-- POSTGRESQL INDEX PHYSICAL OPTIONS"));
         assertTrue(sql.contains("ON DELETE SET NULL ON UPDATE SET DEFAULT;"));
-        assertTrue(sql.contains("CREATE UNIQUE INDEX idx_country_languages_order ON bim.country_languages(country_id,priority DESC);"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX idx_country_languages_order ON bim.country_languages(country_id,priority DESC)"));
         assertFalse(sql.contains("CREATE UNIQUE INDEX bim.idx_country_languages_order"));
     }
 
@@ -150,8 +154,10 @@ class PostgreSqlDdlGeneratorTest {
 
         assertTrue(sql.contains("CHECK(COALESCE(STATUS, 0) >= 0);"));
         assertTrue(sql.contains("TABLESPACE ts_bim;"));
-        assertTrue(sql.contains("PRIMARY KEY (status) USING INDEX TABLESPACE its_bim"));
-        assertTrue(sql.contains("UNIQUE(status) USING INDEX TABLESPACE its_bim;"));
+        assertTrue(sql.contains("PRIMARY KEY (status)"));
+        assertTrue(sql.contains("USING INDEX TABLESPACE its_bim"));
+        assertTrue(sql.contains("UNIQUE(status)"));
+        assertTrue(sql.contains("USING INDEX TABLESPACE its_bim;"));
     }
 
 }

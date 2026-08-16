@@ -54,9 +54,24 @@ public final class CanonicalSnapshotMapper {
                         schema.sequences().stream().map(this::sequenceSnapshot).toList()));
     }
 
-    /** Reconstructs a validated canonical domain model from a compatible snapshot. */
+    /** Reconstructs a validated canonical domain model from a current-parser cache snapshot. */
     public DatabaseSchema toDomain(CanonicalSchemaSnapshot snapshot) {
         CanonicalSnapshotVersions.requireCompatible(snapshot);
+        return mapToDomain(snapshot);
+    }
+
+    /**
+     * Reconstructs a canonical domain model from a persisted JSON source whose snapshot/model
+     * contract is compatible, even when its parser provenance is older than the current Word parser.
+     * This must not be used as the Word-cache reuse check; {@link #toDomain(CanonicalSchemaSnapshot)}
+     * remains strict for that purpose.
+     */
+    public DatabaseSchema toDomainPersistedSource(CanonicalSchemaSnapshot snapshot) {
+        CanonicalSnapshotVersions.requireContractCompatible(snapshot);
+        return mapToDomain(snapshot);
+    }
+
+    private DatabaseSchema mapToDomain(CanonicalSchemaSnapshot snapshot) {
         CanonicalSchemaSnapshot.SchemaSnapshot value = Objects.requireNonNull(snapshot.schema(), "snapshot schema");
         DatabaseSchema.Builder builder = DatabaseSchema.builder(value.name());
         if (value.description() != null) {

@@ -23,6 +23,8 @@ import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonValidator;
+import com.behsazan.schemaforge.physical.PhysicalCommentRenderer;
+import com.behsazan.schemaforge.physical.PhysicalCommentRendererResolver;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 
@@ -51,6 +53,7 @@ public final class DdlGenerator {
     private final Dialect dialect;
     private final Clock clock;
     private final InlineIssueRenderer inlineIssueRenderer;
+    private final PhysicalCommentRenderer physicalCommentRenderer;
 
     public DdlGenerator(Dialect dialect) {
         this(dialect, Clock.systemDefaultZone());
@@ -60,6 +63,7 @@ public final class DdlGenerator {
         this.dialect = Objects.requireNonNull(dialect, "dialect must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.inlineIssueRenderer = new InlineIssueRenderer();
+        this.physicalCommentRenderer = PhysicalCommentRendererResolver.resolve(dialect);
     }
 
     /**
@@ -283,7 +287,10 @@ public final class DdlGenerator {
                 .append(")");
         String tablespace = option(table, "TABLESPACE")
                 .orElseGet(() -> dialect.defaultTableTablespace(table.qualifiedName()));
-        sql.append(dialect.tableTablespaceClause(tablespace));
+        String activePlacement = dialect.tableTablespaceClause(tablespace);
+        String physicalComment = physicalCommentRenderer.tableOptions(
+                table, !activePlacement.isBlank());
+        sql.append(dialect.tableTailWithPhysical(activePlacement, physicalComment));
         return sql.append(dialect.statementTerminator()).toString();
     }
 
@@ -330,8 +337,12 @@ public final class DdlGenerator {
         String tableName = qualifiedName(table.qualifiedName());
         String columns = identifiers(primaryKey.columns());
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), constraintName);
-        return dialect.primaryKeyConstraint(
-                constraintName, tableName, columns, qualifiedIndexName, indexTablespace, primaryKey.deferrable(), primaryKey.initiallyDeferred());
+        String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
+        String physicalIndexComment = physicalCommentRenderer.indexOptions(
+                table, primaryKey.columns(), !activeIndexPlacement.isBlank());
+        return dialect.primaryKeyConstraintWithPhysical(
+                constraintName, tableName, columns, qualifiedIndexName, indexTablespace,
+                physicalIndexComment, primaryKey.deferrable(), primaryKey.initiallyDeferred());
     }
 
     private String createPrimaryKeyIndex(Table table, PrimaryKey primaryKey) {
@@ -359,10 +370,13 @@ public final class DdlGenerator {
     private String createEnforcingUniqueIndex(Table table, String indexName, List<Identifier> columns) {
         String indexTablespace = option(table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
+        String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
+        String physicalIndexComment = physicalCommentRenderer.indexOptions(
+                table, columns, !activeIndexPlacement.isBlank());
         return "CREATE UNIQUE INDEX " + dialect.qualifyIndexName(table.qualifiedName(), indexName)
                 + " ON " + qualifiedName(table.qualifiedName())
                 + "(" + identifiers(columns) + ")"
-                + dialect.indexTablespaceClause(indexTablespace)
+                + dialect.indexTailWithPhysical(null, physicalIndexComment, indexTablespace, null)
                 + dialect.statementTerminator();
     }
 
@@ -388,7 +402,12 @@ public final class DdlGenerator {
         String indexTablespace = option(table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), name);
-        return dialect.uniqueConstraint(name, tableName, columns, qualifiedIndexName, indexTablespace, unique.deferrable(), unique.initiallyDeferred());
+        String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
+        String physicalIndexComment = physicalCommentRenderer.indexOptions(
+                table, unique.columns(), !activeIndexPlacement.isBlank());
+        return dialect.uniqueConstraintWithPhysical(
+                name, tableName, columns, qualifiedIndexName, indexTablespace,
+                physicalIndexComment, unique.deferrable(), unique.initiallyDeferred());
     }
 
     private String createForeignKey(Table table, ForeignKey foreignKey, MetadataComparisonResult metadata) {
@@ -416,7 +435,62 @@ public final class DdlGenerator {
         String create = sql.append(dialect.constraintValidationClause())
                 .append(dialect.statementTerminator()).toString();
         String postCreate = dialect.postCreateConstraintStatement(tableName, name);
-        return appendStatement(create, postCreate);
+        String rendered = appendStatement(create, postCreate);
+        String recommendation = foreignKeySupportingIndexRecommendation(table, foreignKey, name);
+        return recommendation.isBlank() ? rendered : rendered + NL + recommendation;
+    }
+
+    private String foreignKeySupportingIndexRecommendation(
+            Table table, ForeignKey foreignKey, String renderedForeignKeyName) {
+        if (!foreignKey.physicalReference() || hasSupportingIndex(table, foreignKey.columns())) {
+            return "";
+        }
+        return "-- [RECOMMENDATION][PHYS-FK-INDEX-001] Foreign key "
+                + renderedForeignKeyName
+                + " has no supporting index whose leading columns match ("
+                + identifiers(foreignKey.columns()) + ").";
+    }
+
+    private boolean hasSupportingIndex(Table table, List<Identifier> foreignKeyColumns) {
+        if (table.primaryKey().isPresent()
+                && leadingColumnsMatch(table.primaryKey().get().columns(), foreignKeyColumns)) {
+            return true;
+        }
+        for (UniqueKey unique : table.uniqueKeys()) {
+            if (leadingColumnsMatch(unique.columns(), foreignKeyColumns)) {
+                return true;
+            }
+        }
+        for (Index index : table.indexes()) {
+            List<Identifier> indexColumns = new ArrayList<>();
+            boolean expressionBeforeMatchBoundary = false;
+            for (IndexColumn indexColumn : index.columns()) {
+                if (indexColumn.expressionBased()) {
+                    expressionBeforeMatchBoundary = true;
+                    break;
+                }
+                indexColumns.add(indexColumn.column());
+                if (indexColumns.size() >= foreignKeyColumns.size()) {
+                    break;
+                }
+            }
+            if (!expressionBeforeMatchBoundary && leadingColumnsMatch(indexColumns, foreignKeyColumns)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean leadingColumnsMatch(List<Identifier> candidate, List<Identifier> required) {
+        if (candidate.size() < required.size()) {
+            return false;
+        }
+        for (int i = 0; i < required.size(); i++) {
+            if (!candidate.get(i).normalized().equals(required.get(i).normalized())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private QualifiedName resolvedReferencedTable(Table table, ForeignKey foreignKey, MetadataComparisonResult metadata) {
@@ -509,7 +583,15 @@ public final class DdlGenerator {
                 ? null : identifiers(index.includeColumns());
         String indexTablespace = option(table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
-        sql.append(dialect.indexTail(includeColumns, indexTablespace, index.predicate()));
+        String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
+        List<Identifier> physicalKeyColumns = index.columns().stream()
+                .filter(column -> !column.expressionBased())
+                .map(IndexColumn::column)
+                .toList();
+        String physicalIndexComment = physicalCommentRenderer.indexOptions(
+                table, physicalKeyColumns, !activeIndexPlacement.isBlank());
+        sql.append(dialect.indexTailWithPhysical(
+                includeColumns, physicalIndexComment, indexTablespace, index.predicate()));
         return sql.append(dialect.statementTerminator()).toString();
     }
 

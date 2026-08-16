@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Legacy Word parsing is intentionally separated from dialect development. A full recursive Word run can take several hours, while Oracle, PostgreSQL and SQL Server DDL rules change much more frequently. SchemaForge therefore supports a versioned canonical JSON snapshot cache:
+Legacy Word parsing is intentionally separated from dialect development. A full recursive Word run can take several hours, while Oracle, PostgreSQL, SQL Server and Db2 for z/OS DDL rules change much more frequently. SchemaForge therefore supports a versioned canonical JSON snapshot cache:
 
 ```text
 Word (.doc/.docx)
@@ -19,6 +19,7 @@ DBMS-neutral DatabaseSchema
         +--> Oracle DDL
         +--> PostgreSQL DDL
         +--> SQL Server DDL
+        +--> Db2 for z/OS DDL
 ```
 
 The JSON stores the canonical model before dialect-specific rendering. It must not persist decisions such as Oracle `TIMESTAMP(9)`, PostgreSQL `TIMESTAMP(6)`, or SQL Server `DATETIME2(7)` when the source model originally carried another precision.
@@ -86,7 +87,7 @@ mvnw.cmd -Dtest=CanonicalJsonDirectoryToDdlIT test ^
 Generate all supported project targets in this runner:
 
 ```bat
--Dschemaforge.snapshot.ddl.platforms=oracle,postgresql,sqlserver
+-Dschemaforge.snapshot.ddl.platforms=oracle,postgresql,sqlserver,db2zos
 ```
 
 Output layout:
@@ -96,6 +97,7 @@ LegacyMultiDbSql\
   oracle\...
   postgresql\...
   sqlserver\...
+  db2zos\...
   reports\
     canonical-json-ddl-summary_<timestamp>.csv
     canonical-json-ddl-issues_<timestamp>.csv

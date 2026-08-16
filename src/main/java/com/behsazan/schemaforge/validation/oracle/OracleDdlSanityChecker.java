@@ -72,25 +72,58 @@ public final class OracleDdlSanityChecker {
     public List<Issue> inspect(String sql) {
         Objects.requireNonNull(sql, "sql must not be null");
         List<Issue> issues = new ArrayList<>();
-        String[] lines = sql.split("\\R", -1);
+
+        // Phase-1 physical candidates are intentionally emitted inside /* ... */ blocks.
+        // The safety gate must validate executable Oracle DDL only, while preserving line
+        // numbers so diagnostics still point to the original generated artifact.
+        String executableSql = stripBlockCommentsPreservingLines(sql);
+        String[] lines = executableSql.split("\\R", -1);
+
         boolean inCreateTable = false;
+        boolean tableBodyStarted = false;
+        int parenthesisDepth = 0;
+
         for (int index = 0; index < lines.length; index++) {
             int lineNumber = index + 1;
             String codeLine = stripLineComment(lines[index]);
             String trimmed = codeLine.trim();
             String upper = trimmed.toUpperCase(Locale.ROOT);
-            if (upper.startsWith("CREATE TABLE ")
-                    || upper.startsWith("CREATE GLOBAL TEMPORARY TABLE ")) {
+
+            boolean createTableStart = upper.startsWith("CREATE TABLE ")
+                    || upper.startsWith("CREATE GLOBAL TEMPORARY TABLE ");
+            if (createTableStart) {
                 inCreateTable = true;
+                tableBodyStarted = false;
+                parenthesisDepth = 0;
+                inspectReservedIdentifier(codeLine, lineNumber, issues);
             }
-            if (inCreateTable && !trimmed.isEmpty() && !upper.startsWith("PROMPT ")) {
+
+            if (!inCreateTable) {
+                continue;
+            }
+
+            int depthBefore = parenthesisDepth;
+            boolean opensParenthesis = containsUnquoted(codeLine, '(');
+
+            // Only the top-level CREATE TABLE body contains column declarations.
+            // This avoids interpreting TABLESPACE, ALTER, COMMENT, GRANT, physical
+            // options, or continuation lines of nested constraints as column names.
+            if (!createTableStart && tableBodyStarted && depthBefore == 1 && !trimmed.isEmpty()) {
                 inspectReservedIdentifier(codeLine, lineNumber, issues);
                 inspectPrecision(codeLine, lineNumber, issues);
                 inspectTypeAndDefaultCompatibility(codeLine, lineNumber, issues);
                 inspectDefault(codeLine, lineNumber, issues);
             }
-            if (inCreateTable && trimmed.startsWith(")") && trimmed.endsWith(";")) {
+
+            if (opensParenthesis) {
+                tableBodyStarted = true;
+            }
+            parenthesisDepth += parenthesisDelta(codeLine);
+
+            if (tableBodyStarted && parenthesisDepth <= 0) {
                 inCreateTable = false;
+                tableBodyStarted = false;
+                parenthesisDepth = 0;
             }
         }
         return List.copyOf(issues);
@@ -130,8 +163,10 @@ public final class OracleDdlSanityChecker {
         String trimmed = line.trim();
         String upper = trimmed.toUpperCase(Locale.ROOT);
         if (trimmed.isEmpty() || upper.startsWith("CONSTRAINT ") || upper.startsWith("CREATE TABLE")
-                || upper.startsWith("CREATE GLOBAL TEMPORARY TABLE") || trimmed.startsWith("(")
-                || trimmed.startsWith(")")) {
+                || upper.startsWith("CREATE GLOBAL TEMPORARY TABLE")
+                || upper.startsWith("PRIMARY KEY") || upper.startsWith("UNIQUE")
+                || upper.startsWith("FOREIGN KEY") || upper.startsWith("CHECK")
+                || trimmed.startsWith("(") || trimmed.startsWith(")")) {
             return;
         }
         Matcher column = COLUMN_NAME.matcher(line);
@@ -365,6 +400,92 @@ public final class OracleDdlSanityChecker {
             }
         }
         return !quoted && parentheses == 0;
+    }
+
+    private String stripBlockCommentsPreservingLines(String value) {
+        StringBuilder result = new StringBuilder(value.length());
+        boolean blockComment = false;
+        boolean quoted = false;
+
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+
+            if (blockComment) {
+                if (character == '*' && index + 1 < value.length() && value.charAt(index + 1) == '/') {
+                    result.append(' ').append(' ');
+                    index++;
+                    blockComment = false;
+                } else if (character == '\r' || character == '\n') {
+                    result.append(character);
+                } else {
+                    result.append(' ');
+                }
+                continue;
+            }
+
+            if (character == '\'' && quoted && index + 1 < value.length() && value.charAt(index + 1) == '\'') {
+                result.append(character).append(character);
+                index++;
+                continue;
+            }
+            if (character == '\'') {
+                quoted = !quoted;
+                result.append(character);
+                continue;
+            }
+            if (!quoted && character == '/' && index + 1 < value.length() && value.charAt(index + 1) == '*') {
+                result.append(' ').append(' ');
+                index++;
+                blockComment = true;
+                continue;
+            }
+            result.append(character);
+        }
+        return result.toString();
+    }
+
+    private int parenthesisDelta(String value) {
+        boolean quoted = false;
+        int delta = 0;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character == '\'' && quoted && index + 1 < value.length() && value.charAt(index + 1) == '\'') {
+                index++;
+                continue;
+            }
+            if (character == '\'') {
+                quoted = !quoted;
+                continue;
+            }
+            if (quoted) {
+                continue;
+            }
+            if (character == '(') {
+                delta++;
+            } else if (character == ')') {
+                delta--;
+            }
+        }
+        return delta;
+    }
+
+    private boolean containsUnquoted(String value, char expected) {
+        boolean quoted = false;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character == '\'' && quoted && index + 1 < value.length() && value.charAt(index + 1) == '\'') {
+                index++;
+                continue;
+            }
+            if (character == '\'') {
+                quoted = !quoted;
+                continue;
+            }
+            if (!quoted && character == expected) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String stripLineComment(String value) {
