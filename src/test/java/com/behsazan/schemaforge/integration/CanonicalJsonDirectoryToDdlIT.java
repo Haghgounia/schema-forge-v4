@@ -98,11 +98,13 @@ class CanonicalJsonDirectoryToDdlIT {
         Map<DatabasePlatform, Set<Path>> writtenTargets = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> generated = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> generatedWithIssues = new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Integer> blockedByMapping = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> failed = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Dialect> dialects = new EnumMap<>(DatabasePlatform.class);
         platforms.forEach(platform -> {
             generated.put(platform, 0);
             generatedWithIssues.put(platform, 0);
+            blockedByMapping.put(platform, 0);
             failed.put(platform, 0);
             targetAllocators.put(platform, new CollisionSafeScriptTargetAllocator(outputFileNamer));
             writtenTargets.put(platform, new LinkedHashSet<>());
@@ -148,7 +150,7 @@ class CanonicalJsonDirectoryToDdlIT {
                 generate(inputRoot, outputRoot, snapshotPath, relativeSnapshot, snapshot, prepared, platform,
                         dialects.get(platform), timestamp, summary, issues, outputCollisions,
                         targetAllocators.get(platform), writtenTargets.get(platform),
-                        generated, generatedWithIssues, failed);
+                        generated, generatedWithIssues, blockedByMapping, failed);
             }
         }
 
@@ -174,7 +176,8 @@ class CanonicalJsonDirectoryToDdlIT {
                 StandardCharsets.UTF_8);
         Files.writeString(textFile, textSummary(inputRoot, outputRoot, snapshots.size(), selectedSnapshots.size(),
                 snapshotSelection.duplicates().size(), outputCollisions.size() - 1, snapshotFailures,
-                staleParserSnapshots, platforms, generated, generatedWithIssues, failed), StandardCharsets.UTF_8);
+                staleParserSnapshots, platforms, generated, generatedWithIssues, blockedByMapping, failed),
+                StandardCharsets.UTF_8);
 
         for (DatabasePlatform platform : platforms) {
             int successful = generated.get(platform) + generatedWithIssues.get(platform);
@@ -197,6 +200,7 @@ class CanonicalJsonDirectoryToDdlIT {
         for (DatabasePlatform platform : platforms) {
             System.out.println(platform.commandLineName() + " generated       : " + generated.get(platform));
             System.out.println(platform.commandLineName() + " with issues     : " + generatedWithIssues.get(platform));
+            System.out.println(platform.commandLineName() + " blocked mapping : " + blockedByMapping.get(platform));
             System.out.println(platform.commandLineName() + " failed          : " + failed.get(platform));
         }
         System.out.println("Output            : " + outputRoot);
@@ -229,13 +233,14 @@ class CanonicalJsonDirectoryToDdlIT {
             Set<Path> writtenTargets,
             Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> generatedWithIssues,
+            Map<DatabasePlatform, Integer> blockedByMapping,
             Map<DatabasePlatform, Integer> failed) {
 
         String source = snapshot.source() == null ? "" : snapshot.source().relativePath();
         Path target = null;
         MappingAssessment mappingAssessment = mappingAssessment(platform, prepared.schema());
         if (mappingAssessment.fatal()) {
-            failed.compute(platform, (key, value) -> value + 1);
+            blockedByMapping.compute(platform, (key, value) -> value + 1);
             for (ValidationFinding finding : mappingAssessment.findings()) {
                 issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.stage(),
                         finding.location(), finding.code(), finding.message(), finding.fragment()));
@@ -371,11 +376,12 @@ class CanonicalJsonDirectoryToDdlIT {
                         addOracleLargeObjectFallbackFinding(findings, location, sourceName, type.length());
                     }
                     case POSTGRESQL -> {
-                        if (isPostgreSqlTimestamp(sourceName) && type.precision() != null) {
+                        if (isPostgreSqlTimestamp(sourceName)
+                                && type.precision() != null && type.precision() > 6) {
                             findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "POSTGRESQL_TEMPORAL_PRECISION_DROPPED",
+                                    "DIALECT_MAPPING", location, "POSTGRESQL_TEMPORAL_PRECISION_BOUNDED",
                                     "Canonical " + sourceName + "(" + type.precision()
-                                            + ") is rendered without an explicit PostgreSQL temporal precision", ""));
+                                            + ") is rendered with PostgreSQL temporal precision 6", ""));
                         }
                     }
                     case SQLSERVER -> {
@@ -577,7 +583,8 @@ class CanonicalJsonDirectoryToDdlIT {
             Path inputRoot, Path outputRoot, int snapshotsDiscovered, int snapshotsSelected, int duplicateSnapshots,
             int outputCollisions, int snapshotFailures, int staleParserSnapshots, List<DatabasePlatform> platforms,
             Map<DatabasePlatform, Integer> generated,
-            Map<DatabasePlatform, Integer> withIssues, Map<DatabasePlatform, Integer> failed) {
+            Map<DatabasePlatform, Integer> withIssues, Map<DatabasePlatform, Integer> blockedByMapping,
+            Map<DatabasePlatform, Integer> failed) {
         StringBuilder result = new StringBuilder();
         result.append("SchemaForge canonical JSON to DDL summary").append(System.lineSeparator());
         result.append("=========================================").append(System.lineSeparator());
@@ -596,6 +603,7 @@ class CanonicalJsonDirectoryToDdlIT {
             result.append(System.lineSeparator()).append(platform.commandLineName()).append(System.lineSeparator());
             result.append("  Generated        : ").append(generated.get(platform)).append(System.lineSeparator());
             result.append("  With issues      : ").append(withIssues.get(platform)).append(System.lineSeparator());
+            result.append("  Blocked mapping  : ").append(blockedByMapping.get(platform)).append(System.lineSeparator());
             result.append("  Failed           : ").append(failed.get(platform)).append(System.lineSeparator());
         }
         return result.toString();

@@ -91,7 +91,7 @@ class Db2ZosDdlGeneratorTest {
         assertTrue(sql.contains("FREEPAGE 0"));
         assertTrue(sql.contains("PCTFREE 10"));
         assertTrue(sql.contains(") IN APPDB.APP_TS"));
-        assertTrue(sql.contains("-- DB2/ZOS TABLE OPTIONS"));
+        assertTrue(sql.contains("-- DB2/ZOS TABLE PHYSICAL OPTIONS"));
         assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE);"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX BIM.UK_CUSTOMERS_CODE_IX ON BIM.CUSTOMERS(CUSTOMER_CODE)"));
         assertTrue(sql.contains("<PADDED_OR_NOT_PADDED>"));

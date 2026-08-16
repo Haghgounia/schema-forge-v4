@@ -1,3 +1,22 @@
+# 2026-08-16 - Physical source-aware validator splitter fix
+
+- Fixed `SqlScriptStatementParser` so statement terminators inside `--` and `/* ... */` comments are ignored while splitting generated SQL.
+- This prevents Physical Phase 1 explanatory comments containing semicolons from being misread as executable Db2/SQL Server statements.
+- No Physical renderer rule, source-value handling, parser, datatype mapping, or REST behavior changed.
+- Reused the existing `SqlScriptStatementParserTest`; no new test class was added.
+- Direct Java 21 smoke generation/validation now accepts the generated Db2 explicit PK/UK indexes and SQL Server physical blocks that failed in the full Maven run.
+
+# 2026-08-16 - Physical Phase 1 source-aware completion tranche
+
+- Re-centered work on Production physical DDL; no REST endpoint and no datatype-mapping change was added.
+- Added source-aware physical-option handling: valid source values are retained inside review blocks; invalid/out-of-range values are surfaced as `[SOURCE PHYSICAL ISSUE]` and are not silently clamped/normalized.
+- Added reviewable source/default handling for Oracle PCTFREE/INITRANS/PCTUSED, PostgreSQL table/index fillfactor, SQL Server table/index compression and fillfactor/PAD_INDEX, and Db2 z/OS index free-space/storage/cache/compression/close/padding options.
+- Kept environment-specific tablespace/filegroup/stogroup/bufferpool values as active historical placement or explicit placeholders; no environment name is invented.
+- Fixed a real PostgreSQL activation bug: PK/UNIQUE physical blocks now use `USING INDEX TABLESPACE <INDEX_TABLESPACE>`, while standalone CREATE INDEX continues to use `TABLESPACE <INDEX_TABLESPACE>`.
+- Oracle review blocks now make NOCOMPRESS explicit and keep LOGGING/NOLOGGING as an explicit DBA recovery/workload decision.
+- Added two regressions to the existing `PhysicalPhase1DdlGeneratorTest` instead of creating another test class.
+- Direct Java 21 compilation of the changed production path and four-dialect smoke rendering passed; full Maven regression remains project-environment validation.
+
 
 - Fixed the Physical Phase 1 PostgreSQL LOB golden assertion to follow the existing PostgreSQL identifier-rendering contract (ordinary identifiers are emitted in lower case). Production DDL behavior is unchanged.
 # 2026-08-16 - Physical DDL phase 1 Maven regression fix
@@ -793,3 +812,47 @@
 - No production DDL generation behavior was changed by this diagnostics-only update.
 - Fixed `CanonicalSnapshotMapperTest.distinguishesPersistedSourceCompatibilityFromWordCacheFreshness` to compare restored table semantics instead of `Table` object identity. No production behavior changed.
 
+
+## 2026-08-16 - PostgreSQL temporal precision preservation
+- Preserve explicit PostgreSQL TIMESTAMP precision when it is within the supported 0..6 range.
+- Bound higher canonical TIMESTAMP precision to 6 explicitly instead of silently dropping the modifier.
+- Bulk diagnostics now report only genuinely lossy PostgreSQL temporal precision mappings (`> 6`).
+- Bulk JSON summary now distinguishes deliberate `GENERATION_BLOCKED_BY_MAPPING` from actual generation failures.
+
+## 2026-08-16 - Physical Phase 1 corpus audit runner
+- Added `PhysicalPhase1CorpusAuditIT` for a physical-only audit of persisted canonical JSON sources.
+- The runner audits all four supported dialects without making datatype compatibility a failure gate.
+- Canonical/renderer checks cover active source placement, Oracle `TS_<SCHEMA>` / `ITS_<SCHEMA>` defaults, activation-ready placement placeholders, table/index physical comment blocks, Db2 storage placeholders and conditional PADDED review markers, FK supporting-index recommendations, and the rule that CHECK/FK statements do not receive storage options.
+- When full DDL is renderable, the runner additionally verifies block counts, active placement preservation, placeholder containment inside comments, and that Phase-1 recommendations have not become executable SQL.
+- A datatype or other non-physical DDL exception is recorded as `PHYS-DDL-UNAVAILABLE-001` and does not count as a physical violation; the model/renderer audit still completes for that source.
+- No production parser, canonical model, datatype mapper, dialect renderer, or DDL generation behavior was changed by this audit-only addition.
+
+## 2026-08-16 - Physical Phase 1 Word corpus handoff
+- Added `schemaforge.snapshot.parserMode` to `WordDirectoryToCanonicalJsonIT` with `auto`, `standard`, and `legacy` modes.
+- `standard` mode disables legacy fallback so the new-format Word corpus is audited through the new Word parser only.
+- `PhysicalPhase1CorpusAuditIT` now ignores `manifest.json`, allowing it to audit the snapshot directory produced by `WordDirectoryToCanonicalJsonIT` directly.
+- No production parser, canonical model, datatype mapper, dialect, or DDL generation behavior changed.
+
+## 2026-08-16 - Physical source-aware hardening 2
+- Kept the Physical Phase-1 scope focused on production DDL physical options; no datatype/parser/REST changes.
+- Oracle table compression is now source-aware for NOCOMPRESS, COMPRESS, ROW STORE COMPRESS [BASIC|ADVANCED]; basic compression uses Oracle's documented PCTFREE default of 0 when source PCTFREE is absent.
+- Oracle index compression source values are syntax/context checked; invalid prefix/advanced compression remains visible as SOURCE PHYSICAL ISSUE instead of being silently accepted.
+- Oracle PCTFREE/PCTUSED are cross-validated; conflicting source values are not silently adjusted and both become review placeholders.
+- PostgreSQL B-tree `deduplicate_items` is honored only when explicitly supplied by source/profile; otherwise it remains a workload/index-method decision.
+- SQL Server index options IGNORE_DUP_KEY, STATISTICS_NORECOMPUTE, ALLOW_ROW_LOCKS and ALLOW_PAGE_LOCKS are now source-aware; OPTIMIZE_FOR_SEQUENTIAL_KEY is source/profile-only.
+- Db2/zOS PRIQTY and SECQTY source values are validated without normalization; invalid values remain visible as SOURCE PHYSICAL ISSUE and fall back to placeholders.
+- Db2/zOS PADDED/NOT PADDED supplied for a key with no varying-length string column is surfaced as a source issue instead of being silently ignored.
+- Physical corpus audit accepts valid Db2 source values in place of environment placeholders and records SOURCE PHYSICAL ISSUE lines as REVIEW findings.
+- Oracle no longer infers a PCTFREE default when the source table-compression mode itself is unresolved; the physical block keeps both issues visible for DBA review.
+- Oracle source PCTUSED is explicitly marked as MSSM-context dependent because ASSM ignores it.
+- SQL Server `IGNORE_DUP_KEY=ON` is context-reviewed for independent indexes because Microsoft restricts ON to unique indexes; PK/UK backing indexes are treated as known-unique.
+- Physical corpus audit now uses the comment-aware SQL statement parser, distinguishes source ISSUE from source CONTEXT REVIEW, and audits PK/UK blocks through `constraintIndexOptions(...)` rather than generic index rendering.
+
+## 2026-08-16 - Physical Phase 1 finalization hardening 3
+- Kept the change set restricted to production physical rendering and its existing regression/audit coverage; no parser, datatype mapping, REST contract or logical-schema changes.
+- Db2/zOS table physical blocks are now storage-only: AUDIT, DATA CAPTURE, CCSID, VOLATILE, APPEND and RESTRICT ON DROP are no longer presented as activation-ready physical recommendations.
+- Added source/profile-only Db2 `PIECESIZE` validation with explicit ISSUE/REVIEW behavior rather than guessed values.
+- Added source/profile-only PostgreSQL `toast_tuple_target`; invalid minimum values are exposed as SOURCE PHYSICAL ISSUE and valid offline values remain block-size-dependent REVIEW items.
+- Passed known UNIQUE-index context from DDL generation into Oracle and SQL Server physical renderers so context-sensitive validation does not guess uniqueness for standalone or explicit backing indexes.
+- Documented the current table-scoped source physical-option granularity boundary; distinct per-index source tuning is not fabricated when the canonical source model cannot represent it.
+- Physical corpus audit summaries now report rendered source-value ISSUE markers and context REVIEW markers explicitly, so a zero renderer violation count is not mistaken for source correctness.

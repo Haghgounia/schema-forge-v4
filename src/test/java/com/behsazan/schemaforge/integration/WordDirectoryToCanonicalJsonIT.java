@@ -37,6 +37,7 @@ class WordDirectoryToCanonicalJsonIT {
     private static final String LEGACY_SCHEMA = "schemaforge.snapshot.legacySchema";
     private static final String FORCE_REFRESH = "schemaforge.snapshot.forceRefresh";
     private static final String FAIL_ON_ERRORS = "schemaforge.snapshot.failOnErrors";
+    private static final String PARSER_MODE = "schemaforge.snapshot.parserMode";
 
     private final LegacyWordSpecificationParser legacyParser = new LegacyWordSpecificationParser();
     private final CanonicalSnapshotMapper mapper = new CanonicalSnapshotMapper();
@@ -49,6 +50,7 @@ class WordDirectoryToCanonicalJsonIT {
         String legacySchema = trimToNull(System.getProperty(LEGACY_SCHEMA));
         boolean forceRefresh = Boolean.parseBoolean(System.getProperty(FORCE_REFRESH, "false"));
         boolean failOnErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_ERRORS, "false"));
+        ParserMode parserMode = configuredParserMode();
         Files.createDirectories(outputRoot);
 
         List<Path> documents;
@@ -99,7 +101,7 @@ class WordDirectoryToCanonicalJsonIT {
             }
 
             try {
-                ParseOutcome outcome = parse(inputRoot, document, legacySchema);
+                ParseOutcome outcome = parse(inputRoot, document, legacySchema, parserMode);
                 if (outcome.schema().tables().isEmpty()) {
                     skipped++;
                     entries.add(entry(relative, sha256, target, outputRoot, "SKIPPED_NO_TABLE",
@@ -145,6 +147,7 @@ class WordDirectoryToCanonicalJsonIT {
         Path manifestPath = outputRoot.resolve("manifest.json");
         store.write(manifestPath, manifest);
 
+        System.out.println("Parser mode       : " + parserMode.name().toLowerCase(Locale.ROOT));
         System.out.println("Word documents    : " + documents.size());
         System.out.println("Snapshots written : " + written);
         System.out.println("Cache hits        : " + cacheHits);
@@ -159,9 +162,18 @@ class WordDirectoryToCanonicalJsonIT {
         }
     }
 
-    private ParseOutcome parse(Path inputRoot, Path document, String legacySchema) throws Exception {
+    private ParseOutcome parse(
+            Path inputRoot, Path document, String legacySchema, ParserMode parserMode) throws Exception {
+        if (parserMode == ParserMode.LEGACY) {
+            return new ParseOutcome(parseLegacy(inputRoot, document, legacySchema), "legacy-word");
+        }
+
         String lower = document.getFileName().toString().toLowerCase(Locale.ROOT);
         if (lower.endsWith(".doc")) {
+            if (parserMode == ParserMode.STANDARD) {
+                throw new IllegalArgumentException(
+                        "Standard parser mode accepts .docx only: " + document.getFileName());
+            }
             try {
                 return new ParseOutcome(parseLegacy(inputRoot, document, legacySchema), "legacy-word");
             } catch (IllegalArgumentException legacyFailure) {
@@ -179,6 +191,9 @@ class WordDirectoryToCanonicalJsonIT {
                     new SpecificationSource(document.getFileName().toString(), input));
             return new ParseOutcome(schema, "standard-word");
         } catch (Exception exception) {
+            if (parserMode == ParserMode.STANDARD) {
+                throw exception;
+            }
             standardFailure = exception;
         }
 
@@ -193,6 +208,23 @@ class WordDirectoryToCanonicalJsonIT {
             legacyFailure.addSuppressed(standardFailure);
             throw legacyFailure;
         }
+    }
+
+    private static ParserMode configuredParserMode() {
+        String value = trimToNull(System.getProperty(PARSER_MODE));
+        if (value == null) return ParserMode.AUTO;
+        return switch (value.toLowerCase(Locale.ROOT)) {
+            case "auto" -> ParserMode.AUTO;
+            case "standard", "new", "new-word" -> ParserMode.STANDARD;
+            case "legacy", "legacy-word" -> ParserMode.LEGACY;
+            default -> throw new IllegalArgumentException(
+                    "Unsupported " + PARSER_MODE + ": " + value
+                            + ". Supported values: auto, standard, legacy");
+        };
+    }
+
+    private enum ParserMode {
+        AUTO, STANDARD, LEGACY
     }
 
     private DatabaseSchema parseLegacy(Path inputRoot, Path document, String legacySchema) {

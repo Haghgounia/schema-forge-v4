@@ -338,7 +338,7 @@ public final class DdlGenerator {
         String columns = identifiers(primaryKey.columns());
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), constraintName);
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
-        String physicalIndexComment = physicalCommentRenderer.indexOptions(
+        String physicalIndexComment = physicalCommentRenderer.constraintIndexOptions(
                 table, primaryKey.columns(), !activeIndexPlacement.isBlank());
         return dialect.primaryKeyConstraintWithPhysical(
                 constraintName, tableName, columns, qualifiedIndexName, indexTablespace,
@@ -372,7 +372,7 @@ public final class DdlGenerator {
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         String physicalIndexComment = physicalCommentRenderer.indexOptions(
-                table, columns, !activeIndexPlacement.isBlank());
+                table, columns, !activeIndexPlacement.isBlank(), true);
         return "CREATE UNIQUE INDEX " + dialect.qualifyIndexName(table.qualifiedName(), indexName)
                 + " ON " + qualifiedName(table.qualifiedName())
                 + "(" + identifiers(columns) + ")"
@@ -403,7 +403,7 @@ public final class DdlGenerator {
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), name);
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
-        String physicalIndexComment = physicalCommentRenderer.indexOptions(
+        String physicalIndexComment = physicalCommentRenderer.constraintIndexOptions(
                 table, unique.columns(), !activeIndexPlacement.isBlank());
         return dialect.uniqueConstraintWithPhysical(
                 name, tableName, columns, qualifiedIndexName, indexTablespace,
@@ -589,7 +589,7 @@ public final class DdlGenerator {
                 .map(IndexColumn::column)
                 .toList();
         String physicalIndexComment = physicalCommentRenderer.indexOptions(
-                table, physicalKeyColumns, !activeIndexPlacement.isBlank());
+                table, physicalKeyColumns, !activeIndexPlacement.isBlank(), index.type() == IndexType.UNIQUE);
         sql.append(dialect.indexTailWithPhysical(
                 includeColumns, physicalIndexComment, indexTablespace, index.predicate()));
         return sql.append(dialect.statementTerminator()).toString();

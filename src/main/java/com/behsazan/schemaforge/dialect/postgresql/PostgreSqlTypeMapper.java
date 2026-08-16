@@ -56,6 +56,13 @@ public final class PostgreSqlTypeMapper {
         if (type.length() != null && supportsLength(targetName)) {
             return targetName + "(" + type.length() + ")";
         }
+        if (type.precision() != null && supportsTemporalPrecision(targetName)) {
+            int precision = Math.min(type.precision(), 6);
+            if (targetName.equals("TIMESTAMP WITH TIME ZONE")) {
+                return "TIMESTAMP(" + precision + ") WITH TIME ZONE";
+            }
+            return targetName + "(" + precision + ")";
+        }
         if (type.precision() != null && supportsPrecision(targetName)) {
             if (type.scale() != null) {
                 return targetName + "(" + type.precision() + "," + type.scale() + ")";
@@ -71,5 +78,9 @@ public final class PostgreSqlTypeMapper {
 
     private boolean supportsPrecision(String name) {
         return name.equals("NUMERIC") || name.equals("DECIMAL");
+    }
+
+    private boolean supportsTemporalPrecision(String name) {
+        return name.equals("TIMESTAMP") || name.equals("TIMESTAMP WITH TIME ZONE");
     }
 }

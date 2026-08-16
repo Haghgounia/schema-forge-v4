@@ -42,7 +42,7 @@ class RealSourcePhysicalPhase1RegressionTest {
 
         String db2 = upper(out.db2());
         assertTrue(db2.contains("COUNTRY_ISO_CODE CHAR(3) FOR MIXED DATA"));
-        assertTrue(db2.contains("-- DB2/ZOS TABLE OPTIONS"));
+        assertTrue(db2.contains("-- DB2/ZOS TABLE PHYSICAL OPTIONS"));
         assertTrue(db2.contains("-- DB2/ZOS INDEX PHYSICAL OPTIONS"));
         assertTrue(db2.contains("<PADDED_OR_NOT_PADDED>"));
 
@@ -85,7 +85,7 @@ class RealSourcePhysicalPhase1RegressionTest {
 
         String db2 = upper(out.db2());
         assertTrue(db2.contains("VARCHAR(400) FOR MIXED DATA"));
-        assertTrue(db2.contains("-- DB2/ZOS TABLE OPTIONS"));
+        assertTrue(db2.contains("-- DB2/ZOS TABLE PHYSICAL OPTIONS"));
         assertTrue(db2.contains("-- DB2/ZOS INDEX PHYSICAL OPTIONS"));
     }
 

@@ -17,11 +17,47 @@ public final class SqlScriptStatementParser {
         List<String> statements = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean singleQuoted = false;
+        boolean lineComment = false;
+        boolean blockComment = false;
 
         for (int i = 0; i < sanitized.length(); i++) {
             char ch = sanitized.charAt(i);
-            if (ch == '\'' && singleQuoted && i + 1 < sanitized.length() && sanitized.charAt(i + 1) == '\'') {
-                current.append(ch).append(ch);
+            char next = i + 1 < sanitized.length() ? sanitized.charAt(i + 1) : '\0';
+
+            if (lineComment) {
+                current.append(ch);
+                if (ch == '\n' || ch == '\r') {
+                    lineComment = false;
+                }
+                continue;
+            }
+
+            if (blockComment) {
+                current.append(ch);
+                if (ch == '*' && next == '/') {
+                    current.append(next);
+                    i++;
+                    blockComment = false;
+                }
+                continue;
+            }
+
+            if (!singleQuoted && ch == '-' && next == '-') {
+                current.append(ch).append(next);
+                i++;
+                lineComment = true;
+                continue;
+            }
+
+            if (!singleQuoted && ch == '/' && next == '*') {
+                current.append(ch).append(next);
+                i++;
+                blockComment = true;
+                continue;
+            }
+
+            if (ch == '\'' && singleQuoted && next == '\'') {
+                current.append(ch).append(next);
                 i++;
                 continue;
             }

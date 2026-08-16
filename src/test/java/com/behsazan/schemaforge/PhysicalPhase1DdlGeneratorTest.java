@@ -59,11 +59,17 @@ class PhysicalPhase1DdlGeneratorTest {
 
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
         assertTrue(db2.contains(") IN DATA_SPACE"));
-        assertTrue(db2.contains("-- DB2/ZOS TABLE OPTIONS"));
+        assertTrue(db2.contains("-- DB2/ZOS TABLE PHYSICAL OPTIONS"));
         assertTrue(db2.contains("-- DB2/ZOS INDEX PHYSICAL OPTIONS"));
         assertTrue(db2.contains("FREEPAGE 0"));
         assertTrue(db2.contains("PCTFREE 10"));
         assertTrue(db2.contains("BUFFERPOOL <BUFFERPOOL>"));
+        assertFalse(db2.contains("AUDIT NONE"));
+        assertFalse(db2.contains("DATA CAPTURE NONE"));
+        assertFalse(db2.contains("WITH RESTRICT ON DROP"));
+        assertFalse(db2.contains("CCSID UNICODE"));
+        assertFalse(db2.contains("NOT VOLATILE"));
+        assertFalse(db2.contains("APPEND NO"));
     }
 
     @Test
@@ -94,6 +100,165 @@ class PhysicalPhase1DdlGeneratorTest {
         assertFalse(db2.contains("Foreign key FK_PARENT has no supporting index"));
         assertTrue(db2.contains("Foreign key FK_BIC has no supporting index"));
         assertTrue(db2.contains("<PADDED_OR_NOT_PADDED>"));
+    }
+
+    @Test
+    void shouldRetainValidSourcePhysicalValuesInsideReviewablePhysicalBlocks() {
+        Table table = Table.builder("ACC", "SOURCE_PHYSICAL_VALUES")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .addColumn(column("CODE", DataType.varchar("VARCHAR2", 50), false, null, 2))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_SOURCE_PHYSICAL_VALUES"), List.of(Identifier.of("ID"))))
+                .addIndex(new Index(Identifier.of("IX_SOURCE_PHYSICAL_CODE"),
+                        List.of(new IndexColumn(Identifier.of("CODE"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .physicalOption("ORACLE_PCTFREE", "25")
+                .physicalOption("ORACLE_INDEX_INITRANS", "4")
+                .physicalOption("ORACLE_INDEX_COMPRESSION", "COMPRESS ADVANCED HIGH")
+                .physicalOption("ORACLE_TABLE_COMPRESSION", "ROW STORE COMPRESS ADVANCED")
+                .physicalOption("POSTGRESQL_TABLE_FILLFACTOR", "80")
+                .physicalOption("POSTGRESQL_TOAST_TUPLE_TARGET", "2040")
+                .physicalOption("POSTGRESQL_INDEX_FILLFACTOR", "75")
+                .physicalOption("POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "OFF")
+                .physicalOption("SQLSERVER_TABLE_DATA_COMPRESSION", "ROW")
+                .physicalOption("SQLSERVER_INDEX_FILLFACTOR", "85")
+                .physicalOption("SQLSERVER_INDEX_IGNORE_DUP_KEY", "ON")
+                .physicalOption("SQLSERVER_INDEX_STATISTICS_NORECOMPUTE", "ON")
+                .physicalOption("SQLSERVER_INDEX_ALLOW_ROW_LOCKS", "OFF")
+                .physicalOption("SQLSERVER_INDEX_ALLOW_PAGE_LOCKS", "OFF")
+                .physicalOption("SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "ON")
+                .physicalOption("DB2_INDEX_STOGROUP", "SGACC")
+                .physicalOption("DB2_INDEX_PRIQTY", "-1")
+                .physicalOption("DB2_INDEX_SECQTY", "0")
+                .physicalOption("DB2_INDEX_FREEPAGE", "7")
+                .physicalOption("DB2_INDEX_PCTFREE", "15")
+                .physicalOption("DB2_INDEX_PIECESIZE", "1 G")
+                .physicalOption("DB2_INDEX_PADDING", "NOT PADDED")
+                .build();
+        DatabaseSchema schema = DatabaseSchema.builder("ACC").addTable(table).build();
+
+        String oracle = new DdlGenerator(new OracleDialect()).generate(schema);
+        assertTrue(oracle.contains("PCTFREE 25"));
+        assertTrue(oracle.contains("INITRANS 4"));
+        assertTrue(oracle.contains("ROW STORE COMPRESS ADVANCED"));
+        assertTrue(oracle.contains("COMPRESS ADVANCED HIGH"));
+        assertTrue(oracle.contains("[SOURCE PHYSICAL] ORACLE_PCTFREE=25"));
+
+        Table basicCompressionTable = Table.builder("ACC", "BASIC_COMPRESSED")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .physicalOption("ORACLE_TABLE_COMPRESSION", "COMPRESS")
+                .build();
+        String basicCompressionOracle = new DdlGenerator(new OracleDialect()).generate(
+                DatabaseSchema.builder("ACC").addTable(basicCompressionTable).build());
+        assertTrue(basicCompressionOracle.contains("PCTFREE 0"));
+        assertTrue(basicCompressionOracle.contains("COMPRESS"));
+
+        String postgresql = new DdlGenerator(new PostgreSqlDialect()).generate(schema);
+        assertTrue(postgresql.contains("WITH (fillfactor = 80, toast_tuple_target = 2040)"));
+        assertTrue(postgresql.contains("toast_tuple_target upper bound depends on server block size"));
+        assertTrue(postgresql.contains("fillfactor = 75, deduplicate_items = off"));
+
+        String sqlServer = new DdlGenerator(new SqlServerDialect()).generate(schema);
+        assertTrue(sqlServer.contains("WITH (DATA_COMPRESSION = ROW)"));
+        assertTrue(sqlServer.contains("FILLFACTOR = 85"));
+        assertTrue(sqlServer.contains("IGNORE_DUP_KEY = ON"));
+        assertTrue(sqlServer.contains("IGNORE_DUP_KEY=ON is valid only for a UNIQUE index"));
+        assertTrue(sqlServer.contains("STATISTICS_NORECOMPUTE = ON"));
+        assertTrue(sqlServer.contains("ALLOW_ROW_LOCKS = OFF"));
+        assertTrue(sqlServer.contains("ALLOW_PAGE_LOCKS = OFF"));
+        assertTrue(sqlServer.contains("OPTIMIZE_FOR_SEQUENTIAL_KEY = ON"));
+
+        String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
+        assertTrue(db2.contains("USING STOGROUP SGACC"));
+        assertTrue(db2.contains("PRIQTY -1"));
+        assertTrue(db2.contains("SECQTY 0"));
+        assertTrue(db2.contains("FREEPAGE 7"));
+        assertTrue(db2.contains("PCTFREE 15"));
+        assertTrue(db2.contains("PIECESIZE 1 G"));
+        assertTrue(db2.contains("PIECESIZE applicability/default depends on table-space size"));
+        assertTrue(db2.contains("NOT PADDED"));
+    }
+
+    @Test
+    void shouldSurfaceInvalidSourcePhysicalValuesWithoutSilentlyNormalizingThem() {
+        Table table = Table.builder("ACC", "INVALID_SOURCE_PHYSICAL_VALUES")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .addColumn(column("CODE", DataType.varchar("VARCHAR2", 50), false, null, 2))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_INVALID_SOURCE_PHYSICAL"), List.of(Identifier.of("ID"))))
+                .addIndex(new Index(Identifier.of("IX_INVALID_SOURCE_PHYSICAL"),
+                        List.of(new IndexColumn(Identifier.of("CODE"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .physicalOption("ORACLE_PCTFREE", "120")
+                .physicalOption("ORACLE_TABLE_COMPRESSION", "MAGIC")
+                .physicalOption("ORACLE_INDEX_COMPRESSION", "COMPRESS 99")
+                .physicalOption("POSTGRESQL_TABLE_FILLFACTOR", "5")
+                .physicalOption("POSTGRESQL_TOAST_TUPLE_TARGET", "64")
+                .physicalOption("POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "MAYBE")
+                .physicalOption("SQLSERVER_TABLE_DATA_COMPRESSION", "MAGIC")
+                .physicalOption("SQLSERVER_INDEX_ALLOW_ROW_LOCKS", "MAYBE")
+                .physicalOption("DB2_INDEX_PRIQTY", "0")
+                .physicalOption("DB2_INDEX_SECQTY", "-2")
+                .physicalOption("DB2_INDEX_FREEPAGE", "999")
+                .physicalOption("DB2_INDEX_PIECESIZE", "3 G")
+                .physicalOption("DB2_INDEX_PADDING", "PADDED")
+                .build();
+        DatabaseSchema schema = DatabaseSchema.builder("ACC").addTable(table).build();
+
+        String oracle = new DdlGenerator(new OracleDialect()).generate(schema);
+        assertTrue(oracle.contains("[SOURCE PHYSICAL ISSUE][ORACLE]"));
+        assertTrue(oracle.contains("ORACLE_PCTFREE=120"));
+        assertTrue(oracle.contains("PCTFREE <PCTFREE>"));
+        assertTrue(oracle.contains("TABLE_COMPRESSION=MAGIC"));
+        assertTrue(oracle.contains("<TABLE_COMPRESSION>"));
+        assertTrue(oracle.contains("ORACLE_INDEX_COMPRESSION=COMPRESS 99"));
+        assertTrue(oracle.contains("<INDEX_COMPRESSION>"));
+        assertFalse(oracle.contains("PCTFREE 99"));
+
+        Table unresolvedCompression = Table.builder("ACC", "ORACLE_UNKNOWN_COMPRESSION")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .physicalOption("ORACLE_TABLE_COMPRESSION", "MAGIC")
+                .build();
+        String unresolvedCompressionOracle = new DdlGenerator(new OracleDialect()).generate(
+                DatabaseSchema.builder("ACC").addTable(unresolvedCompression).build());
+        assertTrue(unresolvedCompressionOracle.contains("Table compression is unresolved"));
+        assertTrue(unresolvedCompressionOracle.contains("PCTFREE <PCTFREE>"));
+        assertFalse(unresolvedCompressionOracle.contains("PCTFREE 10"));
+
+        Table conflictingPercentages = Table.builder("ACC", "ORACLE_PCT_CONFLICT")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .physicalOption("ORACLE_PCTFREE", "70")
+                .physicalOption("ORACLE_PCTUSED", "40")
+                .build();
+        String conflictOracle = new DdlGenerator(new OracleDialect()).generate(
+                DatabaseSchema.builder("ACC").addTable(conflictingPercentages).build());
+        assertTrue(conflictOracle.contains("exceed Oracle's combined maximum of 100"));
+        assertTrue(conflictOracle.contains("PCTFREE <PCTFREE>"));
+        assertTrue(conflictOracle.contains("PCTUSED <PCTUSED>"));
+        assertFalse(conflictOracle.contains("PCTFREE 70"));
+        assertFalse(conflictOracle.contains("PCTUSED 40"));
+
+        String postgresql = new DdlGenerator(new PostgreSqlDialect()).generate(schema);
+        assertTrue(postgresql.contains("[SOURCE PHYSICAL ISSUE][POSTGRESQL]"));
+        assertTrue(postgresql.contains("fillfactor = <TABLE_FILLFACTOR>"));
+        assertTrue(postgresql.contains("toast_tuple_target = <TOAST_TUPLE_TARGET>"));
+        assertTrue(postgresql.contains("TOAST_TUPLE_TARGET=64"));
+        assertTrue(postgresql.contains("deduplicate_items = <INDEX_DEDUPLICATE_ITEMS>"));
+        assertTrue(postgresql.contains("USING INDEX TABLESPACE <INDEX_TABLESPACE>"));
+        assertTrue(postgresql.contains("TABLESPACE <INDEX_TABLESPACE>"));
+
+        String sqlServer = new DdlGenerator(new SqlServerDialect()).generate(schema);
+        assertTrue(sqlServer.contains("[SOURCE PHYSICAL ISSUE][SQLSERVER]"));
+        assertTrue(sqlServer.contains("DATA_COMPRESSION = <TABLE_DATA_COMPRESSION>"));
+        assertTrue(sqlServer.contains("ALLOW_ROW_LOCKS = <ALLOW_ROW_LOCKS>"));
+
+        String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
+        assertTrue(db2.contains("[SOURCE PHYSICAL ISSUE][DB2/ZOS]"));
+        assertTrue(db2.contains("PRIQTY <PRIQTY>"));
+        assertTrue(db2.contains("SECQTY <SECQTY>"));
+        assertTrue(db2.contains("FREEPAGE <FREEPAGE>"));
+        assertTrue(db2.contains("PIECESIZE <PIECESIZE>"));
+        assertTrue(db2.contains("INDEX_PIECESIZE=3 G"));
+        assertTrue(db2.contains("INDEX_PADDING=PADDED is irrelevant"));
+        assertFalse(db2.contains("FREEPAGE 255"));
     }
 
     @Test

@@ -7,6 +7,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the behavior and regression expectations of SQL Script Statement Parser.
@@ -52,6 +53,20 @@ class SqlScriptStatementParserTest {
         assertEquals(List.of(
                 "CREATE TABLE TEST_TABLE(ID INT)",
                 "INSERT INTO TEST_TABLE VALUES (1)"), statements);
+
+        String physicalCommentScript = "CREATE INDEX IX_TEST ON TEST_TABLE(ID)\n"
+                + "/*\n"
+                + "-- SQL SERVER INDEX PHYSICAL OPTIONS\n"
+                + "WITH (PAD_INDEX = OFF, FILLFACTOR = 0)\n"
+                + "-- Workload-specific option; no value is invented.\n"
+                + "*/\n"
+                + "ON [PRIMARY];\n";
+
+        List<String> physicalStatements = parser.parse(physicalCommentScript, DatabasePlatform.SQLSERVER);
+
+        assertEquals(1, physicalStatements.size());
+        assertTrue(physicalStatements.getFirst().contains("ON [PRIMARY]"));
+        assertFalse(physicalStatements.getFirst().contains("ON [PRIMARY];"));
     }
 
 }

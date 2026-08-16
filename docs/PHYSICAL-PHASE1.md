@@ -35,9 +35,18 @@ Out of scope:
 - View/trigger generation changes.
 - Database/storage provisioning.
 
-## Source-driven values remain authoritative
+## Source evidence is not treated as truth
 
-Physical Phase 1 never infers a column default from nullability. A `DEFAULT` clause is generated only when the canonical/source column has an explicit default value.
+The input Word/JSON is evidence, not an authority. Physical Phase 1 must not silently clamp, repair, or normalize an invalid physical value merely to make a script executable.
+
+For physical options the policy is:
+
+- syntactically acceptable source value: retain it in the DBA-reviewable physical candidate and mark it as source-derived;
+- invalid/out-of-range source value: emit `[SOURCE PHYSICAL ISSUE]`, preserve the bad value in the comment, and emit a placeholder that forces review;
+- missing environment/workload value: use a placeholder or documented default only where Phase 1 explicitly defines one;
+- no source value: never invent an environment-specific tablespace/filegroup/stogroup/bufferpool.
+
+Physical Phase 1 also never infers a column default from nullability. A `DEFAULT` clause is generated only when the canonical/source column has an explicit default value.
 
 Existing placement remains executable:
 
@@ -78,7 +87,9 @@ Table candidates:
 -- ORACLE TABLE PHYSICAL OPTIONS
 PCTFREE 10
 INITRANS 1
--- Compression default: NOCOMPRESS (no clause emitted).
+-- PCTUSED is omitted by default for ASSM-friendly DDL; source PCTUSED is surfaced for review.
+NOCOMPRESS
+-- LOGGING/NOLOGGING remains workload/recovery policy.
 */
 ```
 
@@ -89,7 +100,8 @@ Index / PK / Unique candidates:
 -- ORACLE INDEX PHYSICAL OPTIONS
 PCTFREE 10
 INITRANS 2
--- Compression default: NOCOMPRESS (no clause emitted).
+NOCOMPRESS
+-- LOGGING/NOLOGGING remains workload/recovery policy.
 */
 ```
 
@@ -102,21 +114,32 @@ Table candidates:
 ```sql
 /*
 -- POSTGRESQL TABLE PHYSICAL OPTIONS
+-- toast_tuple_target is source/profile-only because its upper bound depends on server block size.
 WITH (fillfactor = 100)
 TABLESPACE <TABLE_TABLESPACE>
--- Compression remains DB/default per-column TOAST behavior in Phase 1.
+-- Column STORAGE/COMPRESSION and autovacuum policy are not invented in Phase 1.
 */
 ```
 
 The `TABLESPACE` placeholder is included only when no active source placement exists.
 
-B-tree index / PK / Unique candidates:
+B-tree standalone-index candidates:
 
 ```sql
 /*
 -- POSTGRESQL INDEX PHYSICAL OPTIONS
 WITH (fillfactor = 90)
 TABLESPACE <INDEX_TABLESPACE>
+*/
+```
+
+PK / Unique backing-index candidates use PostgreSQL constraint grammar instead:
+
+```sql
+/*
+-- POSTGRESQL INDEX PHYSICAL OPTIONS
+WITH (fillfactor = 90)
+USING INDEX TABLESPACE <INDEX_TABLESPACE>
 */
 ```
 
@@ -166,14 +189,10 @@ Table candidates:
 
 ```sql
 /*
--- DB2/ZOS TABLE OPTIONS
+-- DB2/ZOS TABLE PHYSICAL OPTIONS
 IN <DATABASE>.<TABLESPACE>
-AUDIT NONE
-DATA CAPTURE NONE
-WITH RESTRICT ON DROP
-CCSID UNICODE
-NOT VOLATILE
-APPEND NO
+-- Table-space FREEPAGE/PCTFREE/COMPRESS/BUFFERPOOL/DSSIZE belong to CREATE TABLESPACE.
+-- AUDIT/DATA CAPTURE/CCSID/VOLATILE/APPEND/RESTRICT ON DROP are non-storage semantics and are excluded.
 */
 ```
 
@@ -194,6 +213,7 @@ GBPCACHE CHANGED
 COMPRESS NO
 BUFFERPOOL <BUFFERPOOL>
 CLOSE YES
+-- PIECESIZE is emitted only when supplied by source/profile and remains DBA-reviewable.
 */
 ```
 
@@ -205,6 +225,11 @@ For an index whose key contains a varying-length character column, the block add
 ```
 
 No value is hardcoded because the default can depend on the Db2 subsystem policy.
+
+
+### Phase-1 source granularity boundary
+
+The current persisted physical option map is table-scoped. The renderer receives key columns and whether an index is known UNIQUE, so it can validate context-sensitive index clauses, but distinct source physical values for two different indexes of the same table are not represented independently yet. Phase 1 does not invent or silently merge such values.
 
 ## FK supporting-index analysis
 
@@ -223,6 +248,22 @@ If no supporting index exists, SchemaForge emits a recommendation such as:
 ```
 
 SchemaForge does not create the missing index automatically.
+
+## Invalid source physical value example
+
+SchemaForge does not silently normalize a bad source value:
+
+```sql
+/*
+-- ORACLE TABLE PHYSICAL OPTIONS
+-- [SOURCE PHYSICAL ISSUE][ORACLE] ORACLE_PCTFREE=120 is outside the accepted 0..99 integer range; source value was not normalized.
+PCTFREE <PCTFREE>
+INITRANS 1
+...
+*/
+```
+
+Removing the outer block comment still leaves the issue text commented and the placeholder forces the DBA to make an explicit decision.
 
 ## Compatibility constraints
 

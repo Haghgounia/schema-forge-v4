@@ -36,6 +36,13 @@ class PostgreSqlTypeMapperTest {
                 mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
         assertEquals("TIMESTAMP WITH TIME ZONE",
                 mapper.map(DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")));
+        assertEquals("TIMESTAMP(4)", mapper.map(DataType.numeric("TIMESTAMP", 4, null)));
+        assertEquals("TIMESTAMP(6)", mapper.map(DataType.numeric("TIMESTAMP", 6, null)));
+        assertEquals("TIMESTAMP(6)", mapper.map(DataType.numeric("TIMESTAMP", 10, null)));
+        assertEquals("TIMESTAMP(4) WITH TIME ZONE",
+                mapper.map(DataType.numeric("TIMESTAMP_WITH_TIME_ZONE", 4, null)));
+        assertEquals("TIMESTAMP(6) WITH TIME ZONE",
+                mapper.map(DataType.numeric("TIMESTAMP_WITH_TIME_ZONE", 10, null)));
     }
     @Test
     void shouldOptimizeScaleZeroNumbersWhenExplicitlyEnabled() {

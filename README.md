@@ -313,3 +313,47 @@ Upload one `*.schema.json` canonical snapshot or a ZIP containing a unique one-v
 ## Physical DDL phase 1
 
 SchemaForge can now enrich Oracle, PostgreSQL, Microsoft SQL Server, and Db2 for z/OS DDL with inline, non-executable physical-option blocks for DBA review. Existing active placement remains unchanged; new tuning/storage guidance is placed inside `/* ... */` at the DBMS-correct position in the statement. Phase 1 deliberately has no `REVIEW/APPLY` service mode and does not provision tablespaces, filegroups, stogroups, LOB storage, or partitions. Db2 for z/OS also renders `FOR MIXED DATA` for `CHAR`/`VARCHAR` and analyzes FK supporting-index coverage without creating indexes automatically. See `docs/PHYSICAL-PHASE1.md`.
+
+### Physical Phase 1 corpus audit
+
+For persisted canonical JSON, run the physical-only corpus audit independently of datatype-compatibility analysis:
+
+```bat
+mvnw.cmd ^
+  -Dtest=PhysicalPhase1CorpusAuditIT ^
+  -Dschemaforge.physical.audit.inputDir="D:\get-git-doc-files-master\SchemaForgeCanonicalJson\all" ^
+  -Dschemaforge.physical.audit.outputDir="D:\SchemaForge-Physical-Audit\Json" ^
+  -Dschemaforge.physical.audit.platforms=oracle,postgresql,sqlserver,db2zos ^
+  -Dschemaforge.physical.audit.failOnViolations=false ^
+  test
+```
+
+The runner writes `physical-phase1-audit-summary_*.txt/.csv`, `physical-phase1-audit-detail_*.csv`, and `physical-phase1-audit-findings_*.csv`. Full DDL generation is used only as an additional physical syntax/placement inspection when available; non-physical datatype mapping failures are reported as informational `DDL_UNAVAILABLE` entries and do not fail the physical audit.
+
+### Physical Phase-1 audit for the new-format Word corpus
+
+Materialize new-format `.docx` files with the standard parser only, then run the same physical-only audit over those snapshots:
+
+```bat
+mvnw.cmd -Dtest=WordDirectoryToCanonicalJsonIT ^
+  -Dschemaforge.snapshot.word.inputDir="D:\Sample-Docs\Word\all" ^
+  -Dschemaforge.snapshot.outputDir="D:\SchemaForge-Physical-Audit\Word-Canonical" ^
+  -Dschemaforge.snapshot.parserMode=standard ^
+  -Dschemaforge.snapshot.forceRefresh=true ^
+  -Dschemaforge.snapshot.failOnErrors=false ^
+  test
+
+mvnw.cmd -Dtest=PhysicalPhase1CorpusAuditIT ^
+  -Dschemaforge.physical.audit.inputDir="D:\SchemaForge-Physical-Audit\Word-Canonical" ^
+  -Dschemaforge.physical.audit.outputDir="D:\SchemaForge-Physical-Audit\Word" ^
+  -Dschemaforge.physical.audit.platforms=oracle,postgresql,sqlserver,db2zos ^
+  -Dschemaforge.physical.audit.failOnViolations=false ^
+  test
+```
+
+`manifest.json` is intentionally excluded by the physical corpus audit; only canonical schema snapshots are audited.
+
+### Physical source-value rule
+Physical metadata from Word/JSON is evidence, not truth. Valid source values may be retained in the activation-ready physical comment block. Invalid or inapplicable source values are not clamped or silently normalized; the generated SQL contains a `[SOURCE PHYSICAL ISSUE]` review line and a DBA placeholder where needed.
+
+The current per-DBMS Phase-1 coverage and explicit exclusions are summarized in `docs/physical-phase1-coverage-matrix.md`. Context-dependent source values that are syntactically usable but cannot be proven correct from the canonical model are marked `[SOURCE PHYSICAL REVIEW]` instead of being silently accepted as truth. Db2 table blocks are storage-only; non-storage table semantics are excluded. PostgreSQL `toast_tuple_target` and Db2 `PIECESIZE` are source/profile-only reviewable options. Per-index source tuning remains a documented Phase-1 model-granularity boundary rather than being guessed.
