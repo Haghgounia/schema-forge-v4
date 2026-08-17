@@ -134,9 +134,18 @@ Word/JSON is evidence, not truth. SchemaForge:
 
 Column, Index, Primary Key backing-index, and Unique Key backing-index physical options are object-scoped. Historical table-scoped index options remain a compatibility fallback. `Index.buildOptions` is a separate object-scoped channel for operational CREATE INDEX directives and is not merged into persistent physical state. Db2 table-space profile options remain table-scoped; shared table-space provisioning/deduplication is not modeled as an executable schema object.
 
-## Frozen baseline
+## Frozen baselines
 
-Physical P0-P7 is frozen at the user-verified 376-test baseline (0 failures, 0 errors, 3 skipped). Remaining LOB, partition, recovery, access-method, FILESTREAM/TEXTIMAGE and similar gaps require dedicated models or explicit source contracts; they are not to be flattened into generic physicalOptions.
+The Physical DDL renderer/model workstream P0-P7 remains frozen at the user-verified 376-test baseline (0 failures, 0 errors, 3 skipped).
+
+The expected-vs-actual Physical Metadata Comparison workstream P8-A/P8-B/P8-C is frozen by P8-D at the user-verified 399-test baseline (0 failures, 0 errors, 3 skipped). P8 adds database-catalog acquisition and Excel comparison only; it does not promote actual database state into design intent or generated DDL.
+
+Frozen P8 workbook coverage:
+- `TABLE_PHYSICAL_COMPARE`: Oracle, PostgreSQL, SQL Server, Db2 for z/OS
+- `INDEX_PHYSICAL_COMPARE`: ordinary indexes plus PK/UK backing indexes for all four platforms
+- `COLUMN_PHYSICAL_COMPARE`: PostgreSQL `STORAGE` / `COMPRESSION` only
+
+Remaining LOB, partition, recovery, access-method, FILESTREAM/TEXTIMAGE and similar gaps require dedicated models or explicit source contracts; they are not to be flattened into generic `physicalOptions`. See `docs/P8D-PHYSICAL-COMPARISON-BASELINE-FREEZE.md`.
 
 
 ## 2026-08-17 SQL Server Physical P4 delta

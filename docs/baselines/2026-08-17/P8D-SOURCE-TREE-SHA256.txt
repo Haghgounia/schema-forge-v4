@@ -1,0 +1,8 @@
+SchemaForge V4 P8-D source-tree fingerprint
+Source baseline: user-verified P8-C package
+Scope: all files under src/
+Files: 367
+Aggregate SHA-256 of sorted per-file SHA-256 manifest:
+a864b0f1db1099436a766b39ce9de651503ed217596f252ae3e2dc039ad73c3f
+
+P8-D source invariant: src/ is byte-for-byte unchanged from P8-C.

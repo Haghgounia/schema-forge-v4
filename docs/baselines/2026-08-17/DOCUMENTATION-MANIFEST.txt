@@ -1,0 +1,25 @@
+SchemaForge V4 Documentation Finalization
+Baseline ID: SCHEMAFORGE-V4-DOCFINAL-20260817
+Date: 2026-08-17
+Parent: P8-D Physical Metadata Comparison Freeze
+Project version: 4.0.0-SNAPSHOT
+
+User-verified regression evidence:
+  command  : mvn clean test
+  tests    : 399
+  failures : 0
+  errors   : 0
+  skipped  : 3
+  result   : BUILD SUCCESS
+  finished : 2026-08-17T08:40:09-07:00
+
+Source-tree fingerprint expected:
+  a864b0f1db1099436a766b39ce9de651503ed217596f252ae3e2dc039ad73c3f
+
+Documentation finalization rules:
+  - no production Java changes
+  - no test Java changes
+  - no parser/snapshot version changes
+  - no DDL/dialect/physical behavior changes
+  - older documentation is retained as history
+  - docs/reference is the current authoritative documentation entry point

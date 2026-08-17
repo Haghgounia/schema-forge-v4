@@ -1,0 +1,60 @@
+SchemaForge V4 Current Baseline
+Baseline date: 2026-08-17
+Project version: 4.0.0-SNAPSHOT
+Current documented baseline ID: SCHEMAFORGE-V4-DOCFINAL-20260817
+
+Layer 1 - Physical DDL rendering/model freeze
+  baseline : P7 Db2/zOS Index Build Options
+  tests    : 376
+  failures : 0
+  errors   : 0
+  skipped  : 3
+  result   : BUILD SUCCESS
+  status   : frozen
+
+Layer 2 - Physical Metadata Comparison freeze
+  baseline : P8-D, built on P8-C
+  tests    : 399
+  failures : 0
+  errors   : 0
+  skipped  : 3
+  result   : BUILD SUCCESS
+  status   : frozen
+
+Layer 3 - Documentation finalization
+  source baseline : P8-D
+  tests           : 399
+  failures        : 0
+  errors          : 0
+  skipped         : 3
+  result          : BUILD SUCCESS
+  finished        : 2026-08-17T08:40:09-07:00
+  source changes  : none
+  status          : current documented baseline
+
+Current P8 comparison coverage:
+  - TABLE_PHYSICAL_COMPARE: Oracle, PostgreSQL, SQL Server, Db2 for z/OS
+  - INDEX_PHYSICAL_COMPARE: Index, PK backing index, UK backing index for all four platforms
+  - COLUMN_PHYSICAL_COMPARE: PostgreSQL STORAGE/COMPRESSION
+
+Baseline invariants:
+  - database actual state is comparison evidence only
+  - actual state is never promoted into design intent or generated DDL
+  - no buildOptions are inferred from current database state
+  - no parser/snapshot version change in documentation finalization
+  - no production/test Java change in documentation finalization
+
+Current authoritative documentation:
+  docs/reference/README.md
+  docs/reference/ARCHITECTURE.md
+  docs/reference/CANONICAL-DOMAIN-MODEL.md
+  docs/reference/INPUTS-OUTPUTS-PIPELINE.md
+  docs/reference/DATABASE-SUPPORT-MATRIX.md
+  docs/reference/PHYSICAL-DDL-REFERENCE.md
+  docs/reference/PHYSICAL-METADATA-COMPARISON.md
+  docs/reference/EXCEL-COMPARISON-REFERENCE.md
+  docs/reference/EVIDENCE-AND-NO-GUESS-POLICY.md
+  docs/reference/KNOWN-LIMITATIONS.md
+  docs/reference/DEVELOPER-GUIDE.md
+  docs/reference/TESTING-AND-BASELINE.md
+  docs/reference/CURRENT-RELEASE-BASELINE.md

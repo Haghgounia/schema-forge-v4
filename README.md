@@ -76,9 +76,11 @@ java -jar target/schema-forge-v4-4.0.0-SNAPSHOT.jar input.docx output-directory
 
 The offline CLI does not require a JDBC connection. REST metadata validation and comparison are activated only for explicitly enabled database adapters.
 
-## Project documentation
+## Current project documentation
 
-Detailed project documentation is maintained under [`docs/`](docs/), including dialect, architecture, testing, and release material. The project-level release history remains in `CHANGELOG.md`.
+The authoritative current documentation starts at [`docs/reference/README.md`](docs/reference/README.md). It consolidates architecture, canonical domain model, inputs/outputs, the four-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, the no-guess policy, known limitations, developer guidance, testing, and the current release baseline.
+
+Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 399-test baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
 
 ## V4 DBMS-neutral DDL refactoring
 
@@ -256,6 +258,8 @@ P8-B adds `INDEX_PHYSICAL_COMPARE` for ordinary indexes and the backing indexes 
 
 P8-C adds `COLUMN_PHYSICAL_COMPARE`. Current column-level physical metadata acquisition is intentionally PostgreSQL-only (`STORAGE` / `COMPRESSION` from `pg_attribute`, with `pg_type.typstorage` used to compare `STORAGE DEFAULT`). Oracle, SQL Server, and Db2 are not given invented generic column mappings. See [`docs/P8C-COLUMN-PHYSICAL-METADATA-COMPARISON.md`](docs/P8C-COLUMN-PHYSICAL-METADATA-COMPARISON.md).
 
+P8-D freezes the expected-vs-actual physical comparison baseline after the user-verified 399-test regression. P8-D adds no production or test behavior; it records the final comparison contract and the rule that database actual state remains comparison evidence only. See [`docs/P8D-PHYSICAL-COMPARISON-BASELINE-FREEZE.md`](docs/P8D-PHYSICAL-COMPARISON-BASELINE-FREEZE.md).
+
 
 ## Db2 for z/OS core dialect
 
@@ -386,6 +390,10 @@ The current per-DBMS coverage and explicit exclusions are summarized in `docs/ph
 
 `Index.buildOptions` now supports explicit Db2/zOS `DEFINE YES|NO` and `DEFER YES|NO`. No default is invented when either option is absent. `DEFINE NO` is emitted only when the index also carries explicit `DB2_INDEX_STOGROUP` or `INDEX_STOGROUP` physical evidence. `DEFER YES` is accompanied by an index-build review warning because a populated table can leave the index rebuild-pending. See `docs/PHYSICAL-FINAL-GAP-AUDIT.md` for the remaining vendor-specific scope decisions.
 
-### Physical DDL baseline freeze
+### Physical baselines
 
-Physical P0-P7 is frozen on the 2026-08-17 P7 baseline. The complete Windows Maven regression was user-verified at `376` tests with `0` failures, `0` errors and `3` existing skipped live-database integration tests. The freeze adds no new production behavior. Remaining Oracle LOB, PostgreSQL table-access-method/partition, SQL Server TEXTIMAGE/FILESTREAM/partition, and Db2 recovery/organization/partition semantics require dedicated modeling rather than more generic physical options. See `docs/PHYSICAL-BASELINE-FREEZE.md` and `docs/PHYSICAL-FINAL-GAP-AUDIT.md`.
+Physical DDL rendering/model work P0-P7 remains frozen on the 2026-08-17 P7 baseline. The complete Windows Maven regression was user-verified at `376` tests with `0` failures, `0` errors and `3` existing skipped live-database integration tests. See `docs/PHYSICAL-BASELINE-FREEZE.md` and `docs/PHYSICAL-FINAL-GAP-AUDIT.md`.
+
+Physical Metadata Comparison P8-A/P8-B/P8-C is frozen by P8-D on the user-verified `399`-test baseline with `0` failures, `0` errors and `3` skipped tests. P8 adds expected-vs-actual Excel comparison only: actual database catalog state does not become design intent and is not fed into generated DDL. See `docs/P8D-PHYSICAL-COMPARISON-BASELINE-FREEZE.md`.
+
+Remaining Oracle LOB, PostgreSQL table-access-method/partition, SQL Server TEXTIMAGE/FILESTREAM/partition, and Db2 recovery/organization/partition semantics require dedicated modeling rather than more generic physical options.

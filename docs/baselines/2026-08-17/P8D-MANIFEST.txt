@@ -1,0 +1,36 @@
+SchemaForge V4 - P8-D Physical Metadata Comparison Baseline Freeze
+Freeze date: 2026-08-17
+Source baseline: P8-C Column Physical Metadata Comparison
+Project version: 4.0.0-SNAPSHOT
+
+User-verified final P8 regression:
+  command  : mvn clean test
+  tests    : 399
+  failures : 0
+  errors   : 0
+  skipped  : 3
+  result   : BUILD SUCCESS
+  finished : 2026-08-17T07:57:40-07:00
+
+Frozen P8 coverage:
+  P8-A : Table physical metadata comparison - Oracle/PostgreSQL/SQL Server/Db2 z/OS
+  P8-B : Index/PK/UK physical metadata comparison - Oracle/PostgreSQL/SQL Server/Db2 z/OS
+  P8-C : Column physical metadata comparison - PostgreSQL STORAGE/COMPRESSION
+  P8-D : Documentation/regression baseline freeze only
+
+Frozen workbook physical sheets:
+  TABLE_PHYSICAL_COMPARE
+  INDEX_PHYSICAL_COMPARE
+  COLUMN_PHYSICAL_COMPARE
+
+Freeze guarantees:
+  - no production Java changes in P8-D
+  - no test-code changes in P8-D
+  - no parser/version/snapshot changes
+  - no DDL renderer/dialect changes
+  - no API/application changes
+  - no actual database metadata promoted into design intent or generated DDL
+  - no buildOptions reverse-engineering from current database state
+
+Primary freeze document:
+  docs/P8D-PHYSICAL-COMPARISON-BASELINE-FREEZE.md

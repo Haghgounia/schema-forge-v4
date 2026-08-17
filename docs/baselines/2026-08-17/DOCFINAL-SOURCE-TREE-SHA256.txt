@@ -1,0 +1,9 @@
+SchemaForge V4 Documentation Finalization - Source Tree Fingerprint
+Baseline ID: SCHEMAFORGE-V4-DOCFINAL-20260817
+
+Complete src tree file count: 367
+Sorted per-file SHA-256 manifest fingerprint:
+a864b0f1db1099436a766b39ce9de651503ed217596f252ae3e2dc039ad73c3f
+
+This fingerprint is identical to the P8-D/P8-C user-verified source baseline.
+Documentation finalization changes no production or test Java source.

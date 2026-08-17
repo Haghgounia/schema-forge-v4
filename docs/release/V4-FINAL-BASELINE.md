@@ -1,5 +1,8 @@
 # SchemaForge V4 Final Baseline
 
+> **Historical baseline notice:** This document freezes an earlier 2026-08-14 milestone (270-test baseline). It is retained as validation history. The current SchemaForge V4 baseline is documented in [`../reference/CURRENT-RELEASE-BASELINE.md`](../reference/CURRENT-RELEASE-BASELINE.md) with the user-verified 399-test regression.
+
+
 **Baseline ID:** `SCHEMAFORGE-V4-FINAL-20260814`  
 **Project version in `pom.xml`:** `4.0.0-SNAPSHOT`  
 **Freeze date:** 2026-08-14  

@@ -1141,3 +1141,21 @@
 - Corrected stale README wording that still described per-index physical tuning as an unimplemented model boundary.
 - Remaining Oracle LOB, PostgreSQL access-method/partition, SQL Server TEXTIMAGE/FILESTREAM/partition, and Db2 recovery/organization/partition features stay explicitly deferred until a dedicated source/domain model exists.
 - Documentation-only finalization: no production Java, test logic, parser version, snapshot version, datatype mapping, or DDL behavior changed.
+
+## 2026-08-17 - P8-D Physical Metadata Comparison baseline freeze
+- Froze the expected-vs-actual Physical Metadata Comparison workstream after the user-verified P8-C full regression: 399 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS.
+- Recorded final P8 coverage: table physical comparison for Oracle/PostgreSQL/SQL Server/Db2 z/OS; index/PK/UK physical comparison for all four platforms; PostgreSQL column STORAGE/COMPRESSION comparison.
+- Frozen Excel physical sheets are `TABLE_PHYSICAL_COMPARE`, `INDEX_PHYSICAL_COMPARE`, and `COLUMN_PHYSICAL_COMPARE`.
+- Reaffirmed that JDBC actual database metadata is comparison evidence only and is never promoted into design intent or generated DDL.
+- Reaffirmed conservative reverse-engineering guards: no buildOptions inference, no Oracle segment-creation inference, no Db2 allocation-to-PRIQTY/SECQTY reconstruction, and mixed partition state remains REVIEW.
+- Updated the physical coverage matrix and README to distinguish the 376-test P0-P7 DDL freeze from the 399-test P8 physical-comparison freeze.
+- Documentation/baseline finalization only: no production Java, test code, parser, snapshot, datatype mapping, dialect, physical renderer, API, or DDL generation changes.
+
+## 2026-08-17 - Documentation Finalization
+- Added `docs/reference/` as the authoritative current SchemaForge V4 documentation set.
+- Consolidated architecture, canonical domain model, supported inputs/outputs, four-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, no-guess/evidence policy, known limitations, developer guidance, testing, and current release-baseline documentation.
+- Updated `docs/README.md` and the root README so current documentation is clearly separated from historical phase/release evidence.
+- Marked the older `docs/release/V4-FINAL-BASELINE.md` as a historical 270-test milestone to prevent confusion with the current 399-test baseline.
+- Updated `BASELINE-MANIFEST.txt` and added `DOCUMENTATION-MANIFEST.txt` for the current documented baseline `SCHEMAFORGE-V4-DOCFINAL-20260817`.
+- Recorded the latest user-verified regression: 399 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS, finished 2026-08-17T08:40:09-07:00.
+- Documentation-only finalization: no production Java, test Java, parser, snapshot, datatype, dialect, physical renderer, API, or DDL behavior changed.
