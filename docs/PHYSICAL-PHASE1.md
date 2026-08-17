@@ -1,5 +1,18 @@
 # SchemaForge V4 - Physical Phase 1
 
+## P0 object-scoped physical options
+
+Physical options are no longer limited to `Table.physicalOptions()`. The canonical model now also supports optional immutable backing-index options on:
+
+- `Index.physicalOptions()`
+- `PrimaryKey.physicalOptions()`
+- `UniqueKey.physicalOptions()`
+
+Resolution is backward compatible: an object-scoped value wins when present; otherwise the historical table-scoped index option is used as fallback. This allows two indexes on the same table to carry different `PCTFREE`, `FILLFACTOR`, `STOGROUP`, or placement values without breaking existing Word-derived snapshots or callers.
+
+The change is additive. Word parser/cache semantics are unchanged.
+
+
 ## Purpose
 
 Physical Phase 1 enriches the existing DDL with DBA-reviewable physical options without changing the service contract or turning SchemaForge into a storage-provisioning tool.
@@ -191,12 +204,33 @@ Table candidates:
 /*
 -- DB2/ZOS TABLE PHYSICAL OPTIONS
 IN <DATABASE>.<TABLESPACE>
--- Table-space FREEPAGE/PCTFREE/COMPRESS/BUFFERPOOL/DSSIZE belong to CREATE TABLESPACE.
--- AUDIT/DATA CAPTURE/CCSID/VOLATILE/APPEND/RESTRICT ON DROP are non-storage semantics and are excluded.
+-- Table-space attributes belong to CREATE/ALTER TABLESPACE, not CREATE TABLE.
+BUFFERPOOL <BUFFERPOOL>
+DSSIZE <DSSIZE>
+SEGSIZE <SEGSIZE>
+FREEPAGE 0
+PCTFREE 5
+-- FOR UPDATE is source/profile-only because PCTFREE_UPD is subsystem-controlled.
+COMPRESS NO
+GBPCACHE CHANGED
+CLOSE YES
+DEFINE YES
+LOCKSIZE <LOCKSIZE>
+LOCKMAX <LOCKMAX>
+MAXROWS 255
+-- MEMBER CLUSTER is source/profile-only.
+INSERT ALGORITHM 0
+TRACKMOD <TRACKMOD>
+LOGGED
+USING STOGROUP <STOGROUP>
+    PRIQTY <PRIQTY>
+    SECQTY <SECQTY>
+    ERASE NO
+-- MAXPARTITIONS/NUMPARTS/PAGENUM/PARTITION remain outside this phase.
 */
 ```
 
-The `IN` placeholder is omitted when a source placement is already active.
+The `IN` placeholder is omitted when a source placement is already active. The table-space profile stays comment-only: SchemaForge does not provision or recreate an existing table space. Explicit values are validated against the offline Db2 rules available to the generator; invalid values are retained as SOURCE PHYSICAL ISSUE diagnostics rather than normalized.
 
 Index / PK / Unique candidates:
 
@@ -227,13 +261,9 @@ For an index whose key contains a varying-length character column, the block add
 No value is hardcoded because the default can depend on the Db2 subsystem policy.
 
 
-### Physical Phase 1 freeze
+### Physical P0 granularity
 
-Phase 1 is frozen at the table-scoped source/profile physical-option contract. A separate per-index physical option model is deliberately not introduced until a production input contract can provide distinct values for individual indexes/PK/UK objects. The current renderer still uses object context (key columns, uniqueness and active placement) and never pretends that two distinct source index profiles exist when the input model cannot represent them.
-
-### Phase-1 source granularity boundary
-
-The current persisted physical option map is table-scoped. The renderer receives key columns and whether an index is known UNIQUE, so it can validate context-sensitive index clauses, but distinct source physical values for two different indexes of the same table are not represented independently yet. Phase 1 does not invent or silently merge such values.
+Index, Primary Key backing-index and Unique Key backing-index physical options are now object-scoped. Existing table-scoped index options remain a backward-compatible fallback. Table-space physical profile values remain table-scoped because this phase reports the storage context used by that table; SchemaForge still does not provision shared table-space objects.
 
 ## FK supporting-index analysis
 

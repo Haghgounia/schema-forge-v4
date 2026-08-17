@@ -130,7 +130,8 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
                 source.description(),
                 source.identity(),
                 ordinalPosition,
-                source.generatedExpression()
+                source.generatedExpression(),
+                source.physicalOptions()
         );
     }
 

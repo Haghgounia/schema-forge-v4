@@ -24,6 +24,7 @@ import com.behsazan.schemaforge.generation.DdlGenerator;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -297,6 +298,193 @@ class PhysicalPhase1DdlGeneratorTest {
 
         assertFalse(sql.contains("Foreign key FK_AB has no supporting index"));
         assertTrue(sql.contains("Foreign key FK_XY has no supporting index"));
+    }
+
+    @Test
+    void shouldPreferObjectScopedIndexPhysicalOptionsAndKeepTableFallback() {
+        Index first = new Index(Identifier.of("IX_OBJECT_A"),
+                List.of(new IndexColumn(Identifier.of("A"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty(), List.of(), null,
+                Map.of("ORACLE_INDEX_PCTFREE", "21", "INDEX_TABLESPACE", "ITS_A"));
+        Index second = new Index(Identifier.of("IX_OBJECT_B"),
+                List.of(new IndexColumn(Identifier.of("B"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty(), List.of(), null,
+                Map.of("ORACLE_INDEX_PCTFREE", "37", "INDEX_TABLESPACE", "ITS_B"));
+        Index fallback = new Index(Identifier.of("IX_OBJECT_C"),
+                List.of(new IndexColumn(Identifier.of("C"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+
+        Table table = Table.builder("ACC", "OBJECT_SCOPED_INDEX_PHYSICAL")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .addColumn(column("A", DataType.numeric("NUMBER", 10, 0), false, null, 2))
+                .addColumn(column("B", DataType.numeric("NUMBER", 10, 0), false, null, 3))
+                .addColumn(column("C", DataType.numeric("NUMBER", 10, 0), false, null, 4))
+                .addColumn(column("U", DataType.numeric("NUMBER", 10, 0), false, null, 5))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_OBJECT_SCOPED"), List.of(Identifier.of("ID")),
+                        false, false, Map.of("ORACLE_INDEX_PCTFREE", "31", "INDEX_TABLESPACE", "ITS_PK")))
+                .addUniqueKey(new UniqueKey(Identifier.of("UK_OBJECT_SCOPED"), List.of(Identifier.of("U")),
+                        false, false, Map.of("ORACLE_INDEX_PCTFREE", "41", "INDEX_TABLESPACE", "ITS_UK")))
+                .addIndex(first)
+                .addIndex(second)
+                .addIndex(fallback)
+                .physicalOption("ORACLE_INDEX_PCTFREE", "12")
+                .physicalOption("INDEX_TABLESPACE", "ITS_FALLBACK")
+                .build();
+
+        String oracle = new DdlGenerator(new OracleDialect())
+                .generate(DatabaseSchema.builder("ACC").addTable(table).build());
+
+        assertTrue(oracle.contains("PCTFREE 21"));
+        assertTrue(oracle.contains("PCTFREE 37"));
+        assertTrue(oracle.contains("PCTFREE 12"));
+        assertTrue(oracle.contains("PCTFREE 31"));
+        assertTrue(oracle.contains("PCTFREE 41"));
+        assertTrue(oracle.contains("TABLESPACE ITS_A"));
+        assertTrue(oracle.contains("TABLESPACE ITS_B"));
+        assertTrue(oracle.contains("TABLESPACE ITS_FALLBACK"));
+        assertTrue(oracle.contains("TABLESPACE ITS_PK"));
+        assertTrue(oracle.contains("TABLESPACE ITS_UK"));
+    }
+
+    @Test
+    void shouldRenderDb2TablespacePhysicalProfileFromExplicitSourceValues() {
+        Table table = Table.builder("ACC", "DB2_TABLESPACE_PROFILE")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .physicalOption("TABLESPACE", "DBACC.TSACC")
+                .physicalOption("DB2_TABLESPACE_BUFFERPOOL", "BP8K0")
+                .physicalOption("DB2_TABLESPACE_DSSIZE", "8 G")
+                .physicalOption("DB2_TABLESPACE_SEGSIZE", "32")
+                .physicalOption("DB2_TABLESPACE_FREEPAGE", "7")
+                .physicalOption("DB2_TABLESPACE_PCTFREE", "15")
+                .physicalOption("DB2_TABLESPACE_PCTFREE_FOR_UPDATE", "10")
+                .physicalOption("DB2_TABLESPACE_COMPRESS", "YES HUFFMAN")
+                .physicalOption("DB2_TABLESPACE_GBPCACHE", "ALL")
+                .physicalOption("DB2_TABLESPACE_CLOSE", "NO")
+                .physicalOption("DB2_TABLESPACE_DEFINE", "NO")
+                .physicalOption("DB2_TABLESPACE_LOCKSIZE", "ROW")
+                .physicalOption("DB2_TABLESPACE_LOCKMAX", "SYSTEM")
+                .physicalOption("DB2_TABLESPACE_MAXROWS", "64")
+                .physicalOption("DB2_TABLESPACE_MEMBER_CLUSTER", "YES")
+                .physicalOption("DB2_TABLESPACE_INSERT_ALGORITHM", "2")
+                .physicalOption("DB2_TABLESPACE_TRACKMOD", "NO")
+                .physicalOption("DB2_TABLESPACE_LOGGING", "NOT LOGGED")
+                .physicalOption("DB2_TABLESPACE_STOGROUP", "SGACC")
+                .physicalOption("DB2_TABLESPACE_PRIQTY", "52")
+                .physicalOption("DB2_TABLESPACE_SECQTY", "20")
+                .physicalOption("DB2_TABLESPACE_ERASE", "NO")
+                .build();
+
+        String db2 = new DdlGenerator(new Db2ZosDialect())
+                .generate(DatabaseSchema.builder("ACC").addTable(table).build());
+
+        assertTrue(db2.contains("IN DBACC.TSACC"));
+        assertTrue(db2.contains("BUFFERPOOL BP8K0"));
+        assertTrue(db2.contains("DSSIZE 8 G"));
+        assertTrue(db2.contains("SEGSIZE 32"));
+        assertTrue(db2.contains("FREEPAGE 7"));
+        assertTrue(db2.contains("PCTFREE 15"));
+        assertTrue(db2.contains("FOR UPDATE 10"));
+        assertTrue(db2.contains("COMPRESS YES HUFFMAN"));
+        assertTrue(db2.contains("GBPCACHE ALL"));
+        assertTrue(db2.contains("CLOSE NO"));
+        assertTrue(db2.contains("DEFINE NO"));
+        assertTrue(db2.contains("LOCKSIZE ROW"));
+        assertTrue(db2.contains("LOCKMAX SYSTEM"));
+        assertTrue(db2.contains("MAXROWS 64"));
+        assertTrue(db2.contains("MEMBER CLUSTER"));
+        assertTrue(db2.contains("INSERT ALGORITHM 2"));
+        assertTrue(db2.contains("TRACKMOD NO"));
+        assertTrue(db2.contains("NOT LOGGED"));
+        assertTrue(db2.contains("USING STOGROUP SGACC"));
+        assertTrue(db2.contains("PRIQTY 52"));
+        assertTrue(db2.contains("SECQTY 20"));
+        assertTrue(db2.contains("ERASE NO"));
+    }
+
+    @Test
+    void shouldRejectUnsafeDb2TablespaceSourceValuesWithoutNormalizingThem() {
+        Table table = Table.builder("ACC", "DB2_BAD_TABLESPACE_PROFILE")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .physicalOption("DB2_TABLESPACE_SEGSIZE", "18")
+                .physicalOption("DB2_TABLESPACE_PCTFREE", "80")
+                .physicalOption("DB2_TABLESPACE_PCTFREE_FOR_UPDATE", "30")
+                .physicalOption("DB2_TABLESPACE_LOCKSIZE", "TABLESPACE")
+                .physicalOption("DB2_TABLESPACE_LOCKMAX", "SYSTEM")
+                .build();
+
+        String db2 = new DdlGenerator(new Db2ZosDialect())
+                .generate(DatabaseSchema.builder("ACC").addTable(table).build());
+
+        assertTrue(db2.contains("[SOURCE PHYSICAL ISSUE][DB2/ZOS]"));
+        assertTrue(db2.contains("SEGSIZE <SEGSIZE>"));
+        assertTrue(db2.contains("PCTFREE <PCTFREE>"));
+        assertTrue(db2.contains("FOR UPDATE <PCTFREE_FOR_UPDATE>"));
+        assertTrue(db2.contains("LOCKMAX <LOCKMAX>"));
+        assertFalse(db2.contains("SEGSIZE 18"));
+        assertFalse(db2.contains("PCTFREE 80"));
+    }
+
+    @Test
+    void shouldRenderOracleLoggingParallelAndSegmentCreationFromExplicitSourceValues() {
+        Index index = new Index(Identifier.of("IX_ORACLE_GENERIC_PHYS"),
+                List.of(new IndexColumn(Identifier.of("CODE"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty(), List.of(), null,
+                Map.of(
+                        "ORACLE_INDEX_LOGGING", "NOLOGGING",
+                        "ORACLE_INDEX_PARALLEL", "PARALLEL 4"));
+        Table table = Table.builder("ACC", "ORACLE_GENERIC_PHYS")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .addColumn(column("CODE", DataType.varchar("VARCHAR2", 50), false, null, 2))
+                .addIndex(index)
+                .physicalOption("ORACLE_TABLE_LOGGING", "LOGGING")
+                .physicalOption("ORACLE_TABLE_PARALLEL", "PARALLEL 8")
+                .physicalOption("ORACLE_TABLE_SEGMENT_CREATION", "IMMEDIATE")
+                .build();
+
+        String oracle = new DdlGenerator(new OracleDialect())
+                .generate(DatabaseSchema.builder("ACC").addTable(table).build());
+
+        assertTrue(oracle.contains("[SOURCE PHYSICAL] ORACLE_TABLE_LOGGING=LOGGING"));
+        assertTrue(oracle.contains("[SOURCE PHYSICAL] ORACLE_TABLE_PARALLEL=PARALLEL 8"));
+        assertTrue(oracle.contains("[SOURCE PHYSICAL] ORACLE_TABLE_SEGMENT_CREATION=IMMEDIATE"));
+        assertTrue(oracle.contains("SEGMENT CREATION IMMEDIATE"));
+        assertTrue(oracle.contains("[SOURCE PHYSICAL] ORACLE_INDEX_LOGGING=NOLOGGING"));
+        assertTrue(oracle.contains("[SOURCE PHYSICAL] ORACLE_INDEX_PARALLEL=PARALLEL 4"));
+    }
+
+    @Test
+    void shouldKeepUnsafeOracleGenericPhysicalValuesVisibleWithoutNormalizingThem() {
+        Table table = Table.builder("ACC", "ORACLE_BAD_GENERIC_PHYS")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .physicalOption("ORACLE_TABLE_LOGGING", "MAYBE")
+                .physicalOption("ORACLE_TABLE_PARALLEL", "PARALLEL 0")
+                .physicalOption("ORACLE_TABLE_SEGMENT_CREATION", "LATER")
+                .build();
+
+        String oracle = new DdlGenerator(new OracleDialect())
+                .generate(DatabaseSchema.builder("ACC").addTable(table).build());
+
+        assertTrue(oracle.contains("[SOURCE PHYSICAL ISSUE][ORACLE]"));
+        assertTrue(oracle.contains("<LOGGING_OR_NOLOGGING>"));
+        assertTrue(oracle.contains("<PARALLEL_CLAUSE>"));
+        assertTrue(oracle.contains("SEGMENT CREATION <DEFERRED_OR_IMMEDIATE>"));
+        assertFalse(oracle.contains("PARALLEL 0\n"));
+        assertFalse(oracle.contains("SEGMENT CREATION LATER"));
+    }
+
+    @Test
+    void shouldNotInventOracleLoggingOrSegmentCreationWhenSourceIsAbsent() {
+        Table table = Table.builder("ACC", "ORACLE_GENERIC_DEFAULTS")
+                .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, 1))
+                .build();
+
+        String oracle = new DdlGenerator(new OracleDialect())
+                .generate(DatabaseSchema.builder("ACC").addTable(table).build());
+
+        assertTrue(oracle.contains("LOGGING/NOLOGGING intentionally unspecified"));
+        assertTrue(oracle.contains("NOPARALLEL"));
+        assertTrue(oracle.contains("SEGMENT CREATION <DEFERRED_OR_IMMEDIATE>"));
+        assertTrue(oracle.contains("DEFERRED_SEGMENT_CREATION policy is not overridden"));
     }
 
     private static DatabaseSchema schemaWithPlacementAndForeignKeys() {

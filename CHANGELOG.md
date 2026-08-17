@@ -1,4 +1,49 @@
 
+## 2026-08-17 - Physical P6: column-scoped physical options
+
+- Added optional immutable `Column.physicalOptions` with compatibility constructors; existing callers continue to default to an empty map.
+- Extended canonical snapshots with additive nullable column `physicalOptions`; older snapshots map missing values to an empty map.
+- PostgreSQL now renders explicit column `STORAGE PLAIN|EXTERNAL|EXTENDED|MAIN|DEFAULT` and `COMPRESSION pglz|lz4|default` only from column-scoped source/profile evidence.
+- Compression is not emitted for known fixed-width target types or when explicit `PLAIN`/`EXTERNAL` storage makes compression inactive; the reason is written inline as `[SOURCE PHYSICAL ISSUE]`.
+- Unknown/custom target types remain review-only rather than assuming compression support.
+- Word, EA and JDBC metadata parsers do not infer column physical options.
+- No parser/cache provenance change was made.
+
+## 2026-08-17 - Physical P5: Index Build Options
+
+- Added `Index.buildOptions` as a separate canonical/snapshot map; persistent physical state remains in `physicalOptions`.
+- Oracle explicit index builds support source/profile `ONLINE`.
+- PostgreSQL explicit index builds support source/profile `CONCURRENTLY` with transaction/partition review warning.
+- SQL Server explicit index builds support source/profile `ONLINE`, `RESUMABLE`, `MAX_DURATION`, `MAXDOP`, and `SORT_IN_TEMPDB` with compatibility guards.
+- No build option is inferred from metadata or table-level physical defaults.
+- Backward-compatible Index constructors and old snapshots remain supported.
+## 2026-08-17 - Db2/z/OS table-space physical profile
+
+- Expanded the Db2/z/OS table physical block into a source/profile-driven table-space physical profile while keeping `CREATE TABLE ... IN database.tablespace` as the only active table placement.
+- Added validated review candidates for `BUFFERPOOL`, `DSSIZE`, `SEGSIZE`, `FREEPAGE`, `PCTFREE`, `PCTFREE FOR UPDATE`, `COMPRESS`, `GBPCACHE`, `CLOSE`, `DEFINE`, `LOCKSIZE`, `LOCKMAX`, `MAXROWS`, `MEMBER CLUSTER`, `INSERT ALGORITHM`, `TRACKMOD`, `LOGGED/NOT LOGGED`, `USING STOGROUP`, `PRIQTY`, `SECQTY`, and `ERASE`.
+- Preserved source values only when they satisfy the Db2 syntax/range checks available offline; invalid or context-dependent values are surfaced as `[SOURCE PHYSICAL ISSUE]` / `[SOURCE PHYSICAL REVIEW]` instead of being clamped or guessed.
+- `DSSIZE` remains organization-aware: values are not reinterpreted without PBG/PBR/PAGENUM context, and partitioning clauses remain out of scope.
+- `PCTFREE FOR UPDATE` remains source/profile-only because its default is controlled by the Db2 `PCTFREE_UPD` subsystem parameter; the combined `PCTFREE + FOR UPDATE <= 99` rule is enforced when both are supplied.
+- `CREATE TABLESPACE` provisioning is still intentionally not generated as executable SQL; the profile stays inside the DBA-reviewable physical comment block.
+- No Legacy Word parser semantics changed.
+
+## 2026-08-17 - SchemaForge V4 Physical P0 regression expectation fix
+
+- Corrected `LegacyOracleGenerationPipelineTest` to distinguish canonical DB2 recovery from Oracle rendering: the parser still recovers physical `S` as canonical `SMALLINT`, while `OracleDialect` renders canonical integer types, including `SMALLINT`, as Oracle `NUMBER`.
+- No production parser, canonical mapping, or DDL rendering behavior changed.
+
+## 2026-08-17 - Physical P0: object-scoped index physical options
+
+- Extended canonical `Index`, `PrimaryKey`, and `UniqueKey` models with optional immutable backing-index `physicalOptions`.
+- Preserved all existing constructors; old callers default to an empty object-scoped physical option map.
+- Extended canonical snapshot JSON for indexes, primary keys, and unique keys with optional `physicalOptions`; older snapshots remain readable because the fields are additive and nullable.
+- Physical renderers now resolve explicit object-scoped index options first, then fall back to historical table-scoped index options.
+- Explicit placement (`INDEX_TABLESPACE`) and index physical values can now differ between multiple indexes, PK backing indexes, and UK backing indexes on the same table.
+- Deduplication/reconstruction in `DdlGenerator` preserves explicit index physical options.
+- Added regression coverage for snapshot round-trip and object-scoped Oracle PCTFREE/tablespace override with table fallback.
+- No Word parser semantics changed; Recovery10 parser/cache version remains unchanged.
+
+
 ## 2026-08-17 - Legacy metadata Recovery10 final
 
 - Applies exact DB2 `schema + table + column` metadata to missing/unreliable datatypes even when the Word datatype cells are structurally merged; merged technical column names remain rejected.
@@ -1007,3 +1052,46 @@
 - Every new length recovery path emits a dedicated `LEGACY_CHARACTER_LENGTH_*` provenance warning.
 - Bumped the legacy parser version to `0.6.3` and canonical snapshot parser version to `word-pipeline-v4-2026-08-17-legacy-recovery2`.
 - DDL Generation Core V4, datatype mapping rules, physical rendering, and canonical model semantics remain unchanged.
+
+### 2026-08-17 - Oracle generic physical options Phase 2
+- Added source/profile-aware Oracle table LOGGING/NOLOGGING, PARALLEL/NOPARALLEL[/degree], and SEGMENT CREATION DEFERRED/IMMEDIATE candidates to the existing DBA physical review block.
+- Added object-scoped Oracle index LOGGING/NOLOGGING and PARALLEL/NOPARALLEL[/degree] with historical table-level fallback through the P0 physical-option model.
+- Oracle LOGGING remains intentionally unspecified when absent because redo/recovery policy is not inferred from source documents; index logging is kept independent of table logging.
+- Oracle NOPARALLEL is rendered as the documented default when no explicit parallel source/profile value exists.
+- SEGMENT CREATION remains a review placeholder when absent so SchemaForge does not override the database/session DEFERRED_SEGMENT_CREATION policy; explicit DEFERRED/IMMEDIATE values are retained with restriction review for DEFERRED.
+- Invalid logging, parallel, and segment-creation source values are surfaced as SOURCE PHYSICAL ISSUE markers and are never silently normalized.
+- No Legacy Word parser, datatype mapping, REST contract, or non-Oracle physical behavior changed.
+
+### 2026-08-17 - PostgreSQL physical options Phase 3
+- Added source/profile-aware PostgreSQL table `parallel_workers`; absent values remain server-derived instead of being guessed.
+- Added index access-method evidence (`btree`, `hash`, `gist`, `spgist`, `gin`, `brin`) to the DBA physical review block without changing executable CREATE INDEX syntax.
+- Added GiST `buffering`, GIN `fastupdate` / `gin_pending_list_limit`, and BRIN `pages_per_range` / `autosummarize` storage candidates from explicit source/profile evidence only.
+- Method-specific options are never silently applied to a conflicting explicit access method; conflicts are surfaced as `SOURCE PHYSICAL ISSUE` markers.
+- Preserved the historical B-tree fillfactor/deduplicate behavior when the access method is absent, while avoiding a fabricated fillfactor default for explicit non-B-tree methods whose default varies or does not support fillfactor.
+- Autovacuum and column STORAGE/COMPRESSION remain outside this phase as operational/column-level policy.
+- No Legacy Word parser, datatype mapping, REST contract, Oracle, SQL Server, or Db2 physical behavior changed.
+
+### 2026-08-17 - SQL Server physical options Phase 4
+- Added source/profile-aware SQL Server table and index `XML_COMPRESSION` candidates; the option remains version-aware (SQL Server 2022+) and is never invented when absent.
+- Added source/profile-aware `STATISTICS_INCREMENTAL` for indexes; absent values are not promoted to ON and unsupported partition/statistics contexts remain DBA-review concerns.
+- Activated explicit SQL Server rowstore index organization when evidence already exists: canonical `IndexType.CLUSTERED/NONCLUSTERED` or object-scoped `SQLSERVER_INDEX_ORGANIZATION`. Unspecified indexes retain SQL Server's normal default behavior.
+- Added backing-index organization support for PRIMARY KEY and UNIQUE constraints through the P0 object-scoped physical map without changing other dialects.
+- Fixed SQL Server metadata reconstruction to retain `sys.indexes.type_desc` as `SQLSERVER_INDEX_ORGANIZATION` and the index data space as object-scoped `INDEX_TABLESPACE` instead of discarding both values.
+- Conflicting/invalid organization evidence is surfaced in the DBA physical block rather than silently normalized.
+- Build/deployment options (`ONLINE`, `RESUMABLE`, `MAX_DURATION`, `MAXDOP`, `SORT_IN_TEMPDB`) remain outside this physical-state phase.
+- No Legacy Word parser, datatype mapping, REST contract, Oracle, PostgreSQL, or Db2 physical behavior changed.
+
+### SQL Server Physical P4 R1
+- Preserved the legacy single-line table physical clause `WITH (DATA_COMPRESSION = ...)` when `XML_COMPRESSION` is absent.
+- Multi-line table physical options are used only when explicit XML compression evidence is present.
+- No SQL Server physical semantics changed; this is a backward-compatible rendering fix for existing DDL/golden regressions.
+
+### SQL Server Physical P4 R2
+- Preserved legacy `UNIQUE(columns)` rendering when a unique constraint has no explicit SQL Server index organization.
+- Emit `UNIQUE CLUSTERED(columns)` / `UNIQUE NONCLUSTERED(columns)` only when organization evidence is explicit.
+- No parser, canonical datatype, or non-SQL Server behavior changed.
+
+### 2026-08-17 - PostgreSQL Column Physical P6 R1
+- Fixed only the backward-compatibility test fixture: an INTEGER snapshot incorrectly used BYTE length semantics with no length.
+- The fixture now uses DEFAULT length semantics while keeping column physicalOptions null, which is the actual P6 compatibility condition under test.
+- No production code, parser, snapshot schema, or DDL behavior changed.

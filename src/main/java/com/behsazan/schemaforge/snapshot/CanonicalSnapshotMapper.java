@@ -109,12 +109,14 @@ public final class CanonicalSnapshotMapper {
                 column.description().value(),
                 column.identity(),
                 column.ordinalPosition(),
-                column.generatedExpression());
+                column.generatedExpression(),
+                column.physicalOptions());
     }
 
     private CanonicalSchemaSnapshot.PrimaryKeySnapshot primaryKeySnapshot(PrimaryKey key) {
         return new CanonicalSchemaSnapshot.PrimaryKeySnapshot(
-                string(key.name()), strings(key.columns()), key.deferrable(), key.initiallyDeferred());
+                string(key.name()), strings(key.columns()), key.deferrable(), key.initiallyDeferred(),
+                key.physicalOptions());
     }
 
     private CanonicalSchemaSnapshot.ForeignKeySnapshot foreignKeySnapshot(ForeignKey key) {
@@ -127,7 +129,8 @@ public final class CanonicalSnapshotMapper {
 
     private CanonicalSchemaSnapshot.UniqueKeySnapshot uniqueKeySnapshot(UniqueKey key) {
         return new CanonicalSchemaSnapshot.UniqueKeySnapshot(
-                string(key.name()), strings(key.columns()), key.deferrable(), key.initiallyDeferred());
+                string(key.name()), strings(key.columns()), key.deferrable(), key.initiallyDeferred(),
+                key.physicalOptions());
     }
 
     private CanonicalSchemaSnapshot.CheckConstraintSnapshot checkSnapshot(CheckConstraint check) {
@@ -141,7 +144,9 @@ public final class CanonicalSnapshotMapper {
                 index.type().name(),
                 index.description().value(),
                 strings(index.includeColumns()),
-                index.predicate());
+                index.predicate(),
+                index.physicalOptions(),
+                index.buildOptions());
     }
 
     private CanonicalSchemaSnapshot.IndexColumnSnapshot indexColumnSnapshot(IndexColumn column) {
@@ -182,12 +187,13 @@ public final class CanonicalSnapshotMapper {
                 new Description(value.description()),
                 value.identity(),
                 value.ordinalPosition(),
-                value.generatedExpression());
+                value.generatedExpression(),
+                safeMap(value.physicalOptions()));
     }
 
     private PrimaryKey primaryKey(CanonicalSchemaSnapshot.PrimaryKeySnapshot value) {
         return new PrimaryKey(identifier(value.name()), identifiers(value.columns()),
-                value.deferrable(), value.initiallyDeferred());
+                value.deferrable(), value.initiallyDeferred(), safeMap(value.physicalOptions()));
     }
 
     private ForeignKey foreignKey(CanonicalSchemaSnapshot.ForeignKeySnapshot value) {
@@ -202,7 +208,7 @@ public final class CanonicalSnapshotMapper {
 
     private UniqueKey uniqueKey(CanonicalSchemaSnapshot.UniqueKeySnapshot value) {
         return new UniqueKey(identifier(value.name()), identifiers(value.columns()),
-                value.deferrable(), value.initiallyDeferred());
+                value.deferrable(), value.initiallyDeferred(), safeMap(value.physicalOptions()));
     }
 
     private CheckConstraint check(CanonicalSchemaSnapshot.CheckConstraintSnapshot value) {
@@ -216,7 +222,9 @@ public final class CanonicalSnapshotMapper {
                 parseEnum(IndexType.class, value.type(), IndexType.NORMAL),
                 new Description(value.description()),
                 identifiers(value.includeColumns()),
-                value.predicate());
+                value.predicate(),
+                safeMap(value.physicalOptions()),
+                safeMap(value.buildOptions()));
     }
 
     private IndexColumn indexColumn(CanonicalSchemaSnapshot.IndexColumnSnapshot value) {

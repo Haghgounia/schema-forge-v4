@@ -22,6 +22,7 @@ import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,15 +41,18 @@ class CanonicalSnapshotMapperTest {
                         new DefaultValue("0"), new Description("identifier"), true, 1, null))
                 .addColumn(new Column(Identifier.of("NAME"), DataType.varchar("VARCHAR", 120, LengthSemantics.CHAR),
                         true, null, new Description("name"), false, 2, null))
-                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"), List.of(Identifier.of("ID"))))
-                .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMER_NAME"), List.of(Identifier.of("NAME"))))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"), List.of(Identifier.of("ID")), false, false,
+                        Map.of("ORACLE_INDEX_PCTFREE", "31", "INDEX_TABLESPACE", "ITS_CUSTOMER_PK")))
+                .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMER_NAME"), List.of(Identifier.of("NAME")), false, false,
+                        Map.of("ORACLE_INDEX_PCTFREE", "41", "INDEX_TABLESPACE", "ITS_CUSTOMER_UK")))
                 .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMER_PARENT"), List.of(Identifier.of("ID")),
                         QualifiedName.of("TSTSHMA", "PARENT"), List.of(Identifier.of("ID")),
                         ReferentialAction.CASCADE, ReferentialAction.NO_ACTION, true, false, true, true))
                 .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMER_ID"), "ID >= 0"))
                 .addIndex(new Index(Identifier.of("IX_CUSTOMER_NAME"),
                         List.of(new IndexColumn(Identifier.of("NAME"), SortDirection.DESC)),
-                        IndexType.NORMAL, new Description("lookup"), List.of(Identifier.of("ID")), "NAME IS NOT NULL"))
+                        IndexType.NORMAL, new Description("lookup"), List.of(Identifier.of("ID")), "NAME IS NOT NULL",
+                        Map.of("ORACLE_INDEX_PCTFREE", "21", "INDEX_TABLESPACE", "ITS_CUSTOMER_NAME")))
                 .physicalOption("tablespace", "TS_DATA")
                 .build();
         DatabaseSchema original = DatabaseSchema.builder("TSTSHMA")

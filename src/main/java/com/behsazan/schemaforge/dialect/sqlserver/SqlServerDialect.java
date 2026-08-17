@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.dialect.ForeignKeyTypeCompatibilityPolicy;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
@@ -123,6 +124,22 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     }
 
     @Override
+    public String indexOrganizationClause(Index index) {
+        if (index == null) return "";
+        String canonical = switch (index.type()) {
+            case CLUSTERED -> "CLUSTERED";
+            case NONCLUSTERED -> "NONCLUSTERED";
+            default -> "";
+        };
+        if (!canonical.isBlank()) return canonical + " ";
+        String explicit = physicalOption(index, "SQLSERVER_INDEX_ORGANIZATION", "INDEX_ORGANIZATION");
+        if ("CLUSTERED".equals(explicit) || "NONCLUSTERED".equals(explicit)) {
+            return explicit + " ";
+        }
+        return "";
+    }
+
+    @Override
     public String qualifyIndexName(QualifiedName tableName, String renderedIndexName) {
         // SQL Server index names are scoped by table and are not schema-qualified.
         return renderedIndexName;
@@ -190,6 +207,16 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     }
 
     @Override
+    public String primaryKeyConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            Index physicalIndex, boolean deferrable, boolean initiallyDeferred) {
+        return "CONSTRAINT " + constraintName + " PRIMARY KEY " + indexOrganizationClause(physicalIndex)
+                + "(" + columns + ")" + physicalIndexComment + filegroupClause(indexTablespace)
+                + deferrabilityClause(deferrable, initiallyDeferred);
+    }
+
+    @Override
     public String uniqueConstraintWithPhysical(
             String constraintName, String tableName, String columns,
             String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
@@ -203,6 +230,20 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     }
 
     @Override
+    public String uniqueConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            Index physicalIndex, boolean deferrable, boolean initiallyDeferred) {
+        String organization = indexOrganizationClause(physicalIndex);
+        String uniqueClause = organization.isBlank()
+                ? "UNIQUE(" + columns + ")"
+                : "UNIQUE " + organization + "(" + columns + ")";
+        return "ALTER TABLE " + tableName + " ADD CONSTRAINT " + constraintName + " " + uniqueClause
+                + physicalIndexComment + filegroupClause(indexTablespace)
+                + deferrabilityClause(deferrable, initiallyDeferred) + statementTerminator();
+    }
+
+    @Override
     public String indexTailWithPhysical(
             String includeColumns, String physicalIndexComment,
             String indexTablespace, String predicate) {
@@ -210,6 +251,91 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
                 + partialIndexClause(predicate)
                 + physicalIndexComment
                 + indexTablespaceClause(indexTablespace);
+    }
+
+    @Override
+    public String indexTailWithPhysical(
+            String includeColumns, String physicalIndexComment,
+            String indexTablespace, String predicate, Index index) {
+        return indexIncludeClause(includeColumns)
+                + partialIndexClause(predicate)
+                + physicalIndexComment
+                + indexBuildTail(index)
+                + indexTablespaceClause(indexTablespace);
+    }
+
+    @Override
+    public String indexBuildTail(Index index) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+        java.util.List<String> options = new java.util.ArrayList<>();
+        String online = buildOption(index, "ONLINE", "SQLSERVER_ONLINE");
+        String resumable = buildOption(index, "RESUMABLE", "SQLSERVER_RESUMABLE");
+        String sortInTempdb = buildOption(index, "SORT_IN_TEMPDB", "SQLSERVER_SORT_IN_TEMPDB");
+        String maxDuration = buildOption(index, "MAX_DURATION_MINUTES", "MAX_DURATION", "SQLSERVER_MAX_DURATION_MINUTES");
+        String maxdop = buildOption(index, "MAXDOP", "SQLSERVER_MAXDOP");
+
+        boolean onlineOn = isOn(online);
+        boolean onlineValid = online.isBlank() || onlineOn || isOff(online);
+        boolean resumableOn = isOn(resumable);
+        boolean resumableValid = resumable.isBlank() || resumableOn || isOff(resumable);
+
+        if (onlineValid && !online.isBlank()) options.add("ONLINE = " + (onlineOn ? "ON" : "OFF"));
+        if (resumableValid && !resumable.isBlank() && (!resumableOn || onlineOn)) {
+            options.add("RESUMABLE = " + (resumableOn ? "ON" : "OFF"));
+        }
+        if (!maxDuration.isBlank() && resumableOn && onlineOn && positiveInteger(maxDuration)) {
+            options.add("MAX_DURATION = " + Integer.parseInt(maxDuration) + " MINUTES");
+        }
+        if (!maxdop.isBlank() && integerInRange(maxdop, 0, 64)) {
+            options.add("MAXDOP = " + Integer.parseInt(maxdop));
+        }
+        if (!sortInTempdb.isBlank() && (isOn(sortInTempdb) || isOff(sortInTempdb))) {
+            if (!(resumableOn && onlineOn && isOn(sortInTempdb))) {
+                options.add("SORT_IN_TEMPDB = " + (isOn(sortInTempdb) ? "ON" : "OFF"));
+            }
+        }
+        return options.isEmpty() ? "" : " WITH (" + String.join(", ", options) + ")";
+    }
+
+    @Override
+    public String indexBuildReviewComment(Index index) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+        java.util.List<String> issues = new java.util.ArrayList<>();
+        String online = buildOption(index, "ONLINE", "SQLSERVER_ONLINE");
+        String resumable = buildOption(index, "RESUMABLE", "SQLSERVER_RESUMABLE");
+        String sortInTempdb = buildOption(index, "SORT_IN_TEMPDB", "SQLSERVER_SORT_IN_TEMPDB");
+        String maxDuration = buildOption(index, "MAX_DURATION_MINUTES", "MAX_DURATION", "SQLSERVER_MAX_DURATION_MINUTES");
+        String maxdop = buildOption(index, "MAXDOP", "SQLSERVER_MAXDOP");
+
+        if (!online.isBlank() && !isOn(online) && !isOff(online)) {
+            issues.add("ONLINE=" + online + " invalid (expected ON/OFF)");
+        }
+        if (!resumable.isBlank() && !isOn(resumable) && !isOff(resumable)) {
+            issues.add("RESUMABLE=" + resumable + " invalid (expected ON/OFF)");
+        }
+        if (isOn(resumable) && !isOn(online)) {
+            issues.add("RESUMABLE=ON requires explicit ONLINE=ON; RESUMABLE/MAX_DURATION were not emitted");
+        }
+        if (!maxDuration.isBlank() && !(isOn(resumable) && isOn(online))) {
+            issues.add("MAX_DURATION requires RESUMABLE=ON with ONLINE=ON; value was not emitted");
+        } else if (!maxDuration.isBlank() && !positiveInteger(maxDuration)) {
+            issues.add("MAX_DURATION_MINUTES=" + maxDuration + " invalid (expected positive integer)");
+        }
+        if (!maxdop.isBlank() && !integerInRange(maxdop, 0, 64)) {
+            issues.add("MAXDOP=" + maxdop + " invalid (expected integer 0..64)");
+        }
+        if (!sortInTempdb.isBlank() && !isOn(sortInTempdb) && !isOff(sortInTempdb)) {
+            issues.add("SORT_IN_TEMPDB=" + sortInTempdb + " invalid (expected ON/OFF)");
+        }
+        if (isOn(sortInTempdb) && isOn(resumable) && isOn(online)) {
+            issues.add("SORT_IN_TEMPDB=ON is not supported for resumable index operations; SORT_IN_TEMPDB was not emitted");
+        }
+        if (issues.isEmpty()) {
+            return "-- [INDEX BUILD REVIEW][SQLSERVER] Explicit build options are operational directives; verify edition/version and deployment-window requirements before execution.";
+        }
+        return issues.stream()
+                .map(issue -> "-- [INDEX BUILD ISSUE][SQLSERVER] " + issue + ".")
+                .collect(java.util.stream.Collectors.joining(System.lineSeparator()));
     }
 
     @Override
@@ -261,6 +387,53 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
         return "IF SCHEMA_ID(N'" + metadataSchemaName + "') IS NULL "
                 + "EXEC(N'CREATE SCHEMA " + renderedSchemaName
                 + " AUTHORIZATION [dbo]')" + statementTerminator();
+    }
+
+    private String buildOption(Index index, String... keys) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+        for (String key : keys) {
+            for (var entry : index.buildOptions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key) && entry.getValue() != null) {
+                    String value = entry.getValue().trim().toUpperCase(Locale.ROOT);
+                    if (!value.isBlank()) return value;
+                }
+            }
+        }
+        return "";
+    }
+
+    private boolean isOn(String value) {
+        return Set.of("ON", "TRUE", "YES", "1").contains(value);
+    }
+
+    private boolean isOff(String value) {
+        return Set.of("OFF", "FALSE", "NO", "0").contains(value);
+    }
+
+    private boolean positiveInteger(String value) {
+        try { return Integer.parseInt(value) > 0; }
+        catch (NumberFormatException ignored) { return false; }
+    }
+
+    private boolean integerInRange(String value, int minimum, int maximum) {
+        try {
+            int number = Integer.parseInt(value);
+            return number >= minimum && number <= maximum;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private String physicalOption(Index index, String... keys) {
+        for (String key : keys) {
+            for (var entry : index.physicalOptions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key) && entry.getValue() != null) {
+                    String value = entry.getValue().trim().toUpperCase(Locale.ROOT);
+                    if (!value.isBlank()) return value;
+                }
+            }
+        }
+        return "";
     }
 
     private String filegroupClause(String filegroup) {

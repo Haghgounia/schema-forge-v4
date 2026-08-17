@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -16,13 +17,14 @@ import java.util.Objects;
  */
 public record Column(Identifier name, DataType dataType, boolean nullable, DefaultValue defaultValue,
                      Description description, boolean identity, Integer ordinalPosition,
-                     String generatedExpression) {
+                     String generatedExpression, Map<String, String> physicalOptions) {
     public Column {
         Objects.requireNonNull(name, "column name must not be null");
         Objects.requireNonNull(dataType, "column dataType must not be null");
         defaultValue = defaultValue == null ? new DefaultValue(null) : defaultValue;
         description = description == null ? Description.empty() : description;
         generatedExpression = normalizeGeneratedExpression(generatedExpression);
+        physicalOptions = physicalOptions == null ? Map.of() : Map.copyOf(physicalOptions);
         if (ordinalPosition != null && ordinalPosition <= 0) {
             throw new IllegalArgumentException("ordinalPosition must be positive");
         }
@@ -34,10 +36,16 @@ public record Column(Identifier name, DataType dataType, boolean nullable, Defau
         }
     }
 
+    /** Compatibility constructor for callers that already provide a generated expression. */
+    public Column(Identifier name, DataType dataType, boolean nullable, DefaultValue defaultValue,
+                  Description description, boolean identity, Integer ordinalPosition, String generatedExpression) {
+        this(name, dataType, nullable, defaultValue, description, identity, ordinalPosition, generatedExpression, Map.of());
+    }
+
     /** Compatibility constructor for existing callers that define a regular column. */
     public Column(Identifier name, DataType dataType, boolean nullable, DefaultValue defaultValue,
                   Description description, boolean identity, Integer ordinalPosition) {
-        this(name, dataType, nullable, defaultValue, description, identity, ordinalPosition, null);
+        this(name, dataType, nullable, defaultValue, description, identity, ordinalPosition, null, Map.of());
     }
 
     public boolean generated() {
@@ -45,11 +53,11 @@ public record Column(Identifier name, DataType dataType, boolean nullable, Defau
     }
 
     public static Column required(String name, DataType type) {
-        return new Column(Identifier.of(name), type, false, null, null, false, null, null);
+        return new Column(Identifier.of(name), type, false, null, null, false, null, null, Map.of());
     }
 
     public static Column nullable(String name, DataType type) {
-        return new Column(Identifier.of(name), type, true, null, null, false, null, null);
+        return new Column(Identifier.of(name), type, true, null, null, false, null, null, Map.of());
     }
 
     private static String normalizeGeneratedExpression(String expression) {

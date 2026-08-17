@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.physical;
 
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.model.Table;
 
 import java.util.Arrays;
@@ -24,14 +25,29 @@ public final class PhysicalSourceOptions {
     }
 
     public static Optional<String> find(Table table, String... keys) {
-        if (table == null || keys == null || keys.length == 0) {
+        return table == null ? Optional.empty() : find(table.physicalOptions(), keys);
+    }
+
+    /**
+     * Resolves an index-scoped physical option first and falls back to the
+     * historical table-scoped option when the index does not provide it.
+     */
+    public static Optional<String> find(Index index, Table table, String... keys) {
+        Optional<String> indexValue = index == null
+                ? Optional.empty()
+                : find(index.physicalOptions(), keys);
+        return indexValue.isPresent() ? indexValue : find(table, keys);
+    }
+
+    private static Optional<String> find(Map<String, String> options, String... keys) {
+        if (options == null || options.isEmpty() || keys == null || keys.length == 0) {
             return Optional.empty();
         }
         for (String key : keys) {
             if (key == null || key.isBlank()) {
                 continue;
             }
-            for (Map.Entry<String, String> entry : table.physicalOptions().entrySet()) {
+            for (Map.Entry<String, String> entry : options.entrySet()) {
                 if (entry.getKey().equalsIgnoreCase(key)
                         && entry.getValue() != null
                         && !entry.getValue().isBlank()) {
@@ -46,6 +62,23 @@ public final class PhysicalSourceOptions {
     public static Optional<Integer> findIntegerInRange(
             Table table, int minimum, int maximum, String... keys) {
         Optional<String> source = find(table, keys);
+        if (source.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            int value = Integer.parseInt(source.get());
+            return value >= minimum && value <= maximum
+                    ? Optional.of(value)
+                    : Optional.empty();
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
+    }
+
+    /** Returns a validated index/table fallback integer source value without inventing or clamping one. */
+    public static Optional<Integer> findIntegerInRange(
+            Index index, Table table, int minimum, int maximum, String... keys) {
+        Optional<String> source = find(index, table, keys);
         if (source.isEmpty()) {
             return Optional.empty();
         }
@@ -108,6 +141,39 @@ public final class PhysicalSourceOptions {
         return clause + " <" + placeholder + ">";
     }
 
+    public static String integerClause(
+            List<String> lines,
+            Index index,
+            Table table,
+            String platform,
+            String clause,
+            int documentedDefault,
+            int minimum,
+            int maximum,
+            String placeholder,
+            String... keys) {
+        Optional<String> source = find(index, table, keys);
+        if (source.isEmpty()) {
+            return clause + " " + documentedDefault;
+        }
+
+        String raw = source.get();
+        try {
+            int value = Integer.parseInt(raw);
+            if (value >= minimum && value <= maximum) {
+                addSourceRetained(lines, firstKey(keys), raw);
+                return clause + " " + value;
+            }
+        } catch (NumberFormatException ignored) {
+            // handled below; source must remain visible and must not be normalized.
+        }
+
+        addSourceIssue(lines, platform, firstKey(keys)
+                + "=" + raw + " is outside the accepted " + minimum + ".." + maximum
+                + " integer range; source value was not normalized.");
+        return clause + " <" + placeholder + ">";
+    }
+
     public static String enumClause(
             List<String> lines,
             Table table,
@@ -118,6 +184,37 @@ public final class PhysicalSourceOptions {
             Set<String> acceptedValues,
             String... keys) {
         Optional<String> source = find(table, keys);
+        if (source.isEmpty()) {
+            return documentedDefault;
+        }
+
+        String raw = source.get().trim();
+        String normalized = normalizedUpper(raw);
+        if (acceptedValues.contains(normalized)) {
+            addSourceRetained(lines, firstKey(keys), raw);
+            return normalized;
+        }
+
+        String acceptedDisplay = acceptedValues.stream()
+                .sorted()
+                .collect(Collectors.joining(", ", "[", "]"));
+        addSourceIssue(lines, platform, label + "=" + raw
+                + " is not one of " + acceptedDisplay
+                + "; source value was not normalized.");
+        return "<" + placeholder + ">";
+    }
+
+    public static String enumClause(
+            List<String> lines,
+            Index index,
+            Table table,
+            String platform,
+            String label,
+            String documentedDefault,
+            String placeholder,
+            Set<String> acceptedValues,
+            String... keys) {
+        Optional<String> source = find(index, table, keys);
         if (source.isEmpty()) {
             return documentedDefault;
         }
@@ -169,6 +266,38 @@ public final class PhysicalSourceOptions {
         return prefix + "<" + placeholder + ">";
     }
 
+    public static String sourceIntegerOrPlaceholder(
+            List<String> lines,
+            Index index,
+            Table table,
+            String platform,
+            String prefix,
+            String placeholder,
+            IntPredicate accepted,
+            String acceptedDescription,
+            String... keys) {
+        Optional<String> source = find(index, table, keys);
+        if (source.isEmpty()) {
+            return prefix + "<" + placeholder + ">";
+        }
+
+        String raw = source.get();
+        try {
+            int value = Integer.parseInt(raw);
+            if (accepted.test(value)) {
+                addSourceRetained(lines, firstKey(keys), raw);
+                return prefix + value;
+            }
+        } catch (NumberFormatException ignored) {
+            // handled below; source must remain visible and must not be normalized.
+        }
+
+        addSourceIssue(lines, platform, firstKey(keys)
+                + "=" + raw + " must be " + acceptedDescription
+                + "; source value was not normalized.");
+        return prefix + "<" + placeholder + ">";
+    }
+
     public static String sourceOrPlaceholder(
             List<String> lines,
             Table table,
@@ -176,6 +305,21 @@ public final class PhysicalSourceOptions {
             String placeholder,
             String... keys) {
         Optional<String> source = find(table, keys);
+        if (source.isPresent()) {
+            addSourceRetained(lines, firstKey(keys), source.get());
+            return prefix + source.get();
+        }
+        return prefix + "<" + placeholder + ">";
+    }
+
+    public static String sourceOrPlaceholder(
+            List<String> lines,
+            Index index,
+            Table table,
+            String prefix,
+            String placeholder,
+            String... keys) {
+        Optional<String> source = find(index, table, keys);
         if (source.isPresent()) {
             addSourceRetained(lines, firstKey(keys), source.get());
             return prefix + source.get();

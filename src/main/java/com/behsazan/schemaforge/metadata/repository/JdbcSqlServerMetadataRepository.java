@@ -153,8 +153,13 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
             SELECT KC.name AS CONSTRAINT_NAME,
                    KC.type AS CONSTRAINT_TYPE,
                    C.name AS COLUMN_NAME,
-                   IC.key_ordinal AS COLUMN_POSITION
+                   IC.key_ordinal AS COLUMN_POSITION,
+                   I.type_desc AS INDEX_TYPE,
+                   DS.name AS DATA_SPACE_NAME
               FROM sys.key_constraints KC
+              JOIN sys.indexes I
+                ON I.object_id = KC.parent_object_id
+               AND I.index_id = KC.unique_index_id
               JOIN sys.index_columns IC
                 ON IC.object_id = KC.parent_object_id
                AND IC.index_id = KC.unique_index_id
@@ -162,6 +167,8 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
               JOIN sys.columns C
                 ON C.object_id = IC.object_id
                AND C.column_id = IC.column_id
+              LEFT JOIN sys.data_spaces DS
+                ON DS.data_space_id = I.data_space_id
              WHERE KC.parent_object_id = :tableId
                AND KC.type IN ('PK', 'UQ')
              ORDER BY KC.name, IC.key_ordinal
@@ -310,7 +317,9 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                         rs.getString("CONSTRAINT_NAME"),
                         rs.getString("CONSTRAINT_TYPE"),
                         rs.getString("COLUMN_NAME"),
-                        rs.getInt("COLUMN_POSITION")));
+                        rs.getInt("COLUMN_POSITION"),
+                        trimToNull(rs.getString("INDEX_TYPE")),
+                        trimToNull(rs.getString("DATA_SPACE_NAME"))));
         mapKeys(builder, keys);
 
         List<ForeignKeyRow> foreignKeys = jdbcTemplate.query(FOREIGN_KEYS_SQL, parameter,
@@ -432,10 +441,13 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
             List<Identifier> columns = group.stream().map(KeyConstraintRow::column)
                     .filter(value -> value != null && !value.isBlank()).map(Identifier::of).toList();
             if (columns.isEmpty()) continue;
+            Map<String, String> physicalOptions = sqlServerIndexPhysicalOptions(first.indexType(), first.dataSpace());
             if ("PK".equalsIgnoreCase(first.type())) {
-                builder.primaryKey(new PrimaryKey(identifierOrNull(first.name()), columns, false, false));
+                builder.primaryKey(new PrimaryKey(
+                        identifierOrNull(first.name()), columns, false, false, physicalOptions));
             } else {
-                builder.addUniqueKey(new UniqueKey(identifierOrNull(first.name()), columns, false, false));
+                builder.addUniqueKey(new UniqueKey(
+                        identifierOrNull(first.name()), columns, false, false, physicalOptions));
             }
         }
     }
@@ -484,14 +496,34 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
             }
             if (keyColumns.isEmpty()) continue;
             IndexRow first = group.getFirst();
+            Map<String, String> physicalOptions = sqlServerIndexPhysicalOptions(first.type(), first.dataSpace());
             builder.addIndex(new Index(
                     identifierOrNull(first.name()),
                     keyColumns,
                     first.unique() ? IndexType.UNIQUE : IndexType.NORMAL,
                     Description.empty(),
                     includeColumns,
-                    first.filterDefinition()));
+                    first.filterDefinition(),
+                    physicalOptions));
         }
+    }
+
+    private static Map<String, String> sqlServerIndexPhysicalOptions(String indexType, String dataSpace) {
+        Map<String, String> physicalOptions = new LinkedHashMap<>();
+        String organization = trimToNull(indexType);
+        if (organization != null) {
+            String normalizedOrganization = organization.toUpperCase(Locale.ROOT);
+            if (normalizedOrganization.contains("NONCLUSTERED")) {
+                physicalOptions.put("SQLSERVER_INDEX_ORGANIZATION", "NONCLUSTERED");
+            } else if (normalizedOrganization.contains("CLUSTERED")) {
+                physicalOptions.put("SQLSERVER_INDEX_ORGANIZATION", "CLUSTERED");
+            }
+        }
+        String normalizedDataSpace = trimToNull(dataSpace);
+        if (normalizedDataSpace != null) {
+            physicalOptions.put("INDEX_TABLESPACE", normalizedDataSpace);
+        }
+        return Map.copyOf(physicalOptions);
     }
 
     static String profileSignature(ResultSet rs) throws SQLException {
@@ -582,7 +614,12 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                               boolean nullable, String defaultDefinition, String comment,
                               boolean identity, String computedDefinition, boolean persisted) { }
 
-    record KeyConstraintRow(String name, String type, String column, int position) { }
+    record KeyConstraintRow(String name, String type, String column, int position,
+                            String indexType, String dataSpace) {
+        KeyConstraintRow(String name, String type, String column, int position) {
+            this(name, type, column, position, null, null);
+        }
+    }
 
     record ForeignKeyRow(String name, int position, String column, String referencedSchema,
                          String referencedTable, String referencedColumn,

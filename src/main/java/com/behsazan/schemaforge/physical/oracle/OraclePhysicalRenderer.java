@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.physical.oracle;
 
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.physical.PhysicalCommentBlocks;
@@ -8,6 +9,7 @@ import com.behsazan.schemaforge.physical.PhysicalSourceOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,7 +75,9 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
                         () -> lines.add("-- PCTUSED intentionally omitted: with ASSM it is ignored; review only for MSSM tablespaces."));
 
         lines.add(compression.clause());
-        lines.add("-- LOGGING/NOLOGGING is workload/recovery policy; no value is invented by Phase 1.");
+        lines.add(tableLogging(lines, table));
+        lines.add(tableParallel(lines, table));
+        lines.add(segmentCreation(lines, table));
         if (!activePlacementPresent) {
             lines.add("TABLESPACE <TABLE_TABLESPACE>");
         }
@@ -117,31 +121,52 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
 
     @Override
     public String indexOptions(Table table, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        return renderIndexOptions(table, keyColumns, activePlacementPresent, false);
+        return renderIndexOptions(table, null, keyColumns, activePlacementPresent, false);
     }
 
     @Override
     public String indexOptions(
             Table table, List<Identifier> keyColumns, boolean activePlacementPresent, boolean uniqueIndex) {
-        return renderIndexOptions(table, keyColumns, activePlacementPresent, uniqueIndex);
+        return renderIndexOptions(table, null, keyColumns, activePlacementPresent, uniqueIndex);
+    }
+
+    @Override
+    public String indexOptions(
+            Table table, Index index, List<Identifier> keyColumns, boolean activePlacementPresent) {
+        return renderIndexOptions(table, index, keyColumns, activePlacementPresent, false);
+    }
+
+    @Override
+    public String indexOptions(
+            Table table, Index index, List<Identifier> keyColumns,
+            boolean activePlacementPresent, boolean uniqueIndex) {
+        return renderIndexOptions(table, index, keyColumns, activePlacementPresent, uniqueIndex);
     }
 
     @Override
     public String constraintIndexOptions(Table table, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        return renderIndexOptions(table, keyColumns, activePlacementPresent, true);
+        return renderIndexOptions(table, null, keyColumns, activePlacementPresent, true);
+    }
+
+    @Override
+    public String constraintIndexOptions(
+            Table table, Index index, List<Identifier> keyColumns, boolean activePlacementPresent) {
+        return renderIndexOptions(table, index, keyColumns, activePlacementPresent, true);
     }
 
     private String renderIndexOptions(
-            Table table, List<Identifier> keyColumns, boolean activePlacementPresent, boolean knownUniqueConstraint) {
+            Table table, Index index, List<Identifier> keyColumns,
+            boolean activePlacementPresent, boolean knownUniqueConstraint) {
         List<String> lines = new ArrayList<>();
         lines.add(PhysicalSourceOptions.integerClause(
-                lines, table, "ORACLE", "PCTFREE", 10, 0, 99, "INDEX_PCTFREE",
+                lines, index, table, "ORACLE", "PCTFREE", 10, 0, 99, "INDEX_PCTFREE",
                 "ORACLE_INDEX_PCTFREE", "INDEX_PCTFREE"));
         lines.add(PhysicalSourceOptions.integerClause(
-                lines, table, "ORACLE", "INITRANS", 2, 1, 255, "INDEX_INITRANS",
+                lines, index, table, "ORACLE", "INITRANS", 2, 1, 255, "INDEX_INITRANS",
                 "ORACLE_INDEX_INITRANS", "INDEX_INITRANS"));
-        lines.add(indexCompression(lines, table, keyColumns, knownUniqueConstraint));
-        lines.add("-- LOGGING/NOLOGGING is workload/recovery policy; no value is invented by Phase 1.");
+        lines.add(indexCompression(lines, index, table, keyColumns, knownUniqueConstraint));
+        lines.add(indexLogging(lines, index, table));
+        lines.add(indexParallel(lines, index, table));
         if (!activePlacementPresent) {
             lines.add("TABLESPACE <INDEX_TABLESPACE>");
         }
@@ -149,8 +174,8 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
     }
 
     private String indexCompression(
-            List<String> lines, Table table, List<Identifier> keyColumns, boolean knownUniqueConstraint) {
-        var source = PhysicalSourceOptions.find(table, "ORACLE_INDEX_COMPRESSION", "INDEX_COMPRESSION");
+            List<String> lines, Index index, Table table, List<Identifier> keyColumns, boolean knownUniqueConstraint) {
+        var source = PhysicalSourceOptions.find(index, table, "ORACLE_INDEX_COMPRESSION", "INDEX_COMPRESSION");
         if (source.isEmpty()) {
             return "NOCOMPRESS";
         }
@@ -218,6 +243,85 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
         PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", "ORACLE_INDEX_COMPRESSION=" + raw
                 + " was not emitted: " + reason + "; source value was not normalized.");
         return "<INDEX_COMPRESSION>";
+    }
+
+    private String tableLogging(List<String> lines, Table table) {
+        var source = PhysicalSourceOptions.find(
+                table, "ORACLE_TABLE_LOGGING", "TABLE_LOGGING", "ORACLE_LOGGING");
+        if (source.isEmpty()) {
+            return "-- LOGGING/NOLOGGING intentionally unspecified: redo/recovery policy must come from source/profile.";
+        }
+        return oracleLogging(lines, source.get(), "ORACLE_TABLE_LOGGING");
+    }
+
+    private String indexLogging(List<String> lines, Index index, Table table) {
+        var source = PhysicalSourceOptions.find(index, table, "ORACLE_INDEX_LOGGING", "INDEX_LOGGING");
+        if (source.isEmpty()) {
+            return "-- LOGGING/NOLOGGING intentionally unspecified: Oracle index logging is independent of the base table.";
+        }
+        return oracleLogging(lines, source.get(), "ORACLE_INDEX_LOGGING");
+    }
+
+    private String oracleLogging(List<String> lines, String raw, String retainedKey) {
+        String normalized = PhysicalSourceOptions.normalizedUpper(raw);
+        if (normalized.equals("LOGGING") || normalized.equals("NOLOGGING")) {
+            PhysicalSourceOptions.addSourceRetained(lines, retainedKey, raw);
+            return normalized;
+        }
+        PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", retainedKey + "=" + raw
+                + " must be LOGGING or NOLOGGING; source value was not normalized.");
+        return "<LOGGING_OR_NOLOGGING>";
+    }
+
+    private String tableParallel(List<String> lines, Table table) {
+        var source = PhysicalSourceOptions.find(
+                table, "ORACLE_TABLE_PARALLEL", "TABLE_PARALLEL", "ORACLE_PARALLEL");
+        return source.isEmpty() ? "NOPARALLEL" : oracleParallel(lines, source.get(), "ORACLE_TABLE_PARALLEL");
+    }
+
+    private String indexParallel(List<String> lines, Index index, Table table) {
+        var source = PhysicalSourceOptions.find(index, table, "ORACLE_INDEX_PARALLEL", "INDEX_PARALLEL");
+        return source.isEmpty() ? "NOPARALLEL" : oracleParallel(lines, source.get(), "ORACLE_INDEX_PARALLEL");
+    }
+
+    private String oracleParallel(List<String> lines, String raw, String retainedKey) {
+        String normalized = PhysicalSourceOptions.normalizedUpper(raw);
+        if (normalized.equals("NOPARALLEL") || normalized.equals("PARALLEL")
+                || normalized.matches("PARALLEL [1-9][0-9]*")) {
+            PhysicalSourceOptions.addSourceRetained(lines, retainedKey, raw);
+            return normalized;
+        }
+        PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", retainedKey + "=" + raw
+                + " must be NOPARALLEL, PARALLEL, or PARALLEL <positive integer>; source value was not normalized.");
+        return "<PARALLEL_CLAUSE>";
+    }
+
+    private String segmentCreation(List<String> lines, Table table) {
+        var source = PhysicalSourceOptions.find(
+                table, "ORACLE_TABLE_SEGMENT_CREATION", "ORACLE_SEGMENT_CREATION", "SEGMENT_CREATION");
+        if (source.isEmpty()) {
+            PhysicalSourceOptions.addSourceReview(lines, "ORACLE",
+                    "SEGMENT CREATION is left unspecified so the database/session DEFERRED_SEGMENT_CREATION policy is not overridden.");
+            return "SEGMENT CREATION <DEFERRED_OR_IMMEDIATE>";
+        }
+
+        String raw = source.get();
+        String normalized = PhysicalSourceOptions.normalizedUpper(raw);
+        Set<String> accepted = Set.of(
+                "DEFERRED", "IMMEDIATE", "SEGMENT CREATION DEFERRED", "SEGMENT CREATION IMMEDIATE");
+        if (!accepted.contains(normalized)) {
+            PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", "ORACLE_TABLE_SEGMENT_CREATION=" + raw
+                    + " must be DEFERRED or IMMEDIATE; source value was not normalized.");
+            return "SEGMENT CREATION <DEFERRED_OR_IMMEDIATE>";
+        }
+
+        PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_TABLE_SEGMENT_CREATION", raw);
+        if (normalized.endsWith("DEFERRED")) {
+            PhysicalSourceOptions.addSourceReview(lines, "ORACLE",
+                    "SEGMENT CREATION DEFERRED is subject to Oracle table/tablespace restrictions; capability was not inferred offline.");
+            return "SEGMENT CREATION DEFERRED";
+        }
+        return "SEGMENT CREATION IMMEDIATE";
     }
 
 

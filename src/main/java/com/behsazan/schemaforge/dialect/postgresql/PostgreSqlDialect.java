@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
@@ -17,6 +18,11 @@ public final class PostgreSqlDialect implements Dialect {
     private final PostgreSqlTypeMapper typeMapper;
     private static final PostgreSqlExpressionMapper EXPRESSION_MAPPER = new PostgreSqlExpressionMapper();
     private static final PostgreSqlIdentifierRenderer IDENTIFIER_RENDERER = new PostgreSqlIdentifierRenderer();
+    private static final Set<String> COLUMN_STORAGE_MODES = Set.of("PLAIN", "EXTERNAL", "EXTENDED", "MAIN", "DEFAULT");
+    private static final Set<String> COLUMN_COMPRESSION_METHODS = Set.of("PGLZ", "LZ4", "DEFAULT");
+    private static final Set<String> NON_COMPRESSIBLE_COLUMN_TYPES = Set.of(
+            "SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE PRECISION",
+            "BOOLEAN", "DATE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "UUID");
 
     public PostgreSqlDialect() {
         this(NumericMappingStrategy.SAFE);
@@ -54,6 +60,82 @@ public final class PostgreSqlDialect implements Dialect {
     public String sqlType(Column column) {
         Objects.requireNonNull(column, "column must not be null");
         return typeMapper.map(column.dataType());
+    }
+
+    @Override
+    public String columnPhysicalClause(Column column) {
+        Objects.requireNonNull(column, "column must not be null");
+        StringBuilder sql = new StringBuilder();
+
+        String storageRaw = findColumnPhysical(column, "POSTGRESQL_STORAGE", "COLUMN_STORAGE", "STORAGE");
+        String storage = null;
+        if (storageRaw != null) {
+            String normalized = storageRaw.trim().toUpperCase(Locale.ROOT);
+            if (COLUMN_STORAGE_MODES.contains(normalized)) {
+                storage = normalized;
+                sql.append(" STORAGE " ).append(normalized);
+            } else {
+                sql.append(sourcePhysicalIssue("STORAGE=" + storageRaw
+                        + " must be one of PLAIN, EXTERNAL, EXTENDED, MAIN or DEFAULT; source value was not normalized."));
+            }
+        }
+
+        String compressionRaw = findColumnPhysical(column, "POSTGRESQL_COMPRESSION", "COLUMN_COMPRESSION", "COMPRESSION");
+        if (compressionRaw != null) {
+            String normalized = compressionRaw.trim().toUpperCase(Locale.ROOT);
+            if (!COLUMN_COMPRESSION_METHODS.contains(normalized)) {
+                sql.append(sourcePhysicalIssue("COMPRESSION=" + compressionRaw
+                        + " must be pglz, lz4 or default; source value was not normalized."));
+            } else if ("PLAIN".equals(storage) || "EXTERNAL".equals(storage)) {
+                sql.append(sourcePhysicalIssue("COMPRESSION=" + compressionRaw
+                        + " was not emitted because PostgreSQL uses column compression only with MAIN or EXTENDED storage."));
+            } else {
+                String mappedType = typeMapper.map(column.dataType()).toUpperCase(Locale.ROOT);
+                String baseType = mappedType.replaceFirst("\\(.*$", "");
+                if (NON_COMPRESSIBLE_COLUMN_TYPES.contains(baseType)) {
+                    sql.append(sourcePhysicalIssue("COMPRESSION=" + compressionRaw
+                            + " was not emitted because " + mappedType + " is not a variable-width PostgreSQL type."));
+                } else if (isKnownCompressibleType(baseType)) {
+                    sql.append(" COMPRESSION " ).append(normalized.toLowerCase(Locale.ROOT));
+                } else {
+                    sql.append(sourcePhysicalReview("COMPRESSION=" + compressionRaw
+                            + " was not emitted because compression support for canonical type " + mappedType
+                            + " cannot be proven without database/type metadata."));
+                }
+            }
+        }
+        return sql.toString();
+    }
+
+    private boolean isKnownCompressibleType(String baseType) {
+        return baseType.equals("VARCHAR") || baseType.equals("CHAR") || baseType.equals("TEXT")
+                || baseType.equals("BYTEA") || baseType.equals("XML") || baseType.equals("JSON")
+                || baseType.equals("JSONB") || baseType.equals("NUMERIC") || baseType.equals("DECIMAL");
+    }
+
+    private String findColumnPhysical(Column column, String... keys) {
+        for (String key : keys) {
+            for (var entry : column.physicalOptions().entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null
+                        && entry.getKey().trim().equalsIgnoreCase(key)) {
+                    String value = entry.getValue().trim();
+                    if (!value.isEmpty()) return value;
+                }
+            }
+        }
+        return null;
+    }
+
+    private String sourcePhysicalIssue(String message) {
+        return " /* [SOURCE PHYSICAL ISSUE][POSTGRESQL] " + safeInlineComment(message) + " */";
+    }
+
+    private String sourcePhysicalReview(String message) {
+        return " /* [SOURCE PHYSICAL REVIEW][POSTGRESQL] " + safeInlineComment(message) + " */";
+    }
+
+    private String safeInlineComment(String value) {
+        return value == null ? "" : value.replace("*/", "* /").replace('\n', ' ').replace('\r', ' ');
     }
 
     @Override
@@ -139,6 +221,46 @@ public final class PostgreSqlDialect implements Dialect {
                 + constraintIndexTablespaceClause(indexTablespace)
                 + deferrabilityClause(deferrable, initiallyDeferred)
                 + statementTerminator();
+    }
+
+
+    @Override
+    public String indexCreateModifier(Index index) {
+        String value = buildOption(index, "CONCURRENTLY", "POSTGRESQL_CONCURRENTLY");
+        return isOn(value) ? " CONCURRENTLY" : "";
+    }
+
+    @Override
+    public String indexBuildReviewComment(Index index) {
+        String value = buildOption(index, "CONCURRENTLY", "POSTGRESQL_CONCURRENTLY");
+        if (value.isBlank()) return "";
+        if (isOn(value)) {
+            return "-- [INDEX BUILD REVIEW][POSTGRESQL] CONCURRENTLY is explicit; CREATE INDEX CONCURRENTLY cannot run inside a transaction block and concurrent builds on partitioned tables require per-partition handling.";
+        }
+        if (isOff(value)) return "";
+        return "-- [INDEX BUILD ISSUE][POSTGRESQL] CONCURRENTLY=" + value
+                + " is invalid; expected ON/OFF. The build directive was not emitted.";
+    }
+
+    private String buildOption(Index index, String... keys) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+        for (String key : keys) {
+            for (var entry : index.buildOptions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key) && entry.getValue() != null) {
+                    String value = entry.getValue().trim().toUpperCase(Locale.ROOT);
+                    if (!value.isBlank()) return value;
+                }
+            }
+        }
+        return "";
+    }
+
+    private boolean isOn(String value) {
+        return Set.of("ON", "TRUE", "YES", "1").contains(value);
+    }
+
+    private boolean isOff(String value) {
+        return Set.of("OFF", "FALSE", "NO", "0").contains(value);
     }
 
     private String constraintIndexTablespaceClause(String tablespace) {

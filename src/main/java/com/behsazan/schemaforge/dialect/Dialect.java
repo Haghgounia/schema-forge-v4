@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.dialect;
 
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
@@ -30,6 +31,14 @@ public interface Dialect {
     }
 
     String sqlType(Column column);
+
+    /**
+     * Renders source/profile-backed physical syntax attached directly to a column definition.
+     * The default is empty because most dialects keep physical storage at table/index scope.
+     */
+    default String columnPhysicalClause(Column column) {
+        return "";
+    }
 
     /** Returns the active exact-numeric mapping policy for metadata comparison. */
     default NumericMappingStrategy numericMappingStrategy() {
@@ -163,6 +172,14 @@ public interface Dialect {
     }
 
     /**
+     * Optional index-organization keyword positioned before INDEX in dialects
+     * that distinguish clustered/nonclustered rowstore indexes.
+     */
+    default String indexOrganizationClause(Index index) {
+        return "";
+    }
+
+    /**
      * Combines the already-active table placement clause with a new commented
      * physical candidate block. Dialects override this only when grammar order
      * requires placement to precede the physical block.
@@ -186,6 +203,16 @@ public interface Dialect {
                 indexTablespace, deferrable, initiallyDeferred);
     }
 
+    /** Object-aware variant used when backing-index physical evidence is available. */
+    default String primaryKeyConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            Index physicalIndex, boolean deferrable, boolean initiallyDeferred) {
+        return primaryKeyConstraintWithPhysical(
+                constraintName, tableName, columns, qualifiedIndexName, indexTablespace,
+                physicalIndexComment, deferrable, initiallyDeferred);
+    }
+
     /** Same contract as primaryKeyConstraintWithPhysical for UNIQUE constraints. */
     default String uniqueConstraintWithPhysical(
             String constraintName, String tableName, String columns,
@@ -194,6 +221,16 @@ public interface Dialect {
         return uniqueConstraint(
                 constraintName, tableName, columns, qualifiedIndexName,
                 indexTablespace, deferrable, initiallyDeferred);
+    }
+
+    /** Object-aware variant used when backing-index physical evidence is available. */
+    default String uniqueConstraintWithPhysical(
+            String constraintName, String tableName, String columns,
+            String qualifiedIndexName, String indexTablespace, String physicalIndexComment,
+            Index physicalIndex, boolean deferrable, boolean initiallyDeferred) {
+        return uniqueConstraintWithPhysical(
+                constraintName, tableName, columns, qualifiedIndexName, indexTablespace,
+                physicalIndexComment, deferrable, initiallyDeferred);
     }
 
     /**
@@ -208,6 +245,32 @@ public interface Dialect {
                 + physical
                 + indexTablespaceClause(indexTablespace)
                 + partialIndexClause(predicate);
+    }
+
+    /**
+     * Object-aware index tail used by P5 so operational build directives remain
+     * separate from persistent physical options.
+     */
+    default String indexTailWithPhysical(
+            String includeColumns, String physicalIndexComment,
+            String indexTablespace, String predicate, Index index) {
+        return indexTailWithPhysical(includeColumns, physicalIndexComment, indexTablespace, predicate)
+                + indexBuildTail(index);
+    }
+
+    /** Modifier placed immediately after the INDEX keyword (PostgreSQL CONCURRENTLY). */
+    default String indexCreateModifier(Index index) {
+        return "";
+    }
+
+    /** DBMS-specific build clause placed in the CREATE INDEX tail. */
+    default String indexBuildTail(Index index) {
+        return "";
+    }
+
+    /** Optional DBA-visible warning/review comment for operational build directives. */
+    default String indexBuildReviewComment(Index index) {
+        return "";
     }
 
     /** Renders an index name in the namespace required by the target database. */

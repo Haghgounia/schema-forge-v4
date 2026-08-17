@@ -146,7 +146,7 @@ class LegacyOracleGenerationPipelineTest {
         assertTrue(sql.contains("SHIFTED_LENGTH VARCHAR2(150 CHAR)"));
         assertTrue(sql.contains("DISPLACED_TYPE VARCHAR2(40 CHAR)"));
         assertTrue(sql.contains("MULTI_NUMERIC_ADJACENT_LENGTH VARCHAR2(60 CHAR)"));
-        assertTrue(sql.contains("DISPLACED_PHYSICAL_S SMALLINT"));
+        assertTrue(sql.contains("DISPLACED_PHYSICAL_S NUMBER"));
         assertDoesNotThrow(() -> new OracleDdlSanityChecker().requireValid(sql, document.toString()));
 
         Column unsupportedNumber = new Column(

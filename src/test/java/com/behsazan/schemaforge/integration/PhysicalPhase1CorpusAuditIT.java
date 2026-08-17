@@ -738,8 +738,12 @@ class PhysicalPhase1CorpusAuditIT {
                 "<INDEX_COMPRESSION>", "<TABLE_FILLFACTOR>", "<INDEX_FILLFACTOR>",
                 "<INDEX_DEDUPLICATE_ITEMS>", "<TABLE_DATA_COMPRESSION>", "<PAD_INDEX>",
                 "<IGNORE_DUP_KEY>", "<STATISTICS_NORECOMPUTE>", "<ALLOW_ROW_LOCKS>", "<ALLOW_PAGE_LOCKS>",
-                "<INDEX_DATA_COMPRESSION>", "<OPTIMIZE_FOR_SEQUENTIAL_KEY>", "<TOAST_TUPLE_TARGET>",
-                "<ERASE>", "<FREEPAGE>", "<GBPCACHE>", "<COMPRESS>", "<CLOSE>", "<PIECESIZE>");
+                "<INDEX_DATA_COMPRESSION>", "<OPTIMIZE_FOR_SEQUENTIAL_KEY>",
+                "<TABLE_XML_COMPRESSION>", "<INDEX_XML_COMPRESSION>", "<STATISTICS_INCREMENTAL>",
+                "<TOAST_TUPLE_TARGET>",
+                "<PARALLEL_WORKERS>", "<GIST_BUFFERING>", "<GIN_FASTUPDATE>", "<GIN_PENDING_LIST_LIMIT>",
+                "<BRIN_PAGES_PER_RANGE>", "<BRIN_AUTOSUMMARIZE>", "<ERASE>", "<FREEPAGE>", "<GBPCACHE>", "<COMPRESS>", "<CLOSE>", "<PIECESIZE>",
+                "<LOGGING_OR_NOLOGGING>", "<PARALLEL_CLAUSE>", "<DEFERRED_OR_IMMEDIATE>");
     }
 
     private String tablePlacementPlaceholder(DatabasePlatform platform) {

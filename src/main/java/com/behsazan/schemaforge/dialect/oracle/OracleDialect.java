@@ -3,6 +3,7 @@ package com.behsazan.schemaforge.dialect.oracle;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
@@ -244,6 +245,45 @@ public final class OracleDialect implements Dialect {
                 + indexTablespaceClause(indexTablespace) + ")"
                 + deferrabilityClause(deferrable, initiallyDeferred)
                 + statementTerminator();
+    }
+
+
+    @Override
+    public String indexBuildTail(Index index) {
+        String value = buildOption(index, "ONLINE", "ORACLE_ONLINE");
+        return isOn(value) ? " ONLINE" : "";
+    }
+
+    @Override
+    public String indexBuildReviewComment(Index index) {
+        String value = buildOption(index, "ONLINE", "ORACLE_ONLINE");
+        if (value.isBlank() || isOff(value)) return "";
+        if (isOn(value)) {
+            return "PROMPT [INDEX BUILD REVIEW][ORACLE] ONLINE is explicit; DML remains available during the build, but parallel DML and documented ONLINE restrictions must be reviewed.";
+        }
+        return "PROMPT [INDEX BUILD ISSUE][ORACLE] ONLINE=" + value
+                + " is invalid; expected ON/OFF. The build directive was not emitted.";
+    }
+
+    private String buildOption(Index index, String... keys) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+        for (String key : keys) {
+            for (var entry : index.buildOptions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key) && entry.getValue() != null) {
+                    String value = entry.getValue().trim().toUpperCase(Locale.ROOT);
+                    if (!value.isBlank()) return value;
+                }
+            }
+        }
+        return "";
+    }
+
+    private boolean isOn(String value) {
+        return Set.of("ON", "TRUE", "YES", "1").contains(value);
+    }
+
+    private boolean isOff(String value) {
+        return Set.of("OFF", "FALSE", "NO", "0").contains(value);
     }
 
     @Override

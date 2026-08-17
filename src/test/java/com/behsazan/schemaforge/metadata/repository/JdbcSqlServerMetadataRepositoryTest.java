@@ -72,12 +72,20 @@ class JdbcSqlServerMetadataRepositoryTest {
         Table.Builder builder = baseTable();
 
         JdbcSqlServerMetadataRepository.mapKeys(builder, java.util.List.of(
-                new JdbcSqlServerMetadataRepository.KeyConstraintRow("PK_SAMPLE", "PK", "ID", 1),
-                new JdbcSqlServerMetadataRepository.KeyConstraintRow("UK_SAMPLE", "UQ", "CODE", 1)));
+                new JdbcSqlServerMetadataRepository.KeyConstraintRow(
+                        "PK_SAMPLE", "PK", "ID", 1, "CLUSTERED", "PRIMARY"),
+                new JdbcSqlServerMetadataRepository.KeyConstraintRow(
+                        "UK_SAMPLE", "UQ", "CODE", 1, "NONCLUSTERED", "INDEX_FG")));
 
         Table table = builder.build();
         assertEquals("PK_SAMPLE", table.primaryKey().orElseThrow().name().value());
+        assertEquals("CLUSTERED", table.primaryKey().orElseThrow().physicalOptions()
+                .get("SQLSERVER_INDEX_ORGANIZATION"));
+        assertEquals("PRIMARY", table.primaryKey().orElseThrow().physicalOptions().get("INDEX_TABLESPACE"));
         assertEquals("UK_SAMPLE", table.uniqueKeys().getFirst().name().value());
+        assertEquals("NONCLUSTERED", table.uniqueKeys().getFirst().physicalOptions()
+                .get("SQLSERVER_INDEX_ORGANIZATION"));
+        assertEquals("INDEX_FG", table.uniqueKeys().getFirst().physicalOptions().get("INDEX_TABLESPACE"));
     }
 
     @Test
@@ -111,6 +119,8 @@ class JdbcSqlServerMetadataRepositoryTest {
         assertEquals(SortDirection.DESC, index.columns().getFirst().direction());
         assertEquals("PARENT_ID", index.includeColumns().getFirst().value());
         assertEquals("[CODE] IS NOT NULL", index.predicate());
+        assertEquals("NONCLUSTERED", index.physicalOptions().get("SQLSERVER_INDEX_ORGANIZATION"));
+        assertEquals("PRIMARY", index.physicalOptions().get("INDEX_TABLESPACE"));
     }
 
     @Test
@@ -120,6 +130,8 @@ class JdbcSqlServerMetadataRepositoryTest {
         assertTrue(JdbcSqlServerMetadataRepository.COLUMNS_SQL.contains("sys.computed_columns"));
         assertTrue(JdbcSqlServerMetadataRepository.COLUMNS_SQL.contains("sys.identity_columns"));
         assertTrue(JdbcSqlServerMetadataRepository.KEY_CONSTRAINTS_SQL.contains("sys.key_constraints"));
+        assertTrue(JdbcSqlServerMetadataRepository.KEY_CONSTRAINTS_SQL.contains("I.type_desc"));
+        assertTrue(JdbcSqlServerMetadataRepository.KEY_CONSTRAINTS_SQL.contains("sys.data_spaces"));
         assertTrue(JdbcSqlServerMetadataRepository.FOREIGN_KEYS_SQL.contains("sys.foreign_key_columns"));
         assertTrue(JdbcSqlServerMetadataRepository.CHECKS_SQL.contains("sys.check_constraints"));
         assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("sys.index_columns"));

@@ -313,6 +313,7 @@ public final class DdlGenerator {
         if (!column.generated() || dialect.generatedColumnIncludesDataType()) {
             sql.append(" ").append(dialect.sqlType(column));
         }
+        sql.append(dialect.columnPhysicalClause(column));
         if (column.generated()) {
             dialect.require(DialectFeature.GENERATED_COLUMN);
             sql.append(dialect.generatedColumnClause(column));
@@ -340,31 +341,31 @@ public final class DdlGenerator {
         String constraintName = primaryKey.name() == null
                 ? "PK_" + table.qualifiedName().name().normalized()
                 : dialect.quote(primaryKey.name());
-        String indexTablespace = option(table, "INDEX_TABLESPACE")
-                .orElseGet(() -> option(table, "PK_TABLESPACE")
-                        .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName())));
+        Index physicalIndex = constraintPhysicalIndex(primaryKey.name(), primaryKey.columns(), primaryKey.physicalOptions());
+        String indexTablespace = option(physicalIndex, table, "INDEX_TABLESPACE", "PK_TABLESPACE")
+                .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String tableName = qualifiedName(table.qualifiedName());
         String columns = identifiers(primaryKey.columns());
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), constraintName);
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         String physicalIndexComment = physicalCommentRenderer.constraintIndexOptions(
-                table, primaryKey.columns(), !activeIndexPlacement.isBlank());
+                table, physicalIndex, primaryKey.columns(), !activeIndexPlacement.isBlank());
         return dialect.primaryKeyConstraintWithPhysical(
                 constraintName, tableName, columns, qualifiedIndexName, indexTablespace,
-                physicalIndexComment, primaryKey.deferrable(), primaryKey.initiallyDeferred());
+                physicalIndexComment, physicalIndex, primaryKey.deferrable(), primaryKey.initiallyDeferred());
     }
 
     private String createPrimaryKeyIndex(Table table, PrimaryKey primaryKey) {
         String defaultName = "PK_" + table.qualifiedName().name().normalized();
         String indexName = enforcingIndexName(primaryKey.name(), defaultName);
-        return createEnforcingUniqueIndex(table, indexName, primaryKey.columns());
+        return createEnforcingUniqueIndex(table, indexName, primaryKey.columns(), primaryKey.physicalOptions());
     }
 
     private String createUniqueKeyIndex(Table table, UniqueKey unique) {
         String defaultName = "UK_" + table.qualifiedName().name().normalized()
                 + "_" + rawIdentifiers(unique.columns());
         String indexName = enforcingIndexName(unique.name(), defaultName);
-        return createEnforcingUniqueIndex(table, indexName, unique.columns());
+        return createEnforcingUniqueIndex(table, indexName, unique.columns(), unique.physicalOptions());
     }
 
     private String enforcingIndexName(Identifier constraintName, String defaultName) {
@@ -376,13 +377,16 @@ public final class DdlGenerator {
         return dialect.quote(Identifier.of(base + "_IX"));
     }
 
-    private String createEnforcingUniqueIndex(Table table, String indexName, List<Identifier> columns) {
-        String indexTablespace = option(table, "INDEX_TABLESPACE")
+    private String createEnforcingUniqueIndex(
+            Table table, String indexName, List<Identifier> columns, Map<String, String> physicalOptions) {
+        Index physicalIndex = constraintPhysicalIndex(null, columns, physicalOptions);
+        String indexTablespace = option(physicalIndex, table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         String physicalIndexComment = physicalCommentRenderer.indexOptions(
-                table, columns, !activeIndexPlacement.isBlank(), true);
-        return "CREATE UNIQUE INDEX " + dialect.qualifyIndexName(table.qualifiedName(), indexName)
+                table, physicalIndex, columns, !activeIndexPlacement.isBlank(), true);
+        return "CREATE UNIQUE " + dialect.indexOrganizationClause(physicalIndex) + "INDEX "
+                + dialect.qualifyIndexName(table.qualifiedName(), indexName)
                 + " ON " + qualifiedName(table.qualifiedName())
                 + "(" + identifiers(columns) + ")"
                 + dialect.indexTailWithPhysical(null, physicalIndexComment, indexTablespace, null)
@@ -408,15 +412,16 @@ public final class DdlGenerator {
                 : dialect.quote(unique.name());
         String columns = identifiers(unique.columns());
         String tableName = qualifiedName(table.qualifiedName());
-        String indexTablespace = option(table, "INDEX_TABLESPACE")
+        Index physicalIndex = constraintPhysicalIndex(unique.name(), unique.columns(), unique.physicalOptions());
+        String indexTablespace = option(physicalIndex, table, "INDEX_TABLESPACE", "UK_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), name);
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         String physicalIndexComment = physicalCommentRenderer.constraintIndexOptions(
-                table, unique.columns(), !activeIndexPlacement.isBlank());
+                table, physicalIndex, unique.columns(), !activeIndexPlacement.isBlank());
         return dialect.uniqueConstraintWithPhysical(
                 name, tableName, columns, qualifiedIndexName, indexTablespace,
-                physicalIndexComment, unique.deferrable(), unique.initiallyDeferred());
+                physicalIndexComment, physicalIndex, unique.deferrable(), unique.initiallyDeferred());
     }
 
     private String createForeignKey(Table table, ForeignKey foreignKey, MetadataComparisonResult metadata) {
@@ -543,7 +548,7 @@ public final class DdlGenerator {
                 result.add(index);
             } else {
                 result.add(new Index(index.name(), normalizedColumns, index.type(), index.description(),
-                        index.includeColumns(), index.predicate()));
+                        index.includeColumns(), index.predicate(), index.physicalOptions(), index.buildOptions()));
             }
         }
         return List.copyOf(result);
@@ -585,12 +590,14 @@ public final class DdlGenerator {
                 : dialect.quote(index.name());
         String unique = index.type() == IndexType.UNIQUE ? "UNIQUE " : "";
         String columns = index.columns().stream().map(this::indexColumn).collect(Collectors.joining(","));
-        StringBuilder sql = new StringBuilder("CREATE ").append(unique).append("INDEX ")
+        StringBuilder sql = new StringBuilder("CREATE ").append(unique)
+                .append(dialect.indexOrganizationClause(index)).append("INDEX")
+                .append(dialect.indexCreateModifier(index)).append(" ")
                 .append(dialect.qualifyIndexName(table.qualifiedName(), name)).append(" ON ")
                 .append(qualifiedName(table.qualifiedName())).append("(").append(columns).append(")");
         String includeColumns = index.includeColumns().isEmpty()
                 ? null : identifiers(index.includeColumns());
-        String indexTablespace = option(table, "INDEX_TABLESPACE")
+        String indexTablespace = option(index, table, "INDEX_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         List<Identifier> physicalKeyColumns = index.columns().stream()
@@ -598,10 +605,15 @@ public final class DdlGenerator {
                 .map(IndexColumn::column)
                 .toList();
         String physicalIndexComment = physicalCommentRenderer.indexOptions(
-                table, physicalKeyColumns, !activeIndexPlacement.isBlank(), index.type() == IndexType.UNIQUE);
+                table, index, physicalKeyColumns, !activeIndexPlacement.isBlank(),
+                index.type() == IndexType.UNIQUE);
         sql.append(dialect.indexTailWithPhysical(
-                includeColumns, physicalIndexComment, indexTablespace, index.predicate()));
-        return sql.append(dialect.statementTerminator()).toString();
+                includeColumns, physicalIndexComment, indexTablespace, index.predicate(), index));
+        String statement = sql.append(dialect.statementTerminator()).toString();
+        String buildReview = dialect.indexBuildReviewComment(index);
+        return buildReview == null || buildReview.isBlank()
+                ? statement
+                : buildReview + NL + statement;
     }
 
     private String indexColumn(IndexColumn indexColumn) {
@@ -801,6 +813,37 @@ public final class DdlGenerator {
             }
         }
         return null;
+    }
+
+    private Index constraintPhysicalIndex(
+            Identifier name, List<Identifier> columns, Map<String, String> physicalOptions) {
+        List<IndexColumn> indexColumns = columns.stream()
+                .map(column -> new IndexColumn(column, SortDirection.ASC))
+                .toList();
+        return new Index(name, indexColumns, IndexType.UNIQUE, Description.empty(),
+                List.of(), null, physicalOptions);
+    }
+
+    private java.util.Optional<String> option(Index index, Table table, String... keys) {
+        if (index != null && keys != null) {
+            for (String key : keys) {
+                if (key == null || key.isBlank()) continue;
+                java.util.Optional<String> value = index.physicalOptions().entrySet().stream()
+                        .filter(entry -> entry.getKey().equalsIgnoreCase(key))
+                        .map(Map.Entry::getValue)
+                        .filter(raw -> raw != null && !raw.isBlank())
+                        .map(String::trim)
+                        .findFirst();
+                if (value.isPresent()) return value;
+            }
+        }
+        if (keys != null) {
+            for (String key : keys) {
+                java.util.Optional<String> value = option(table, key);
+                if (value.isPresent()) return value;
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     private java.util.Optional<String> option(Table table, String key) {

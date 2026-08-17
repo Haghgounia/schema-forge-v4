@@ -10,6 +10,9 @@ Implemented for table candidates:
 - PCTUSED only when source explicitly supplies it; otherwise ASSM/MSSM review note
 - INITRANS
 - table compression: NOCOMPRESS, basic/advanced row compression, and source-preserved Hybrid Columnar Compression syntax with storage-capability review
+- source/profile-aware LOGGING / NOLOGGING; omitted values remain intentionally unspecified
+- source/profile-aware PARALLEL / NOPARALLEL / PARALLEL n; documented NOPARALLEL default is shown when absent
+- source/profile-aware SEGMENT CREATION DEFERRED / IMMEDIATE; omitted values remain a review placeholder so SchemaForge does not override DEFERRED_SEGMENT_CREATION policy
 - source-value validation; invalid values remain visible as SOURCE PHYSICAL ISSUE
 
 Implemented for index / PK / UK backing-index candidates:
@@ -17,10 +20,10 @@ Implemented for index / PK / UK backing-index candidates:
 - PCTFREE
 - INITRANS
 - index compression source validation (NOCOMPRESS, prefix COMPRESS[/n], advanced compression)
+- object-scoped source/profile-aware LOGGING / NOLOGGING
+- object-scoped source/profile-aware PARALLEL / NOPARALLEL / PARALLEL n
 
 Intentionally not auto-selected in Phase 1:
-- LOGGING / NOLOGGING (recovery/workload policy)
-- PARALLEL / NOPARALLEL (execution policy)
 - legacy/manual STORAGE allocation attributes (environment/tablespace policy)
 - LOB storage, partitioning and IOT-specific storage
 
@@ -30,14 +33,22 @@ Implemented:
 - source TABLESPACE preservation; no invented default tablespace
 - table fillfactor
 - source/profile-only toast_tuple_target with offline block-size review
-- index fillfactor
+- source/profile-only table parallel_workers; absent values remain server-derived
+- index fillfactor with B-tree default preserved and explicit non-B-tree method awareness
 - source/profile-only B-tree deduplicate_items
+- source/profile index access-method evidence for btree/hash/gist/spgist/gin/brin
+- GiST buffering
+- GIN fastupdate and gin_pending_list_limit
+- BRIN pages_per_range and autosummarize
+- method-conflict validation: method-specific options are not silently applied to a conflicting explicit access method
 - correct USING INDEX TABLESPACE grammar for PK/UK constraint placement
+- column-scoped explicit `STORAGE PLAIN|EXTERNAL|EXTENDED|MAIN|DEFAULT`
+- column-scoped explicit `COMPRESSION pglz|lz4|default` with safe type/storage guards
 
 Intentionally not auto-selected:
 - autovacuum storage parameters (operational tuning)
 - table access method changes
-- column STORAGE/COMPRESSION and detailed TOAST/autovacuum tuning beyond `toast_tuple_target`
+- detailed TOAST/autovacuum tuning beyond `toast_tuple_target`
 - partitioning
 
 ## SQL Server
@@ -55,17 +66,35 @@ Implemented:
 - source/profile-only OPTIMIZE_FOR_SEQUENTIAL_KEY
 - invalid source values remain visible and are not clamped
 
+Implemented additionally in P4/P5:
+- source/profile `XML_COMPRESSION`
+- source/metadata-backed explicit CLUSTERED / NONCLUSTERED organization
+- separate index build options: ONLINE, RESUMABLE, MAX_DURATION, MAXDOP, SORT_IN_TEMPDB
+
 Intentionally not auto-selected:
-- CLUSTERED / NONCLUSTERED organization
-- ONLINE, RESUMABLE, SORT_IN_TEMPDB, MAXDOP (deployment/build choices)
-- XML_COMPRESSION unless a later version/type-aware phase is added
 - TEXTIMAGE_ON / FILESTREAM_ON / partition scheme provisioning
 
 ## Db2 for z/OS
 
-Implemented table placement/options:
+Implemented table placement/table-space profile:
 - active IN database.tablespace preservation
-- physical-only table block; non-storage semantics such as AUDIT, DATA CAPTURE, CCSID, VOLATILE, APPEND and RESTRICT ON DROP are deliberately excluded
+- BUFFERPOOL (source/profile identifier or placeholder)
+- DSSIZE syntax/range review without inferring PBG/PBR/PAGENUM organization
+- SEGSIZE (multiple of 4, 4..64)
+- FREEPAGE (0..255)
+- PCTFREE (0..99) and source/profile PCTFREE FOR UPDATE (-1..99), including combined <=99 validation
+- COMPRESS NO/YES/YES FIXEDLENGTH/YES HUFFMAN
+- GBPCACHE CHANGED/ALL/NONE
+- CLOSE YES/NO
+- DEFINE YES/NO
+- LOCKSIZE ANY/TABLESPACE/PAGE/ROW and LOCKMAX SYSTEM/integer compatibility checks
+- MAXROWS (1..255)
+- source/profile MEMBER CLUSTER
+- INSERT ALGORITHM (0..2)
+- source/profile TRACKMOD YES/NO
+- LOGGED / NOT LOGGED
+- USING STOGROUP, PRIQTY, SECQTY, ERASE
+- profile remains comment-only; CREATE TABLESPACE is not provisioned
 
 Implemented index / PK / UK backing-index candidates:
 - PADDED / NOT PADDED review only when a varying-length string key makes it applicable
@@ -82,14 +111,12 @@ Implemented index / PK / UK backing-index candidates:
 - CLOSE
 - source/profile-only PIECESIZE with syntax validation and table-space/index-organization review
 
-Intentionally not auto-selected:
-- CREATE TABLESPACE / STOGROUP provisioning and table-space FREEPAGE/PCTFREE/BUFFERPOOL/COMPRESS/DSSIZE
-- CLUSTER (data organization design)
+Intentionally not auto-selected / still deferred:
+- executable CREATE TABLESPACE / CREATE STOGROUP provisioning
+- MAXPARTITIONS / NUMPARTS / PAGENUM / partition-specific clauses
+- CLUSTER (index data-organization design)
 - COPY (recovery policy)
-- DEFINE / DEFER (deployment)
-- partition-specific FREEPAGE/PCTFREE/GBPCACHE/DSSIZE details (advanced/partitioning scope)
 - LOB auxiliary table/tablespace provisioning
-
 ## Source-value policy
 
 Word/JSON is evidence, not truth. SchemaForge:
@@ -99,6 +126,14 @@ Word/JSON is evidence, not truth. SchemaForge:
 4. uses environment placeholders when a value cannot be safely inferred;
 5. keeps new recommendations inside activation-ready block comments; existing active placement remains active.
 
-## Known Phase-1 granularity boundary
+## Physical-option granularity
 
-Source/profile physical options are currently attached to the table-level physical option map. The renderer can distinguish table, PK/UK backing-index, standalone index, key columns and UNIQUE context, but it does not yet carry a separate per-index physical-option map. Therefore Phase 1 must not pretend to preserve different source tuning values for two indexes of the same table when the source model cannot represent that distinction. This is reported/documented rather than guessed.
+Column, Index, Primary Key backing-index, and Unique Key backing-index physical options are object-scoped. Historical table-scoped index options remain a compatibility fallback. Db2 table-space profile options remain table-scoped in this phase; shared table-space provisioning/deduplication is not modeled as an executable schema object.
+
+
+## 2026-08-17 SQL Server Physical P4 delta
+- `XML_COMPRESSION` is supported from explicit table/index source or profile evidence only; it remains review-visible because the clause is SQL Server 2022+.
+- `STATISTICS_INCREMENTAL` is supported from explicit index evidence only; filtered-index `ON` is rejected to a review placeholder.
+- Explicit rowstore organization (`CLUSTERED` / `NONCLUSTERED`) is preserved for standalone indexes and PK/UK backing indexes.
+- SQL Server catalog ingestion now retains `sys.indexes.type_desc` and index data-space placement at object scope, including `sys.key_constraints.unique_index_id` backing indexes.
+- Build-time options (`ONLINE`, `RESUMABLE`, `MAX_DURATION`, `MAXDOP`, `SORT_IN_TEMPDB`) are implemented in the separate P5 `Index.buildOptions` policy path.

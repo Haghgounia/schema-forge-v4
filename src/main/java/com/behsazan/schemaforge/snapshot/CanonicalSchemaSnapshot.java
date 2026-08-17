@@ -62,7 +62,8 @@ public record CanonicalSchemaSnapshot(
             String description,
             boolean identity,
             Integer ordinalPosition,
-            String generatedExpression) {
+            String generatedExpression,
+            Map<String, String> physicalOptions) {
     }
 
     /** JSON representation of a database-neutral datatype. */
@@ -79,7 +80,8 @@ public record CanonicalSchemaSnapshot(
             String name,
             List<String> columns,
             boolean deferrable,
-            boolean initiallyDeferred) {
+            boolean initiallyDeferred,
+            Map<String, String> physicalOptions) {
     }
 
     /** JSON representation of a foreign key and its target identity. */
@@ -102,7 +104,8 @@ public record CanonicalSchemaSnapshot(
             String name,
             List<String> columns,
             boolean deferrable,
-            boolean initiallyDeferred) {
+            boolean initiallyDeferred,
+            Map<String, String> physicalOptions) {
     }
 
     /** JSON representation of a check constraint. */
@@ -116,7 +119,9 @@ public record CanonicalSchemaSnapshot(
             String type,
             String description,
             List<String> includeColumns,
-            String predicate) {
+            String predicate,
+            Map<String, String> physicalOptions,
+            Map<String, String> buildOptions) {
     }
 
     /** JSON representation of one index key column or expression. */
