@@ -90,6 +90,32 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
              WITH UR
             """;
 
+    static final String TABLESPACE_PHYSICAL_SQL = """
+            SELECT BPOOL,
+                   LOCKRULE,
+                   ERASERULE,
+                   CLOSERULE,
+                   SEGSIZE,
+                   LOCKMAX,
+                   MAXROWS,
+                   LOG,
+                   DSSIZE,
+                   MEMBER_CLUSTER,
+                   INSERTALG,
+                   STORTYPE,
+                   STORNAME,
+                   FREEPAGE,
+                   PCTFREE,
+                   COMPRESS,
+                   GBPCACHE,
+                   TRACKMOD,
+                   PCTFREE_UPD
+              FROM SYSIBM.SYSTABLESPACE
+             WHERE DBNAME = :databaseName
+               AND NAME = :tablespaceName
+             WITH UR
+            """;
+
     static final String COLUMNS_SQL = """
             SELECT COLNO + 1 AS COLUMN_ID,
                    NAME AS COLUMN_NAME,
@@ -116,11 +142,24 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
             SELECT C.CONSTNAME AS CONSTRAINT_NAME,
                    C.TYPE AS CONSTRAINT_TYPE,
                    K.COLNAME AS COLUMN_NAME,
-                   K.COLSEQ AS COLUMN_POSITION
+                   K.COLSEQ AS COLUMN_POSITION,
+                   I.BPOOL,
+                   I.ERASERULE,
+                   I.CLOSERULE,
+                   I.PIECESIZE,
+                   I.PADDED,
+                   I.COMPRESS,
+                   I.STORNAME,
+                   I.FREEPAGE,
+                   I.PCTFREE,
+                   I.GBPCACHE
               FROM SYSIBM.SYSTABCONST C
               JOIN SYSIBM.SYSKEYS K
                 ON K.IXCREATOR = C.IXOWNER
                AND K.IXNAME = C.IXNAME
+              JOIN SYSIBM.SYSINDEXES I
+                ON I.CREATOR = C.IXOWNER
+               AND I.NAME = C.IXNAME
              WHERE C.TBCREATOR = :schemaName
                AND C.TBNAME = :tableName
                AND C.TYPE IN ('P', 'U')
@@ -179,7 +218,17 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
                    I.UNIQUERULE,
                    K.COLNAME AS COLUMN_NAME,
                    K.COLSEQ AS COLUMN_POSITION,
-                   K.ORDERING
+                   K.ORDERING,
+                   I.BPOOL,
+                   I.ERASERULE,
+                   I.CLOSERULE,
+                   I.PIECESIZE,
+                   I.PADDED,
+                   I.COMPRESS,
+                   I.STORNAME,
+                   I.FREEPAGE,
+                   I.PCTFREE,
+                   I.GBPCACHE
               FROM SYSIBM.SYSINDEXES I
               LEFT JOIN SYSIBM.SYSKEYS K
                 ON K.IXCREATOR = I.CREATOR
@@ -246,7 +295,37 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
             String location = info.database() == null
                     ? info.tablespace()
                     : info.database() + "." + info.tablespace();
-            builder.physicalOption("tablespace", location);
+            builder.physicalOption("TABLESPACE", location);
+        }
+        if (info.database() != null && info.tablespace() != null) {
+            MapSqlParameterSource physicalParameter = new MapSqlParameterSource()
+                    .addValue("databaseName", info.database())
+                    .addValue("tablespaceName", info.tablespace());
+            List<Db2TableSpacePhysicalRow> physicalRows = jdbcTemplate.query(
+                    TABLESPACE_PHYSICAL_SQL, physicalParameter,
+                    (rs, rowNumber) -> new Db2TableSpacePhysicalRow(
+                            trimToNull(rs.getString("BPOOL")),
+                            trimToNull(rs.getString("LOCKRULE")),
+                            trimToNull(rs.getString("ERASERULE")),
+                            trimToNull(rs.getString("CLOSERULE")),
+                            nullableInt(rs, "SEGSIZE"),
+                            nullableInt(rs, "LOCKMAX"),
+                            nullableInt(rs, "MAXROWS"),
+                            trimToNull(rs.getString("LOG")),
+                            nullableInt(rs, "DSSIZE"),
+                            trimToNull(rs.getString("MEMBER_CLUSTER")),
+                            nullableInt(rs, "INSERTALG"),
+                            trimToNull(rs.getString("STORTYPE")),
+                            trimToNull(rs.getString("STORNAME")),
+                            nullableInt(rs, "FREEPAGE"),
+                            nullableInt(rs, "PCTFREE"),
+                            rs.getString("COMPRESS"),
+                            rs.getString("GBPCACHE"),
+                            rs.getString("TRACKMOD"),
+                            nullableInt(rs, "PCTFREE_UPD")));
+            if (!physicalRows.isEmpty()) {
+                db2TableSpacePhysicalOptions(physicalRows.getFirst()).forEach(builder::physicalOption);
+            }
         }
 
         MapSqlParameterSource tableParameter = new MapSqlParameterSource()
@@ -275,7 +354,17 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
                         rs.getString("CONSTRAINT_NAME"),
                         rs.getString("CONSTRAINT_TYPE"),
                         rs.getString("COLUMN_NAME"),
-                        rs.getInt("COLUMN_POSITION")));
+                        rs.getInt("COLUMN_POSITION"),
+                        trimToNull(rs.getString("BPOOL")),
+                        trimToNull(rs.getString("ERASERULE")),
+                        trimToNull(rs.getString("CLOSERULE")),
+                        nullableInt(rs, "PIECESIZE"),
+                        trimToNull(rs.getString("PADDED")),
+                        trimToNull(rs.getString("COMPRESS")),
+                        trimToNull(rs.getString("STORNAME")),
+                        nullableInt(rs, "FREEPAGE"),
+                        nullableInt(rs, "PCTFREE"),
+                        rs.getString("GBPCACHE")));
         mapKeys(builder, keys);
 
         List<ForeignKeyRow> foreignKeys = jdbcTemplate.query(FOREIGN_KEYS_SQL, tableParameter,
@@ -306,7 +395,17 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
                         rs.getString("UNIQUERULE"),
                         rs.getString("COLUMN_NAME"),
                         nullableInt(rs, "COLUMN_POSITION"),
-                        trimToNull(rs.getString("ORDERING"))));
+                        trimToNull(rs.getString("ORDERING")),
+                        trimToNull(rs.getString("BPOOL")),
+                        trimToNull(rs.getString("ERASERULE")),
+                        trimToNull(rs.getString("CLOSERULE")),
+                        nullableInt(rs, "PIECESIZE"),
+                        trimToNull(rs.getString("PADDED")),
+                        trimToNull(rs.getString("COMPRESS")),
+                        trimToNull(rs.getString("STORNAME")),
+                        nullableInt(rs, "FREEPAGE"),
+                        nullableInt(rs, "PCTFREE"),
+                        rs.getString("GBPCACHE")));
         mapIndexes(builder, indexes);
         return Optional.of(builder.build());
     }
@@ -396,9 +495,15 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
                     .filter(value -> value != null && !value.isBlank()).map(Identifier::of).toList();
             if (columns.isEmpty()) continue;
             if ("P".equalsIgnoreCase(first.type())) {
-                builder.primaryKey(new PrimaryKey(identifierOrNull(first.name()), columns, false, false));
+                builder.primaryKey(new PrimaryKey(identifierOrNull(first.name()), columns, false, false,
+                        db2IndexPhysicalOptions(first.bpool(), first.eraseRule(), first.closeRule(),
+                                first.pieceSize(), first.padded(), first.compress(), first.storName(),
+                                first.freePage(), first.pctFree(), first.gbpCache())));
             } else {
-                builder.addUniqueKey(new UniqueKey(identifierOrNull(first.name()), columns, false, false));
+                builder.addUniqueKey(new UniqueKey(identifierOrNull(first.name()), columns, false, false,
+                        db2IndexPhysicalOptions(first.bpool(), first.eraseRule(), first.closeRule(),
+                                first.pieceSize(), first.padded(), first.compress(), first.storName(),
+                                first.freePage(), first.pctFree(), first.gbpCache())));
             }
         }
     }
@@ -456,13 +561,17 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
             if (keyColumns.isEmpty()) continue;
             IndexType type = isUniqueRule(group.getFirst().uniqueRule())
                     ? IndexType.UNIQUE : IndexType.NORMAL;
+            IndexRow first = group.getFirst();
             builder.addIndex(new Index(
-                    identifierOrNull(group.getFirst().name()),
+                    identifierOrNull(first.name()),
                     keyColumns,
                     type,
                     Description.empty(),
                     includeColumns,
-                    null));
+                    null,
+                    db2IndexPhysicalOptions(first.bpool(), first.eraseRule(), first.closeRule(),
+                            first.pieceSize(), first.padded(), first.compress(), first.storName(),
+                            first.freePage(), first.pctFree(), first.gbpCache())));
         }
     }
 
@@ -537,6 +646,115 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
         return safe;
     }
 
+
+    static Map<String, String> db2IndexPhysicalOptions(
+            String bpool, String eraseRule, String closeRule, Integer pieceSizeKb,
+            String padded, String compress, String storName, Integer freePage,
+            Integer pctFree, String gbpCache) {
+        Map<String, String> options = new LinkedHashMap<>();
+        put(options, "DB2_INDEX_BUFFERPOOL", bpool);
+        mapYesNo(eraseRule).ifPresent(value -> options.put("DB2_INDEX_ERASE", value));
+        mapYesNo(closeRule).ifPresent(value -> options.put("DB2_INDEX_CLOSE", value));
+        String padding = trimToNull(padded);
+        if (padding != null) {
+            if ("Y".equalsIgnoreCase(padding)) options.put("DB2_INDEX_PADDING", "PADDED");
+            else if ("N".equalsIgnoreCase(padding)) options.put("DB2_INDEX_PADDING", "NOT PADDED");
+            else options.put("DB2_INDEX_PADDING", "REVIEW:" + padding);
+        }
+        mapYesNo(compress).ifPresent(value -> options.put("DB2_INDEX_COMPRESS", value));
+        put(options, "DB2_INDEX_STOGROUP", storName);
+        put(options, "DB2_INDEX_FREEPAGE", freePage);
+        put(options, "DB2_INDEX_PCTFREE", pctFree);
+        String cache = trimToNull(gbpCache);
+        if (cache != null) {
+            switch (cache.toUpperCase(Locale.ROOT)) {
+                case "A" -> options.put("DB2_INDEX_GBPCACHE", "ALL");
+                case "N" -> options.put("DB2_INDEX_GBPCACHE", "NONE");
+                default -> options.put("DB2_INDEX_GBPCACHE", "REVIEW:" + cache);
+            }
+        } else if (gbpCache != null) {
+            options.put("DB2_INDEX_GBPCACHE", "CHANGED");
+        }
+        if (pieceSizeKb != null && pieceSizeKb > 0) {
+            options.put("DB2_INDEX_PIECESIZE", renderKbSize(pieceSizeKb));
+        }
+        return Map.copyOf(options);
+    }
+
+    private static Optional<String> mapYesNo(String raw) {
+        String normalized = trimToNull(raw);
+        if (normalized == null) return Optional.empty();
+        return switch (normalized.toUpperCase(Locale.ROOT)) {
+            case "Y" -> Optional.of("YES");
+            case "N" -> Optional.of("NO");
+            default -> Optional.of("REVIEW:" + normalized);
+        };
+    }
+
+    private static String renderKbSize(long kb) {
+        long gb = 1024L * 1024L;
+        if (kb % gb == 0) return (kb / gb) + " G";
+        if (kb % 1024L == 0) return (kb / 1024L) + " M";
+        return kb + " K";
+    }
+
+    static Map<String, String> db2TableSpacePhysicalOptions(Db2TableSpacePhysicalRow row) {
+        Map<String, String> options = new LinkedHashMap<>();
+        put(options, "DB2_TABLESPACE_BUFFERPOOL", row.bufferPool());
+        put(options, "DB2_TABLESPACE_FREEPAGE", row.freePage());
+        put(options, "DB2_TABLESPACE_PCTFREE", row.pctFree());
+        put(options, "DB2_TABLESPACE_PCTFREE_FOR_UPDATE", row.pctFreeForUpdate());
+        put(options, "DB2_TABLESPACE_LOCKMAX", row.lockMax() == null ? null
+                : row.lockMax() == -1 ? "SYSTEM" : row.lockMax());
+        if (row.maxRows() != null && row.maxRows() > 0) put(options, "DB2_TABLESPACE_MAXROWS", row.maxRows());
+        put(options, "DB2_TABLESPACE_INSERT_ALGORITHM", row.insertAlgorithm());
+
+        if (row.segmentSize() != null) {
+            options.put("DB2_TABLESPACE_SEGSIZE", row.segmentSize() > 0
+                    ? Integer.toString(row.segmentSize())
+                    : "REVIEW:0 (NOT SEGMENTED)");
+        }
+        if (row.dsSizeKb() != null && row.dsSizeKb() > 0) {
+            int kbPerGb = 1024 * 1024;
+            options.put("DB2_TABLESPACE_DSSIZE", row.dsSizeKb() % kbPerGb == 0
+                    ? (row.dsSizeKb() / kbPerGb) + " G"
+                    : "REVIEW:" + row.dsSizeKb() + " KB");
+        }
+
+        mapCode(options, "DB2_TABLESPACE_LOCKSIZE", row.lockRule(), Map.of(
+                "A", "ANY", "P", "PAGE", "R", "ROW", "S", "TABLESPACE",
+                "T", "REVIEW:TABLE", "L", "REVIEW:LOB", "X", "REVIEW:XML"));
+        mapCode(options, "DB2_TABLESPACE_ERASE", row.eraseRule(), Map.of("N", "NO", "Y", "YES"));
+        mapCode(options, "DB2_TABLESPACE_CLOSE", row.closeRule(), Map.of("N", "NO", "Y", "YES"));
+        mapCode(options, "DB2_TABLESPACE_LOGGING", row.logging(), Map.of(
+                "Y", "LOGGED", "N", "NOT LOGGED", "X", "REVIEW:NOT LOGGED (LINKED LOB/XML)"));
+        mapCode(options, "DB2_TABLESPACE_COMPRESS", row.compress(), Map.of(
+                "", "NO", "Y", "YES", "F", "YES FIXEDLENGTH", "H", "YES HUFFMAN"));
+        mapCode(options, "DB2_TABLESPACE_GBPCACHE", row.gbpCache(), Map.of(
+                "", "CHANGED", "A", "ALL", "N", "NONE", "S", "REVIEW:SYSTEM"));
+        mapCode(options, "DB2_TABLESPACE_TRACKMOD", row.trackMod(), Map.of("", "YES", "N", "NO"));
+        mapCode(options, "DB2_TABLESPACE_MEMBER_CLUSTER", row.memberCluster(), Map.of("", "NO", "Y", "YES"));
+
+        if ("I".equalsIgnoreCase(trimToNull(row.storageType())) && trimToNull(row.storageGroup()) != null) {
+            options.put("DB2_TABLESPACE_STOGROUP", row.storageGroup().trim());
+        }
+        return Map.copyOf(options);
+    }
+
+    private static void mapCode(Map<String, String> options, String key, String raw, Map<String, String> mappings) {
+        if (raw == null) return;
+        String normalized = raw.trim().toUpperCase(Locale.ROOT);
+        String mapped = mappings.get(normalized);
+        if (mapped != null) options.put(key, mapped);
+        else if (!normalized.isEmpty()) options.put(key, "REVIEW:" + normalized);
+    }
+
+    private static void put(Map<String, String> options, String key, Object value) {
+        if (value == null) return;
+        String normalized = trimToNull(String.valueOf(value));
+        if (normalized != null) options.put(key, normalized);
+    }
+
     private static String quoteLiteral(String value) {
         return "'" + value.replace("'", "''") + "'";
     }
@@ -562,11 +780,39 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
 
     record TableInfo(String schema, String name, String comment, String database, String tablespace) { }
 
+    record Db2TableSpacePhysicalRow(
+            String bufferPool,
+            String lockRule,
+            String eraseRule,
+            String closeRule,
+            Integer segmentSize,
+            Integer lockMax,
+            Integer maxRows,
+            String logging,
+            Integer dsSizeKb,
+            String memberCluster,
+            Integer insertAlgorithm,
+            String storageType,
+            String storageGroup,
+            Integer freePage,
+            Integer pctFree,
+            String compress,
+            String gbpCache,
+            String trackMod,
+            Integer pctFreeForUpdate) { }
+
     record Db2ColumnRow(int position, String name, String rawType, Integer length, Integer longLength,
                         Integer scale, boolean nullable, String comment, String defaultIndicator,
                         String defaultValue, String generatedAttribute, String typeSchema, String typeName) { }
 
-    record KeyConstraintRow(String name, String type, String column, int position) { }
+    record KeyConstraintRow(String name, String type, String column, int position,
+                            String bpool, String eraseRule, String closeRule, Integer pieceSize,
+                            String padded, String compress, String storName, Integer freePage,
+                            Integer pctFree, String gbpCache) {
+        KeyConstraintRow(String name, String type, String column, int position) {
+            this(name, type, column, position, null, null, null, null, null, null, null, null, null, null);
+        }
+    }
 
     record ForeignKeyRow(String name, int position, String column, String referencedSchema,
                          String referencedTable, String referencedColumn, String deleteRule) { }
@@ -574,7 +820,15 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
     record CheckRow(String name, String definition) { }
 
     record IndexRow(String name, String schema, String uniqueRule, String column,
-                    Integer position, String ordering) { }
+                    Integer position, String ordering, String bpool, String eraseRule,
+                    String closeRule, Integer pieceSize, String padded, String compress,
+                    String storName, Integer freePage, Integer pctFree, String gbpCache) {
+        IndexRow(String name, String schema, String uniqueRule, String column,
+                 Integer position, String ordering) {
+            this(name, schema, uniqueRule, column, position, ordering,
+                    null, null, null, null, null, null, null, null, null, null);
+        }
+    }
 
     record ProfileRow(String columnName, String typeSignature, long frequency) { }
 }

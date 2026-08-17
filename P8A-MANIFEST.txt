@@ -1,0 +1,45 @@
+SchemaForge V4 - P8-A Table Physical Metadata Comparison
+Date: 2026-08-17
+Source baseline: schema-forge-v4-2026-0817-1617.zip
+Project version: 4.0.0-SNAPSHOT
+
+Verified incoming baseline (user Windows Maven run):
+  tests    : 376
+  failures : 0
+  errors   : 0
+  skipped  : 3
+  result   : BUILD SUCCESS
+
+P8-A scope:
+  - Oracle table physical metadata acquisition
+  - PostgreSQL table physical metadata acquisition
+  - SQL Server table physical metadata acquisition
+  - Db2/z/OS table-space physical metadata acquisition
+  - Expected-vs-actual table physical comparator
+  - TABLE_PHYSICAL_COMPARE Excel sheet
+
+Explicit non-goals:
+  - no DDL renderer/dialect changes
+  - no parser or parser-version changes
+  - no snapshot changes
+  - no API signature changes
+  - no buildOptions acquisition from database metadata
+  - no LOB/partition/provisioning model
+  - no database actual state promoted into design intent
+
+Conservative mapping rules:
+  - Oracle SEGMENT_CREATED is not reverse-mapped to SEGMENT CREATION.
+  - PostgreSQL operational/autovacuum reloptions are excluded.
+  - SQL Server mixed partition compression is REVIEW, not collapsed to one value.
+  - Db2 current allocation quantities are not reverse-mapped to PRIQTY/SECQTY.
+
+Local validation in packaging environment:
+  - changed repository production sources compile with Java 21 and dependency stubs
+  - SchemaCompareExcelWriter compiles with Java 21 and POI/Spring stubs
+  - changed/new test sources compile with Java 21 and JUnit/dependency stubs
+  - P8-A direct behavior probe: PASS
+  - full Maven suite not executed in packaging environment
+
+Expected full-suite total after P8-A:
+  tests    : 385
+  skipped  : 3 (existing live-database integration skips, if environment unchanged)

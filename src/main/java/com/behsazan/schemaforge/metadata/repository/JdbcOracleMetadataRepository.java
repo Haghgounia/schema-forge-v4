@@ -57,8 +57,18 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
              ORDER BY c.COLUMN_NAME, FREQUENCY DESC
             """;
 
-    private static final String TABLE_SQL = """
-            SELECT t.TABLE_NAME, tc.COMMENTS
+    static final String TABLE_SQL = """
+            SELECT t.TABLE_NAME,
+                   tc.COMMENTS,
+                   t.TABLESPACE_NAME,
+                   t.PCT_FREE,
+                   t.PCT_USED,
+                   t.INI_TRANS,
+                   t.LOGGING,
+                   t.COMPRESSION,
+                   t.COMPRESS_FOR,
+                   t.DEGREE,
+                   t.PARTITIONED
               FROM ALL_TABLES t
               LEFT JOIN ALL_TAB_COMMENTS tc
                 ON tc.OWNER = t.OWNER
@@ -104,7 +114,14 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                    rcc.COLUMN_NAME AS REFERENCED_COLUMN,
                    c.DELETE_RULE,
                    c.DEFERRABLE,
-                   c.DEFERRED
+                   c.DEFERRED,
+                   ci.TABLESPACE_NAME AS INDEX_TABLESPACE_NAME,
+                   ci.PCT_FREE AS INDEX_PCT_FREE,
+                   ci.INI_TRANS AS INDEX_INI_TRANS,
+                   ci.LOGGING AS INDEX_LOGGING,
+                   ci.COMPRESSION AS INDEX_COMPRESSION,
+                   ci.PREFIX_LENGTH AS INDEX_PREFIX_LENGTH,
+                   ci.DEGREE AS INDEX_DEGREE
               FROM ALL_CONSTRAINTS c
               LEFT JOIN ALL_CONS_COLUMNS cc
                 ON cc.OWNER = c.OWNER
@@ -118,6 +135,9 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                AND rcc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
                AND rcc.TABLE_NAME = rc.TABLE_NAME
                AND rcc.POSITION = cc.POSITION
+              LEFT JOIN ALL_INDEXES ci
+                ON ci.OWNER = c.INDEX_OWNER
+               AND ci.INDEX_NAME = c.INDEX_NAME
              WHERE c.OWNER = :owner
                AND c.TABLE_NAME = :tableName
                AND c.CONSTRAINT_TYPE IN ('P', 'R', 'U', 'C')
@@ -132,7 +152,14 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                    ic.COLUMN_NAME,
                    ic.COLUMN_POSITION,
                    ic.DESCEND,
-                   ie.COLUMN_EXPRESSION
+                   ie.COLUMN_EXPRESSION,
+                   i.TABLESPACE_NAME,
+                   i.PCT_FREE,
+                   i.INI_TRANS,
+                   i.LOGGING,
+                   i.COMPRESSION,
+                   i.PREFIX_LENGTH,
+                   i.DEGREE
               FROM ALL_INDEXES i
               JOIN ALL_IND_COLUMNS ic
                 ON ic.INDEX_OWNER = i.OWNER
@@ -188,12 +215,25 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                 .addValue("tableName", name);
 
         List<TableInfo> tables = jdbcTemplate.query(TABLE_SQL, parameters,
-                (rs, rowNumber) -> new TableInfo(rs.getString("TABLE_NAME"), rs.getString("COMMENTS")));
+                (rs, rowNumber) -> new TableInfo(
+                        rs.getString("TABLE_NAME"),
+                        rs.getString("COMMENTS"),
+                        trimToNull(rs.getString("TABLESPACE_NAME")),
+                        nullableInt(rs, "PCT_FREE"),
+                        nullableInt(rs, "PCT_USED"),
+                        nullableInt(rs, "INI_TRANS"),
+                        trimToNull(rs.getString("LOGGING")),
+                        trimToNull(rs.getString("COMPRESSION")),
+                        trimToNull(rs.getString("COMPRESS_FOR")),
+                        trimToNull(rs.getString("DEGREE")),
+                        "YES".equalsIgnoreCase(rs.getString("PARTITIONED"))));
         if (tables.isEmpty()) return Optional.empty();
 
         Table.Builder builder = Table.builder(owner, name);
-        String comment = trimToNull(tables.getFirst().comment());
+        TableInfo tableInfo = tables.getFirst();
+        String comment = trimToNull(tableInfo.comment());
         if (comment != null) builder.description(comment);
+        oracleTablePhysicalOptions(tableInfo).forEach(builder::physicalOption);
 
         List<OracleColumnRow> columns = jdbcTemplate.query(COLUMNS_SQL, parameters,
                 (rs, rowNumber) -> new OracleColumnRow(
@@ -224,7 +264,14 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                         rs.getString("REFERENCED_COLUMN"),
                         rs.getString("DELETE_RULE"),
                         "DEFERRABLE".equalsIgnoreCase(rs.getString("DEFERRABLE")),
-                        "DEFERRED".equalsIgnoreCase(rs.getString("DEFERRED"))));
+                        "DEFERRED".equalsIgnoreCase(rs.getString("DEFERRED")),
+                        trimToNull(rs.getString("INDEX_TABLESPACE_NAME")),
+                        nullableInt(rs, "INDEX_PCT_FREE"),
+                        nullableInt(rs, "INDEX_INI_TRANS"),
+                        trimToNull(rs.getString("INDEX_LOGGING")),
+                        trimToNull(rs.getString("INDEX_COMPRESSION")),
+                        nullableInt(rs, "INDEX_PREFIX_LENGTH"),
+                        trimToNull(rs.getString("INDEX_DEGREE"))));
         mapConstraints(builder, constraints);
 
         List<IndexRow> indexes = jdbcTemplate.query(INDEXES_SQL, parameters,
@@ -235,7 +282,14 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                         rs.getString("COLUMN_NAME"),
                         nullableInt(rs, "COLUMN_POSITION"),
                         rs.getString("DESCEND"),
-                        trimToNull(rs.getString("COLUMN_EXPRESSION"))));
+                        trimToNull(rs.getString("COLUMN_EXPRESSION")),
+                        trimToNull(rs.getString("TABLESPACE_NAME")),
+                        nullableInt(rs, "PCT_FREE"),
+                        nullableInt(rs, "INI_TRANS"),
+                        trimToNull(rs.getString("LOGGING")),
+                        trimToNull(rs.getString("COMPRESSION")),
+                        nullableInt(rs, "PREFIX_LENGTH"),
+                        trimToNull(rs.getString("DEGREE"))));
         mapIndexes(builder, indexes);
         return Optional.of(builder.build());
     }
@@ -317,11 +371,17 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
             switch (first.type()) {
                 case "P" -> {
                     if (!columns.isEmpty()) builder.primaryKey(new PrimaryKey(
-                            name, columns, first.deferrable(), first.initiallyDeferred()));
+                            name, columns, first.deferrable(), first.initiallyDeferred(),
+                            oracleIndexPhysicalOptions(first.indexTablespace(), first.indexPctFree(),
+                                    first.indexIniTrans(), first.indexLogging(), first.indexCompression(),
+                                    first.indexPrefixLength(), first.indexDegree())));
                 }
                 case "U" -> {
                     if (!columns.isEmpty()) builder.addUniqueKey(new UniqueKey(
-                            name, columns, first.deferrable(), first.initiallyDeferred()));
+                            name, columns, first.deferrable(), first.initiallyDeferred(),
+                            oracleIndexPhysicalOptions(first.indexTablespace(), first.indexPctFree(),
+                                    first.indexIniTrans(), first.indexLogging(), first.indexCompression(),
+                                    first.indexPrefixLength(), first.indexDegree())));
                 }
                 case "C" -> {
                     if (first.expression() != null) builder.addCheck(new CheckConstraint(name, first.expression()));
@@ -371,7 +431,10 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                     && group.getFirst().indexType().toUpperCase(Locale.ROOT).contains("BITMAP")) type = IndexType.BITMAP;
             else if (group.stream().anyMatch(row -> row.expression() != null)) type = IndexType.FUNCTION_BASED;
             else type = IndexType.NORMAL;
-            builder.addIndex(new Index(Identifier.of(entry.getKey()), columns, type, Description.empty()));
+            IndexRow first = group.getFirst();
+            builder.addIndex(new Index(Identifier.of(entry.getKey()), columns, type, Description.empty(),
+                    List.of(), null, oracleIndexPhysicalOptions(first.tablespace(), first.pctFree(),
+                    first.iniTrans(), first.logging(), first.compression(), first.prefixLength(), first.degree())));
         }
     }
 
@@ -425,7 +488,115 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
         return rs.wasNull() ? null : value;
     }
 
-    private record TableInfo(String name, String comment) { }
+    static Map<String, String> oracleTablePhysicalOptions(TableInfo info) {
+        Map<String, String> options = new LinkedHashMap<>();
+        put(options, "TABLESPACE", info.tablespace());
+        put(options, "ORACLE_PCTFREE", info.pctFree());
+        put(options, "ORACLE_PCTUSED", info.pctUsed());
+        put(options, "ORACLE_INITRANS", info.iniTrans());
+
+        String logging = trimToNull(info.logging());
+        if (logging != null) {
+            if ("YES".equalsIgnoreCase(logging)) options.put("ORACLE_TABLE_LOGGING", "LOGGING");
+            else if ("NO".equalsIgnoreCase(logging)) options.put("ORACLE_TABLE_LOGGING", "NOLOGGING");
+            else options.put("ORACLE_TABLE_LOGGING", "REVIEW:" + logging);
+        }
+
+        String compression = trimToNull(info.compression());
+        String compressFor = trimToNull(info.compressFor());
+        if (compression != null) {
+            if ("DISABLED".equalsIgnoreCase(compression)) {
+                options.put("ORACLE_TABLE_COMPRESSION", "NOCOMPRESS");
+            } else if ("ENABLED".equalsIgnoreCase(compression)) {
+                options.put("ORACLE_TABLE_COMPRESSION", oracleCompression(compressFor));
+            } else {
+                options.put("ORACLE_TABLE_COMPRESSION", "REVIEW:" + compression
+                        + (compressFor == null ? "" : " / " + compressFor));
+            }
+        }
+
+        String degree = trimToNull(info.degree());
+        if (degree != null) {
+            if ("DEFAULT".equalsIgnoreCase(degree)) {
+                options.put("ORACLE_TABLE_PARALLEL", "PARALLEL");
+            } else {
+                try {
+                    int value = Integer.parseInt(degree);
+                    options.put("ORACLE_TABLE_PARALLEL", value <= 1 ? "NOPARALLEL" : "PARALLEL " + value);
+                } catch (NumberFormatException exception) {
+                    options.put("ORACLE_TABLE_PARALLEL", "REVIEW:" + degree);
+                }
+            }
+        }
+        return Map.copyOf(options);
+    }
+
+    static Map<String, String> oracleIndexPhysicalOptions(
+            String tablespace, Integer pctFree, Integer iniTrans, String logging,
+            String compression, Integer prefixLength, String degree) {
+        Map<String, String> options = new LinkedHashMap<>();
+        put(options, "INDEX_TABLESPACE", tablespace);
+        put(options, "ORACLE_INDEX_PCTFREE", pctFree);
+        put(options, "ORACLE_INDEX_INITRANS", iniTrans);
+
+        String normalizedLogging = trimToNull(logging);
+        if (normalizedLogging != null) {
+            if ("YES".equalsIgnoreCase(normalizedLogging)) options.put("ORACLE_INDEX_LOGGING", "LOGGING");
+            else if ("NO".equalsIgnoreCase(normalizedLogging)) options.put("ORACLE_INDEX_LOGGING", "NOLOGGING");
+            else options.put("ORACLE_INDEX_LOGGING", "REVIEW:" + normalizedLogging);
+        }
+
+        String normalizedCompression = trimToNull(compression);
+        if (normalizedCompression != null) {
+            String upper = normalizedCompression.toUpperCase(Locale.ROOT).replaceAll("\\s+", " ");
+            switch (upper) {
+                case "DISABLED" -> options.put("ORACLE_INDEX_COMPRESSION", "NOCOMPRESS");
+                case "ENABLED" -> options.put("ORACLE_INDEX_COMPRESSION",
+                        prefixLength != null && prefixLength > 0 ? "COMPRESS " + prefixLength : "COMPRESS");
+                case "ADVANCED LOW" -> options.put("ORACLE_INDEX_COMPRESSION", "COMPRESS ADVANCED LOW");
+                case "ADVANCED HIGH" -> options.put("ORACLE_INDEX_COMPRESSION", "COMPRESS ADVANCED HIGH");
+                default -> options.put("ORACLE_INDEX_COMPRESSION", "REVIEW:" + normalizedCompression);
+            }
+        }
+
+        String normalizedDegree = trimToNull(degree);
+        if (normalizedDegree != null) {
+            if ("DEFAULT".equalsIgnoreCase(normalizedDegree)) {
+                options.put("ORACLE_INDEX_PARALLEL", "PARALLEL");
+            } else {
+                try {
+                    int value = Integer.parseInt(normalizedDegree);
+                    options.put("ORACLE_INDEX_PARALLEL", value <= 1 ? "NOPARALLEL" : "PARALLEL " + value);
+                } catch (NumberFormatException exception) {
+                    options.put("ORACLE_INDEX_PARALLEL", "REVIEW:" + normalizedDegree);
+                }
+            }
+        }
+        return Map.copyOf(options);
+    }
+
+    private static String oracleCompression(String compressFor) {
+        if (compressFor == null) return "COMPRESS";
+        String normalized = compressFor.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " ");
+        return switch (normalized) {
+            case "BASIC" -> "COMPRESS BASIC";
+            case "ADVANCED" -> "ROW STORE COMPRESS ADVANCED";
+            case "QUERY LOW", "QUERY HIGH", "ARCHIVE LOW", "ARCHIVE HIGH" ->
+                    "COLUMN STORE COMPRESS FOR " + normalized;
+            default -> "REVIEW:" + normalized;
+        };
+    }
+
+    private static void put(Map<String, String> options, String key, Object value) {
+        if (value == null) return;
+        String normalized = trimToNull(String.valueOf(value));
+        if (normalized != null) options.put(key, normalized);
+    }
+
+    record TableInfo(String name, String comment, String tablespace,
+                     Integer pctFree, Integer pctUsed, Integer iniTrans,
+                     String logging, String compression, String compressFor,
+                     String degree, boolean partitioned) { }
 
     private record OracleColumnRow(Integer position, String name, String rawType, Integer dataLength,
                                    Integer charLength, String charUsed, Integer precision, Integer scale,
@@ -434,10 +605,15 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
 
     private record ConstraintRow(String name, String type, String column, Integer position, String expression,
                                  String referencedOwner, String referencedTable, String referencedColumn,
-                                 String deleteRule, boolean deferrable, boolean initiallyDeferred) { }
+                                 String deleteRule, boolean deferrable, boolean initiallyDeferred,
+                                 String indexTablespace, Integer indexPctFree, Integer indexIniTrans,
+                                 String indexLogging, String indexCompression, Integer indexPrefixLength,
+                                 String indexDegree) { }
 
     private record IndexRow(String name, boolean unique, String indexType, String column, Integer position,
-                            String direction, String expression) { }
+                            String direction, String expression, String tablespace, Integer pctFree,
+                            Integer iniTrans, String logging, String compression, Integer prefixLength,
+                            String degree) { }
 
     private record ProfileRow(String columnName, String typeSignature, long frequency) { }
 }

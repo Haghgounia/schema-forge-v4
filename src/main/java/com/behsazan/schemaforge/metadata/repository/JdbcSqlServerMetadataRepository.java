@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -109,6 +110,79 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                       T.name
             """;
 
+    static final String TABLE_PHYSICAL_SQL = """
+            SELECT P.partition_number AS PARTITION_NUMBER,
+                   P.data_compression_desc AS DATA_COMPRESSION
+              FROM sys.partitions P
+             WHERE P.object_id = :tableId
+               AND P.index_id IN (0, 1)
+             ORDER BY P.partition_number
+            """;
+
+    static final String TABLE_XML_COMPRESSION_SUPPORT_SQL = """
+            SELECT COUNT(*)
+              FROM sys.all_columns
+             WHERE object_id = OBJECT_ID(N'sys.partitions')
+               AND name = N'xml_compression_desc'
+            """;
+
+    static final String TABLE_XML_PHYSICAL_SQL = """
+            SELECT P.partition_number AS PARTITION_NUMBER,
+                   P.xml_compression_desc AS XML_COMPRESSION
+              FROM sys.partitions P
+             WHERE P.object_id = :tableId
+               AND P.index_id IN (0, 1)
+             ORDER BY P.partition_number
+            """;
+
+    static final String INDEX_PARTITION_PHYSICAL_SQL = """
+            SELECT P.index_id AS INDEX_ID,
+                   P.partition_number AS PARTITION_NUMBER,
+                   P.data_compression_desc AS DATA_COMPRESSION
+              FROM sys.partitions P
+             WHERE P.object_id = :tableId
+               AND P.index_id > 0
+             ORDER BY P.index_id, P.partition_number
+            """;
+
+    static final String INDEX_XML_PHYSICAL_SQL = """
+            SELECT P.index_id AS INDEX_ID,
+                   P.partition_number AS PARTITION_NUMBER,
+                   P.xml_compression_desc AS XML_COMPRESSION
+              FROM sys.partitions P
+             WHERE P.object_id = :tableId
+               AND P.index_id > 0
+             ORDER BY P.index_id, P.partition_number
+            """;
+
+    static final String INDEX_INCREMENTAL_SUPPORT_SQL = """
+            SELECT COUNT(*)
+              FROM sys.all_columns
+             WHERE object_id = OBJECT_ID(N'sys.stats')
+               AND name = N'is_incremental'
+            """;
+
+    static final String INDEX_INCREMENTAL_SQL = """
+            SELECT stats_id AS INDEX_ID, is_incremental AS OPTION_VALUE
+              FROM sys.stats
+             WHERE object_id = :tableId
+               AND stats_id > 0
+            """;
+
+    static final String INDEX_SEQUENTIAL_KEY_SUPPORT_SQL = """
+            SELECT COUNT(*)
+              FROM sys.all_columns
+             WHERE object_id = OBJECT_ID(N'sys.indexes')
+               AND name = N'optimize_for_sequential_key'
+            """;
+
+    static final String INDEX_SEQUENTIAL_KEY_SQL = """
+            SELECT index_id AS INDEX_ID, optimize_for_sequential_key AS OPTION_VALUE
+              FROM sys.indexes
+             WHERE object_id = :tableId
+               AND index_id > 0
+            """;
+
     static final String COLUMNS_SQL = """
             SELECT C.column_id AS COLUMN_ID,
                    C.name AS COLUMN_NAME,
@@ -154,8 +228,15 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                    KC.type AS CONSTRAINT_TYPE,
                    C.name AS COLUMN_NAME,
                    IC.key_ordinal AS COLUMN_POSITION,
+                   I.index_id AS INDEX_ID,
                    I.type_desc AS INDEX_TYPE,
-                   DS.name AS DATA_SPACE_NAME
+                   DS.name AS DATA_SPACE_NAME,
+                   I.fill_factor AS FILL_FACTOR,
+                   I.is_padded AS IS_PADDED,
+                   I.ignore_dup_key AS IGNORE_DUP_KEY,
+                   I.allow_row_locks AS ALLOW_ROW_LOCKS,
+                   I.allow_page_locks AS ALLOW_PAGE_LOCKS,
+                   ST.no_recompute AS STATISTICS_NORECOMPUTE
               FROM sys.key_constraints KC
               JOIN sys.indexes I
                 ON I.object_id = KC.parent_object_id
@@ -169,6 +250,9 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                AND C.column_id = IC.column_id
               LEFT JOIN sys.data_spaces DS
                 ON DS.data_space_id = I.data_space_id
+              LEFT JOIN sys.stats ST
+                ON ST.object_id = I.object_id
+               AND ST.stats_id = I.index_id
              WHERE KC.parent_object_id = :tableId
                AND KC.type IN ('PK', 'UQ')
              ORDER BY KC.name, IC.key_ordinal
@@ -219,7 +303,13 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                    IC.is_descending_key AS IS_DESCENDING,
                    C.name AS COLUMN_NAME,
                    I.filter_definition AS FILTER_DEFINITION,
-                   DS.name AS DATA_SPACE_NAME
+                   DS.name AS DATA_SPACE_NAME,
+                   I.fill_factor AS FILL_FACTOR,
+                   I.is_padded AS IS_PADDED,
+                   I.ignore_dup_key AS IGNORE_DUP_KEY,
+                   I.allow_row_locks AS ALLOW_ROW_LOCKS,
+                   I.allow_page_locks AS ALLOW_PAGE_LOCKS,
+                   ST.no_recompute AS STATISTICS_NORECOMPUTE
               FROM sys.indexes I
               JOIN sys.index_columns IC
                 ON IC.object_id = I.object_id
@@ -229,6 +319,9 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                AND C.column_id = IC.column_id
               LEFT JOIN sys.data_spaces DS
                 ON DS.data_space_id = I.data_space_id
+              LEFT JOIN sys.stats ST
+                ON ST.object_id = I.object_id
+               AND ST.stats_id = I.index_id
              WHERE I.object_id = :tableId
                AND I.index_id > 0
                AND I.is_hypothetical = 0
@@ -291,9 +384,57 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
         TableInfo info = tables.getFirst();
         Table.Builder builder = Table.builder(info.schema(), info.name());
         if (info.comment() != null) builder.description(info.comment());
-        if (info.dataSpace() != null) builder.physicalOption("tablespace", info.dataSpace());
 
         MapSqlParameterSource parameter = new MapSqlParameterSource("tableId", info.id());
+        List<TablePartitionPhysicalRow> tablePhysicalRows = jdbcTemplate.query(
+                TABLE_PHYSICAL_SQL, parameter,
+                (rs, rowNumber) -> new TablePartitionPhysicalRow(
+                        rs.getInt("PARTITION_NUMBER"), trimToNull(rs.getString("DATA_COMPRESSION"))));
+        List<XmlPartitionPhysicalRow> xmlPhysicalRows = List.of();
+        Integer xmlCatalogColumns = jdbcTemplate.getJdbcTemplate().queryForObject(
+                TABLE_XML_COMPRESSION_SUPPORT_SQL, Integer.class);
+        if (xmlCatalogColumns != null && xmlCatalogColumns > 0) {
+            xmlPhysicalRows = jdbcTemplate.query(
+                    TABLE_XML_PHYSICAL_SQL, parameter,
+                    (rs, rowNumber) -> new XmlPartitionPhysicalRow(
+                            rs.getInt("PARTITION_NUMBER"), trimToNull(rs.getString("XML_COMPRESSION"))));
+        }
+        sqlServerTablePhysicalOptions(info.dataSpace(), tablePhysicalRows, xmlPhysicalRows)
+                .forEach(builder::physicalOption);
+
+        List<IndexPartitionPhysicalRow> indexPartitionRows = jdbcTemplate.query(
+                INDEX_PARTITION_PHYSICAL_SQL, parameter,
+                (rs, rowNumber) -> new IndexPartitionPhysicalRow(
+                        rs.getInt("INDEX_ID"), rs.getInt("PARTITION_NUMBER"),
+                        trimToNull(rs.getString("DATA_COMPRESSION"))));
+        List<IndexXmlPartitionPhysicalRow> indexXmlRows = List.of();
+        if (xmlCatalogColumns != null && xmlCatalogColumns > 0) {
+            indexXmlRows = jdbcTemplate.query(
+                    INDEX_XML_PHYSICAL_SQL, parameter,
+                    (rs, rowNumber) -> new IndexXmlPartitionPhysicalRow(
+                            rs.getInt("INDEX_ID"), rs.getInt("PARTITION_NUMBER"),
+                            trimToNull(rs.getString("XML_COMPRESSION"))));
+        }
+        List<IndexBooleanPhysicalRow> incrementalRows = List.of();
+        Integer incrementalSupported = jdbcTemplate.getJdbcTemplate().queryForObject(
+                INDEX_INCREMENTAL_SUPPORT_SQL, Integer.class);
+        if (incrementalSupported != null && incrementalSupported > 0) {
+            incrementalRows = jdbcTemplate.query(
+                    INDEX_INCREMENTAL_SQL, parameter,
+                    (rs, rowNumber) -> new IndexBooleanPhysicalRow(
+                            rs.getInt("INDEX_ID"), rs.getBoolean("OPTION_VALUE")));
+        }
+        List<IndexBooleanPhysicalRow> sequentialRows = List.of();
+        Integer sequentialSupported = jdbcTemplate.getJdbcTemplate().queryForObject(
+                INDEX_SEQUENTIAL_KEY_SUPPORT_SQL, Integer.class);
+        if (sequentialSupported != null && sequentialSupported > 0) {
+            sequentialRows = jdbcTemplate.query(
+                    INDEX_SEQUENTIAL_KEY_SQL, parameter,
+                    (rs, rowNumber) -> new IndexBooleanPhysicalRow(
+                            rs.getInt("INDEX_ID"), rs.getBoolean("OPTION_VALUE")));
+        }
+        Map<Integer, Map<String, String>> extraIndexPhysical = sqlServerIndexExtraPhysicalOptions(
+                indexPartitionRows, indexXmlRows, incrementalRows, sequentialRows);
         List<SqlServerColumnRow> columns = jdbcTemplate.query(COLUMNS_SQL, parameter,
                 (rs, rowNumber) -> new SqlServerColumnRow(
                         rs.getInt("COLUMN_ID"),
@@ -318,9 +459,16 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                         rs.getString("CONSTRAINT_TYPE"),
                         rs.getString("COLUMN_NAME"),
                         rs.getInt("COLUMN_POSITION"),
+                        rs.getInt("INDEX_ID"),
                         trimToNull(rs.getString("INDEX_TYPE")),
-                        trimToNull(rs.getString("DATA_SPACE_NAME"))));
-        mapKeys(builder, keys);
+                        trimToNull(rs.getString("DATA_SPACE_NAME")),
+                        rs.getInt("FILL_FACTOR"),
+                        rs.getBoolean("IS_PADDED"),
+                        rs.getBoolean("IGNORE_DUP_KEY"),
+                        rs.getBoolean("ALLOW_ROW_LOCKS"),
+                        rs.getBoolean("ALLOW_PAGE_LOCKS"),
+                        rs.getBoolean("STATISTICS_NORECOMPUTE")));
+        mapKeys(builder, keys, extraIndexPhysical);
 
         List<ForeignKeyRow> foreignKeys = jdbcTemplate.query(FOREIGN_KEYS_SQL, parameter,
                 (rs, rowNumber) -> new ForeignKeyRow(
@@ -356,8 +504,14 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
                         rs.getBoolean("IS_DESCENDING"),
                         rs.getString("COLUMN_NAME"),
                         trimToNull(rs.getString("FILTER_DEFINITION")),
-                        trimToNull(rs.getString("DATA_SPACE_NAME"))));
-        mapIndexes(builder, indexes);
+                        trimToNull(rs.getString("DATA_SPACE_NAME")),
+                        rs.getInt("FILL_FACTOR"),
+                        rs.getBoolean("IS_PADDED"),
+                        rs.getBoolean("IGNORE_DUP_KEY"),
+                        rs.getBoolean("ALLOW_ROW_LOCKS"),
+                        rs.getBoolean("ALLOW_PAGE_LOCKS"),
+                        rs.getBoolean("STATISTICS_NORECOMPUTE")));
+        mapIndexes(builder, indexes, extraIndexPhysical);
         return Optional.of(builder.build());
     }
 
@@ -431,6 +585,11 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
     }
 
     static void mapKeys(Table.Builder builder, List<KeyConstraintRow> rows) {
+        mapKeys(builder, rows, Map.of());
+    }
+
+    static void mapKeys(Table.Builder builder, List<KeyConstraintRow> rows,
+                        Map<Integer, Map<String, String>> extraIndexPhysical) {
         Map<String, List<KeyConstraintRow>> groups = new LinkedHashMap<>();
         for (KeyConstraintRow row : rows) {
             groups.computeIfAbsent(row.name() + "|" + row.type(), ignored -> new ArrayList<>()).add(row);
@@ -441,7 +600,10 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
             List<Identifier> columns = group.stream().map(KeyConstraintRow::column)
                     .filter(value -> value != null && !value.isBlank()).map(Identifier::of).toList();
             if (columns.isEmpty()) continue;
-            Map<String, String> physicalOptions = sqlServerIndexPhysicalOptions(first.indexType(), first.dataSpace());
+            Map<String, String> physicalOptions = sqlServerIndexPhysicalOptions(
+                    first.indexType(), first.dataSpace(), first.fillFactor(), first.padded(),
+                    first.ignoreDupKey(), first.allowRowLocks(), first.allowPageLocks(),
+                    first.statisticsNoRecompute(), extraIndexPhysical.get(first.indexId()));
             if ("PK".equalsIgnoreCase(first.type())) {
                 builder.primaryKey(new PrimaryKey(
                         identifierOrNull(first.name()), columns, false, false, physicalOptions));
@@ -478,6 +640,11 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
     }
 
     static void mapIndexes(Table.Builder builder, List<IndexRow> rows) {
+        mapIndexes(builder, rows, Map.of());
+    }
+
+    static void mapIndexes(Table.Builder builder, List<IndexRow> rows,
+                           Map<Integer, Map<String, String>> extraIndexPhysical) {
         Map<Integer, List<IndexRow>> groups = new LinkedHashMap<>();
         for (IndexRow row : rows) groups.computeIfAbsent(row.id(), ignored -> new ArrayList<>()).add(row);
         for (List<IndexRow> group : groups.values()) {
@@ -496,7 +663,10 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
             }
             if (keyColumns.isEmpty()) continue;
             IndexRow first = group.getFirst();
-            Map<String, String> physicalOptions = sqlServerIndexPhysicalOptions(first.type(), first.dataSpace());
+            Map<String, String> physicalOptions = sqlServerIndexPhysicalOptions(
+                    first.type(), first.dataSpace(), first.fillFactor(), first.padded(),
+                    first.ignoreDupKey(), first.allowRowLocks(), first.allowPageLocks(),
+                    first.statisticsNoRecompute(), extraIndexPhysical.get(first.id()));
             builder.addIndex(new Index(
                     identifierOrNull(first.name()),
                     keyColumns,
@@ -508,7 +678,49 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
         }
     }
 
+    static Map<String, String> sqlServerTablePhysicalOptions(
+            String dataSpace,
+            List<TablePartitionPhysicalRow> compressionRows,
+            List<XmlPartitionPhysicalRow> xmlCompressionRows) {
+        Map<String, String> physicalOptions = new LinkedHashMap<>();
+        String normalizedDataSpace = trimToNull(dataSpace);
+        if (normalizedDataSpace != null) physicalOptions.put("TABLESPACE", normalizedDataSpace);
+
+        aggregatePartitionValue(
+                compressionRows == null ? List.of() : compressionRows.stream()
+                        .map(TablePartitionPhysicalRow::dataCompression).toList(),
+                Set.of("NONE", "ROW", "PAGE"))
+                .ifPresent(value -> physicalOptions.put("SQLSERVER_TABLE_DATA_COMPRESSION", value));
+        aggregatePartitionValue(
+                xmlCompressionRows == null ? List.of() : xmlCompressionRows.stream()
+                        .map(XmlPartitionPhysicalRow::xmlCompression).toList(),
+                Set.of("ON", "OFF"))
+                .ifPresent(value -> physicalOptions.put("SQLSERVER_TABLE_XML_COMPRESSION", value));
+        return Map.copyOf(physicalOptions);
+    }
+
+    private static Optional<String> aggregatePartitionValue(List<String> rawValues, Set<String> supported) {
+        List<String> values = rawValues.stream()
+                .map(JdbcSqlServerMetadataRepository::trimToNull)
+                .filter(Objects::nonNull)
+                .map(value -> value.toUpperCase(Locale.ROOT))
+                .distinct()
+                .sorted()
+                .toList();
+        if (values.isEmpty()) return Optional.empty();
+        if (values.size() > 1) return Optional.of("REVIEW:MIXED [" + String.join(", ", values) + "]");
+        String value = values.getFirst();
+        return supported.contains(value) ? Optional.of(value) : Optional.of("REVIEW:" + value);
+    }
+
     private static Map<String, String> sqlServerIndexPhysicalOptions(String indexType, String dataSpace) {
+        return sqlServerIndexPhysicalOptions(indexType, dataSpace, null, false, false, true, true, false, Map.of());
+    }
+
+    static Map<String, String> sqlServerIndexPhysicalOptions(
+            String indexType, String dataSpace, Integer fillFactor, boolean padded, boolean ignoreDupKey,
+            boolean allowRowLocks, boolean allowPageLocks, boolean statisticsNoRecompute,
+            Map<String, String> extraOptions) {
         Map<String, String> physicalOptions = new LinkedHashMap<>();
         String organization = trimToNull(indexType);
         if (organization != null) {
@@ -520,10 +732,52 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
             }
         }
         String normalizedDataSpace = trimToNull(dataSpace);
-        if (normalizedDataSpace != null) {
-            physicalOptions.put("INDEX_TABLESPACE", normalizedDataSpace);
-        }
+        if (normalizedDataSpace != null) physicalOptions.put("INDEX_TABLESPACE", normalizedDataSpace);
+        if (fillFactor != null) physicalOptions.put("SQLSERVER_INDEX_FILLFACTOR", Integer.toString(fillFactor));
+        physicalOptions.put("SQLSERVER_INDEX_PAD_INDEX", padded ? "ON" : "OFF");
+        physicalOptions.put("SQLSERVER_INDEX_IGNORE_DUP_KEY", ignoreDupKey ? "ON" : "OFF");
+        physicalOptions.put("SQLSERVER_INDEX_STATISTICS_NORECOMPUTE", statisticsNoRecompute ? "ON" : "OFF");
+        physicalOptions.put("SQLSERVER_INDEX_ALLOW_ROW_LOCKS", allowRowLocks ? "ON" : "OFF");
+        physicalOptions.put("SQLSERVER_INDEX_ALLOW_PAGE_LOCKS", allowPageLocks ? "ON" : "OFF");
+        if (extraOptions != null) physicalOptions.putAll(extraOptions);
         return Map.copyOf(physicalOptions);
+    }
+
+    static Map<Integer, Map<String, String>> sqlServerIndexExtraPhysicalOptions(
+            List<IndexPartitionPhysicalRow> compressionRows,
+            List<IndexXmlPartitionPhysicalRow> xmlRows,
+            List<IndexBooleanPhysicalRow> incrementalRows,
+            List<IndexBooleanPhysicalRow> sequentialRows) {
+        Map<Integer, Map<String, String>> mutable = new LinkedHashMap<>();
+        Map<Integer, List<String>> compression = new LinkedHashMap<>();
+        for (IndexPartitionPhysicalRow row : compressionRows == null ? List.<IndexPartitionPhysicalRow>of() : compressionRows) {
+            compression.computeIfAbsent(row.indexId(), ignored -> new ArrayList<>()).add(row.dataCompression());
+        }
+        compression.forEach((indexId, values) -> aggregatePartitionValue(values,
+                        Set.of("NONE", "ROW", "PAGE"))
+                .ifPresent(value -> mutable.computeIfAbsent(indexId, ignored -> new LinkedHashMap<>())
+                        .put("SQLSERVER_INDEX_DATA_COMPRESSION", value)));
+
+        Map<Integer, List<String>> xml = new LinkedHashMap<>();
+        for (IndexXmlPartitionPhysicalRow row : xmlRows == null ? List.<IndexXmlPartitionPhysicalRow>of() : xmlRows) {
+            xml.computeIfAbsent(row.indexId(), ignored -> new ArrayList<>()).add(row.xmlCompression());
+        }
+        xml.forEach((indexId, values) -> aggregatePartitionValue(values, Set.of("ON", "OFF"))
+                .ifPresent(value -> mutable.computeIfAbsent(indexId, ignored -> new LinkedHashMap<>())
+                        .put("SQLSERVER_INDEX_XML_COMPRESSION", value)));
+
+        for (IndexBooleanPhysicalRow row : incrementalRows == null ? List.<IndexBooleanPhysicalRow>of() : incrementalRows) {
+            mutable.computeIfAbsent(row.indexId(), ignored -> new LinkedHashMap<>())
+                    .put("SQLSERVER_INDEX_STATISTICS_INCREMENTAL", row.value() ? "ON" : "OFF");
+        }
+        for (IndexBooleanPhysicalRow row : sequentialRows == null ? List.<IndexBooleanPhysicalRow>of() : sequentialRows) {
+            mutable.computeIfAbsent(row.indexId(), ignored -> new LinkedHashMap<>())
+                    .put("SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", row.value() ? "ON" : "OFF");
+        }
+
+        Map<Integer, Map<String, String>> result = new LinkedHashMap<>();
+        mutable.forEach((key, value) -> result.put(key, Map.copyOf(value)));
+        return Map.copyOf(result);
     }
 
     static String profileSignature(ResultSet rs) throws SQLException {
@@ -609,15 +863,31 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
 
     record TableInfo(int id, String schema, String name, String comment, String dataSpace) { }
 
+    record TablePartitionPhysicalRow(int partitionNumber, String dataCompression) { }
+
+    record XmlPartitionPhysicalRow(int partitionNumber, String xmlCompression) { }
+
+    record IndexPartitionPhysicalRow(int indexId, int partitionNumber, String dataCompression) { }
+
+    record IndexXmlPartitionPhysicalRow(int indexId, int partitionNumber, String xmlCompression) { }
+
+    record IndexBooleanPhysicalRow(int indexId, boolean value) { }
+
     record SqlServerColumnRow(int position, String name, String userTypeName, String userTypeSchema,
                               String systemTypeName, int maxLength, int precision, int scale,
                               boolean nullable, String defaultDefinition, String comment,
                               boolean identity, String computedDefinition, boolean persisted) { }
 
-    record KeyConstraintRow(String name, String type, String column, int position,
-                            String indexType, String dataSpace) {
+    record KeyConstraintRow(String name, String type, String column, int position, int indexId,
+                            String indexType, String dataSpace, Integer fillFactor, boolean padded,
+                            boolean ignoreDupKey, boolean allowRowLocks, boolean allowPageLocks,
+                            boolean statisticsNoRecompute) {
+        KeyConstraintRow(String name, String type, String column, int position,
+                         String indexType, String dataSpace) {
+            this(name, type, column, position, 0, indexType, dataSpace, null, false, false, true, true, false);
+        }
         KeyConstraintRow(String name, String type, String column, int position) {
-            this(name, type, column, position, null, null);
+            this(name, type, column, position, 0, null, null, null, false, false, true, true, false);
         }
     }
 
@@ -629,7 +899,16 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
 
     record IndexRow(int id, String name, boolean unique, String type, int itemPosition,
                     int keyPosition, boolean included, boolean descending, String column,
-                    String filterDefinition, String dataSpace) { }
+                    String filterDefinition, String dataSpace, Integer fillFactor, boolean padded,
+                    boolean ignoreDupKey, boolean allowRowLocks, boolean allowPageLocks,
+                    boolean statisticsNoRecompute) {
+        IndexRow(int id, String name, boolean unique, String type, int itemPosition,
+                 int keyPosition, boolean included, boolean descending, String column,
+                 String filterDefinition, String dataSpace) {
+            this(id, name, unique, type, itemPosition, keyPosition, included, descending, column,
+                    filterDefinition, dataSpace, null, false, false, true, true, false);
+        }
+    }
 
     record ProfileRow(String columnName, String typeSignature, long frequency) { }
 }

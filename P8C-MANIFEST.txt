@@ -1,0 +1,32 @@
+SchemaForge V4 - P8-C Column Physical Metadata Comparison
+Date: 2026-08-17
+Baseline: P8-B Index / PK / UK Physical Metadata Comparison
+Verified baseline supplied by user: 394 tests, 0 failures, 0 errors, 3 skipped
+Expected P8-C full-suite total: 399 tests (5 new @Test methods)
+
+Production scope:
+- metadata.repository/JdbcPostgreSqlMetadataRepository.java
+- metadata.validation/PhysicalMetadataComparator.java
+- reporting/SchemaCompareExcelWriter.java
+
+No production changes:
+- Oracle metadata repository
+- SQL Server metadata repository
+- Db2/zOS metadata repository
+- domain
+- parser/recovery
+- snapshot
+- api/application
+- dialect
+- physical renderer
+- DDL generation
+
+New workbook sheet:
+- COLUMN_PHYSICAL_COMPARE
+
+Internal verification:
+- PostgreSQL repository + comparator production compile with Java 21 stubs
+- focused repository/comparator test sources compile with Java 21 JUnit stubs
+- Excel writer + Excel test source compile with Java 21 POI stubs
+- P8-C column metadata/comparator behavior probe: OK
+- Maven wrapper cannot fetch Maven 3.9.9 in this container; full Maven suite must be run in the user's Windows environment.

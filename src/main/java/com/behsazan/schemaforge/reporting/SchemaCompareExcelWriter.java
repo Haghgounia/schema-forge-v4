@@ -14,6 +14,9 @@ import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
+import com.behsazan.schemaforge.metadata.validation.PhysicalComparisonRow;
+import com.behsazan.schemaforge.metadata.validation.PhysicalComparisonStatus;
+import com.behsazan.schemaforge.metadata.validation.PhysicalMetadataComparator;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -75,6 +78,24 @@ public final class SchemaCompareExcelWriter {
 
     private static final int[] TABLE_METADATA_WIDTHS = {34, 34, 80, 80, 18};
 
+    private static final String[] TABLE_PHYSICAL_HEADERS = {
+            "OBJECT", "PROPERTY", "EXPECTED", "ACTUAL", "STATUS", "NOTE"
+    };
+
+    private static final int[] TABLE_PHYSICAL_WIDTHS = {36, 30, 34, 34, 20, 80};
+
+    private static final String[] INDEX_PHYSICAL_HEADERS = {
+            "SCOPE", "OBJECT", "PROPERTY", "EXPECTED", "ACTUAL", "STATUS", "NOTE"
+    };
+
+    private static final int[] INDEX_PHYSICAL_WIDTHS = {20, 40, 34, 34, 34, 20, 80};
+
+    private static final String[] COLUMN_PHYSICAL_HEADERS = {
+            "COLUMN", "PROPERTY", "EXPECTED", "ACTUAL", "STATUS", "NOTE"
+    };
+
+    private static final int[] COLUMN_PHYSICAL_WIDTHS = {40, 30, 34, 34, 20, 80};
+
     private static final Pattern SHORT_MARKER =
             Pattern.compile("(?:^|_)([UI]\\d+(?:\\.\\d+)?)$", Pattern.CASE_INSENSITIVE);
 
@@ -131,6 +152,12 @@ public final class SchemaCompareExcelWriter {
 
             configureSheet(sheet, Math.max(1, rowNumber - 1));
             writeTableMetadataSheet(workbook, documentTable, databaseTable, styles);
+            writeTablePhysicalComparisonSheet(
+                    workbook, documentTable, databaseTable, databaseType, styles);
+            writeIndexPhysicalComparisonSheet(
+                    workbook, documentTable, databaseTable, databaseType, styles);
+            writeColumnPhysicalComparisonSheet(
+                    workbook, documentTable, databaseTable, databaseType, styles);
             writePrimaryKeySheet(workbook, documentTable, databaseTable, styles);
             writeObjectComparisonSheet(workbook, "FOREIGN_KEYS_COMPARE",
                     foreignKeySnapshots(documentTable), foreignKeySnapshots(databaseTable), styles);
@@ -182,6 +209,129 @@ public final class SchemaCompareExcelWriter {
         for (int index = 0; index < TABLE_METADATA_WIDTHS.length; index++) {
             sheet.setColumnWidth(index, TABLE_METADATA_WIDTHS[index] * 256);
         }
+    }
+
+
+    private static void writeTablePhysicalComparisonSheet(
+            XSSFWorkbook workbook,
+            Table documentTable,
+            Table databaseTable,
+            String databaseType,
+            Styles styles) {
+        Sheet sheet = workbook.createSheet(uniqueSheetName(workbook, "TABLE_PHYSICAL_COMPARE"));
+        Row header = sheet.createRow(0);
+        header.setHeightInPoints(30);
+        for (int index = 0; index < TABLE_PHYSICAL_HEADERS.length; index++) {
+            setCell(header, index, TABLE_PHYSICAL_HEADERS[index], styles.header);
+        }
+
+        List<PhysicalComparisonRow> rows = new PhysicalMetadataComparator()
+                .compareTable(documentTable, databaseTable, databaseType);
+        int rowNumber = 1;
+        for (PhysicalComparisonRow comparison : rows) {
+            Row row = sheet.createRow(rowNumber++);
+            row.setHeightInPoints(30);
+            CellStyle style = physicalRowStyle(comparison.status(), styles);
+            setCell(row, 0, comparison.objectName(), style);
+            setCell(row, 1, comparison.property(), style);
+            setCell(row, 2, comparison.expectedValue(), style);
+            setCell(row, 3, comparison.actualValue(), style);
+            setCell(row, 4, comparison.status().name(), style);
+            setCell(row, 5, comparison.note(), style);
+        }
+
+        sheet.createFreezePane(0, 1);
+        int lastRow = Math.max(1, rowNumber - 1);
+        sheet.setAutoFilter(new CellRangeAddress(0, lastRow, 0, TABLE_PHYSICAL_HEADERS.length - 1));
+        sheet.setDisplayGridlines(false);
+        for (int index = 0; index < TABLE_PHYSICAL_WIDTHS.length; index++) {
+            sheet.setColumnWidth(index, TABLE_PHYSICAL_WIDTHS[index] * 256);
+        }
+    }
+
+    private static void writeIndexPhysicalComparisonSheet(
+            XSSFWorkbook workbook,
+            Table documentTable,
+            Table databaseTable,
+            String databaseType,
+            Styles styles) {
+        Sheet sheet = workbook.createSheet(uniqueSheetName(workbook, "INDEX_PHYSICAL_COMPARE"));
+        Row header = sheet.createRow(0);
+        header.setHeightInPoints(30);
+        for (int index = 0; index < INDEX_PHYSICAL_HEADERS.length; index++) {
+            setCell(header, index, INDEX_PHYSICAL_HEADERS[index], styles.header);
+        }
+
+        List<PhysicalComparisonRow> rows = new PhysicalMetadataComparator()
+                .compareIndexes(documentTable, databaseTable, databaseType);
+        int rowNumber = 1;
+        for (PhysicalComparisonRow comparison : rows) {
+            Row row = sheet.createRow(rowNumber++);
+            row.setHeightInPoints(30);
+            CellStyle style = physicalRowStyle(comparison.status(), styles);
+            setCell(row, 0, comparison.scope(), style);
+            setCell(row, 1, comparison.objectName(), style);
+            setCell(row, 2, comparison.property(), style);
+            setCell(row, 3, comparison.expectedValue(), style);
+            setCell(row, 4, comparison.actualValue(), style);
+            setCell(row, 5, comparison.status().name(), style);
+            setCell(row, 6, comparison.note(), style);
+        }
+
+        sheet.createFreezePane(0, 1);
+        int lastRow = Math.max(1, rowNumber - 1);
+        sheet.setAutoFilter(new CellRangeAddress(0, lastRow, 0, INDEX_PHYSICAL_HEADERS.length - 1));
+        sheet.setDisplayGridlines(false);
+        for (int index = 0; index < INDEX_PHYSICAL_WIDTHS.length; index++) {
+            sheet.setColumnWidth(index, INDEX_PHYSICAL_WIDTHS[index] * 256);
+        }
+    }
+
+    private static void writeColumnPhysicalComparisonSheet(
+            XSSFWorkbook workbook,
+            Table documentTable,
+            Table databaseTable,
+            String databaseType,
+            Styles styles) {
+        Sheet sheet = workbook.createSheet(uniqueSheetName(workbook, "COLUMN_PHYSICAL_COMPARE"));
+        Row header = sheet.createRow(0);
+        header.setHeightInPoints(30);
+        for (int index = 0; index < COLUMN_PHYSICAL_HEADERS.length; index++) {
+            setCell(header, index, COLUMN_PHYSICAL_HEADERS[index], styles.header);
+        }
+
+        List<PhysicalComparisonRow> rows = new PhysicalMetadataComparator()
+                .compareColumns(documentTable, databaseTable, databaseType);
+        int rowNumber = 1;
+        for (PhysicalComparisonRow comparison : rows) {
+            Row row = sheet.createRow(rowNumber++);
+            row.setHeightInPoints(30);
+            CellStyle style = physicalRowStyle(comparison.status(), styles);
+            setCell(row, 0, comparison.objectName(), style);
+            setCell(row, 1, comparison.property(), style);
+            setCell(row, 2, comparison.expectedValue(), style);
+            setCell(row, 3, comparison.actualValue(), style);
+            setCell(row, 4, comparison.status().name(), style);
+            setCell(row, 5, comparison.note(), style);
+        }
+
+        sheet.createFreezePane(0, 1);
+        int lastRow = Math.max(1, rowNumber - 1);
+        sheet.setAutoFilter(new CellRangeAddress(0, lastRow, 0, COLUMN_PHYSICAL_HEADERS.length - 1));
+        sheet.setDisplayGridlines(false);
+        for (int index = 0; index < COLUMN_PHYSICAL_WIDTHS.length; index++) {
+            sheet.setColumnWidth(index, COLUMN_PHYSICAL_WIDTHS[index] * 256);
+        }
+    }
+
+    private static CellStyle physicalRowStyle(PhysicalComparisonStatus status, Styles styles) {
+        return switch (status) {
+            case MATCH -> styles.normal;
+            case MISMATCH -> styles.changed;
+            case NOT_SPECIFIED -> styles.positionChanged;
+            case NOT_AVAILABLE -> styles.missingInDatabase;
+            case REVIEW -> styles.renameCandidate;
+        };
     }
 
     private static void writePrimaryKeySheet(

@@ -145,6 +145,29 @@ class JdbcDb2ZosMetadataRepositoryTest {
     }
 
     @Test
+    void mapsDb2TableSpaceCatalogValuesWithoutReverseEngineeringAllocationQuantities() {
+        var row = new JdbcDb2ZosMetadataRepository.Db2TableSpacePhysicalRow(
+                "BP16K0", "R", "N", "Y", 32, -1, 200, "Y",
+                4 * 1024 * 1024, "Y", 2, "I", "SG_APP", 10, 15,
+                "H", "A", "N", 5);
+
+        var options = JdbcDb2ZosMetadataRepository.db2TableSpacePhysicalOptions(row);
+
+        assertEquals("BP16K0", options.get("DB2_TABLESPACE_BUFFERPOOL"));
+        assertEquals("4 G", options.get("DB2_TABLESPACE_DSSIZE"));
+        assertEquals("32", options.get("DB2_TABLESPACE_SEGSIZE"));
+        assertEquals("SYSTEM", options.get("DB2_TABLESPACE_LOCKMAX"));
+        assertEquals("ROW", options.get("DB2_TABLESPACE_LOCKSIZE"));
+        assertEquals("YES HUFFMAN", options.get("DB2_TABLESPACE_COMPRESS"));
+        assertEquals("ALL", options.get("DB2_TABLESPACE_GBPCACHE"));
+        assertEquals("NO", options.get("DB2_TABLESPACE_TRACKMOD"));
+        assertEquals("YES", options.get("DB2_TABLESPACE_MEMBER_CLUSTER"));
+        assertEquals("SG_APP", options.get("DB2_TABLESPACE_STOGROUP"));
+        assertFalse(options.containsKey("DB2_TABLESPACE_PRIQTY"));
+        assertFalse(options.containsKey("DB2_TABLESPACE_SECQTY"));
+    }
+
+    @Test
     void catalogQueriesUseTheDb2SystemCatalogAndUncommittedRead() {
         assertTrue(JdbcDb2ZosMetadataRepository.TABLE_SQL.contains("SYSIBM.SYSTABLES"));
         assertTrue(JdbcDb2ZosMetadataRepository.COLUMNS_SQL.contains("SYSIBM.SYSCOLUMNS"));
@@ -156,8 +179,34 @@ class JdbcDb2ZosMetadataRepositoryTest {
         assertTrue(JdbcDb2ZosMetadataRepository.COLUMNS_SQL.contains("HIDDEN = 'N'"));
         assertTrue(JdbcDb2ZosMetadataRepository.KEY_CONSTRAINTS_SQL.contains("K.ORDERING IN"));
         assertTrue(JdbcDb2ZosMetadataRepository.TABLE_SQL.contains("WITH UR"));
+        assertTrue(JdbcDb2ZosMetadataRepository.TABLESPACE_PHYSICAL_SQL.contains("SYSIBM.SYSTABLESPACE"));
+        assertTrue(JdbcDb2ZosMetadataRepository.TABLESPACE_PHYSICAL_SQL.contains("BPOOL"));
+        assertTrue(JdbcDb2ZosMetadataRepository.TABLESPACE_PHYSICAL_SQL.contains("PCTFREE_UPD"));
+        assertTrue(JdbcDb2ZosMetadataRepository.TABLESPACE_PHYSICAL_SQL.contains("WITH UR"));
     }
 
+
+    @Test
+    void mapsPersistentDb2IndexCatalogValuesWithoutRecoveryOrAllocationPolicy() {
+        var options = JdbcDb2ZosMetadataRepository.db2IndexPhysicalOptions(
+                "BP8K0", "Y", "N", 2 * 1024 * 1024,
+                "N", "Y", "SG_IDX", 7, 15, "A");
+
+        assertEquals("BP8K0", options.get("DB2_INDEX_BUFFERPOOL"));
+        assertEquals("YES", options.get("DB2_INDEX_ERASE"));
+        assertEquals("NO", options.get("DB2_INDEX_CLOSE"));
+        assertEquals("NOT PADDED", options.get("DB2_INDEX_PADDING"));
+        assertEquals("YES", options.get("DB2_INDEX_COMPRESS"));
+        assertEquals("SG_IDX", options.get("DB2_INDEX_STOGROUP"));
+        assertEquals("7", options.get("DB2_INDEX_FREEPAGE"));
+        assertEquals("15", options.get("DB2_INDEX_PCTFREE"));
+        assertEquals("ALL", options.get("DB2_INDEX_GBPCACHE"));
+        assertEquals("2 G", options.get("DB2_INDEX_PIECESIZE"));
+        assertFalse(options.containsKey("DB2_INDEX_PRIQTY"));
+        assertFalse(options.containsKey("DB2_INDEX_SECQTY"));
+        assertFalse(options.containsKey("DB2_INDEX_COPY"));
+        assertFalse(options.containsKey("DB2_INDEX_CLUSTER"));
+    }
 
     private static Table.Builder baseTable() {
         return Table.builder("APP", "SAMPLE")

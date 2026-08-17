@@ -124,6 +124,29 @@ class JdbcSqlServerMetadataRepositoryTest {
     }
 
     @Test
+    void mapsUniformTableCompressionAndMarksMixedPartitionCompressionForReview() {
+        var uniform = JdbcSqlServerMetadataRepository.sqlServerTablePhysicalOptions(
+                "PRIMARY",
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.TablePartitionPhysicalRow(1, "PAGE"),
+                        new JdbcSqlServerMetadataRepository.TablePartitionPhysicalRow(2, "PAGE")),
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.XmlPartitionPhysicalRow(1, "OFF"),
+                        new JdbcSqlServerMetadataRepository.XmlPartitionPhysicalRow(2, "OFF")));
+        var mixed = JdbcSqlServerMetadataRepository.sqlServerTablePhysicalOptions(
+                "PRIMARY",
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.TablePartitionPhysicalRow(1, "PAGE"),
+                        new JdbcSqlServerMetadataRepository.TablePartitionPhysicalRow(2, "ROW")),
+                java.util.List.of());
+
+        assertEquals("PRIMARY", uniform.get("TABLESPACE"));
+        assertEquals("PAGE", uniform.get("SQLSERVER_TABLE_DATA_COMPRESSION"));
+        assertEquals("OFF", uniform.get("SQLSERVER_TABLE_XML_COMPRESSION"));
+        assertTrue(mixed.get("SQLSERVER_TABLE_DATA_COMPRESSION").startsWith("REVIEW:MIXED"));
+    }
+
+    @Test
     void catalogQueriesUseDocumentedSqlServerCatalogViews() {
         assertTrue(JdbcSqlServerMetadataRepository.TABLE_SQL.contains("sys.tables"));
         assertTrue(JdbcSqlServerMetadataRepository.COLUMNS_SQL.contains("sys.columns"));
@@ -137,6 +160,46 @@ class JdbcSqlServerMetadataRepositoryTest {
         assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("sys.index_columns"));
         assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("is_included_column"));
         assertTrue(JdbcSqlServerMetadataRepository.TABLE_SQL.contains("sys.extended_properties"));
+        assertTrue(JdbcSqlServerMetadataRepository.TABLE_PHYSICAL_SQL.contains("sys.partitions"));
+        assertTrue(JdbcSqlServerMetadataRepository.TABLE_PHYSICAL_SQL.contains("data_compression_desc"));
+        assertTrue(JdbcSqlServerMetadataRepository.TABLE_XML_COMPRESSION_SUPPORT_SQL.contains("sys.all_columns"));
+    }
+
+    @Test
+    void mapsPersistentSqlServerIndexCatalogFlagsToExistingPhysicalKeys() {
+        var options = JdbcSqlServerMetadataRepository.sqlServerIndexPhysicalOptions(
+                "NONCLUSTERED", "INDEX_FG", 80, true, false,
+                false, true, true, java.util.Map.of());
+
+        assertEquals("NONCLUSTERED", options.get("SQLSERVER_INDEX_ORGANIZATION"));
+        assertEquals("INDEX_FG", options.get("INDEX_TABLESPACE"));
+        assertEquals("80", options.get("SQLSERVER_INDEX_FILLFACTOR"));
+        assertEquals("ON", options.get("SQLSERVER_INDEX_PAD_INDEX"));
+        assertEquals("OFF", options.get("SQLSERVER_INDEX_IGNORE_DUP_KEY"));
+        assertEquals("ON", options.get("SQLSERVER_INDEX_STATISTICS_NORECOMPUTE"));
+        assertEquals("OFF", options.get("SQLSERVER_INDEX_ALLOW_ROW_LOCKS"));
+        assertEquals("ON", options.get("SQLSERVER_INDEX_ALLOW_PAGE_LOCKS"));
+    }
+
+    @Test
+    void aggregatesSqlServerIndexCompressionAndMarksMixedPartitionStateForReview() {
+        var options = JdbcSqlServerMetadataRepository.sqlServerIndexExtraPhysicalOptions(
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.IndexPartitionPhysicalRow(2, 1, "PAGE"),
+                        new JdbcSqlServerMetadataRepository.IndexPartitionPhysicalRow(2, 2, "ROW"),
+                        new JdbcSqlServerMetadataRepository.IndexPartitionPhysicalRow(3, 1, "PAGE")),
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.IndexXmlPartitionPhysicalRow(3, 1, "ON")),
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.IndexBooleanPhysicalRow(3, true)),
+                java.util.List.of(
+                        new JdbcSqlServerMetadataRepository.IndexBooleanPhysicalRow(3, false)));
+
+        assertTrue(options.get(2).get("SQLSERVER_INDEX_DATA_COMPRESSION").startsWith("REVIEW:MIXED"));
+        assertEquals("PAGE", options.get(3).get("SQLSERVER_INDEX_DATA_COMPRESSION"));
+        assertEquals("ON", options.get(3).get("SQLSERVER_INDEX_XML_COMPRESSION"));
+        assertEquals("ON", options.get(3).get("SQLSERVER_INDEX_STATISTICS_INCREMENTAL"));
+        assertEquals("OFF", options.get(3).get("SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY"));
     }
 
     private static Table.Builder baseTable() {

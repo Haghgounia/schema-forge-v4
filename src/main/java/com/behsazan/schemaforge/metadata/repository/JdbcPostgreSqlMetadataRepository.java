@@ -65,13 +65,18 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
              ORDER BY c.column_name, frequency DESC
             """;
 
-    private static final String TABLE_SQL = """
+    static final String TABLE_SQL = """
             SELECT c.oid AS table_oid,
                    n.nspname AS schema_name,
                    c.relname AS table_name,
-                   obj_description(c.oid, 'pg_class') AS comments
+                   obj_description(c.oid, 'pg_class') AS comments,
+                   ts.spcname AS tablespace_name,
+                   array_to_string(c.reloptions, ',') AS reloptions
               FROM pg_class c
               JOIN pg_namespace n ON n.oid = c.relnamespace
+              JOIN pg_database d ON d.datname = current_database()
+              LEFT JOIN pg_tablespace ts
+                ON ts.oid = CASE WHEN c.reltablespace = 0 THEN d.dattablespace ELSE c.reltablespace END
              WHERE c.relkind IN ('r', 'p')
                AND LOWER(n.nspname) = LOWER(:schemaName)
                AND LOWER(c.relname) = LOWER(:tableName)
@@ -84,7 +89,7 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                       c.relname
             """;
 
-    private static final String COLUMNS_SQL = """
+    static final String COLUMNS_SQL = """
             SELECT a.attnum AS column_id,
                    a.attname AS column_name,
                    format_type(a.atttypid, a.atttypmod) AS formatted_type,
@@ -92,8 +97,12 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                    pg_get_expr(ad.adbin, ad.adrelid) AS default_value,
                    col_description(a.attrelid, a.attnum) AS comments,
                    a.attidentity,
-                   a.attgenerated
+                   a.attgenerated,
+                   a.attstorage,
+                   a.attcompression,
+                   t.typstorage AS type_storage
               FROM pg_attribute a
+              JOIN pg_type t ON t.oid = a.atttypid
               LEFT JOIN pg_attrdef ad
                 ON ad.adrelid = a.attrelid
                AND ad.adnum = a.attnum
@@ -109,12 +118,20 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                    con.condeferrable,
                    con.condeferred,
                    a.attname AS column_name,
-                   key_column.ordinality AS column_position
+                   key_column.ordinality AS column_position,
+                   backing_access_method.amname AS backing_access_method,
+                   COALESCE(backing_tablespace.spcname, database_tablespace.spcname) AS backing_tablespace,
+                   array_to_string(backing_index.reloptions, ',') AS backing_reloptions
               FROM pg_constraint con
               CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS key_column(attnum, ordinality)
               JOIN pg_attribute a
                 ON a.attrelid = con.conrelid
                AND a.attnum = key_column.attnum
+              LEFT JOIN pg_class backing_index ON backing_index.oid = con.conindid
+              LEFT JOIN pg_am backing_access_method ON backing_access_method.oid = backing_index.relam
+              LEFT JOIN pg_tablespace backing_tablespace ON backing_tablespace.oid = backing_index.reltablespace
+              LEFT JOIN pg_database current_db ON current_db.datname = current_database()
+              LEFT JOIN pg_tablespace database_tablespace ON database_tablespace.oid = current_db.dattablespace
              WHERE con.conrelid = :tableOid
                AND con.contype IN ('p', 'u')
              ORDER BY con.conname, key_column.ordinality
@@ -170,12 +187,17 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                    CASE WHEN item.ordinality <= index_definition.indnkeyatts
                         THEN COALESCE((index_definition.indoption[(item.ordinality - 1)::integer] & 1) = 1, false)
                         ELSE false END AS descending,
-                   pg_get_expr(index_definition.indpred, index_definition.indrelid) AS predicate
+                   pg_get_expr(index_definition.indpred, index_definition.indrelid) AS predicate,
+                   COALESCE(index_tablespace.spcname, database_tablespace.spcname) AS index_tablespace,
+                   array_to_string(index_table.reloptions, ',') AS index_reloptions
               FROM pg_index index_definition
               JOIN pg_class table_definition ON table_definition.oid = index_definition.indrelid
               JOIN pg_namespace table_namespace ON table_namespace.oid = table_definition.relnamespace
               JOIN pg_class index_table ON index_table.oid = index_definition.indexrelid
               JOIN pg_am access_method ON access_method.oid = index_table.relam
+              LEFT JOIN pg_tablespace index_tablespace ON index_tablespace.oid = index_table.reltablespace
+              LEFT JOIN pg_database current_db ON current_db.datname = current_database()
+              LEFT JOIN pg_tablespace database_tablespace ON database_tablespace.oid = current_db.dattablespace
               CROSS JOIN LATERAL unnest(index_definition.indkey) WITH ORDINALITY
                    AS item(attnum, ordinality)
               LEFT JOIN pg_attribute attribute
@@ -222,7 +244,9 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
         List<TableInfo> tables = jdbcTemplate.query(TABLE_SQL, parameters,
                 (rs, rowNumber) -> new TableInfo(
                         rs.getLong("table_oid"), rs.getString("schema_name"),
-                        rs.getString("table_name"), rs.getString("comments")));
+                        rs.getString("table_name"), rs.getString("comments"),
+                        trimToNull(rs.getString("tablespace_name")),
+                        trimToNull(rs.getString("reloptions"))));
         if (tables.isEmpty()) {
             Map<String, Object> connectionInfo = jdbcTemplate.getJdbcTemplate().queryForMap(
                     "SELECT current_database() AS database_name, current_user AS user_name");
@@ -237,6 +261,7 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
         Table.Builder builder = Table.builder(info.schema(), info.name());
         String tableComment = trimToNull(info.comment());
         if (tableComment != null) builder.description(tableComment);
+        postgreSqlTablePhysicalOptions(info.tablespace(), info.reloptions()).forEach(builder::physicalOption);
 
         MapSqlParameterSource tableParameter = new MapSqlParameterSource("tableOid", info.oid());
         List<PostgreSqlColumnRow> columns = jdbcTemplate.query(COLUMNS_SQL, tableParameter,
@@ -248,7 +273,10 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                         trimToNull(rs.getString("default_value")),
                         trimToNull(rs.getString("comments")),
                         trimToNull(rs.getString("attidentity")),
-                        trimToNull(rs.getString("attgenerated"))));
+                        trimToNull(rs.getString("attgenerated")),
+                        rs.getString("attstorage"),
+                        rs.getString("attcompression"),
+                        rs.getString("type_storage")));
         columns.stream().map(this::mapColumn).forEach(builder::addColumn);
 
         List<KeyConstraintRow> keys = jdbcTemplate.query(KEY_CONSTRAINTS_SQL, tableParameter,
@@ -258,7 +286,10 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                         rs.getBoolean("condeferrable"),
                         rs.getBoolean("condeferred"),
                         rs.getString("column_name"),
-                        rs.getInt("column_position")));
+                        rs.getInt("column_position"),
+                        trimToNull(rs.getString("backing_access_method")),
+                        trimToNull(rs.getString("backing_tablespace")),
+                        trimToNull(rs.getString("backing_reloptions"))));
         mapKeys(builder, keys);
 
         List<ForeignKeyRow> foreignKeys = jdbcTemplate.query(FOREIGN_KEYS_SQL, tableParameter,
@@ -293,7 +324,9 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                         rs.getString("column_name"),
                         trimToNull(rs.getString("item_definition")),
                         rs.getBoolean("descending"),
-                        trimToNull(rs.getString("predicate"))));
+                        trimToNull(rs.getString("predicate")),
+                        trimToNull(rs.getString("index_tablespace")),
+                        trimToNull(rs.getString("index_reloptions"))));
         mapIndexes(builder, indexes);
         return Optional.of(builder.build());
     }
@@ -329,7 +362,57 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                 new Description(row.comment()),
                 identity,
                 row.position(),
-                generated ? row.defaultValue() : null);
+                generated ? row.defaultValue() : null,
+                postgreSqlColumnPhysicalOptions(row.storageCode(), row.compressionCode(), row.typeStorageCode()));
+    }
+
+    static Map<String, String> postgreSqlColumnPhysicalOptions(
+            String storageCode, String compressionCode, String typeStorageCode) {
+        Map<String, String> options = new LinkedHashMap<>();
+        String storage = postgreSqlStorageMode(storageCode);
+        String typeStorage = postgreSqlStorageMode(typeStorageCode);
+        if (storage != null) options.put("POSTGRESQL_STORAGE", storage);
+        if (typeStorage != null) options.put("POSTGRESQL_STORAGE_TYPE_DEFAULT", typeStorage);
+
+        if (storage == null || (!"PLAIN".equals(storage) && !"EXTERNAL".equals(storage))) {
+            String compression = postgreSqlCompressionMethod(compressionCode);
+            if (compression != null) options.put("POSTGRESQL_COMPRESSION", compression);
+        }
+        return Map.copyOf(options);
+    }
+
+    private static String postgreSqlStorageMode(String raw) {
+        if (raw == null) return null;
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "p", "plain" -> "PLAIN";
+            case "e", "external" -> "EXTERNAL";
+            case "m", "main" -> "MAIN";
+            case "x", "extended" -> "EXTENDED";
+            case "" -> null;
+            default -> "REVIEW:UNKNOWN STORAGE CODE " + safeCatalogCode(raw);
+        };
+    }
+
+    private static String postgreSqlCompressionMethod(String raw) {
+        if (raw == null || raw.isEmpty() || raw.chars().allMatch(ch -> ch == 0)) return "DEFAULT";
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "p", "pglz" -> "PGLZ";
+            case "l", "lz4" -> "LZ4";
+            default -> "REVIEW:UNKNOWN COMPRESSION CODE " + safeCatalogCode(raw);
+        };
+    }
+
+    private static String safeCatalogCode(String raw) {
+        if (raw == null) return "<NULL>";
+        StringBuilder value = new StringBuilder();
+        for (int index = 0; index < raw.length(); index++) {
+            char ch = raw.charAt(index);
+            if (Character.isISOControl(ch)) value.append(String.format("\\u%04X", (int) ch));
+            else value.append(ch);
+        }
+        return value.toString();
     }
 
     private DataType parseType(String formattedType) {
@@ -382,10 +465,12 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
             List<Identifier> columns = group.stream().map(KeyConstraintRow::column).map(Identifier::of).toList();
             if ("p".equals(first.type())) {
                 builder.primaryKey(new PrimaryKey(Identifier.of(first.name()), columns,
-                        first.deferrable(), first.initiallyDeferred()));
+                        first.deferrable(), first.initiallyDeferred(),
+                        postgreSqlIndexPhysicalOptions(first.accessMethod(), first.tablespace(), first.reloptions())));
             } else {
                 builder.addUniqueKey(new UniqueKey(Identifier.of(first.name()), columns,
-                        first.deferrable(), first.initiallyDeferred()));
+                        first.deferrable(), first.initiallyDeferred(),
+                        postgreSqlIndexPhysicalOptions(first.accessMethod(), first.tablespace(), first.reloptions())));
             }
         }
     }
@@ -432,9 +517,11 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
             }
             if (keyColumns.isEmpty()) continue;
             IndexType type = group.getFirst().unique() ? IndexType.UNIQUE : IndexType.NORMAL;
+            IndexRow first = group.getFirst();
             builder.addIndex(new Index(
                     Identifier.of(entry.getKey()), keyColumns, type, Description.empty(),
-                    includeColumns, group.getFirst().predicate()));
+                    includeColumns, first.predicate(),
+                    postgreSqlIndexPhysicalOptions(first.accessMethod(), first.tablespace(), first.reloptions())));
         }
     }
 
@@ -499,14 +586,70 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
         return rs.wasNull() ? null : value;
     }
 
-    private record TableInfo(long oid, String schema, String name, String comment) { }
+    static Map<String, String> postgreSqlIndexPhysicalOptions(
+            String accessMethod, String tablespace, String reloptions) {
+        Map<String, String> options = new LinkedHashMap<>();
+        String method = trimToNull(accessMethod);
+        if (method != null) options.put("POSTGRESQL_INDEX_METHOD", method.toUpperCase(Locale.ROOT));
+        String normalizedTablespace = trimToNull(tablespace);
+        if (normalizedTablespace != null) options.put("INDEX_TABLESPACE", normalizedTablespace);
+
+        String rawOptions = trimToNull(reloptions);
+        if (rawOptions != null) {
+            for (String token : rawOptions.split(",")) {
+                int separator = token.indexOf('=');
+                if (separator <= 0) continue;
+                String key = token.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+                String value = trimToNull(token.substring(separator + 1));
+                if (value == null) continue;
+                switch (key) {
+                    case "fillfactor" -> options.put("POSTGRESQL_INDEX_FILLFACTOR", value);
+                    case "deduplicate_items" -> options.put("POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", value.toUpperCase(Locale.ROOT));
+                    case "buffering" -> options.put("POSTGRESQL_GIST_BUFFERING", value.toUpperCase(Locale.ROOT));
+                    case "fastupdate" -> options.put("POSTGRESQL_GIN_FASTUPDATE", value.toUpperCase(Locale.ROOT));
+                    case "gin_pending_list_limit" -> options.put("POSTGRESQL_GIN_PENDING_LIST_LIMIT", value);
+                    case "pages_per_range" -> options.put("POSTGRESQL_BRIN_PAGES_PER_RANGE", value);
+                    case "autosummarize" -> options.put("POSTGRESQL_BRIN_AUTOSUMMARIZE", value.toUpperCase(Locale.ROOT));
+                    default -> { /* Unsupported/operational access-method options stay outside P8-B. */ }
+                }
+            }
+        }
+        return Map.copyOf(options);
+    }
+
+    static Map<String, String> postgreSqlTablePhysicalOptions(String tablespace, String reloptions) {
+        Map<String, String> options = new LinkedHashMap<>();
+        if (trimToNull(tablespace) != null) options.put("TABLESPACE", tablespace.trim());
+        String rawOptions = trimToNull(reloptions);
+        if (rawOptions != null) {
+            for (String token : rawOptions.split(",")) {
+                int separator = token.indexOf('=');
+                if (separator <= 0) continue;
+                String key = token.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+                String value = trimToNull(token.substring(separator + 1));
+                if (value == null) continue;
+                switch (key) {
+                    case "fillfactor" -> options.put("POSTGRESQL_TABLE_FILLFACTOR", value);
+                    case "toast_tuple_target" -> options.put("POSTGRESQL_TOAST_TUPLE_TARGET", value);
+                    case "parallel_workers" -> options.put("POSTGRESQL_TABLE_PARALLEL_WORKERS", value);
+                    default -> { /* Operational/unsupported reloptions remain outside P8-A. */ }
+                }
+            }
+        }
+        return Map.copyOf(options);
+    }
+
+    private record TableInfo(long oid, String schema, String name, String comment,
+                             String tablespace, String reloptions) { }
 
     private record PostgreSqlColumnRow(int position, String name, String formattedType, boolean nullable,
                                        String defaultValue, String comment, String identityFlag,
-                                       String generatedFlag) { }
+                                       String generatedFlag, String storageCode, String compressionCode,
+                                       String typeStorageCode) { }
 
     private record KeyConstraintRow(String name, String type, boolean deferrable,
-                                    boolean initiallyDeferred, String column, int position) { }
+                                    boolean initiallyDeferred, String column, int position,
+                                    String accessMethod, String tablespace, String reloptions) { }
 
     private record ForeignKeyRow(String name, boolean deferrable, boolean initiallyDeferred,
                                  String deleteAction, String updateAction, int position, String column,
@@ -516,7 +659,7 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
 
     private record IndexRow(String name, boolean unique, String accessMethod, int position,
                             boolean keyColumn, String column, String definition,
-                            boolean descending, String predicate) { }
+                            boolean descending, String predicate, String tablespace, String reloptions) { }
 
     private record ProfileRow(String columnName, String typeSignature, long frequency) { }
 }

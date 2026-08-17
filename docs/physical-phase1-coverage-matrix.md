@@ -22,6 +22,7 @@ Implemented for index / PK / UK backing-index candidates:
 - index compression source validation (NOCOMPRESS, prefix COMPRESS[/n], advanced compression)
 - object-scoped source/profile-aware LOGGING / NOLOGGING
 - object-scoped source/profile-aware PARALLEL / NOPARALLEL / PARALLEL n
+- standalone-index ONLINE build directive from explicit `Index.buildOptions` only
 
 Intentionally not auto-selected in Phase 1:
 - legacy/manual STORAGE allocation attributes (environment/tablespace policy)
@@ -42,6 +43,7 @@ Implemented:
 - BRIN pages_per_range and autosummarize
 - method-conflict validation: method-specific options are not silently applied to a conflicting explicit access method
 - correct USING INDEX TABLESPACE grammar for PK/UK constraint placement
+- standalone-index CONCURRENTLY build directive from explicit `Index.buildOptions` only
 - column-scoped explicit `STORAGE PLAIN|EXTERNAL|EXTENDED|MAIN|DEFAULT`
 - column-scoped explicit `COMPRESSION pglz|lz4|default` with safe type/storage guards
 
@@ -110,6 +112,8 @@ Implemented index / PK / UK backing-index candidates:
 - BUFFERPOOL
 - CLOSE
 - source/profile-only PIECESIZE with syntax validation and table-space/index-organization review
+- P7 explicit CREATE INDEX DEFINE YES|NO and DEFER YES|NO through `Index.buildOptions`; absent values produce no clause
+- DEFINE NO requires explicit index STOGROUP evidence; DEFER YES remains DBA-review-visible
 
 Intentionally not auto-selected / still deferred:
 - executable CREATE TABLESPACE / CREATE STOGROUP provisioning
@@ -128,7 +132,11 @@ Word/JSON is evidence, not truth. SchemaForge:
 
 ## Physical-option granularity
 
-Column, Index, Primary Key backing-index, and Unique Key backing-index physical options are object-scoped. Historical table-scoped index options remain a compatibility fallback. Db2 table-space profile options remain table-scoped in this phase; shared table-space provisioning/deduplication is not modeled as an executable schema object.
+Column, Index, Primary Key backing-index, and Unique Key backing-index physical options are object-scoped. Historical table-scoped index options remain a compatibility fallback. `Index.buildOptions` is a separate object-scoped channel for operational CREATE INDEX directives and is not merged into persistent physical state. Db2 table-space profile options remain table-scoped; shared table-space provisioning/deduplication is not modeled as an executable schema object.
+
+## Frozen baseline
+
+Physical P0-P7 is frozen at the user-verified 376-test baseline (0 failures, 0 errors, 3 skipped). Remaining LOB, partition, recovery, access-method, FILESTREAM/TEXTIMAGE and similar gaps require dedicated models or explicit source contracts; they are not to be flattened into generic physicalOptions.
 
 
 ## 2026-08-17 SQL Server Physical P4 delta

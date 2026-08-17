@@ -178,7 +178,7 @@ public final class Db2ZosPhysicalRenderer implements PhysicalCommentRenderer {
         } else {
             lines.add("-- PIECESIZE is data-set/table-space capacity specific; source/profile only.");
         }
-        lines.add("-- DEFINE/DEFER are deployment choices; COPY is recovery policy; CLUSTER is data-organization design. They are not auto-selected in Phase 1.");
+        lines.add("-- DEFINE/DEFER are operational CREATE INDEX choices and are handled only from explicit Index.buildOptions; COPY is recovery policy and CLUSTER is data-organization design, so neither is auto-selected here.");
         return PhysicalCommentBlocks.block("DB2/ZOS INDEX PHYSICAL OPTIONS", lines);
     }
 

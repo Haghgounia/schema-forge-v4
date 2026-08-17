@@ -1,3 +1,33 @@
+## 2026-08-17 - P8-C: column physical metadata comparison
+
+- Added PostgreSQL column physical metadata acquisition from `pg_attribute.attstorage` and `pg_attribute.attcompression`, with `pg_type.typstorage` retained only as comparison evidence for `STORAGE DEFAULT`.
+- Added `COLUMN_PHYSICAL_COMPARE` to the existing workbook.
+- Column physical comparison is intentionally PostgreSQL-only because the frozen canonical column physical model currently represents PostgreSQL STORAGE/COMPRESSION only.
+- `PLAIN`/`EXTERNAL` storage does not expose compression as active state; unknown future catalog codes are review-only and are never guessed.
+- `STORAGE DEFAULT` compares against the type default while the Excel ACTUAL value still shows the effective current storage mode.
+- No Domain, parser, snapshot, API, DDL dialect, physical renderer, generation, or non-PostgreSQL metadata behavior changed.
+- P8-C adds five focused tests over the user-verified 394-test P8-B baseline, for an expected full-suite total of 399.
+
+## 2026-08-17 - P8-B: index / PK / UK physical metadata comparison
+
+- Extended actual physical metadata acquisition to ordinary indexes and backing indexes for PRIMARY KEY / UNIQUE constraints across Oracle, PostgreSQL, SQL Server, and Db2 for z/OS.
+- Added `INDEX_PHYSICAL_COMPARE` to the existing workbook with `INDEX`, `PRIMARY_KEY`, and `UNIQUE_KEY` scopes.
+- Kept database actual state comparison-only; no database metadata is promoted to design intent or index `buildOptions`.
+- SQL Server mixed partition compression is `REVIEW`; FILLFACTOR 0 and 100 compare as equivalent.
+- Db2 allocation/recovery/logical semantics such as PRIQTY/SECQTY reverse-engineering, COPY, and CLUSTER remain excluded.
+- No Domain, parser, snapshot, API, DDL dialect, physical renderer, or generation behavior changed.
+- P8-B adds nine focused tests over the verified 385-test P8-A baseline, for an expected full-suite total of 394.
+
+## 2026-08-17 - P8-A: table physical metadata comparison
+
+- Added table-level physical metadata acquisition to the Oracle, PostgreSQL, SQL Server, and Db2 for z/OS JDBC metadata repositories.
+- Kept database-side physical metadata as actual-state comparison evidence only; it is not promoted into design intent and does not feed generated DDL.
+- Added `PhysicalMetadataComparator`, `PhysicalComparisonRow`, and `PhysicalComparisonStatus` for vendor-aware expected-vs-actual table physical comparison.
+- Added `TABLE_PHYSICAL_COMPARE` to the existing Excel comparison workbook with `MATCH`, `MISMATCH`, `NOT_SPECIFIED`, `NOT_AVAILABLE`, and `REVIEW` statuses.
+- Oracle does not infer `SEGMENT CREATION` from current segment existence; PostgreSQL operational reloptions are excluded; SQL Server mixed partition compression is review-only; Db2 allocation quantities are not reverse-mapped to `PRIQTY`/`SECQTY`.
+- No Domain, parser, snapshot, API, DDL dialect, physical renderer, or index-build-option behavior changed.
+- The previously verified baseline remains 376 tests; P8-A adds nine focused tests, for an expected full-suite total of 385.
+
 
 ## 2026-08-17 - Physical P6: column-scoped physical options
 
@@ -1095,3 +1125,19 @@
 - Fixed only the backward-compatibility test fixture: an INTEGER snapshot incorrectly used BYTE length semantics with no length.
 - The fixture now uses DEFAULT length semantics while keeping column physicalOptions null, which is the actual P6 compatibility condition under test.
 - No production code, parser, snapshot schema, or DDL behavior changed.
+
+## 2026-08-17 - Db2/zOS Index Build Options P7
+- Added explicit Db2/zOS CREATE INDEX `DEFINE YES|NO` and `DEFER YES|NO` support through `Index.buildOptions`.
+- `DEFINE NO` is emitted only when explicit index STOGROUP evidence exists; otherwise an INDEX BUILD ISSUE is rendered and the directive is omitted.
+- `DEFER YES` renders an INDEX BUILD REVIEW warning about rebuild-pending behavior for populated tables.
+- Updated the Db2 physical comment block to keep COPY/CLUSTER outside build-option handling.
+- Added `docs/PHYSICAL-FINAL-GAP-AUDIT.md` to record remaining vendor-specific gaps and scope decisions.
+
+## 2026-08-17 - Physical DDL P0-P7 baseline freeze
+- Froze the Physical DDL workstream on the green Db2/zOS Index Build P7 baseline.
+- Recorded the user-verified full Maven result: 376 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS.
+- Added `docs/PHYSICAL-BASELINE-FREEZE.md` and `BASELINE-MANIFEST.txt` as the handoff contract for subsequent SchemaForge V4 work.
+- Updated the final gap audit and coverage matrix to reflect P0 object-scoped physical options, P5 separate index build options, P6 column physical options, and P7 Db2 DEFINE/DEFER.
+- Corrected stale README wording that still described per-index physical tuning as an unimplemented model boundary.
+- Remaining Oracle LOB, PostgreSQL access-method/partition, SQL Server TEXTIMAGE/FILESTREAM/partition, and Db2 recovery/organization/partition features stay explicitly deferred until a dedicated source/domain model exists.
+- Documentation-only finalization: no production Java, test logic, parser version, snapshot version, datatype mapping, or DDL behavior changed.

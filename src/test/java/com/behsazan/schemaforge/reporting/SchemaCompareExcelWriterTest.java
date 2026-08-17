@@ -262,7 +262,7 @@ class SchemaCompareExcelWriterTest {
                 document, database, Map.of(), DatabasePlatform.ORACLE);
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
-            assertEquals(6, workbook.getNumberOfSheets());
+            assertEquals(9, workbook.getNumberOfSheets());
             var metadata = workbook.getSheet("TABLE_METADATA");
             assertEquals("BIM.CUSTOMERS", metadata.getRow(1).getCell(0).getStringCellValue());
             assertEquals("مشتریان", metadata.getRow(1).getCell(1).getStringCellValue());
@@ -309,6 +309,137 @@ class SchemaCompareExcelWriterTest {
         }
     }
 
+
+    @Test
+    void shouldWriteTablePhysicalComparisonSheet() throws Exception {
+        Table document = Table.builder("BIM", "CUSTOMERS")
+                .addColumn(column("CUSTOMER_ID", DataType.numeric("NUMBER", 10, 0), false, 1))
+                .physicalOption("TABLESPACE", "TS_APP")
+                .physicalOption("ORACLE_PCTFREE", "10")
+                .physicalOption("ORACLE_TABLE_LOGGING", "NOLOGGING")
+                .build();
+        Table database = Table.builder("BIM", "CUSTOMERS")
+                .addColumn(column("CUSTOMER_ID", DataType.numeric("NUMBER", 10, 0), false, 1))
+                .physicalOption("TABLESPACE", "TS_APP")
+                .physicalOption("ORACLE_PCTFREE", "20")
+                .physicalOption("ORACLE_TABLE_LOGGING", "NOLOGGING")
+                .physicalOption("ORACLE_TABLE_COMPRESSION", "NOCOMPRESS")
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.ORACLE);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var sheet = workbook.getSheet("TABLE_PHYSICAL_COMPARE");
+            assertTrue(sheet != null);
+            assertEquals("MATCH", physicalStatus(sheet, "TABLESPACE"));
+            assertEquals("MISMATCH", physicalStatus(sheet, "PCTFREE"));
+            assertEquals("MATCH", physicalStatus(sheet, "LOGGING"));
+            assertEquals("NOT_SPECIFIED", physicalStatus(sheet, "COMPRESSION"));
+        }
+    }
+
+    @Test
+    void shouldWriteIndexPhysicalComparisonSheetForIndexesAndBackingConstraints() throws Exception {
+        Index documentIndex = new Index(Identifier.of("IX_CUSTOMERS_ID"),
+                List.of(new IndexColumn(Identifier.of("CUSTOMER_ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty(), List.of(), null,
+                Map.of("SQLSERVER_INDEX_ORGANIZATION", "NONCLUSTERED",
+                        "SQLSERVER_INDEX_FILLFACTOR", "80"));
+        Index databaseIndex = new Index(Identifier.of("IX_CUSTOMERS_ID"),
+                List.of(new IndexColumn(Identifier.of("CUSTOMER_ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty(), List.of(), null,
+                Map.of("SQLSERVER_INDEX_ORGANIZATION", "NONCLUSTERED",
+                        "SQLSERVER_INDEX_FILLFACTOR", "70"));
+
+        Table document = Table.builder("dbo", "CUSTOMERS")
+                .addColumn(column("CUSTOMER_ID", DataType.simple("INT"), false, 1))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"),
+                        List.of(Identifier.of("CUSTOMER_ID")), false, false,
+                        Map.of("INDEX_TABLESPACE", "PRIMARY")))
+                .addIndex(documentIndex)
+                .build();
+        Table database = Table.builder("dbo", "CUSTOMERS")
+                .addColumn(column("CUSTOMER_ID", DataType.simple("INT"), false, 1))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"),
+                        List.of(Identifier.of("CUSTOMER_ID")), false, false,
+                        Map.of("INDEX_TABLESPACE", "PRIMARY")))
+                .addIndex(databaseIndex)
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.SQLSERVER);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var sheet = workbook.getSheet("INDEX_PHYSICAL_COMPARE");
+            assertTrue(sheet != null);
+            assertEquals("SCOPE", sheet.getRow(0).getCell(0).getStringCellValue());
+            assertEquals("OBJECT", sheet.getRow(0).getCell(1).getStringCellValue());
+            assertEquals("PROPERTY", sheet.getRow(0).getCell(2).getStringCellValue());
+            assertEquals("MISMATCH", indexPhysicalStatus(sheet, "INDEX", "IX_CUSTOMERS_ID", "FILLFACTOR"));
+            assertEquals("MATCH", indexPhysicalStatus(sheet, "PRIMARY_KEY", "PK_CUSTOMERS", "FILEGROUP_OR_DATA_SPACE"));
+        }
+    }
+
+    @Test
+    void shouldWritePostgreSqlColumnPhysicalComparisonSheet() throws Exception {
+        Column documentColumn = new Column(Identifier.of("PAYLOAD"), DataType.simple("TEXT"), true,
+                new DefaultValue(null), Description.empty(), false, 1, null,
+                Map.of("POSTGRESQL_STORAGE", "EXTENDED", "POSTGRESQL_COMPRESSION", "LZ4"));
+        Column databaseColumn = new Column(Identifier.of("PAYLOAD"), DataType.simple("TEXT"), true,
+                new DefaultValue(null), Description.empty(), false, 1, null,
+                Map.of("POSTGRESQL_STORAGE", "EXTENDED",
+                        "POSTGRESQL_STORAGE_TYPE_DEFAULT", "EXTENDED",
+                        "POSTGRESQL_COMPRESSION", "PGLZ"));
+        Table document = Table.builder("public", "documents").addColumn(documentColumn).build();
+        Table database = Table.builder("public", "documents").addColumn(databaseColumn).build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.POSTGRESQL);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var sheet = workbook.getSheet("COLUMN_PHYSICAL_COMPARE");
+            assertTrue(sheet != null);
+            assertEquals("COLUMN", sheet.getRow(0).getCell(0).getStringCellValue());
+            assertEquals("MATCH", columnPhysicalStatus(sheet, "PAYLOAD", "STORAGE"));
+            assertEquals("MISMATCH", columnPhysicalStatus(sheet, "PAYLOAD", "COMPRESSION"));
+        }
+    }
+
+    private static String columnPhysicalStatus(
+            org.apache.poi.ss.usermodel.Sheet sheet, String columnName, String property) {
+        for (int rowNumber = 1; rowNumber <= sheet.getLastRowNum(); rowNumber++) {
+            var row = sheet.getRow(rowNumber);
+            if (columnName.equals(row.getCell(0).getStringCellValue())
+                    && property.equals(row.getCell(1).getStringCellValue())) {
+                return row.getCell(4).getStringCellValue();
+            }
+        }
+        throw new AssertionError("Column physical property not found: " + columnName + "/" + property);
+    }
+
+    private static String indexPhysicalStatus(
+            org.apache.poi.ss.usermodel.Sheet sheet, String scope, String objectName, String property) {
+        for (int rowNumber = 1; rowNumber <= sheet.getLastRowNum(); rowNumber++) {
+            var row = sheet.getRow(rowNumber);
+            if (scope.equals(row.getCell(0).getStringCellValue())
+                    && row.getCell(1).getStringCellValue().contains(objectName)
+                    && property.equals(row.getCell(2).getStringCellValue())) {
+                return row.getCell(5).getStringCellValue();
+            }
+        }
+        throw new AssertionError("Index physical property not found: " + scope + "/" + objectName + "/" + property);
+    }
+
+    private static String physicalStatus(org.apache.poi.ss.usermodel.Sheet sheet, String property) {
+        for (int rowNumber = 1; rowNumber <= sheet.getLastRowNum(); rowNumber++) {
+            var row = sheet.getRow(rowNumber);
+            if (property.equals(row.getCell(1).getStringCellValue())) {
+                return row.getCell(4).getStringCellValue();
+            }
+        }
+        throw new AssertionError("Physical property not found: " + property);
+    }
 
     private static final class RawOptimizedDialect implements Dialect {
         @Override

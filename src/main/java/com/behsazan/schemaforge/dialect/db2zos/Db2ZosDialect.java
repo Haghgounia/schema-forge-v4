@@ -5,8 +5,10 @@ import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -140,6 +142,94 @@ public final class Db2ZosDialect implements Dialect {
         String placement = activePlacementClause == null ? "" : activePlacementClause;
         String physical = physicalCommentBlock == null ? "" : physicalCommentBlock;
         return placement + physical;
+    }
+
+
+    @Override
+    public String indexBuildTail(Index index) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+
+        String define = buildOption(index, "DEFINE", "DB2_DEFINE", "DB2_INDEX_DEFINE");
+        String defer = buildOption(index, "DEFER", "DB2_DEFER", "DB2_INDEX_DEFER");
+        StringBuilder tail = new StringBuilder();
+
+        if (!define.isBlank() && isBooleanToken(define)) {
+            boolean defineNo = isNo(define);
+            if (!defineNo || hasExplicitStogroup(index)) {
+                tail.append(" DEFINE " ).append(isYes(define) ? "YES" : "NO");
+            }
+        }
+        if (!defer.isBlank() && isBooleanToken(defer)) {
+            tail.append(" DEFER " ).append(isYes(defer) ? "YES" : "NO");
+        }
+        return tail.toString();
+    }
+
+    @Override
+    public String indexBuildReviewComment(Index index) {
+        if (index == null || index.buildOptions().isEmpty()) return "";
+
+        String define = buildOption(index, "DEFINE", "DB2_DEFINE", "DB2_INDEX_DEFINE");
+        String defer = buildOption(index, "DEFER", "DB2_DEFER", "DB2_INDEX_DEFER");
+        String nl = System.lineSeparator();
+        StringBuilder out = new StringBuilder();
+
+        if (!define.isBlank() && !isBooleanToken(define)) {
+            appendBuildComment(out, nl, "-- [INDEX BUILD ISSUE][DB2/ZOS] DEFINE=" + define
+                    + " is invalid; expected YES/NO. The build directive was not emitted.");
+        } else if (isNo(define) && !hasExplicitStogroup(index)) {
+            appendBuildComment(out, nl, "-- [INDEX BUILD ISSUE][DB2/ZOS] DEFINE=NO requires explicit DB2_INDEX_STOGROUP/INDEX_STOGROUP evidence in SchemaForge; Db2 documents DEFINE NO for Db2-managed data sets using STOGROUP, so the directive was not emitted.");
+        } else if (isNo(define)) {
+            appendBuildComment(out, nl, "-- [INDEX BUILD REVIEW][DB2/ZOS] DEFINE NO is explicit; underlying index data sets are deferred and the documented clone/external-load/temporary-table restrictions must be reviewed.");
+        }
+
+        if (!defer.isBlank() && !isBooleanToken(defer)) {
+            appendBuildComment(out, nl, "-- [INDEX BUILD ISSUE][DB2/ZOS] DEFER=" + defer
+                    + " is invalid; expected YES/NO. The build directive was not emitted.");
+        } else if (isYes(defer)) {
+            appendBuildComment(out, nl, "-- [INDEX BUILD REVIEW][DB2/ZOS] DEFER YES is explicit; on a populated table the index is placed in rebuild-pending status and requires REBUILD INDEX.");
+        }
+        return out.toString();
+    }
+
+    private String buildOption(Index index, String... keys) {
+        for (String key : keys) {
+            for (var entry : index.buildOptions().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key) && entry.getValue() != null) {
+                    String value = entry.getValue().trim().toUpperCase(Locale.ROOT);
+                    if (!value.isBlank()) return value;
+                }
+            }
+        }
+        return "";
+    }
+
+    private boolean hasExplicitStogroup(Index index) {
+        for (var entry : index.physicalOptions().entrySet()) {
+            if ((entry.getKey().equalsIgnoreCase("DB2_INDEX_STOGROUP")
+                    || entry.getKey().equalsIgnoreCase("INDEX_STOGROUP"))
+                    && entry.getValue() != null && !entry.getValue().trim().isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isBooleanToken(String value) {
+        return value.isBlank() || isYes(value) || isNo(value);
+    }
+
+    private boolean isYes(String value) {
+        return Set.of("YES", "ON", "TRUE", "1").contains(value);
+    }
+
+    private boolean isNo(String value) {
+        return Set.of("NO", "OFF", "FALSE", "0").contains(value);
+    }
+
+    private void appendBuildComment(StringBuilder out, String nl, String line) {
+        if (out.length() > 0) out.append(nl);
+        out.append(line);
     }
 
     @Override

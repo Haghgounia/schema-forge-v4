@@ -250,6 +250,12 @@ UNIQUE_INDEXES_COMPARE
 
 Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server have JDBC metadata adapters. Db2 configuration is disabled by default and requires the IBM JCC driver at runtime. SQL Server metadata is also disabled by default and uses the Microsoft JDBC driver from Maven Central.
 
+P8-A also adds `TABLE_PHYSICAL_COMPARE`. The document/profile side supplies expected physical design values and the JDBC `databaseTable` supplies actual table physical metadata; database state is never promoted back into design intent or generated DDL. Rows are classified as `MATCH`, `MISMATCH`, `NOT_SPECIFIED`, `NOT_AVAILABLE`, or `REVIEW`. See [`docs/P8-TABLE-PHYSICAL-METADATA-COMPARISON.md`](docs/P8-TABLE-PHYSICAL-METADATA-COMPARISON.md).
+
+P8-B adds `INDEX_PHYSICAL_COMPARE` for ordinary indexes and the backing indexes of primary/unique constraints. It compares only persistent physical metadata acquired from vendor catalogs; index build-operation directives are not inferred. See [`docs/P8B-INDEX-PHYSICAL-METADATA-COMPARISON.md`](docs/P8B-INDEX-PHYSICAL-METADATA-COMPARISON.md).
+
+P8-C adds `COLUMN_PHYSICAL_COMPARE`. Current column-level physical metadata acquisition is intentionally PostgreSQL-only (`STORAGE` / `COMPRESSION` from `pg_attribute`, with `pg_type.typstorage` used to compare `STORAGE DEFAULT`). Oracle, SQL Server, and Db2 are not given invented generic column mappings. See [`docs/P8C-COLUMN-PHYSICAL-METADATA-COMPARISON.md`](docs/P8C-COLUMN-PHYSICAL-METADATA-COMPARISON.md).
+
 
 ## Db2 for z/OS core dialect
 
@@ -374,4 +380,12 @@ mvnw.cmd -Dtest=PhysicalPhase1CorpusAuditIT ^
 ### Physical source-value rule
 Physical metadata from Word/JSON is evidence, not truth. Valid source values may be retained in the activation-ready physical comment block. Invalid or inapplicable source values are not clamped or silently normalized; the generated SQL contains a `[SOURCE PHYSICAL ISSUE]` review line and a DBA placeholder where needed.
 
-The current per-DBMS Phase-1 coverage and explicit exclusions are summarized in `docs/physical-phase1-coverage-matrix.md`. Context-dependent source values that are syntactically usable but cannot be proven correct from the canonical model are marked `[SOURCE PHYSICAL REVIEW]` instead of being silently accepted as truth. Db2 table blocks are storage-only; non-storage table semantics are excluded. PostgreSQL `toast_tuple_target` and Db2 `PIECESIZE` are source/profile-only reviewable options. Per-index source tuning remains a documented Phase-1 model-granularity boundary rather than being guessed.
+The current per-DBMS coverage and explicit exclusions are summarized in `docs/physical-phase1-coverage-matrix.md`. Context-dependent source values that are syntactically usable but cannot be proven correct from the canonical model are marked `[SOURCE PHYSICAL REVIEW]` instead of being silently accepted as truth. Db2 table blocks are storage-only; non-storage table semantics are excluded. PostgreSQL `toast_tuple_target` and Db2 `PIECESIZE` are source/profile-only reviewable options. Column, standalone-index, PK backing-index and UK backing-index physical values are object-scoped, with historical table-scoped index options retained only as a compatibility fallback. Operational CREATE INDEX directives use the separate `Index.buildOptions` channel.
+
+### Db2/zOS index build options P7
+
+`Index.buildOptions` now supports explicit Db2/zOS `DEFINE YES|NO` and `DEFER YES|NO`. No default is invented when either option is absent. `DEFINE NO` is emitted only when the index also carries explicit `DB2_INDEX_STOGROUP` or `INDEX_STOGROUP` physical evidence. `DEFER YES` is accompanied by an index-build review warning because a populated table can leave the index rebuild-pending. See `docs/PHYSICAL-FINAL-GAP-AUDIT.md` for the remaining vendor-specific scope decisions.
+
+### Physical DDL baseline freeze
+
+Physical P0-P7 is frozen on the 2026-08-17 P7 baseline. The complete Windows Maven regression was user-verified at `376` tests with `0` failures, `0` errors and `3` existing skipped live-database integration tests. The freeze adds no new production behavior. Remaining Oracle LOB, PostgreSQL table-access-method/partition, SQL Server TEXTIMAGE/FILESTREAM/partition, and Db2 recovery/organization/partition semantics require dedicated modeling rather than more generic physical options. See `docs/PHYSICAL-BASELINE-FREEZE.md` and `docs/PHYSICAL-FINAL-GAP-AUDIT.md`.
