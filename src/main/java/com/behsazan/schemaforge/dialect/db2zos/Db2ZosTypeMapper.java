@@ -10,7 +10,8 @@ import java.util.Objects;
 
 /** Maps canonical and Oracle-oriented data types to Db2 for z/OS data types. */
 public final class Db2ZosTypeMapper {
-    static final int MAX_DECIMAL_PRECISION = 31;
+    public static final int MAX_DECIMAL_PRECISION = 31;
+    public static final int MAX_TIMESTAMP_PRECISION = 12;
 
     private final NumericMappingStrategy strategy;
     private final NumericTypeOptimizationService optimizer;
@@ -102,6 +103,11 @@ public final class Db2ZosTypeMapper {
     }
 
     private String timestamp(DataType type, boolean withTimeZone) {
+        if (type.precision() != null && type.precision() > MAX_TIMESTAMP_PRECISION) {
+            throw new IllegalArgumentException(
+                    "Db2 z/OS TIMESTAMP precision exceeds " + MAX_TIMESTAMP_PRECISION
+                            + ": " + renderSource(type));
+        }
         String precision = type.precision() == null ? "" : "(" + type.precision() + ")";
         return "TIMESTAMP" + precision + (withTimeZone ? " WITH TIME ZONE" : "");
     }

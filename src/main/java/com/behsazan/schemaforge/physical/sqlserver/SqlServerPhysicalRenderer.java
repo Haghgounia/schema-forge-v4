@@ -64,7 +64,7 @@ public final class SqlServerPhysicalRenderer implements PhysicalCommentRenderer 
                 lines, table, "SQLSERVER", "IGNORE_DUP_KEY", "OFF", "IGNORE_DUP_KEY", ON_OFF,
                 "SQLSERVER_INDEX_IGNORE_DUP_KEY", "INDEX_IGNORE_DUP_KEY");
         if ("ON".equals(ignoreDupKey) && !knownUniqueIndex) {
-            lines.add("-- [SOURCE PHYSICAL REVIEW][SQLSERVER] IGNORE_DUP_KEY=ON is valid only for a UNIQUE index; verify uniqueness before activation.");
+            PhysicalSourceOptions.addSourceReview(lines, "SQLSERVER", "IGNORE_DUP_KEY=ON is valid only for a UNIQUE index; verify uniqueness before activation.");
         }
         String statisticsNoRecompute = PhysicalSourceOptions.enumClause(
                 lines, table, "SQLSERVER", "STATISTICS_NORECOMPUTE", "OFF", "STATISTICS_NORECOMPUTE", ON_OFF,
@@ -85,22 +85,21 @@ public final class SqlServerPhysicalRenderer implements PhysicalCommentRenderer 
         options.add("ALLOW_PAGE_LOCKS = " + allowPageLocks);
         options.add("DATA_COMPRESSION = " + compression);
 
-        PhysicalSourceOptions.find(table,
-                "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY")
-                .ifPresent(raw -> options.add("OPTIMIZE_FOR_SEQUENTIAL_KEY = "
-                        + PhysicalSourceOptions.enumClause(
-                                lines, table, "SQLSERVER", "OPTIMIZE_FOR_SEQUENTIAL_KEY", "OFF",
-                                "OPTIMIZE_FOR_SEQUENTIAL_KEY", ON_OFF,
-                                "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY",
-                                "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY")));
+        var optimizeForSequentialKey = PhysicalSourceOptions.find(table,
+                "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY");
+        optimizeForSequentialKey.ifPresent(raw -> options.add("OPTIMIZE_FOR_SEQUENTIAL_KEY = "
+                + PhysicalSourceOptions.enumClause(
+                        lines, table, "SQLSERVER", "OPTIMIZE_FOR_SEQUENTIAL_KEY", "OFF",
+                        "OPTIMIZE_FOR_SEQUENTIAL_KEY", ON_OFF,
+                        "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY",
+                        "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY")));
 
         lines.add("WITH (");
         for (int i = 0; i < options.size(); i++) {
             lines.add("    " + options.get(i) + (i < options.size() - 1 ? "," : ""));
         }
         lines.add(")");
-        if (PhysicalSourceOptions.find(table,
-                "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY").isEmpty()) {
+        if (optimizeForSequentialKey.isEmpty()) {
             lines.add("-- OPTIMIZE_FOR_SEQUENTIAL_KEY is SQL Server 2019+ and workload-specific; source/profile only.");
         }
         if (!activePlacementPresent) {

@@ -41,6 +41,8 @@ class PostgreSqlDdlGeneratorTest {
                 false, new DefaultValue("BIM.SEQ_CUSTOMERS.NEXTVAL"), Description.empty(), false, 5);
         Column effectiveStatus = new Column(Identifier.of("EFFECTIVE_STATUS"), DataType.numeric("NUMBER", 1, 0),
                 true, null, Description.empty(), false, 6, "NVL(STATUS, 0)");
+        Column sourceTimestamp = new Column(Identifier.of("SOURCE_TIMESTAMP"), DataType.numeric("TIMESTAMP", 10, null),
+                true, null, Description.empty(), false, 7);
 
         Table table = Table.builder("BIM", "CUSTOMERS")
                 .description("Customer master")
@@ -50,6 +52,7 @@ class PostgreSqlDdlGeneratorTest {
                 .addColumn(createdAt)
                 .addColumn(externalId)
                 .addColumn(effectiveStatus)
+                .addColumn(sourceTimestamp)
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"), List.of(Identifier.of("CUSTOMER_ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMERS_CODE"), List.of(Identifier.of("CUSTOMER_CODE"))))
                 .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMERS_STATUS"), "STATUS IN (0, 1)"))
@@ -82,6 +85,8 @@ class PostgreSqlDdlGeneratorTest {
         assertTrue(sql.contains("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL"));
         assertTrue(sql.contains("external_id NUMERIC(18,0) DEFAULT nextval('bim.seq_customers') NOT NULL"));
         assertTrue(sql.contains("effective_status NUMERIC(1,0) GENERATED ALWAYS AS (COALESCE(STATUS, 0)) STORED"));
+        assertTrue(sql.contains("source_timestamp TIMESTAMP(6), -- W:TYPE-TIME"));
+        assertTrue(sql.contains("POSTGRESQL_TEMPORAL_PRECISION_BOUNDED"));
         assertTrue(sql.contains("CONSTRAINT pk_customers PRIMARY KEY (customer_id)"));
         assertTrue(sql.contains("ADD CONSTRAINT uk_customers_code UNIQUE(customer_code)"));
         assertTrue(sql.contains("-- POSTGRESQL INDEX PHYSICAL OPTIONS"));

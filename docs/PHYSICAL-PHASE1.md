@@ -227,6 +227,10 @@ For an index whose key contains a varying-length character column, the block add
 No value is hardcoded because the default can depend on the Db2 subsystem policy.
 
 
+### Physical Phase 1 freeze
+
+Phase 1 is frozen at the table-scoped source/profile physical-option contract. A separate per-index physical option model is deliberately not introduced until a production input contract can provide distinct values for individual indexes/PK/UK objects. The current renderer still uses object context (key columns, uniqueness and active placement) and never pretends that two distinct source index profiles exist when the input model cannot represent them.
+
 ### Phase-1 source granularity boundary
 
 The current persisted physical option map is table-scoped. The renderer receives key columns and whether an index is known UNIQUE, so it can validate context-sensitive index clauses, but distinct source physical values for two different indexes of the same table are not represented independently yet. Phase 1 does not invent or silently merge such values.

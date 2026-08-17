@@ -14,13 +14,13 @@ import java.util.Set;
 
 /** Oracle-specific type and identifier rendering. */
 public final class OracleDialect implements Dialect {
-    static final int MAX_NUMBER_PRECISION = 38;
-    static final int MAX_NUMBER_SCALE = 127;
-    static final int MAX_TIMESTAMP_PRECISION = 9;
-    static final int MAX_VARCHAR2_STANDARD_LENGTH = 4000;
-    static final int MAX_NVARCHAR2_STANDARD_LENGTH = 2000;
-    static final int MAX_CHAR_STANDARD_LENGTH = 2000;
-    static final int MAX_RAW_STANDARD_LENGTH = 2000;
+    public static final int MAX_NUMBER_PRECISION = 38;
+    public static final int MAX_NUMBER_SCALE = 127;
+    public static final int MAX_TIMESTAMP_PRECISION = 9;
+    public static final int MAX_VARCHAR2_STANDARD_LENGTH = 4000;
+    public static final int MAX_NVARCHAR2_STANDARD_LENGTH = 2000;
+    public static final int MAX_CHAR_STANDARD_LENGTH = 2000;
+    public static final int MAX_RAW_STANDARD_LENGTH = 2000;
     private static final Set<DialectFeature> FEATURES = Set.of(
             DialectFeature.SEQUENCE,
             DialectFeature.IDENTITY_COLUMN,
@@ -103,7 +103,11 @@ public final class OracleDialect implements Dialect {
 
     private int boundedPrecision(String oracleName, int precision) {
         if (oracleName.equals("NUMBER")) {
-            return Math.min(precision, MAX_NUMBER_PRECISION);
+            if (precision > MAX_NUMBER_PRECISION) {
+                throw new IllegalArgumentException(
+                        "Oracle NUMBER precision exceeds maximum " + MAX_NUMBER_PRECISION + ": " + precision);
+            }
+            return precision;
         }
         if (oracleName.startsWith("TIMESTAMP")) {
             return Math.min(precision, MAX_TIMESTAMP_PRECISION);

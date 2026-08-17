@@ -62,6 +62,8 @@ class OracleDdlGeneratorTest {
                 "Customer status", 4);
         Column name = column("NAME", DataType.varchar("VARCHAR", 100), true, "'UNKNOWN'",
                 "Customer name", 5);
+        Column sourceTimestamp = column("SOURCE_TIMESTAMP", DataType.numeric("TIMESTAMP", 10, null), true, null,
+                "Source timestamp", 6);
 
         Table customer = Table.builder("BIM", "CUSTOMERS")
                 .description("Customer master")
@@ -70,6 +72,7 @@ class OracleDdlGeneratorTest {
                 .addColumn(branchId)
                 .addColumn(status)
                 .addColumn(name)
+                .addColumn(sourceTimestamp)
                 .primaryKey(new PrimaryKey(
                         Identifier.of("PK_CUSTOMERS_CUSTOMER_ID"),
                         List.of(Identifier.of("CUSTOMER_ID"))))
@@ -129,6 +132,9 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("CREATE TABLE BIM.CUSTOMERS"));
         assertTrue(sql.contains("CUSTOMER_ID NUMBER(18,0) NOT NULL"));
         assertTrue(sql.contains("NAME VARCHAR2(100 CHAR) DEFAULT 'UNKNOWN'"));
+        assertTrue(sql.contains("SOURCE_TIMESTAMP TIMESTAMP(9)"));
+        assertTrue(sql.contains("ORACLE_TEMPORAL_PRECISION_BOUNDED"));
+        assertTrue(sql.contains("SOURCE_TIMESTAMP TIMESTAMP(9), -- W:TYPE-TIME"));
         assertTrue(sql.contains("TABLESPACE TS_BIM;"));
         assertTrue(sql.contains("-- ORACLE TABLE PHYSICAL OPTIONS"));
         assertTrue(sql.contains("PCTFREE 10"));

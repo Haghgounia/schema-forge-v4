@@ -3,8 +3,14 @@ package com.behsazan.schemaforge.specification.parser.legacy;
 import com.behsazan.schemaforge.application.PreparedSchema;
 import com.behsazan.schemaforge.application.SchemaPreparationService;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
+import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.domain.valueobject.DataType;
+import com.behsazan.schemaforge.domain.valueobject.Description;
+import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,15 +22,16 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 /**
  * End-to-end regression test for the legacy Word-to-Oracle DDL generation path.
  *
- * <p>The test ensures default normalization and Oracle precision bounds are applied before the
- * canonical column reaches the dialect renderer, preventing helper classes from being present
- * but bypassed by the production pipeline.</p>
+ * <p>The test ensures default normalization and temporal precision bounds are applied in the
+ * real generation path, while exact numeric precision beyond Oracle's hard limit is rejected
+ * instead of being silently clamped.</p>
  */
 class LegacyOracleGenerationPipelineTest {
 
@@ -32,7 +39,7 @@ class LegacyOracleGenerationPipelineTest {
     Path tempDirectory;
 
     @Test
-    void appliesDefaultNormalizationAndOraclePrecisionBoundsInTheRealGenerationPath() throws Exception {
+    void appliesDefaultNormalizationAndRejectsUnsafeOracleNumericPrecisionInTheRealGenerationPath() throws Exception {
         Path document = tempDirectory.resolve("14030927_CustmSubD.sd.spc.tb.JTMSCUSTOMERS.doc");
         Files.write(document, new byte[] {0});
 
@@ -51,8 +58,9 @@ class LegacyOracleGenerationPipelineTest {
                         column(1, "SHAHABSTATUS", "NUMBER", "1", "0 1- دائم 2- موقت"),
                         column(2, "CUSTSTATUS", "NUMBER", "1", "1 1- فعال 0- غیرفعال"),
                         column(3, "REFIDSH", "NUMBER", "16", "0 CTShahabInquiry"),
-                        column(4, "OVERSIZED_NUMBER", "NUMBER", "70", ""),
-                        column(5, "OVERSIZED_TIMESTAMP", "TIMESTAMP", "26", "CURRENT TIMESTAMP")
+                        column(4, "MAX_PRECISION_NUMBER", "NUMBER", "38", ""),
+                        column(5, "LEGACY_TIMESTAMP_LENGTH", "TIMESTAMP", "26", "CURRENT TIMESTAMP"),
+                        column(6, "EXPLICIT_TIMESTAMP_PRECISION", "TIMESTAMP(12)", "", "CURRENT TIMESTAMP")
                 ),
                 List.of(),
                 null,
@@ -78,6 +86,9 @@ class LegacyOracleGenerationPipelineTest {
         assertEquals("1", table.findColumn("CUSTSTATUS").orElseThrow().defaultValue().expression());
         assertEquals("0", table.findColumn("REFIDSH").orElseThrow().defaultValue().expression());
         assertTrue(parsed.metadata().get("recovery.warnings").contains("LEGACY_DEFAULT_NORMALIZED"));
+        assertTrue(parsed.metadata().get("recovery.warnings").contains("LEGACY_TEMPORAL_LENGTH_IGNORED"));
+        assertEquals(null, table.findColumn("LEGACY_TIMESTAMP_LENGTH").orElseThrow().dataType().precision());
+        assertEquals(12, table.findColumn("EXPLICIT_TIMESTAMP_PRECISION").orElseThrow().dataType().precision());
 
         PreparedSchema prepared = new SchemaPreparationService().prepare(parsed);
         String sql = new DdlGenerator(new OracleDialect())
@@ -86,9 +97,23 @@ class LegacyOracleGenerationPipelineTest {
         assertTrue(sql.contains("SHAHABSTATUS NUMBER(1) DEFAULT 0"));
         assertTrue(sql.contains("CUSTSTATUS NUMBER(1) DEFAULT 1"));
         assertTrue(sql.contains("REFIDSH NUMBER(16) DEFAULT 0"));
-        assertTrue(sql.contains("OVERSIZED_NUMBER NUMBER(38)"));
-        assertTrue(sql.contains("OVERSIZED_TIMESTAMP TIMESTAMP(9) DEFAULT CURRENT_TIMESTAMP"));
+        assertTrue(sql.contains("MAX_PRECISION_NUMBER NUMBER(38)"));
+        assertTrue(sql.contains("LEGACY_TIMESTAMP_LENGTH TIMESTAMP DEFAULT CURRENT_TIMESTAMP"));
+        assertTrue(sql.contains("EXPLICIT_TIMESTAMP_PRECISION TIMESTAMP(9) DEFAULT CURRENT_TIMESTAMP"));
         assertDoesNotThrow(() -> new OracleDdlSanityChecker().requireValid(sql, document.toString()));
+
+        Column unsupportedNumber = new Column(
+                Identifier.of("UNSUPPORTED_NUMBER"), DataType.numeric("NUMBER", 70, null),
+                true, null, Description.empty(), false, 1);
+        DatabaseSchema unsupportedSchema = DatabaseSchema.builder("TSTSHMA")
+                .addTable(Table.builder("TSTSHMA", "UNSUPPORTED_NUMERIC")
+                        .addColumn(unsupportedNumber)
+                        .build())
+                .build();
+        assertTrue(new DatatypeCompatibilityAnalyzer()
+                .analyze(unsupportedSchema, new OracleDialect()).blocking());
+        assertThrows(IllegalArgumentException.class,
+                () -> new OracleDialect().sqlType(unsupportedNumber));
     }
 
     private ParsedWordColumn column(

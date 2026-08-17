@@ -17,9 +17,14 @@ class SqlServerTypeMapperTest {
 
         assertEquals("DECIMAL(2,0)", mapper.map(DataType.numeric("NUMBER", 2, null)));
         assertEquals("DECIMAL(18,2)", mapper.map(DataType.numeric("NUMBER", 18, 2)));
-        assertEquals("DECIMAL(38,0)", mapper.map(DataType.simple("NUMBER")));
-        assertEquals("DECIMAL(38,0)", mapper.map(DataType.numeric("NUMBER", 39, 0)));
-        assertEquals("DECIMAL(38,5)", mapper.map(DataType.numeric("NUMBER", 115, 5)));
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.map(DataType.simple("NUMBER")));
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.map(DataType.simple("DECIMAL")));
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.map(DataType.numeric("NUMBER", 39, 0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.map(DataType.numeric("NUMBER", 115, 5)));
         assertThrows(IllegalArgumentException.class,
                 () -> mapper.map(DataType.numeric("NUMBER", 0, 0)));
         assertThrows(IllegalArgumentException.class,

@@ -10,6 +10,7 @@ import java.util.Objects;
 
 /** Maps canonical and Oracle-oriented data types to PostgreSQL data types. */
 public final class PostgreSqlTypeMapper {
+    public static final int MAX_TEMPORAL_PRECISION = 6;
     private final NumericMappingStrategy strategy;
     private final NumericTypeOptimizationService optimizer;
 
@@ -57,7 +58,7 @@ public final class PostgreSqlTypeMapper {
             return targetName + "(" + type.length() + ")";
         }
         if (type.precision() != null && supportsTemporalPrecision(targetName)) {
-            int precision = Math.min(type.precision(), 6);
+            int precision = Math.min(type.precision(), MAX_TEMPORAL_PRECISION);
             if (targetName.equals("TIMESTAMP WITH TIME ZONE")) {
                 return "TIMESTAMP(" + precision + ") WITH TIME ZONE";
             }

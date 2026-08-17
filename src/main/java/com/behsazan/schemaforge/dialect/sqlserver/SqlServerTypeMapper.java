@@ -10,8 +10,8 @@ import java.util.Objects;
 
 /** Maps canonical and Oracle-oriented data types to Microsoft SQL Server data types. */
 public final class SqlServerTypeMapper {
-    static final int MAX_DECIMAL_PRECISION = 38;
-    static final int MAX_TEMPORAL_PRECISION = 7;
+    public static final int MAX_DECIMAL_PRECISION = 38;
+    public static final int MAX_TEMPORAL_PRECISION = 7;
 
     private final NumericMappingStrategy strategy;
     private final NumericTypeOptimizationService optimizer;
@@ -79,26 +79,32 @@ public final class SqlServerTypeMapper {
         int scale = type.scale() == null ? 0 : type.scale();
 
         if (precision == null) {
-            return "DECIMAL(38,0)";
+            throw new IllegalArgumentException(
+                    "SQL Server lossless exact numeric mapping requires explicit precision/scale: "
+                            + renderSource(type));
         }
         if (precision < 1) {
             throw new IllegalArgumentException(
                     "SQL Server DECIMAL precision must be positive: " + renderSource(type));
         }
-        int effectivePrecision = Math.min(precision, MAX_DECIMAL_PRECISION);
-        if (scale < 0 || scale > effectivePrecision) {
+        if (precision > MAX_DECIMAL_PRECISION) {
             throw new IllegalArgumentException(
-                    "SQL Server DECIMAL scale must be between 0 and effective precision "
-                            + effectivePrecision + ": " + renderSource(type));
+                    "SQL Server DECIMAL precision exceeds maximum " + MAX_DECIMAL_PRECISION
+                            + ": " + renderSource(type));
+        }
+        if (scale < 0 || scale > precision) {
+            throw new IllegalArgumentException(
+                    "SQL Server DECIMAL scale must be between 0 and precision "
+                            + precision + ": " + renderSource(type));
         }
         if (strategy == NumericMappingStrategy.OPTIMIZED) {
-            DataType explicitScale = DataType.numeric(type.name().value(), effectivePrecision, scale);
+            DataType explicitScale = DataType.numeric(type.name().value(), precision, scale);
             var optimized = optimizer.optimize(explicitScale, NumericIntegerProfiles.SQL_SERVER);
             if (optimized.isPresent()) {
                 return optimized.get();
             }
         }
-        return "DECIMAL(" + effectivePrecision + "," + scale + ")";
+        return "DECIMAL(" + precision + "," + scale + ")";
     }
 
     private String variableCharacter(String target, DataType type, int maximumLength) {

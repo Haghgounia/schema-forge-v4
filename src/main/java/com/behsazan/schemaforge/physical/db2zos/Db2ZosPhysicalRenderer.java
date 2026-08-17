@@ -49,7 +49,7 @@ public final class Db2ZosPhysicalRenderer implements PhysicalCommentRenderer {
             }
         } else {
             PhysicalSourceOptions.find(table, "DB2_INDEX_PADDING", "INDEX_PADDING")
-                    .ifPresent(raw -> lines.add("-- [SOURCE PHYSICAL ISSUE][DB2/ZOS] INDEX_PADDING="
+                    .ifPresent(raw -> PhysicalSourceOptions.addSourceIssue(lines, "DB2/ZOS", "INDEX_PADDING="
                             + raw + " is irrelevant because this index key has no varying-length string column; "
                             + "Db2 ignores PADDED/NOT PADDED in that case, so it was not emitted."));
         }
@@ -105,7 +105,7 @@ public final class Db2ZosPhysicalRenderer implements PhysicalCommentRenderer {
         String raw = source.get();
         Matcher matcher = PIECESIZE.matcher(raw.trim());
         if (!matcher.matches()) {
-            lines.add("-- [SOURCE PHYSICAL ISSUE][DB2/ZOS] INDEX_PIECESIZE=" + raw
+            PhysicalSourceOptions.addSourceIssue(lines, "DB2/ZOS", "INDEX_PIECESIZE=" + raw
                     + " must be a power-of-two value followed by K, M or G; source value was not normalized.");
             return "PIECESIZE <PIECESIZE>";
         }
@@ -114,7 +114,7 @@ public final class Db2ZosPhysicalRenderer implements PhysicalCommentRenderer {
         try {
             value = Long.parseLong(matcher.group(1));
         } catch (NumberFormatException exception) {
-            lines.add("-- [SOURCE PHYSICAL ISSUE][DB2/ZOS] INDEX_PIECESIZE=" + raw
+            PhysicalSourceOptions.addSourceIssue(lines, "DB2/ZOS", "INDEX_PIECESIZE=" + raw
                     + " is outside the supported numeric range; source value was not normalized.");
             return "PIECESIZE <PIECESIZE>";
         }
@@ -127,13 +127,13 @@ public final class Db2ZosPhysicalRenderer implements PhysicalCommentRenderer {
             default -> false;
         };
         if (!powerOfTwo || !inRange) {
-            lines.add("-- [SOURCE PHYSICAL ISSUE][DB2/ZOS] INDEX_PIECESIZE=" + raw
+            PhysicalSourceOptions.addSourceIssue(lines, "DB2/ZOS", "INDEX_PIECESIZE=" + raw
                     + " is not a supported Db2 PIECESIZE value; source value was not normalized.");
             return "PIECESIZE <PIECESIZE>";
         }
 
-        lines.add("-- [SOURCE PHYSICAL] DB2_INDEX_PIECESIZE=" + raw + " retained for DBA review.");
-        lines.add("-- [SOURCE PHYSICAL REVIEW][DB2/ZOS] PIECESIZE applicability/default depends on table-space size and index organization; offline context was not assumed.");
+        PhysicalSourceOptions.addSourceRetained(lines, "DB2_INDEX_PIECESIZE", raw);
+        PhysicalSourceOptions.addSourceReview(lines, "DB2/ZOS", "PIECESIZE applicability/default depends on table-space size and index organization; offline context was not assumed.");
         return "PIECESIZE " + value + " " + unit;
     }
 

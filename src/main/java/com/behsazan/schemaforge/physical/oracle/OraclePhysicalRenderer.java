@@ -8,7 +8,6 @@ import com.behsazan.schemaforge.physical.PhysicalSourceOptions;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,8 +24,10 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
         CompressionDecision compression = tableCompression(lines, table);
 
         var pctfreeSource = PhysicalSourceOptions.find(table, "ORACLE_PCTFREE", "TABLE_PCTFREE", "PCTFREE");
-        var sourcePctfree = sourceInteger(table, 0, 99, "ORACLE_PCTFREE", "TABLE_PCTFREE", "PCTFREE");
-        var sourcePctused = sourceInteger(table, 0, 99, "ORACLE_PCTUSED", "TABLE_PCTUSED", "PCTUSED");
+        var sourcePctfree = PhysicalSourceOptions.findIntegerInRange(
+                table, 0, 99, "ORACLE_PCTFREE", "TABLE_PCTFREE", "PCTFREE");
+        var sourcePctused = PhysicalSourceOptions.findIntegerInRange(
+                table, 0, 99, "ORACLE_PCTUSED", "TABLE_PCTUSED", "PCTUSED");
         boolean sourcePairConflict = sourcePctfree.isPresent() && sourcePctused.isPresent()
                 && sourcePctfree.get() + sourcePctused.get() > 100;
         boolean defaultPctfreeConflict = pctfreeSource.isEmpty() && sourcePctused.isPresent()
@@ -34,7 +35,7 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
                 && compression.pctfreeDefault() + sourcePctused.get() > 100;
 
         if (sourcePairConflict) {
-            lines.add("-- [SOURCE PHYSICAL ISSUE][ORACLE] PCTFREE=" + sourcePctfree.get()
+            PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", "PCTFREE=" + sourcePctfree.get()
                     + " and PCTUSED=" + sourcePctused.get()
                     + " exceed Oracle's combined maximum of 100; neither source value was normalized.");
             lines.add("PCTFREE <PCTFREE>");
@@ -43,14 +44,14 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
                     lines, table, "ORACLE", "PCTFREE", compression.pctfreeDefault(), 0, 99, "PCTFREE",
                     "ORACLE_PCTFREE", "TABLE_PCTFREE", "PCTFREE"));
         } else if (defaultPctfreeConflict) {
-            lines.add("-- [SOURCE PHYSICAL ISSUE][ORACLE] Source PCTUSED=" + sourcePctused.get()
+            PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", "Source PCTUSED=" + sourcePctused.get()
                     + " conflicts with the documented PCTFREE default " + compression.pctfreeDefault()
                     + "; choose PCTFREE explicitly for MSSM rather than silently changing the source value.");
             lines.add("PCTFREE <PCTFREE>");
         } else if (compression.pctfreeDefaultKnown()) {
             lines.add("PCTFREE " + compression.pctfreeDefault());
         } else {
-            lines.add("-- [SOURCE PHYSICAL REVIEW][ORACLE] Table compression is unresolved, so a PCTFREE default was not inferred.");
+            PhysicalSourceOptions.addSourceReview(lines, "ORACLE", "Table compression is unresolved, so a PCTFREE default was not inferred.");
             lines.add("PCTFREE <PCTFREE>");
         }
 
@@ -60,7 +61,7 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
 
         PhysicalSourceOptions.find(table, "ORACLE_PCTUSED", "TABLE_PCTUSED", "PCTUSED")
                 .ifPresentOrElse(raw -> {
-                            lines.add("-- [SOURCE PHYSICAL REVIEW][ORACLE] PCTUSED applies to manual segment space management; ASSM ignores it.");
+                            PhysicalSourceOptions.addSourceReview(lines, "ORACLE", "PCTUSED applies to manual segment space management; ASSM ignores it.");
                             if (sourcePairConflict) {
                                 lines.add("PCTUSED <PCTUSED>");
                             } else {
@@ -79,22 +80,6 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
         return PhysicalCommentBlocks.block("ORACLE TABLE PHYSICAL OPTIONS", lines);
     }
 
-    private java.util.Optional<Integer> sourceInteger(
-            Table table, int minimum, int maximum, String... keys) {
-        var source = PhysicalSourceOptions.find(table, keys);
-        if (source.isEmpty()) {
-            return java.util.Optional.empty();
-        }
-        try {
-            int value = Integer.parseInt(source.get());
-            return value >= minimum && value <= maximum
-                    ? java.util.Optional.of(value)
-                    : java.util.Optional.empty();
-        } catch (NumberFormatException exception) {
-            return java.util.Optional.empty();
-        }
-    }
-
     private CompressionDecision tableCompression(List<String> lines, Table table) {
         var source = PhysicalSourceOptions.find(table, "ORACLE_TABLE_COMPRESSION", "TABLE_COMPRESSION");
         if (source.isEmpty()) {
@@ -102,30 +87,30 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
         }
 
         String raw = source.get();
-        String value = raw.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " ");
+        String value = PhysicalSourceOptions.normalizedUpper(raw);
         if (value.equals("NOCOMPRESS")) {
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_TABLE_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_TABLE_COMPRESSION", raw);
             return new CompressionDecision(value, 10, true);
         }
         if (value.equals("COMPRESS") || value.equals("COMPRESS BASIC")
                 || value.equals("ROW STORE COMPRESS") || value.equals("ROW STORE COMPRESS BASIC")) {
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_TABLE_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_TABLE_COMPRESSION", raw);
             return new CompressionDecision(value, 0, true);
         }
         if (value.equals("ROW STORE COMPRESS ADVANCED") || value.equals("COMPRESS FOR OLTP")) {
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_TABLE_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_TABLE_COMPRESSION", raw);
             if (value.equals("COMPRESS FOR OLTP")) {
-                lines.add("-- [SOURCE PHYSICAL REVIEW][ORACLE] COMPRESS FOR OLTP is legacy-compatible syntax; source was preserved rather than normalized.");
+                PhysicalSourceOptions.addSourceReview(lines, "ORACLE", "COMPRESS FOR OLTP is legacy-compatible syntax; source was preserved rather than normalized.");
             }
             return new CompressionDecision(value, 10, true);
         }
         if (HCC_COMPRESSION.matcher(value).matches()) {
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_TABLE_COMPRESSION=" + raw + " retained for DBA review.");
-            lines.add("-- [SOURCE PHYSICAL REVIEW][ORACLE] Hybrid Columnar Compression requires compatible Oracle storage; capability was not verified offline.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_TABLE_COMPRESSION", raw);
+            PhysicalSourceOptions.addSourceReview(lines, "ORACLE", "Hybrid Columnar Compression requires compatible Oracle storage; capability was not verified offline.");
             return new CompressionDecision(value, 0, true);
         }
 
-        lines.add("-- [SOURCE PHYSICAL ISSUE][ORACLE] ORACLE_TABLE_COMPRESSION=" + raw
+        PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", "ORACLE_TABLE_COMPRESSION=" + raw
                 + " uses unsupported/unknown table-compression syntax; source value was not normalized.");
         return new CompressionDecision("<TABLE_COMPRESSION>", 10, false);
     }
@@ -171,11 +156,11 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
         }
 
         String raw = source.get();
-        String value = raw.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " ");
+        String value = PhysicalSourceOptions.normalizedUpper(raw);
         int keyCount = keyColumns == null ? 0 : keyColumns.size();
 
         if (value.equals("NOCOMPRESS")) {
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_INDEX_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_INDEX_COMPRESSION", raw);
             return value;
         }
         if (value.equals("COMPRESS")) {
@@ -183,9 +168,9 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
                 return invalidIndexCompression(lines, raw,
                         "prefix compression on a unique single-column index is not valid");
             }
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_INDEX_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_INDEX_COMPRESSION", raw);
             if (!knownUniqueConstraint) {
-                lines.add("-- [SOURCE PHYSICAL REVIEW][ORACLE] COMPRESS prefix limits depend on index uniqueness; verify for this index.");
+                PhysicalSourceOptions.addSourceReview(lines, "ORACLE", "COMPRESS prefix limits depend on index uniqueness; verify for this index.");
             }
             return value;
         }
@@ -203,9 +188,9 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
                 return invalidIndexCompression(lines, raw,
                         "prefix length is outside the supported range for the available key columns");
             }
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_INDEX_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_INDEX_COMPRESSION", raw);
             if (!knownUniqueConstraint) {
-                lines.add("-- [SOURCE PHYSICAL REVIEW][ORACLE] If this is a UNIQUE index, COMPRESS n must not include all key columns.");
+                PhysicalSourceOptions.addSourceReview(lines, "ORACLE", "If this is a UNIQUE index, COMPRESS n must not include all key columns.");
             }
             return value;
         }
@@ -214,7 +199,7 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
             if (keyCount < 1) {
                 return invalidIndexCompression(lines, raw, "advanced compression requires at least one index key column");
             }
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_INDEX_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_INDEX_COMPRESSION", raw);
             return value;
         }
         if (value.equals("COMPRESS ADVANCED LOW")) {
@@ -222,7 +207,7 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
                 return invalidIndexCompression(lines, raw,
                         "COMPRESS ADVANCED LOW requires at least two key columns");
             }
-            lines.add("-- [SOURCE PHYSICAL] ORACLE_INDEX_COMPRESSION=" + raw + " retained for DBA review.");
+            PhysicalSourceOptions.addSourceRetained(lines, "ORACLE_INDEX_COMPRESSION", raw);
             return value;
         }
 
@@ -230,7 +215,7 @@ public final class OraclePhysicalRenderer implements PhysicalCommentRenderer {
     }
 
     private String invalidIndexCompression(List<String> lines, String raw, String reason) {
-        lines.add("-- [SOURCE PHYSICAL ISSUE][ORACLE] ORACLE_INDEX_COMPRESSION=" + raw
+        PhysicalSourceOptions.addSourceIssue(lines, "ORACLE", "ORACLE_INDEX_COMPRESSION=" + raw
                 + " was not emitted: " + reason + "; source value was not normalized.");
         return "<INDEX_COMPRESSION>";
     }

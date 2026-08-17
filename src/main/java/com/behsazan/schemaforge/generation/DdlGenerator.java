@@ -27,6 +27,7 @@ import com.behsazan.schemaforge.physical.PhysicalCommentRenderer;
 import com.behsazan.schemaforge.physical.PhysicalCommentRendererResolver;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
+import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -54,6 +55,7 @@ public final class DdlGenerator {
     private final Clock clock;
     private final InlineIssueRenderer inlineIssueRenderer;
     private final PhysicalCommentRenderer physicalCommentRenderer;
+    private final DatatypeCompatibilityAnalyzer datatypeCompatibilityAnalyzer;
 
     public DdlGenerator(Dialect dialect) {
         this(dialect, Clock.systemDefaultZone());
@@ -64,6 +66,7 @@ public final class DdlGenerator {
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         this.inlineIssueRenderer = new InlineIssueRenderer();
         this.physicalCommentRenderer = PhysicalCommentRendererResolver.resolve(dialect);
+        this.datatypeCompatibilityAnalyzer = new DatatypeCompatibilityAnalyzer();
     }
 
     /**
@@ -97,10 +100,10 @@ public final class DdlGenerator {
                         table.qualifiedName().schemaName().map(Identifier::value).orElse("INTEGRATED"))
                 .addTable(table)
                 .build();
-        SqlIssueCatalog issues = SqlIssueCatalog.from(
-                singleTableSchema, new ValidationReport(true, List.of()));
         MetadataComparisonResult metadata = new MetadataComparisonResult(
                 List.of(), Map.of(), Map.of(), false);
+        SqlIssueCatalog issues = issueCatalog(
+                singleTableSchema, new ValidationReport(true, List.of()), metadata);
         return createTable(table, issues, metadata);
     }
 
@@ -166,12 +169,7 @@ public final class DdlGenerator {
         Objects.requireNonNull(schema, "schema must not be null");
         Objects.requireNonNull(report, "report must not be null");
         Objects.requireNonNull(metadata, "metadata must not be null");
-        List<ValidationIssue> combinedIssues = new ArrayList<>(report.issues());
-        combinedIssues.addAll(metadata.issues());
-        ValidationReport combinedReport = new ValidationReport(
-                combinedIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
-                combinedIssues);
-        SqlIssueCatalog issueCatalog = SqlIssueCatalog.from(schema, combinedReport);
+        SqlIssueCatalog issueCatalog = issueCatalog(schema, report, metadata);
 
         List<String> statements = new ArrayList<>();
         List<String> grantStatements = new ArrayList<>();
@@ -236,6 +234,17 @@ public final class DdlGenerator {
                 .append(summary(schema)).append(NL).append(NL)
                 .append(footer(schema))
                 .toString();
+    }
+
+    private SqlIssueCatalog issueCatalog(
+            DatabaseSchema schema, ValidationReport report, MetadataComparisonResult metadata) {
+        List<ValidationIssue> combinedIssues = new ArrayList<>(report.issues());
+        combinedIssues.addAll(metadata.issues());
+        combinedIssues.addAll(datatypeCompatibilityAnalyzer.analyze(schema, dialect).issues());
+        ValidationReport combinedReport = new ValidationReport(
+                combinedIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
+                combinedIssues);
+        return SqlIssueCatalog.from(schema, combinedReport);
     }
 
     private String createSequence(Sequence sequence) {

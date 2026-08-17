@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
  * and foreign-key classes and the same generation pipeline.</p>
  */
 public final class LegacyWordSpecificationParser {
-    public static final String PARSER_VERSION = "0.6.0";
+    public static final String PARSER_VERSION = "0.6.1";
     private static final long DEFAULT_MAX_FILE_BYTES = 64L * 1024L * 1024L;
     private static final Pattern TYPE_DECLARATION = Pattern.compile(
             "(?i)^\\s*([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\))?\\s*$");
@@ -252,8 +252,21 @@ public final class LegacyWordSpecificationParser {
             }
             return DataType.numeric(base, precision, scale);
         }
-        if (base.equals("TIMESTAMP") && precision != null) {
-            return DataType.numeric(base, precision, null);
+        if (base.equals("TIMESTAMP")) {
+            // In legacy table specifications the separate Length column is a display/storage
+            // length (commonly 10, 12, 15 or 26), not SQL fractional-seconds precision.
+            // Only an explicit type declaration such as TIMESTAMP(6) carries temporal precision.
+            if (declarationFirst != null) {
+                return DataType.numeric(base, declarationFirst, null);
+            }
+            if (hasText(parsedLength.normalized())) {
+                warnings.add("LEGACY_TEMPORAL_LENGTH_IGNORED|column=" + columnName
+                        + "|type=" + base
+                        + "|rawLength=" + safe(selection.physicalFallback()
+                                ? source.physicalLengthRaw()
+                                : source.lengthRaw()));
+            }
+            return DataType.simple(base);
         }
         return DataType.simple(base);
     }

@@ -14,6 +14,7 @@ import java.util.Set;
 /** PostgreSQL Phase-1 physical defaults/candidates. TOAST/column compression stays outside Phase 1. */
 public final class PostgreSqlPhysicalRenderer implements PhysicalCommentRenderer {
     private static final Set<String> ON_OFF = Set.of("ON", "OFF");
+
     @Override
     public String tableOptions(Table table, boolean activePlacementPresent) {
         List<String> lines = new ArrayList<>();
@@ -29,18 +30,20 @@ public final class PostgreSqlPhysicalRenderer implements PhysicalCommentRenderer
                     try {
                         int value = Integer.parseInt(raw);
                         if (value < 128) {
-                            lines.add("-- [SOURCE PHYSICAL ISSUE][POSTGRESQL] TOAST_TUPLE_TARGET=" + raw
-                                    + " is below PostgreSQL's minimum of 128 bytes; source value was not normalized.");
+                            PhysicalSourceOptions.addSourceIssue(lines, "POSTGRESQL",
+                                    "TOAST_TUPLE_TARGET=" + raw
+                                            + " is below PostgreSQL's minimum of 128 bytes; source value was not normalized.");
                             storageOptions.add("toast_tuple_target = <TOAST_TUPLE_TARGET>");
                         } else {
-                            lines.add("-- [SOURCE PHYSICAL] POSTGRESQL_TOAST_TUPLE_TARGET=" + raw
-                                    + " retained for DBA review.");
-                            lines.add("-- [SOURCE PHYSICAL REVIEW][POSTGRESQL] toast_tuple_target upper bound depends on server block size; offline capability was not assumed.");
+                            PhysicalSourceOptions.addSourceRetained(lines, "POSTGRESQL_TOAST_TUPLE_TARGET", raw);
+                            PhysicalSourceOptions.addSourceReview(lines, "POSTGRESQL",
+                                    "toast_tuple_target upper bound depends on server block size; offline capability was not assumed.");
                             storageOptions.add("toast_tuple_target = " + value);
                         }
                     } catch (NumberFormatException exception) {
-                        lines.add("-- [SOURCE PHYSICAL ISSUE][POSTGRESQL] TOAST_TUPLE_TARGET=" + raw
-                                + " must be an integer; source value was not normalized.");
+                        PhysicalSourceOptions.addSourceIssue(lines, "POSTGRESQL",
+                                "TOAST_TUPLE_TARGET=" + raw
+                                        + " must be an integer; source value was not normalized.");
                         storageOptions.add("toast_tuple_target = <TOAST_TUPLE_TARGET>");
                     }
                 }, () -> lines.add("-- toast_tuple_target is row-shape/block-size specific; source/profile only."));
@@ -55,49 +58,37 @@ public final class PostgreSqlPhysicalRenderer implements PhysicalCommentRenderer
 
     @Override
     public String indexOptions(Table table, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        List<String> lines = new ArrayList<>();
-        String fillfactor = PhysicalSourceOptions.integerClause(
-                lines, table, "POSTGRESQL", "fillfactor =", 90, 10, 100, "INDEX_FILLFACTOR",
-                "POSTGRESQL_INDEX_FILLFACTOR", "INDEX_FILLFACTOR");
-        String options = fillfactor;
-        if (PhysicalSourceOptions.find(table,
-                "POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "INDEX_DEDUPLICATE_ITEMS").isPresent()) {
-            String deduplicate = PhysicalSourceOptions.enumClause(
-                    lines, table, "POSTGRESQL", "deduplicate_items", "ON",
-                    "INDEX_DEDUPLICATE_ITEMS", ON_OFF,
-                    "POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "INDEX_DEDUPLICATE_ITEMS");
-            options += ", deduplicate_items = " + (deduplicate.startsWith("<") ? deduplicate : deduplicate.toLowerCase(Locale.ROOT));
-        } else {
-            lines.add("-- B-tree deduplicate_items is access-method/workload specific; source/profile only.");
-        }
-        lines.add("WITH (" + options + ")");
-        if (!activePlacementPresent) {
-            lines.add("TABLESPACE <INDEX_TABLESPACE>");
-        }
-        return PhysicalCommentBlocks.block("POSTGRESQL INDEX PHYSICAL OPTIONS", lines);
-    }
-    @Override
-    public String constraintIndexOptions(Table table, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        List<String> lines = new ArrayList<>();
-        String fillfactor = PhysicalSourceOptions.integerClause(
-                lines, table, "POSTGRESQL", "fillfactor =", 90, 10, 100, "INDEX_FILLFACTOR",
-                "POSTGRESQL_INDEX_FILLFACTOR", "INDEX_FILLFACTOR");
-        String options = fillfactor;
-        if (PhysicalSourceOptions.find(table,
-                "POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "INDEX_DEDUPLICATE_ITEMS").isPresent()) {
-            String deduplicate = PhysicalSourceOptions.enumClause(
-                    lines, table, "POSTGRESQL", "deduplicate_items", "ON",
-                    "INDEX_DEDUPLICATE_ITEMS", ON_OFF,
-                    "POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "INDEX_DEDUPLICATE_ITEMS");
-            options += ", deduplicate_items = " + (deduplicate.startsWith("<") ? deduplicate : deduplicate.toLowerCase(Locale.ROOT));
-        } else {
-            lines.add("-- B-tree deduplicate_items is access-method/workload specific; source/profile only.");
-        }
-        lines.add("WITH (" + options + ")");
-        if (!activePlacementPresent) {
-            lines.add("USING INDEX TABLESPACE <INDEX_TABLESPACE>");
-        }
-        return PhysicalCommentBlocks.block("POSTGRESQL INDEX PHYSICAL OPTIONS", lines);
+        return renderIndexOptions(table, activePlacementPresent, false);
     }
 
+    @Override
+    public String constraintIndexOptions(Table table, List<Identifier> keyColumns, boolean activePlacementPresent) {
+        return renderIndexOptions(table, activePlacementPresent, true);
+    }
+
+    private String renderIndexOptions(Table table, boolean activePlacementPresent, boolean constraintIndex) {
+        List<String> lines = new ArrayList<>();
+        String fillfactor = PhysicalSourceOptions.integerClause(
+                lines, table, "POSTGRESQL", "fillfactor =", 90, 10, 100, "INDEX_FILLFACTOR",
+                "POSTGRESQL_INDEX_FILLFACTOR", "INDEX_FILLFACTOR");
+        String options = fillfactor;
+        if (PhysicalSourceOptions.find(table,
+                "POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "INDEX_DEDUPLICATE_ITEMS").isPresent()) {
+            String deduplicate = PhysicalSourceOptions.enumClause(
+                    lines, table, "POSTGRESQL", "deduplicate_items", "ON",
+                    "INDEX_DEDUPLICATE_ITEMS", ON_OFF,
+                    "POSTGRESQL_INDEX_DEDUPLICATE_ITEMS", "INDEX_DEDUPLICATE_ITEMS");
+            options += ", deduplicate_items = "
+                    + (deduplicate.startsWith("<") ? deduplicate : deduplicate.toLowerCase(Locale.ROOT));
+        } else {
+            lines.add("-- B-tree deduplicate_items is access-method/workload specific; source/profile only.");
+        }
+        lines.add("WITH (" + options + ")");
+        if (!activePlacementPresent) {
+            lines.add(constraintIndex
+                    ? "USING INDEX TABLESPACE <INDEX_TABLESPACE>"
+                    : "TABLESPACE <INDEX_TABLESPACE>");
+        }
+        return PhysicalCommentBlocks.block("POSTGRESQL INDEX PHYSICAL OPTIONS", lines);
+    }
 }

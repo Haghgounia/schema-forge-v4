@@ -44,6 +44,10 @@ class SqlServerDdlGeneratorTest {
                 false, new DefaultValue("CRM.SEQ_CUSTOMERS.NEXTVAL"), Description.empty(), false, 5);
         Column effectiveStatus = new Column(Identifier.of("EFFECTIVE_STATUS"), DataType.numeric("NUMBER", 1, 0),
                 false, null, Description.empty(), false, 6, "NVL(STATUS, 0)");
+        Column sourceNumber = new Column(Identifier.of("SOURCE_NUMBER"), DataType.numeric("NUMBER", 38, 0),
+                true, null, Description.empty(), false, 7);
+        Column sourceTimestamp = new Column(Identifier.of("SOURCE_TIMESTAMP"), DataType.numeric("TIMESTAMP", 10, null),
+                true, null, Description.empty(), false, 8);
 
         Table table = Table.builder("crm", "customers")
                 .description("Customer's master")
@@ -53,6 +57,8 @@ class SqlServerDdlGeneratorTest {
                 .addColumn(createdAt)
                 .addColumn(sequenceId)
                 .addColumn(effectiveStatus)
+                .addColumn(sourceNumber)
+                .addColumn(sourceTimestamp)
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"), List.of(Identifier.of("CUSTOMER_ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMERS_CODE"), List.of(Identifier.of("CUSTOMER_CODE"))))
                 .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMERS_STATUS"), "STATUS IN (0, 1)"))
@@ -88,6 +94,10 @@ class SqlServerDdlGeneratorTest {
         assertTrue(sql.contains("EFFECTIVE_STATUS AS (COALESCE(STATUS, 0))"));
         assertFalse(sql.contains("EFFECTIVE_STATUS DECIMAL"));
         assertFalse(sql.contains("EFFECTIVE_STATUS AS (COALESCE(STATUS, 0)) NOT NULL"));
+        assertTrue(sql.contains("SOURCE_TIMESTAMP DATETIME2(7), -- W:TYPE-TIME"));
+        assertTrue(sql.contains("SQLSERVER_TEMPORAL_PRECISION_BOUNDED"));
+        assertTrue(sql.contains("SOURCE_NUMBER DECIMAL(38,0)"));
+        assertFalse(sql.contains("SQLSERVER_EXACT_NUMERIC_PRECISION_REQUIRED"));
         assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID)"));
         assertTrue(sql.contains("-- SQL SERVER INDEX PHYSICAL OPTIONS"));
         assertTrue(sql.contains("ON INDEX_FG"));

@@ -52,6 +52,11 @@ class Db2ZosTypeMapperTest {
                 IllegalArgumentException.class,
                 () -> mapper.map(DataType.numeric("NUMBER", 32, 0)));
         assertTrue(excessivePrecision.getMessage().contains("exceeds 31"));
+
+        IllegalArgumentException excessiveTimestampPrecision = assertThrows(
+                IllegalArgumentException.class,
+                () -> mapper.map(DataType.numeric("TIMESTAMP", 13, null)));
+        assertTrue(excessiveTimestampPrecision.getMessage().contains("TIMESTAMP precision exceeds 12"));
     }
 
     @Test
@@ -63,6 +68,7 @@ class Db2ZosTypeMapperTest {
         assertEquals("TIMESTAMP(0)", mapper.map(DataType.simple("DATE")));
         assertEquals("DATE", mapper.map(DataType.simple("DB2_DATE")));
         assertEquals("TIMESTAMP WITH TIME ZONE", mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        assertEquals("TIMESTAMP(12)", mapper.map(DataType.numeric("TIMESTAMP", 12, null)));
         assertEquals("VARBINARY(100)", mapper.map(DataType.varchar("RAW", 100)));
         assertEquals("BLOB", mapper.map(DataType.simple("LONG_RAW")));
         assertEquals("DBCLOB", mapper.map(DataType.simple("NCLOB")));

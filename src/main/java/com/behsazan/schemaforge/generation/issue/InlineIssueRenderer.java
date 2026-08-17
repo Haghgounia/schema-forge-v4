@@ -36,7 +36,20 @@ public final class InlineIssueRenderer {
             Map.entry("PLURAL_COLUMN_COMPONENT", "SINGULAR"),
             Map.entry("COLUMN_DATATYPE_MISSING", "TYPE-MISSING"),
             Map.entry("COLUMN_DESCRIPTION_MISSING", "DESC-MISSING"),
-            Map.entry("TABLE_NAME_NOT_PLURAL", "TABLE-PLURAL")
+            Map.entry("TABLE_NAME_NOT_PLURAL", "TABLE-PLURAL"),
+            Map.entry("ORACLE_DECIMAL_PRECISION_BOUNDED", "TYPE-PREC"),
+            Map.entry("ORACLE_DECIMAL_PRECISION_UNSUPPORTED", "TYPE-PREC"),
+            Map.entry("ORACLE_DECIMAL_SCALE_BOUNDED", "TYPE-SCALE"),
+            Map.entry("ORACLE_TEMPORAL_PRECISION_BOUNDED", "TYPE-TIME"),
+            Map.entry("ORACLE_LARGE_OBJECT_FALLBACK", "TYPE-LOB"),
+            Map.entry("POSTGRESQL_TEMPORAL_PRECISION_BOUNDED", "TYPE-TIME"),
+            Map.entry("SQLSERVER_DECIMAL_PRECISION_BOUNDED", "TYPE-PREC"),
+            Map.entry("SQLSERVER_DECIMAL_PRECISION_UNSUPPORTED", "TYPE-PREC"),
+            Map.entry("SQLSERVER_EXACT_NUMERIC_PRECISION_REQUIRED", "TYPE-PREC"),
+            Map.entry("SQLSERVER_TEMPORAL_PRECISION_BOUNDED", "TYPE-TIME"),
+            Map.entry("DB2_NUMBER_PRECISION_REQUIRED", "TYPE-PREC"),
+            Map.entry("DB2_DECIMAL_PRECISION_UNSUPPORTED", "TYPE-PREC"),
+            Map.entry("DB2_TEMPORAL_PRECISION_UNSUPPORTED", "TYPE-TIME")
     );
 
     private final int maxLength;

@@ -17,6 +17,7 @@ import com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidator;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.validation.postgresql.PostgreSqlDdlSanityChecker;
 import com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidator;
+import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -60,6 +61,7 @@ class CanonicalJsonDirectoryToDdlIT {
     private final PostgreSqlDdlSanityChecker postgreSqlSanityChecker = new PostgreSqlDdlSanityChecker();
     private final SqlServerOfflineDdlValidator sqlServerValidator = new SqlServerOfflineDdlValidator();
     private final Db2ZosOfflineDdlValidator db2ZosValidator = new Db2ZosOfflineDdlValidator();
+    private final DatatypeCompatibilityAnalyzer datatypeCompatibilityAnalyzer = new DatatypeCompatibilityAnalyzer();
 
     @Test
     void recursivelyGeneratesConfiguredDatabaseScriptsFromCanonicalJson() throws Exception {
@@ -238,7 +240,7 @@ class CanonicalJsonDirectoryToDdlIT {
 
         String source = snapshot.source() == null ? "" : snapshot.source().relativePath();
         Path target = null;
-        MappingAssessment mappingAssessment = mappingAssessment(platform, prepared.schema());
+        MappingAssessment mappingAssessment = mappingAssessment(dialect, prepared.schema());
         if (mappingAssessment.fatal()) {
             blockedByMapping.compute(platform, (key, value) -> value + 1);
             for (ValidationFinding finding : mappingAssessment.findings()) {
@@ -336,137 +338,13 @@ class CanonicalJsonDirectoryToDdlIT {
         }
     }
 
-    private MappingAssessment mappingAssessment(DatabasePlatform platform, DatabaseSchema schema) {
-        Set<String> exactNumeric = Set.of("NUMBER", "NUMERIC", "DECIMAL", "DEC");
-        Set<String> temporal = Set.of(
-                "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
-                "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE",
-                "DATETIME2", "DATETIMEOFFSET", "TIME");
-        List<ValidationFinding> findings = new ArrayList<>();
-        boolean fatal = false;
-
-        for (var table : schema.tables()) {
-            for (var column : table.columns()) {
-                var type = column.dataType();
-                String sourceName = type.name().normalized().toUpperCase(Locale.ROOT);
-                String location = table.qualifiedName() + "." + column.name().value();
-
-                switch (platform) {
-                    case ORACLE -> {
-                        if (exactNumeric.contains(sourceName) && type.precision() != null && type.precision() > 38) {
-                            int scale = type.scale() == null ? 0 : Math.min(type.scale(), 127);
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "ORACLE_DECIMAL_PRECISION_BOUNDED",
-                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
-                                            + " is rendered with Oracle NUMBER precision 38"
-                                            + (type.scale() == null ? "" : " and scale " + scale), ""));
-                        }
-                        if (exactNumeric.contains(sourceName) && type.scale() != null && type.scale() > 127) {
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "ORACLE_DECIMAL_SCALE_BOUNDED",
-                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
-                                            + " is rendered with Oracle NUMBER scale 127", ""));
-                        }
-                        if (isOracleTimestamp(sourceName) && type.precision() != null && type.precision() > 9) {
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "ORACLE_TEMPORAL_PRECISION_BOUNDED",
-                                    "Canonical " + sourceName + "(" + type.precision()
-                                            + ") is rendered with Oracle TIMESTAMP precision 9", ""));
-                        }
-                        addOracleLargeObjectFallbackFinding(findings, location, sourceName, type.length());
-                    }
-                    case POSTGRESQL -> {
-                        if (isPostgreSqlTimestamp(sourceName)
-                                && type.precision() != null && type.precision() > 6) {
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "POSTGRESQL_TEMPORAL_PRECISION_BOUNDED",
-                                    "Canonical " + sourceName + "(" + type.precision()
-                                            + ") is rendered with PostgreSQL temporal precision 6", ""));
-                        }
-                    }
-                    case SQLSERVER -> {
-                        if (exactNumeric.contains(sourceName) && type.precision() != null && type.precision() > 38) {
-                            int scale = type.scale() == null ? 0 : type.scale();
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "SQLSERVER_DECIMAL_PRECISION_BOUNDED",
-                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
-                                            + " is rendered as DECIMAL(38," + scale + ") for SQL Server", ""));
-                        }
-                        if (temporal.contains(sourceName) && type.precision() != null && type.precision() > 7) {
-                            String target = sourceName.startsWith("TIMESTAMP WITH")
-                                    || sourceName.startsWith("TIMESTAMP_WITH") || sourceName.equals("DATETIMEOFFSET")
-                                    ? "DATETIMEOFFSET" : sourceName.equals("TIME") ? "TIME" : "DATETIME2";
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "SQLSERVER_TEMPORAL_PRECISION_BOUNDED",
-                                    "Canonical " + sourceName + "(" + type.precision()
-                                            + ") is rendered as " + target + "(7) for SQL Server", ""));
-                        }
-                    }
-                    case DB2_ZOS -> {
-                        if (exactNumeric.contains(sourceName) && type.precision() == null) {
-                            fatal = true;
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "DB2_NUMBER_PRECISION_REQUIRED",
-                                    "Canonical " + sourceName
-                                            + " has no explicit precision; Db2 z/OS cannot map it losslessly to DECIMAL", ""));
-                        } else if (exactNumeric.contains(sourceName) && type.precision() > 31) {
-                            fatal = true;
-                            findings.add(new ValidationFinding(
-                                    "DIALECT_MAPPING", location, "DB2_DECIMAL_PRECISION_UNSUPPORTED",
-                                    "Canonical " + renderType(sourceName, type.precision(), type.scale())
-                                            + " exceeds the Db2 z/OS DECIMAL precision limit 31", ""));
-                        }
-                    }
-                }
-            }
-        }
-        return new MappingAssessment(List.copyOf(findings), fatal);
-    }
-
-    private static boolean isOracleTimestamp(String sourceName) {
-        return sourceName.equals("TIMESTAMP")
-                || sourceName.equals("TIMESTAMP WITH TIME ZONE")
-                || sourceName.equals("TIMESTAMP_WITH_TIME_ZONE")
-                || sourceName.equals("TIMESTAMP WITH LOCAL TIME ZONE")
-                || sourceName.equals("TIMESTAMP_WITH_LOCAL_TIME_ZONE");
-    }
-
-    private static boolean isPostgreSqlTimestamp(String sourceName) {
-        return isOracleTimestamp(sourceName);
-    }
-
-    private static String renderType(String sourceName, Integer precision, Integer scale) {
-        if (precision == null) return sourceName;
-        return sourceName + "(" + precision + (scale == null ? "" : "," + scale) + ")";
-    }
-
-    private static void addOracleLargeObjectFallbackFinding(
-            List<ValidationFinding> findings, String location, String sourceName, Integer length) {
-        if (length == null) return;
-        String target = null;
-        int limit = 0;
-        if ((sourceName.equals("VARCHAR") || sourceName.equals("VARCHAR2")) && length > 4000) {
-            target = "CLOB";
-            limit = 4000;
-        } else if ((sourceName.equals("NVARCHAR") || sourceName.equals("NVARCHAR2")) && length > 2000) {
-            target = "NCLOB";
-            limit = 2000;
-        } else if ((sourceName.equals("CHAR") || sourceName.equals("CHARACTER")) && length > 2000) {
-            target = "CLOB";
-            limit = 2000;
-        } else if (sourceName.equals("NCHAR") && length > 2000) {
-            target = "NCLOB";
-            limit = 2000;
-        } else if (sourceName.equals("RAW") && length > 2000) {
-            target = "BLOB";
-            limit = 2000;
-        }
-        if (target != null) {
-            findings.add(new ValidationFinding(
-                    "DIALECT_MAPPING", location, "ORACLE_LARGE_OBJECT_FALLBACK",
-                    "Canonical " + sourceName + "(" + length + ") exceeds the conservative Oracle limit "
-                            + limit + " and is rendered as " + target, ""));
-        }
+    private MappingAssessment mappingAssessment(Dialect dialect, DatabaseSchema schema) {
+        var assessment = datatypeCompatibilityAnalyzer.analyze(schema, dialect);
+        List<ValidationFinding> findings = assessment.issues().stream()
+                .map(issue -> new ValidationFinding(
+                        "DIALECT_MAPPING", issue.path(), issue.code(), issue.message(), ""))
+                .toList();
+        return new MappingAssessment(findings, assessment.blocking());
     }
 
     private List<ValidationFinding> validate(DatabasePlatform platform, String sql) {

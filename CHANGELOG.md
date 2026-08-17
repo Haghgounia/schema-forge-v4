@@ -1,3 +1,41 @@
+## 2026-08-16 - Datatype Compatibility Phase 1: hard numeric precision blocking
+
+- Parser 0.6.1 corpus evidence reduced false temporal findings to zero for PostgreSQL, 9 non-blocking SQL Server documents, and 1,081 Db2 blocked documents; no temporal mapping change was needed.
+- Oracle no longer clamps canonical exact numeric precision above 38 to `NUMBER(38)`; such mappings are now blocking `ORACLE_DECIMAL_PRECISION_UNSUPPORTED` findings.
+- SQL Server no longer clamps exact numeric precision above 38 to `DECIMAL(38,s)`; such mappings are now blocking `SQLSERVER_DECIMAL_PRECISION_UNSUPPORTED` findings.
+- Direct Oracle and SQL Server type renderers now enforce the same hard precision limits as the compatibility analyzer, so bypassing the bulk preflight cannot silently change source numeric semantics.
+- PostgreSQL high-precision `NUMERIC` behavior is unchanged because the target can represent those explicit precisions; Db2/zOS already rejects precision above 31.
+- Existing inline issue codes for the earlier bounded-warning behavior remain recognized for compatibility, but new analysis emits the blocking `*_UNSUPPORTED` codes.
+- Physical Phase 1 remains frozen and unchanged. No new test method was added.
+
+## 2026-08-16 - Datatype Compatibility Phase 1: legacy temporal length semantics
+
+- Corrected the legacy Word parser so the separate `Length`/DB2-length cell is not interpreted as `TIMESTAMP(p)` fractional-second precision.
+- Legacy values such as `TS` + length `10`, `12`, `15`, or `26` now map to canonical `TIMESTAMP` unless precision is explicitly written in the datatype declaration (for example `TIMESTAMP(6)`).
+- Explicit inline temporal precision remains preserved and is still subject to dialect-specific compatibility validation/bounding.
+- Added `LEGACY_TEMPORAL_LENGTH_IGNORED` parser provenance metadata when a separate temporal length cell is present; this does not alter executable SQL or Physical Phase 1.
+- Bumped the legacy parser provenance to `0.6.1` and the Word snapshot parser version so Word-derived caches are refreshed under the corrected semantics.
+- Reused the existing legacy Oracle pipeline regression; no new test method was added.
+
+## 2026-08-16 - Datatype Compatibility Phase 1: SQL Server unbounded exact numeric blocking
+
+- Bulk corpus evidence showed 5,023 unbounded exact-numeric columns across 1,062 snapshots.
+- SQL Server no longer invents `DECIMAL(38,0)` for canonical `NUMBER`/`NUMERIC`/`DECIMAL`/`DEC` without explicit precision.
+- Such mappings are now reported as blocking `SQLSERVER_EXACT_NUMERIC_PRECISION_REQUIRED` findings.
+- PostgreSQL unconstrained `NUMERIC` behavior is unchanged; Db2/zOS already blocked the same lossless-mapping gap.
+- Temporal precision bounding and explicit precision > target maximum remain review warnings in this increment.
+- Physical Phase 1 remains frozen and unchanged.
+
+# 2026-08-16 - Physical Phase 1 renderer refactor / output stabilization
+
+- Refactored repeated SOURCE PHYSICAL / ISSUE / REVIEW message construction into `PhysicalSourceOptions`; DBMS-specific physical rules remain in their existing renderers.
+- Removed the duplicated PostgreSQL standalone-index vs PK/UK backing-index rendering path while preserving the required placement difference (`TABLESPACE` vs `USING INDEX TABLESPACE`).
+- Reused one SQL Server lookup for `OPTIMIZE_FOR_SEQUENTIAL_KEY` instead of scanning source options twice.
+- Moved reusable integer-range lookup and keyword normalization into `PhysicalSourceOptions`; Oracle physical behavior is unchanged.
+- Stabilized diagnostic accepted-value lists by sorting them before rendering, preventing JVM-dependent `Set.of(...)` order from causing noisy output diffs. Executable/candidate SQL clauses are unchanged.
+- No parser, datatype mapping, canonical model, REST service, physical rule, or test class was added or changed.
+- Java 21 compilation of the domain + physical production subset passed. A before/after probe across default, valid-source, and invalid-source physical cases was identical after normalizing the previously nondeterministic accepted-value list order; default and valid-source output was byte-for-byte identical.
+
 # 2026-08-16 - Physical source-aware validator splitter fix
 
 - Fixed `SqlScriptStatementParser` so statement terminators inside `--` and `/* ... */` comments are ignored while splitting generated SQL.
@@ -856,3 +894,26 @@
 - Passed known UNIQUE-index context from DDL generation into Oracle and SQL Server physical renderers so context-sensitive validation does not guess uniqueness for standalone or explicit backing indexes.
 - Documented the current table-scoped source physical-option granularity boundary; distinct per-index source tuning is not fabricated when the canonical source model cannot represent it.
 - Physical corpus audit summaries now report rendered source-value ISSUE markers and context REVIEW markers explicitly, so a zero renderer violation count is not mistaken for source correctness.
+
+## 2026-08-16 - Datatype compatibility Phase 1: source-visible mapping assessment
+- Started the datatype workstream from the frozen Physical Phase-1 baseline; no physical renderer, parser, canonical-model, or REST behavior was changed.
+- Added production `DatatypeCompatibilityAnalyzer` / `DatatypeCompatibilityAssessment` so dialect mapping risk is no longer confined to an integration-test diagnostic.
+- Generated SQL now includes datatype compatibility findings in the existing validation header and inline column issue markers for deliberate bounded/fallback mappings.
+- Oracle findings cover NUMBER precision/scale bounds, TIMESTAMP precision bounds, and conservative character/RAW large-object fallback already performed by the Oracle dialect.
+- PostgreSQL findings cover only temporal precision above the supported 0..6 range; valid explicit precision remains preserved.
+- SQL Server findings cover DECIMAL precision above 38, temporal precision above 7, and unbounded exact numeric source types; the existing `DECIMAL(38,0)` rendering is retained for this phase but is now explicitly review-visible instead of silently implying integer-only semantics.
+- Db2 for z/OS findings remain blocking for exact numeric types with missing precision or precision above 31.
+- Added the missing Db2 for z/OS TIMESTAMP hard limit: precision above 12 is now rejected instead of emitting invalid `TIMESTAMP(p)` DDL.
+- Reused the production datatype analyzer from `CanonicalJsonDirectoryToDdlIT` so bulk classification and generated-SQL warnings share one rule source.
+- No automatic repair was introduced for source values such as `NUMBER(70)`, `NUMBER(115,5)`, or unbounded `NUMBER`; the source condition remains visible for review.
+
+### 2026-08-16 - Datatype compatibility visibility regression assertion fix
+- Corrected three generator regression assertions to reflect the existing SQL column-comma placement before inline datatype issue comments.
+- No production DDL, datatype mapping, physical rendering, parser, canonical model, or REST behavior changed.
+
+### 2026-08-16 - Physical Phase 1 final freeze
+- Revalidated the per-object physical-option boundary against the current production model and DDL generation path.
+- Confirmed that production source ingestion does not currently carry distinct physical tuning values per standalone index / PK / UK; index physical candidates are intentionally rendered from the table-scoped source/profile option map plus object context (key columns, uniqueness, placement).
+- No IndexPhysicalOptions / canonical-model expansion was introduced because there is no production source contract to populate it yet.
+- Physical Phase 1 is frozen. Distinct per-index source tuning is deferred to a future Phase 1.1 only when an input contract can represent it without guessing or merging values.
+- No production DDL behavior changed in this freeze step.
