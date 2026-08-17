@@ -21,7 +21,7 @@ package com.behsazan.schemaforge.snapshot;
 public final class CanonicalSnapshotVersions {
     public static final String SNAPSHOT_VERSION = "1.0";
     public static final String MODEL_VERSION = "4";
-    public static final String PARSER_VERSION = "word-pipeline-v4-2026-08-16-temporal-length";
+    public static final String PARSER_VERSION = "word-pipeline-v4-2026-08-17-legacy-metadata-recovery10-final";
 
     private CanonicalSnapshotVersions() {
     }

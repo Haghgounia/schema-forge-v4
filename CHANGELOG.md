@@ -1,3 +1,69 @@
+
+## 2026-08-17 - Legacy metadata Recovery10 final
+
+- Applies exact DB2 `schema + table + column` metadata to missing/unreliable datatypes even when the Word datatype cells are structurally merged; merged technical column names remain rejected.
+- Allows DB2 `CHAR`/`VARCHAR` width evidence to fill a missing canonical `CHAR`/`VARCHAR` length, and `GRAPHIC`/`VARGRAPHIC` width evidence to fill `NCHAR`/`NVARCHAR`, without overwriting the valid Word logical datatype.
+- Keeps all metadata matching exact and case-insensitive; no fuzzy table/column matching and no default lengths were introduced.
+- Parser version: `0.7.1`; snapshot pipeline: `word-pipeline-v4-2026-08-17-legacy-metadata-recovery10-final`.
+
+## 2026-08-17 - Metadata diagnostic 9
+
+- Legacy parser version `0.7.0`; snapshot pipeline `word-pipeline-v4-2026-08-17-legacy-metadata-diagnostic9`.
+- Adds exact DB2 metadata lookup diagnostics without changing recovery semantics.
+- Metadata misses are classified as `USABLE`, `INCOMPLETE`, `AMBIGUOUS`, `COLUMN_NOT_FOUND`, `TABLE_NOT_FOUND`, or `INVALID_KEY`.
+- Remaining datatype, character-length, and numeric precision/scale failures include `[db2Metadata=...]` in the failure message when an offline SYSIBM.SYSCOLUMNS file is configured.
+- No fuzzy table/column matching and no datatype/length defaults were introduced.
+
+## 2026-08-17 - SchemaForge V4 legacy metadata recovery8
+
+- Added optional offline Db2/z/OS `SYSIBM.SYSCOLUMNS` recovery for unresolved legacy Word datatype evidence.
+- Recovery is exact on schema + table + column and never overwrites a reliable Word datatype.
+- Character length and invalid numeric precision/scale are filled only from compatible exact metadata.
+- CSV/TSV/TXT and ZIP exports are accepted; conflicting duplicate metadata rows are rejected as ambiguous.
+- Shared Db2 catalog datatype mapping is reused by JDBC and offline metadata paths.
+- Snapshot probe property: `schemaforge.snapshot.db2SysColumnsFile`.
+
+# Changelog
+
+- Recovery6: allow the flat-row second-chance parser to re-evaluate a single paragraph-wrapped structural cell when exact field cardinality is still provable; mismatched multi-paragraph cells remain rejected.
+- Bumped legacy parser provenance to `0.6.7` and canonical Word cache parser version to `word-pipeline-v4-2026-08-17-legacy-recovery6`.
+
+## Recovery5 - 2026-08-17
+
+- Bumped legacy parser provenance to `0.6.6` and canonical Word cache parser version to `word-pipeline-v4-2026-08-17-legacy-recovery5`.
+- Allowed the flat-row reconstructor to perform a strict second-chance split when paragraph markers remain in the field-name cell after the paragraph-aware splitter could not align the row.
+- Prevented a later duplicate row with unresolvable datatype evidence from replacing an earlier duplicate definition whose datatype is deterministic.
+- Kept ambiguous `S` logical types, missing character lengths without explicit evidence, and semantically unaligned merged rows unresolved.
+
+## 2026-08-17 - Legacy Recovery4 evidence-driven fixes
+- Bumped legacy parser provenance to `0.6.5` and canonical Word cache parser version to `word-pipeline-v4-2026-08-17-legacy-recovery4`.
+- Preserved real `XML` datatype evidence instead of misclassifying it as the legacy `X...` index shorthand.
+- Added evidence-backed logical datatype aliases `VAR -> VARCHAR`, `NVCHAR/NVC -> NVARCHAR`; ambiguous `S` remains unresolved in the logical/source column.
+- Reconstructed flattened multi-field rows when mandatory checkmark glyph cardinality exactly matches field/type cardinality.
+- Recovered character lengths separated from an explicit matching type by one blank spacer cell.
+- Treated explicit non-positive numeric precision as unspecified with a parser warning rather than constructing an invalid numeric datatype.
+
+## 2026-08-17 - Legacy Word Recovery3: row reconstruction and evidence-only type/length recovery
+
+- Bumped legacy parser provenance to `0.6.4` and canonical Word cache parser version to `word-pipeline-v4-2026-08-17-legacy-recovery3`.
+- Added conservative flattened merged-row reconstruction for rows where multiple technical field names and datatype tokens were collapsed into whitespace-separated cells; splitting requires one-to-one field/type cardinality and unambiguous structural ownership.
+- Added `FLAT_MERGED_DEFINITION_ROW_SPLIT` extraction provenance for reconstructed flattened rows.
+- Added evidence-only datatype recovery from known raw type slots; ambiguous logical `N/C/S` values are still not guessed, while DB2-only aliases such as `S=SMALLINT` and `C=CHAR` are accepted only when they occur in confirmed physical-type slots.
+- Improved missing `CHAR`/`VARCHAR` length recovery so an adjacent explicit type/length pair can be used even when other numeric key/index values exist in the same raw row.
+- Added focused regressions for flattened rows, displaced type evidence, multiple numeric cells, contextual DB2 `S`, and the invariant that a logical `S` without physical evidence remains unresolved.
+- Full Maven execution remains project-environment validation because this packaging environment cannot download Maven 3.9.9; isolated Java 21 compilation and runtime probes for the changed parser/reconstruction paths passed.
+
+## 2026-08-17 - DDL Generation Core V4 final freeze
+
+- Froze the four-dialect DDL Generation Core after the completed Oracle, PostgreSQL, SQL Server, Db2/zOS, Physical Phase 1, and Datatype Compatibility Phase 1 workstreams.
+- Final validated canonical corpus: 4,768 snapshots, 0 snapshot failures, 0 stale parser sources.
+- Final bulk status: Oracle 4,745 generated / 2 review findings / 21 mapping-blocked; PostgreSQL 4,768 generated / 0 findings / 0 blocked; SQL Server 3,697 generated / 0 non-blocking findings / 1,071 mapping-blocked; Db2/zOS 3,687 generated / 0 non-blocking findings / 1,081 mapping-blocked.
+- Mapping blockers preserve source semantics and intentionally prevent guessed/clamped SQL for unsupported or ambiguous exact numeric definitions.
+- Physical Phase 1 remains frozen. Per-index distinct source physical tuning remains deferred to Physical Phase 1.1 only if a real input contract can represent it.
+- Legacy Word parser recovery failures, output-name collisions, source-document corrections, CREATE VIEW, partitioning, LOB provisioning, and environment tablespace/filegroup provisioning remain outside this core freeze.
+- The 2026-08-17-0931 project supplied for this freeze was compared with the last green single-file DBA-contract baseline; application/test source was unchanged (only IDE workspace state differed).
+- No production Java code, test behavior, parser semantics, datatype mapping, physical rendering, canonical model, or REST contract changed in this freeze step.
+
 ## 2026-08-16 - Datatype Compatibility Phase 1: hard numeric precision blocking
 
 - Parser 0.6.1 corpus evidence reduced false temporal findings to zero for PostgreSQL, 9 non-blocking SQL Server documents, and 1,081 Db2 blocked documents; no temporal mapping change was needed.
@@ -917,3 +983,27 @@
 - No IndexPhysicalOptions / canonical-model expansion was introduced because there is no production source contract to populate it yet.
 - Physical Phase 1 is frozen. Distinct per-index source tuning is deferred to a future Phase 1.1 only when an input contract can represent it without guessing or merging values.
 - No production DDL behavior changed in this freeze step.
+
+### 2026-08-16 - Final single-file DBA DDL delivery contract
+- Re-audited the production `DdlGenerator` ordering for Oracle, PostgreSQL, Microsoft SQL Server, and Db2 for z/OS against the one-source/one-SQL-file DBA delivery requirement.
+- Confirmed that validation findings, schema/bootstrap metadata, table DDL, constraints, indexes, physical-review comments, FK supporting-index recommendations, comments, grants, object summary, and generation footer are already present in the generated SQL artifact.
+- Kept DBMS-specific ordering that is required for survivability/execution semantics (for example SQL Server descriptions before foreign-key dependencies) rather than introducing cosmetic section reshuffling.
+- Documented that fatal datatype mappings are reported as `GENERATION_BLOCKED_BY_MAPPING` and do not publish guessed SQL.
+- Corrected stale README wording that still described Oracle precision above 38 as bounded; the current production rule blocks unsupported exact-numeric precision instead of silently clamping it.
+- No production Java code, physical rendering, parser, canonical model, REST contract, or mapping behavior changed in this final delivery-contract audit.
+
+### 2026-08-17 - Legacy parser recovery evidence probe
+- Added `LegacyWordFailureEvidenceIT`, a diagnostic-only integration test that re-runs the low-level legacy extractor for `PARSE_FAILED` entries from a prior manifest and writes raw row/type/length evidence to CSV.
+- No production parser, canonical model, DDL generation, physical rendering, or datatype mapping behavior changed in this diagnostic step.
+- Intended use: classify the remaining Recovery-1 failures without another full 58k-document run or unsafe type/length guessing.
+
+### 2026-08-17 - Legacy parser recovery 2: explicit length-evidence hardening
+- Analyzed the Recovery-1 evidence probe over the remaining 272 failed Word sources (232 unique content hashes): 151 unresolved datatype rows, 113 missing character lengths, 4 scale>precision sources, 2 non-positive precision sources, and 2 missing-table-name sources.
+- Kept ambiguous logical `S`, blank/merged datatype cells, invalid numeric definitions, and missing table names unresolved; no datatype or length is invented for them.
+- Added logical-source trust for standard Unicode/Oracle character types (`NVARCHAR`, `NVARCHAR2`, `NCHAR`, `VARCHAR2`, `NCLOB`, `RAW`) without changing the stricter DB2 physical-type whitelist.
+- Extended the legacy datatype declaration recognizer to allow standard type names containing digits/underscores (for example `VARCHAR2` / `NVARCHAR2`).
+- Added conservative character-length recovery only from explicit source evidence: logical length when a trusted physical character type resolves ambiguous `S`; an explicit physical-length cell when physical type is absent; inline declarations such as `VARCHAR(1000)` / `VC20`; a unique numeric cell immediately adjacent to a later character-type cell; and a one-cell-shifted unique numeric length after the logical type.
+- Added normalization for isolated Word formatting wrappers such as `` `50`` and `\\20`; competing numeric groups such as `30 15` remain ambiguous.
+- Every new length recovery path emits a dedicated `LEGACY_CHARACTER_LENGTH_*` provenance warning.
+- Bumped the legacy parser version to `0.6.3` and canonical snapshot parser version to `word-pipeline-v4-2026-08-17-legacy-recovery2`.
+- DDL Generation Core V4, datatype mapping rules, physical rendering, and canonical model semantics remain unchanged.

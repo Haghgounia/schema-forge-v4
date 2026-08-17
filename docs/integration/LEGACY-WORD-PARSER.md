@@ -76,3 +76,24 @@ Linux/macOS:
 ```
 
 The test recursively scans `.doc` and `.docx` files. Current SchemaForge DOCX documents are parsed by `WordSpecificationParser`; old DOC/DOCX documents fall back to `LegacyWordSpecificationParser`. It mirrors the input directory structure and creates one Oracle DDL file for every accepted table document.
+
+## Focused retry of a previous parser-failure manifest
+
+When a full Word-to-canonical snapshot run has already produced `manifest.json`, the importer can retry only the documents whose previous status was `PARSE_FAILED`. This is intended for parser-backlog hardening and avoids reopening the complete Word corpus. Always use a separate probe output directory so the complete canonical cache and manifest are not replaced by a partial retry manifest.
+
+Windows:
+
+```bat
+mvnw.cmd ^
+  -Dtest=WordDirectoryToCanonicalJsonIT ^
+  -Dschemaforge.snapshot.word.inputDir="D:\get-git-doc-files-master\Gitlab\docker\volumes\gitlab_log\_data" ^
+  -Dschemaforge.snapshot.outputDir="D:\SchemaForge-Datatype-Audit\Canonical-Recovery1-Probe" ^
+  -Dschemaforge.snapshot.legacySchema=TSTSHMA ^
+  -Dschemaforge.snapshot.parserMode=auto ^
+  -Dschemaforge.snapshot.sourceManifest="D:\SchemaForge-Datatype-Audit\Canonical-Parser061\manifest.json" ^
+  -Dschemaforge.snapshot.forceRefresh=true ^
+  -Dschemaforge.snapshot.failOnErrors=false ^
+  test
+```
+
+Only prior `PARSE_FAILED` sources are selected. The resulting probe manifest describes that selected subset, not the complete corpus.

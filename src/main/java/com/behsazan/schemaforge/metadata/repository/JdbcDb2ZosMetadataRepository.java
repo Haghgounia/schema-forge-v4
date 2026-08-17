@@ -346,37 +346,8 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
     }
 
     static DataType mapDataType(Db2ColumnRow row) {
-        String raw = normalizeType(row.rawType());
-        int length = positive(row.length(), 1);
-        int longLength = positive(row.longLength(), length);
-        int scale = row.scale() == null ? 0 : row.scale();
-
-        return switch (raw) {
-            case "SMALLINT", "INTEGER", "BIGINT", "TIME", "XML" -> DataType.simple(raw);
-            case "DATE" -> DataType.simple("DB2_DATE");
-            case "ROWID" -> DataType.simple("DB2_ROWID");
-            case "DECIMAL", "NUMERIC" -> DataType.numeric("DECIMAL", length, scale);
-            case "CHAR" -> new DataType(Identifier.of("CHAR"), length, LengthSemantics.CHAR, null, null);
-            case "VARCHAR", "LONGVAR" -> new DataType(
-                    Identifier.of("VARCHAR"), raw.equals("LONGVAR") ? longLength : length,
-                    LengthSemantics.CHAR, null, null);
-            case "GRAPHIC" -> new DataType(Identifier.of("GRAPHIC"), length, LengthSemantics.CHAR, null, null);
-            case "VARG", "LONGVARG" -> new DataType(
-                    Identifier.of("VARGRAPHIC"), raw.equals("LONGVARG") ? longLength : length,
-                    LengthSemantics.CHAR, null, null);
-            case "BINARY" -> new DataType(Identifier.of("BINARY"), length, LengthSemantics.DEFAULT, null, null);
-            case "VARBIN" -> new DataType(Identifier.of("VARBINARY"), length, LengthSemantics.DEFAULT, null, null);
-            case "BLOB", "CLOB", "DBCLOB" -> new DataType(
-                    Identifier.of(raw), longLength, LengthSemantics.DEFAULT, null, null);
-            case "TIMESTMP" -> scale <= 0 ? DataType.simple("TIMESTAMP")
-                    : DataType.numeric("TIMESTAMP", scale, null);
-            case "TIMESTZ" -> scale <= 0 ? DataType.simple("TIMESTAMP_WITH_TIME_ZONE")
-                    : DataType.numeric("TIMESTAMP_WITH_TIME_ZONE", scale, null);
-            case "FLOAT" -> DataType.simple(length <= 4 ? "REAL" : "DOUBLE");
-            case "DECFLOAT" -> DataType.numeric("DECFLOAT", length <= 8 ? 16 : 34, null);
-            case "DISTINCT" -> DataType.simple(safeTypeName(row.typeName(), "DB2_DISTINCT"));
-            default -> DataType.simple(safeTypeName(raw, "DB2"));
-        };
+        return Db2ZosCatalogTypeMapper.mapDataType(
+                row.rawType(), row.length(), row.longLength(), row.scale(), row.typeName());
     }
 
     static String mapDefault(Db2ColumnRow row) {

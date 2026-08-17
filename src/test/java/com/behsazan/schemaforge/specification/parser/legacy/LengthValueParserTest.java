@@ -70,6 +70,10 @@ class LengthValueParserTest {
         assertEquals("300", LengthValueParser.parse("3 00").normalized());
         assertEquals("1000", LengthValueParser.parse("100 0").normalized());
         assertFalse(LengthValueParser.parse("100 0").ambiguous());
+        assertEquals(20, LengthValueParser.parse("\\20").length());
+        assertEquals(50, LengthValueParser.parse("`50").length());
+        assertEquals(70, LengthValueParser.parse("70`").length());
+        assertFalse(LengthValueParser.parse("\\20").ambiguous());
     }
 
     @Test

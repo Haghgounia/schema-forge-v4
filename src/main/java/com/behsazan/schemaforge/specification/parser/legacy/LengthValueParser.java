@@ -45,6 +45,15 @@ final class LengthValueParser {
             return new ParsedLength("", null, null, null, false);
         }
 
+        // A small number of legacy Word cells carry a formatting slash/backtick
+        // immediately before or after an otherwise unambiguous numeric length.
+        // Strip only those wrappers; do not remove signs or competing numeric text.
+        normalized = normalized
+                .replaceFirst("^`+(?=\\d)", "")
+                .replaceFirst("^\\\\+(?=\\d)", "")
+                .replaceFirst("(?<=\\d)`+$", "")
+                .replaceFirst("(?<=\\d)\\\\+$", "");
+
         // Word sometimes splits a continuous number immediately before a trailing
         // zero group: "3 00" and "100 0" are visual renderings of 300 and 1000.
         // Do not collapse ordinary competing values such as "8 10" or "30 15".

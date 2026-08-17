@@ -10,6 +10,8 @@ import com.behsazan.schemaforge.snapshot.SnapshotFileHash;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
 import com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParser;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,8 +41,10 @@ class WordDirectoryToCanonicalJsonIT {
     private static final String FORCE_REFRESH = "schemaforge.snapshot.forceRefresh";
     private static final String FAIL_ON_ERRORS = "schemaforge.snapshot.failOnErrors";
     private static final String PARSER_MODE = "schemaforge.snapshot.parserMode";
+    private static final String SOURCE_MANIFEST = "schemaforge.snapshot.sourceManifest";
+    private static final String DB2_SYSCOLUMNS_FILE = "schemaforge.snapshot.db2SysColumnsFile";
 
-    private final LegacyWordSpecificationParser legacyParser = new LegacyWordSpecificationParser();
+    private LegacyWordSpecificationParser legacyParser = new LegacyWordSpecificationParser();
     private final CanonicalSnapshotMapper mapper = new CanonicalSnapshotMapper();
     private final CanonicalSnapshotJsonStore store = new CanonicalSnapshotJsonStore();
 
@@ -51,6 +56,11 @@ class WordDirectoryToCanonicalJsonIT {
         boolean forceRefresh = Boolean.parseBoolean(System.getProperty(FORCE_REFRESH, "false"));
         boolean failOnErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_ERRORS, "false"));
         ParserMode parserMode = configuredParserMode();
+        Path db2SysColumnsFile = optionalFile(DB2_SYSCOLUMNS_FILE);
+        if (db2SysColumnsFile != null) {
+            legacyParser = LegacyWordSpecificationParser.withDb2SysColumns(db2SysColumnsFile);
+            System.out.println("Db2 SYSCOLUMNS    : " + db2SysColumnsFile);
+        }
         Files.createDirectories(outputRoot);
 
         List<Path> documents;
@@ -60,6 +70,17 @@ class WordDirectoryToCanonicalJsonIT {
                     .filter(path -> !path.toAbsolutePath().normalize().startsWith(outputRoot))
                     .sorted(Comparator.comparing(path -> normalize(inputRoot.relativize(path))))
                     .toList();
+        }
+        int documentsDiscovered = documents.size();
+        Path sourceManifest = optionalFile(SOURCE_MANIFEST);
+        if (sourceManifest != null) {
+            Set<String> selectedSources = failedSources(sourceManifest);
+            documents = documents.stream()
+                    .filter(path -> selectedSources.contains(normalize(inputRoot.relativize(path))))
+                    .toList();
+            System.out.println("Source manifest    : " + sourceManifest);
+            System.out.println("Manifest failures  : " + selectedSources.size());
+            System.out.println("Documents selected : " + documents.size());
         }
 
         String generatedAt = Instant.now().toString();
@@ -148,7 +169,10 @@ class WordDirectoryToCanonicalJsonIT {
         store.write(manifestPath, manifest);
 
         System.out.println("Parser mode       : " + parserMode.name().toLowerCase(Locale.ROOT));
-        System.out.println("Word documents    : " + documents.size());
+        System.out.println("Word documents    : " + documentsDiscovered);
+        if (sourceManifest != null) {
+            System.out.println("Documents selected : " + documents.size());
+        }
         System.out.println("Snapshots written : " + written);
         System.out.println("Cache hits        : " + cacheHits);
         System.out.println("Skipped no table  : " + skipped);
@@ -156,7 +180,12 @@ class WordDirectoryToCanonicalJsonIT {
         System.out.println("Snapshot root     : " + outputRoot);
         System.out.println("Manifest          : " + manifestPath);
 
-        assertTrue(written + cacheHits > 0, "No canonical snapshot was written or reused");
+        if (sourceManifest == null) {
+            assertTrue(written + cacheHits > 0, "No canonical snapshot was written or reused");
+        } else {
+            assertTrue(written + cacheHits + skipped + failures == documents.size(),
+                    "Targeted snapshot probe did not account for every selected document");
+        }
         if (failOnErrors) {
             assertTrue(failures == 0, "Word-to-JSON snapshot run produced failures; see manifest.json");
         }
@@ -208,6 +237,31 @@ class WordDirectoryToCanonicalJsonIT {
             legacyFailure.addSuppressed(standardFailure);
             throw legacyFailure;
         }
+    }
+
+    private static Path optionalFile(String property) {
+        String value = trimToNull(System.getProperty(property));
+        if (value == null) return null;
+        Path path = Path.of(value).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(path)) {
+            throw new IllegalArgumentException("System property " + property
+                    + " must point to an existing file: " + path);
+        }
+        return path;
+    }
+
+    private static Set<String> failedSources(Path manifestPath) throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        CanonicalSnapshotManifest manifest = objectMapper.readValue(
+                manifestPath.toFile(), CanonicalSnapshotManifest.class);
+        if (manifest.entries() == null) return Set.of();
+        return manifest.entries().stream()
+                .filter(entry -> "PARSE_FAILED".equalsIgnoreCase(entry.status()))
+                .map(CanonicalSnapshotManifest.Entry::source)
+                .filter(source -> source != null && !source.isBlank())
+                .map(source -> source.replace('\\', '/'))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private static ParserMode configuredParserMode() {

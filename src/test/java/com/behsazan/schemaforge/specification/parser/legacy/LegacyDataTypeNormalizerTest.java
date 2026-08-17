@@ -35,7 +35,10 @@ class LegacyDataTypeNormalizerTest {
             "'DECIMAL (5,2)','DECIMAL(5,2)'",
             "'TIME STAMP',TIMESTAMP",
             "N,N",
-            "C,C"
+            "C,C",
+            "VAR,VARCHAR",
+            "NVCHAR,NVARCHAR",
+            "NVC,NVARCHAR"
     })
     void normalizesConfirmedAliasesWithoutGuessingLogicalTypes(String raw, String expected) {
         assertEquals(expected, LegacyDataTypeNormalizer.normalize(raw));
@@ -46,6 +49,17 @@ class LegacyDataTypeNormalizerTest {
         assertEquals("S", LegacyDataTypeNormalizer.normalize("S"));
         assertEquals("SMALLINT", LegacyDataTypeNormalizer.normalizeDb2("S"));
         assertEquals("SMALLINT", LegacyDataTypeNormalizer.normalizeDb2("SMALL"));
+        assertEquals("CHAR", LegacyDataTypeNormalizer.normalizeDb2("C"));
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.db2TypeStatus("C"));
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.sourceTypeStatus("NVARCHAR"));
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.sourceTypeStatus("NVARCHAR2"));
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.sourceTypeStatus("NCHAR"));
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.sourceTypeStatus("VARCHAR2"));
     }
 
     @Test
@@ -56,6 +70,15 @@ class LegacyDataTypeNormalizerTest {
         assertEquals("", LegacyDataTypeNormalizer.normalizeDb2("PK1"));
         assertEquals(LegacyDataTypeNormalizer.TypeStatus.INVALID_SOURCE_TOKEN,
                 LegacyDataTypeNormalizer.db2TypeStatus("IX4"));
+    }
+
+    @Test
+    void doesNotMisclassifyXmlAsLegacyXIndexToken() {
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.sourceTypeStatus("Xml"));
+        assertEquals(LegacyDataTypeNormalizer.TypeStatus.TRUSTED,
+                LegacyDataTypeNormalizer.db2TypeStatus("XML"));
+        assertEquals("XML", LegacyDataTypeNormalizer.normalizeDb2("XML"));
     }
 
     @Test

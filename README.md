@@ -24,9 +24,27 @@ The SQL file contains all objects related to that Word specification in one file
 
 Legacy Word defaults are normalized before they enter the canonical `Column.defaultValue`. A cell such as `0 1- دائم 2- موقت` is reduced to executable `0`; an unsafe value that cannot be reduced conservatively is omitted from the DDL and reported in recovery metadata rather than emitted as invalid SQL.
 
-Oracle rendering additionally bounds `NUMBER(p)` to `p <= 38`, `NUMBER(p,s)` to `s <= 127`, and `TIMESTAMP(p)` to `p <= 9`. Every production Oracle write path runs `OracleDdlSanityChecker` immediately before `Files.writeString`; a script containing leaked explanatory text or an out-of-range precision fails the generation item and is not written.
+Oracle exact-numeric precision above 38 is now a blocking datatype-compatibility error; it is not silently clamped to 38. Oracle NUMBER scale above the current bound and TIMESTAMP precision above the current bound remain explicit review findings where the existing dialect performs a bounded rendering. Every production Oracle write path runs `OracleDdlSanityChecker` immediately before `Files.writeString`; a script containing leaked explanatory text or invalid Oracle syntax is not published.
 
-The recursive Word batch path records the affected document as failed and continues with the remaining documents, preserving batch-level diagnostics without publishing a syntactically unsafe Oracle file.
+The recursive Word/bulk path records a blocking mapping as a diagnostic item and continues with the remaining documents rather than publishing a guessed or syntactically unsafe Oracle file.
+
+
+## Final single-file DBA DDL contract
+
+For every source specification whose target-database datatype mapping is renderable, the DBMS SQL artifact is self-contained for DBA review. The production `DdlGenerator` emits the following information in one file, in execution-aware order:
+
+1. validation/datatype findings at the top of the script when findings exist;
+2. DBMS preamble and source/schema metadata;
+3. schema bootstrap/provisioning statement or DBA template;
+4. sequences required by the table model;
+5. `CREATE TABLE`, columns, primary key, active placement, and inline physical-review block;
+6. DBMS-required enforcing indexes, check constraints, unique constraints, and standalone indexes;
+7. physical foreign keys plus FK supporting-index recommendations when coverage is missing;
+8. table/column descriptions (`COMMENT` or SQL Server extended properties);
+9. grants as the final executable statements;
+10. SchemaForge object summary and generation footer.
+
+Physical recommendations remain non-executable comments. Source/validation issues remain visible in the SQL file and are never silently converted into active tuning. A fatal datatype mapping does not produce a guessed SQL file; the bulk generation report records the document as `GENERATION_BLOCKED_BY_MAPPING`. This is the final Phase-1 DBA delivery contract; no additional companion file is required to understand a successfully generated table script.
 
 ## Canonical JSON snapshot cache
 

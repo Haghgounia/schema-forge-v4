@@ -2011,15 +2011,22 @@ final class DocTableExtractor {
             for (int rowIndex = 0; rowIndex < table.size(); rowIndex++) {
                 List<String> sourceCells = table.get(rowIndex);
                 List<List<String>> logicalRows = splitMergedDefinitionRow(sourceCells, layout);
+                if (logicalRows.size() == 1) {
+                    logicalRows = LegacyFlatRowReconstructor.split(sourceCells, layout);
+                }
                 boolean mergedSplit = logicalRows.size() > 1;
                 if (mergedSplit) {
+                    boolean flatRecovery = !TextNormalizer.hasStructuredCellParagraphs(cellValue(sourceCells, 1));
                     tableWarnings.add(new ExtractionWarning(
                             Severity.INFO,
-                            "MERGED_DEFINITION_ROW_SPLIT",
+                            flatRecovery ? "FLAT_MERGED_DEFINITION_ROW_SPLIT" : "MERGED_DEFINITION_ROW_SPLIT",
                             null,
                             rowIndex,
-                            "A physical Word row contained several aligned field definitions and was split into "
-                                    + logicalRows.size() + " logical rows.",
+                            flatRecovery
+                                    ? "A flattened physical Word row contained several one-to-one field/type definitions and was split into "
+                                            + logicalRows.size() + " logical rows without guessing structural ownership."
+                                    : "A physical Word row contained several paragraph-aligned field definitions and was split into "
+                                            + logicalRows.size() + " logical rows.",
                             TextNormalizer.cleanCell(cellValue(sourceCells, 1))
                     ));
                 }
@@ -2142,9 +2149,18 @@ final class DocTableExtractor {
         // repeat one or two boundary fields. Deduplicate once more across all selected
         // tables so those repeated continuation rows do not become duplicate columns.
         List<ColumnDefinition> globallyDeduplicated = deduplicateDefinitionRows(combined, warnings);
-        List<ColumnDefinition> columns = new ArrayList<>(globallyDeduplicated.size());
+
+        // Recovery7: a few DOCX rows can still reach this point as one synthetic column even
+        // though their retained raw cells contain a deterministic one-to-one field/type split.
+        // Recover only from the ColumnDefinition raw-cell evidence already accepted by the low-
+        // level parser. LegacyFlatRowReconstructor remains the single structural validator; if
+        // any key/index/mandatory/physical/default cell cannot be mapped without guessing, the
+        // column is left untouched.
+        List<ColumnDefinition> postRecovered = LegacyPostExtractionMergedColumnRecovery.recover(globallyDeduplicated, warnings);
+
+        List<ColumnDefinition> columns = new ArrayList<>(postRecovered.size());
         int sequence = 0;
-        for (ColumnDefinition column : globallyDeduplicated) {
+        for (ColumnDefinition column : postRecovered) {
             columns.add(copyWithSequence(column, ++sequence));
         }
 
@@ -2504,6 +2520,24 @@ final class DocTableExtractor {
                 continue;
             }
 
+            // Recovery5: do not let a later row with an unresolvable datatype overwrite an
+            // earlier definition that already has deterministic type evidence. This occurs in
+            // legacy documents that contain a second descriptive/mapping table with the same
+            // technical labels (for example a valid N(6) definition followed by a row whose
+            // apparent datatype is the heading text "ParamDesc"). When both definitions are
+            // resolvable we preserve the existing revision rule and keep the later row.
+            if (hasResolvableTypeEvidence(existing) && !hasResolvableTypeEvidence(column)) {
+                warnings.add(new ExtractionWarning(
+                        Severity.INFO,
+                        "DUPLICATE_UNRELIABLE_DEFINITION_SKIPPED",
+                        column.fieldName(),
+                        column.sourceRowIndex(),
+                        "A later duplicate row was ignored because it had no resolvable datatype while the earlier definition did.",
+                        summarizeDefinition(existing) + " <- kept over -> " + summarizeDefinition(column)
+                ));
+                continue;
+            }
+
             // Old design documents often append a changed field definition at the end of
             // the same table instead of editing the original row. A database table cannot
             // contain the same technical column twice, so the later explicit definition is
@@ -2519,6 +2553,20 @@ final class DocTableExtractor {
             ));
         }
         return List.copyOf(result);
+    }
+
+    private boolean hasResolvableTypeEvidence(ColumnDefinition column) {
+        String logical = TextNormalizer.cleanCell(column.typeRaw());
+        if (!logical.isBlank()
+                && !"S".equalsIgnoreCase(logical)
+                && LegacyDataTypeNormalizer.sourceTypeStatus(logical)
+                        == LegacyDataTypeNormalizer.TypeStatus.TRUSTED) {
+            return true;
+        }
+        String physical = TextNormalizer.cleanCell(column.db2TypeRaw());
+        return !physical.isBlank()
+                && LegacyDataTypeNormalizer.db2TypeStatus(physical)
+                        == LegacyDataTypeNormalizer.TypeStatus.TRUSTED;
     }
 
     private boolean sameEffectiveDefinition(ColumnDefinition left, ColumnDefinition right) {
