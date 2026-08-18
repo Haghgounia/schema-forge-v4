@@ -68,10 +68,14 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(15, entries.size());
+        assertEquals(17, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.containsKey("model.json"));
         assertTrue(entries.containsKey("manifest.json"));
+        String mermaidName = entryName(entries, "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.mermaid\\.mmd");
+        String graphvizName = entryName(entries, "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.graphviz\\.dot");
+        assertTrue(new String(entries.get(mermaidName), StandardCharsets.UTF_8).contains("erDiagram"));
+        assertTrue(new String(entries.get(graphvizName), StandardCharsets.UTF_8).contains("digraph"));
         String timestamp = timestampFrom(entryName(entries,
                 "oracle/FEE\\.FEE_VERSION_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
         assertTrue(entries.containsKey("oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.sql"));
@@ -108,6 +112,8 @@ class SchemaForgeEaPerTableOutputTest {
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         assertEquals(2, manifest.path("tableCount").asInt());
+        assertEquals(mermaidName, manifest.path("mermaid").asText());
+        assertEquals(graphvizName, manifest.path("graphviz").asText());
         assertEquals(2, manifest.path("tables").size());
     }
 
@@ -151,7 +157,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(23, entries.size());
+        assertEquals(25, entries.size());
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));
@@ -220,6 +226,43 @@ class SchemaForgeEaPerTableOutputTest {
         String summary = new String(entries.get(summaryName), StandardCharsets.UTF_8);
         assertTrue(summary.contains("oracle/crud/"));
         assertTrue(summary.contains("sqlserver/crud/"));
+    }
+
+    @Test
+    void shouldSkipCrudWithoutFailureWhenEaTableHasNoPrimaryKey() throws Exception {
+        Path source = TestSamplePaths.EA_SAMPLE;
+        String xml = Files.readString(source, StandardCharsets.UTF_8)
+                .replaceAll("(?s)<UML:Operation name=\"PK_[^\"]*\">.*?</UML:Operation>", "");
+
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(MetadataRepository.empty());
+
+        SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
+        spellCheck.setEnabled(false);
+        EaImportProperties ea = EaImportProperties.defaults();
+        ea.setDefaultSchema("FEE");
+
+        SchemaForgeApiService service = new SchemaForgeApiService(
+                AuditProperties.defaults(), GrantProperties.defaults(), spellCheck,
+                new ObjectMapper(), resolver, ea);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "ea-no-pk.xml", "application/xml", xml.getBytes(StandardCharsets.UTF_8));
+
+        Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
+
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.startsWith("oracle/FEE.REGULATORY_RULE_")
+                && name.endsWith(".oracle.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.contains("/crud/")));
+
+        String summaryName = entries.keySet().stream()
+                .filter(name -> name.endsWith(".metadata-crud-summary.csv"))
+                .findFirst().orElseThrow();
+        String summary = new String(entries.get(summaryName), StandardCharsets.UTF_8);
+        assertTrue(summary.contains("SKIPPED_NO_PRIMARY_KEY"));
+        assertFalse(summary.contains("FAILED"));
+        assertFalse(summary.contains("SKIPPED_TABLE_NOT_FOUND"));
     }
 
     @Test

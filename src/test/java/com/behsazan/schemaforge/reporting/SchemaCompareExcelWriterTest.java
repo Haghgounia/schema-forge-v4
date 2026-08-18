@@ -520,4 +520,62 @@ class SchemaCompareExcelWriterTest {
     private static void assertFill(org.apache.poi.ss.usermodel.Cell cell, IndexedColors expected) {
         assertEquals(expected.getIndex(), cell.getCellStyle().getFillForegroundColor());
     }
+    @Test
+    void shouldTreatOracleLogicalIdentityAsEquivalentToExpectedSequenceNextval() throws Exception {
+        Column designId = new Column(
+                Identifier.of("CUSTOMER_ID"),
+                DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue(null), Description.empty(), true, 1);
+        Column actualId = new Column(
+                Identifier.of("CUSTOMER_ID"),
+                DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue("BIM.SEQ_CUSTOMERS.NEXTVAL"),
+                Description.empty(), false, 1);
+
+        Table document = Table.builder("BIM", "CUSTOMERS")
+                .addColumn(designId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"), List.of(Identifier.of("CUSTOMER_ID"))))
+                .build();
+        Table database = Table.builder("BIM", "CUSTOMERS")
+                .addColumn(actualId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"), List.of(Identifier.of("CUSTOMER_ID"))))
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.ORACLE);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var row = findRow(workbook.getSheet("CUSTOMERS"), "CUSTOMER_ID", 2, 12);
+            String diff = row.getCell(21).getStringCellValue();
+            assertFalse(diff.contains("DATA_DEFAULT"));
+            assertFalse(diff.contains("IDENTITY_MODE"));
+        }
+    }
+
+    @Test
+    void shouldNotTreatArbitraryOracleSequenceAsEquivalentToLogicalIdentity() throws Exception {
+        Column designId = new Column(
+                Identifier.of("CUSTOMER_ID"),
+                DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue(null), Description.empty(), true, 1);
+        Column actualId = new Column(
+                Identifier.of("CUSTOMER_ID"),
+                DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue("BIM.OTHER_SEQUENCE.NEXTVAL"),
+                Description.empty(), false, 1);
+
+        Table document = Table.builder("BIM", "CUSTOMERS").addColumn(designId).build();
+        Table database = Table.builder("BIM", "CUSTOMERS").addColumn(actualId).build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.ORACLE);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var row = findRow(workbook.getSheet("CUSTOMERS"), "CUSTOMER_ID", 2, 12);
+            String diff = row.getCell(21).getStringCellValue();
+            assertTrue(diff.contains("DATA_DEFAULT"));
+            assertTrue(diff.contains("IDENTITY_MODE"));
+        }
+    }
+
 }

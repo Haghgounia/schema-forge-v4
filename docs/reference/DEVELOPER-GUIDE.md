@@ -109,7 +109,7 @@ A new platform is not complete merely because `CREATE TABLE` renders.
 Current green baseline:
 
 ```text
-399 tests
+402 tests
 0 failures
 0 errors
 3 skipped

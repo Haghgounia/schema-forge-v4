@@ -1,7 +1,7 @@
 SchemaForge V4 Current Baseline
 Baseline date: 2026-08-17
 Project version: 4.0.0-SNAPSHOT
-Current documented baseline ID: SCHEMAFORGE-V4-DOCFINAL-20260817
+Current documented baseline ID: SCHEMAFORGE-V4-R4-402-20260817
 
 Layer 1 - Physical DDL rendering/model freeze
   baseline : P7 Db2/zOS Index Build Options
@@ -30,7 +30,19 @@ Layer 3 - Documentation finalization
   result          : BUILD SUCCESS
   finished        : 2026-08-17T08:40:09-07:00
   source changes  : none
-  status          : current documented baseline
+  status          : historical documented baseline
+
+Layer 4 - R4 maintenance/current verified baseline
+  parent          : documentation-finalized P8-D baseline
+  changes         : Oracle identity comparison equivalence; EA Mermaid/Graphviz parity; no-PK CRUD skip; compile/test expectation fixes
+  tests           : 402
+  failures        : 0
+  errors          : 0
+  skipped         : 3
+  result          : BUILD SUCCESS
+  finished        : 2026-08-17T23:19:54-07:00
+  source fingerprint: e2b6969837c6a8ce8c34b75b51126bc9fb7cfcad37d4d0795371c99196510a35
+  status          : current verified baseline
 
 Current P8 comparison coverage:
   - TABLE_PHYSICAL_COMPARE: Oracle, PostgreSQL, SQL Server, Db2 for z/OS
@@ -42,7 +54,7 @@ Baseline invariants:
   - actual state is never promoted into design intent or generated DDL
   - no buildOptions are inferred from current database state
   - no parser/snapshot version change in documentation finalization
-  - no production/test Java change in documentation finalization
+  - no production/test Java change in the R4 baseline-documentation finalization packaging step
 
 Current authoritative documentation:
   docs/reference/README.md

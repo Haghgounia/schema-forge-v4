@@ -1,0 +1,6 @@
+SchemaForge V4 R4 current source-tree fingerprint
+
+e2b6969837c6a8ce8c34b75b51126bc9fb7cfcad37d4d0795371c99196510a35  sorted-per-file-src-manifest
+
+Method: SHA-256 of the sorted list of SHA-256 entries for all 367 files under src.
+Verified unchanged by the R4/402 documentation-finalization packaging step.

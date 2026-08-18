@@ -4,7 +4,7 @@
 
 The comparison workbook presents the expected document/specification model next to the actual database metadata model. It is produced only when metadata is enabled and the relevant database table can be resolved.
 
-At the current P8-D baseline, a workbook can contain nine sheets.
+At the current R4 baseline, the frozen P8-D workbook contract can contain nine sheets.
 
 ## 2. Sheet inventory
 
@@ -156,6 +156,13 @@ The three physical sheets share:
 
 See [Physical metadata comparison](PHYSICAL-METADATA-COMPARISON.md) for exact semantics.
 
-## 10. Reporting boundary
+
+## 10. Oracle logical identity equivalence
+
+For the historical column comparison sheet, an EA logical identity is considered equivalent to an Oracle sequence-backed default only when the database default uses the deterministic SchemaForge sequence expected for that exact table/column. In that narrow case, `IDENTITY_MODE` and `DATA_DEFAULT` are not reported as differences.
+
+An arbitrary or unrelated `sequence.NEXTVAL` remains a mismatch. This is a comparison rule only; it does not infer or rewrite design intent.
+
+## 11. Reporting boundary
 
 The workbook is a report, not a migration-plan generator. A `MISMATCH` means the expected and actual comparable values differ; it does not automatically authorize an ALTER/REBUILD operation.

@@ -1,0 +1,28 @@
+SchemaForge V4 R4 Maintenance Baseline
+Baseline ID: SCHEMAFORGE-V4-R4-402-20260817
+Parent: SCHEMAFORGE-V4-DOCFINAL-20260817 / P8-D
+
+User-verified regression:
+  tests    : 402
+  failures : 0
+  errors   : 0
+  skipped  : 3
+  result   : BUILD SUCCESS
+  total    : 02:29 min
+  finished : 2026-08-17T23:19:54-07:00
+
+Included maintenance changes:
+  - Oracle EA logical identity vs deterministic SchemaForge sequence-backed default comparison equivalence
+  - Mermaid and Graphviz artifacts in EA create-table REST output and manifest
+  - tables without explicit PK keep DDL/Excel/graphs; metadata CRUD is SKIPPED_NO_PRIMARY_KEY
+  - QualifiedName import compile fix
+  - EA output test count updated from 23 to 25 after graph parity
+
+No-guess invariants:
+  - arbitrary sequence NEXTVAL is not identity-equivalent
+  - *_ID naming does not imply primary key
+  - database actual state remains comparison evidence only
+  - buildOptions are not inferred from current database state
+
+Current source-tree fingerprint:
+  e2b6969837c6a8ce8c34b75b51126bc9fb7cfcad37d4d0795371c99196510a35

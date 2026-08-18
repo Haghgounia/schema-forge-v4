@@ -20,7 +20,7 @@ OpenAPI JSON: `http://localhost:9090/v3/api-docs`
 - `POST /api/v1/generate/oracle/crud` — JSON body with Oracle `schema` and `table`; returns one `application/sql` CRUD package generated from live Oracle metadata
 - `POST /api/v1/generate/sqlserver/crud` — JSON body with SQL Server `schema` and `table`; returns one `application/sql` CRUD procedure script generated from live SQL Server metadata
 
-The Word, ZIP, and EA endpoints return `application/zip`. The Oracle CRUD endpoint returns one downloadable `application/sql` file. Word and Word-ZIP inputs keep the timestamped document-level output and include Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL. EA XML/XMI input produces one SQL file per table for all four registered dialects, consolidated `model.json` and `manifest.json`, dialect-specific `run_all.sql` files, and one comparison workbook per visible database table and metadata-enabled dialect.
+The Word, ZIP, and EA endpoints return `application/zip`. The Oracle CRUD endpoint returns one downloadable `application/sql` file. Word and Word-ZIP inputs keep the timestamped document-level output and include Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL. EA XML/XMI input produces one SQL file per table for all four registered dialects, consolidated `model.json` and `manifest.json`, Mermaid and Graphviz graph artifacts, dialect-specific `run_all.sql` files, and one comparison workbook per visible database table and metadata-enabled dialect. The EA manifest records the Mermaid/Graphviz artifact paths.
 
 For ZIP input, each Word document is isolated. Temporary Office files such as `~$*.docx`, hidden dot files, AppleDouble files, and `__MACOSX` entries are ignored. A malformed or non-specification Word document no longer aborts the whole request; successful documents are generated and the returned archive always includes:
 
@@ -41,7 +41,7 @@ schemaforge:
 
 The value may also be supplied with the `SCHEMAFORGE_EA_DEFAULT_SCHEMA` environment variable. An explicit EA schema/owner tagged value takes precedence over the configured fallback.
 
-The EA importer reads table classes, ordered columns, datatype/length/precision/scale, nullability, descriptions, primary keys, foreign keys and standalone indexes. All imported objects enter the same canonical model used by Word input, so Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL share the same database-neutral JSON and validation pipeline. Comparison workbooks are produced only for dialects with an available metadata repository.
+The EA importer reads table classes, ordered columns, datatype/length/precision/scale, nullability, descriptions, primary keys, foreign keys and standalone indexes. All imported objects enter the same canonical model used by Word input, so Oracle, PostgreSQL, Db2 for z/OS, and SQL Server DDL share the same database-neutral JSON and validation pipeline. Comparison workbooks are produced only for dialects with an available metadata repository. A table without an explicit PK remains a valid DDL input; metadata CRUD generation is skipped as `SKIPPED_NO_PRIMARY_KEY` and no PK is inferred from naming or identity/sequence behavior.
 
 
 ## Oracle metadata CRUD package

@@ -1159,3 +1159,34 @@
 - Updated `BASELINE-MANIFEST.txt` and added `DOCUMENTATION-MANIFEST.txt` for the current documented baseline `SCHEMAFORGE-V4-DOCFINAL-20260817`.
 - Recorded the latest user-verified regression: 399 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS, finished 2026-08-17T08:40:09-07:00.
 - Documentation-only finalization: no production Java, test Java, parser, snapshot, datatype, dialect, physical renderer, API, or DDL behavior changed.
+
+## 2026-08-17 - EA Excel identity equivalence and REST graph parity
+
+- Treat an EA logical identity column as equivalent to Oracle's persisted sequence-backed default only when the database default is the deterministic SchemaForge sequence for that exact table/column (`SEQ_<TABLE>[ _<COLUMN>].NEXTVAL`).
+- Suppress both `IDENTITY_MODE` and `DATA_DEFAULT` false-positive differences for that exact equivalence; arbitrary sequences remain mismatches.
+- Add Mermaid and Graphviz artifacts to EA XML generation so all create-table REST generation paths include graph outputs.
+- Add Mermaid/Graphviz paths to the EA output manifest.
+- No parser, canonical-domain, DDL-renderer, physical-option, or metadata-comparison semantics were changed.
+
+## 2026-08-17 - EA tables without primary keys
+
+- REST create-table workflows now treat a document table without a primary key as a valid DDL case.
+- Metadata CRUD generation is skipped with `SKIPPED_NO_PRIMARY_KEY` instead of falling through to generator failure.
+- The same explicit skip is used when the live metadata table exists but itself has no primary key.
+- DDL, comparison output, Mermaid, and Graphviz generation remain unaffected.
+- No primary key is inferred from `*_ID` naming or identity/sequence behavior.
+
+## 2026-08-17 - R3 compile fix
+- Fixed missing `QualifiedName` import in `SchemaCompareExcelWriter`.
+- No production behavior change; Identity comparison and no-PK CRUD skip logic are unchanged.
+
+## 2026-08-17 - R4 EA output regression expectation fix
+- Updated `SchemaForgeEaPerTableOutputTest` to expect 25 EA output artifacts instead of the historical 23 after Mermaid and Graphviz were added to the create-table REST output.
+- No production behavior changed in R4.
+
+## 2026-08-17 - R4/402 current baseline documentation finalization
+- Recorded the user-verified full Maven result: 402 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS, finished 2026-08-17T23:19:54-07:00.
+- Promoted `SCHEMAFORGE-V4-R4-402-20260817` as the current verified baseline, built on the P8-D/documentation-finalized baseline.
+- Updated current reference documentation for Oracle identity comparison equivalence, EA Mermaid/Graphviz REST parity, and explicit `SKIPPED_NO_PRIMARY_KEY` CRUD behavior.
+- Added `docs/baselines/2026-08-17/R4-MAINTENANCE-MANIFEST.txt`.
+- Documentation-only packaging step: no production or test Java change.

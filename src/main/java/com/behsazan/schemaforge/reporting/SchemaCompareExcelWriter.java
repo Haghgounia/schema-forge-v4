@@ -13,6 +13,7 @@ import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
 import com.behsazan.schemaforge.metadata.validation.PhysicalComparisonRow;
 import com.behsazan.schemaforge.metadata.validation.PhysicalComparisonStatus;
@@ -703,11 +704,14 @@ public final class SchemaCompareExcelWriter {
             result.add("DATA_TYPE");
         }
         if (document.nullable() != database.nullable()) result.add("NULLABLE");
-        if (!normalizeDefault(document.defaultValue().expression())
+        boolean sequenceBackedIdentityEquivalent = sequenceBackedIdentityEquivalent(
+                documentTable, document, database, dialect);
+        if (!sequenceBackedIdentityEquivalent
+                && !normalizeDefault(document.defaultValue().expression())
                 .equals(normalizeDefault(database.defaultValue().expression()))) result.add("DATA_DEFAULT");
         if (!normalizeText(document.description().value())
                 .equals(normalizeText(database.description().value()))) result.add("COMMENTS");
-        if (!identityEquivalent(document, database)) result.add("IDENTITY_MODE");
+        if (!identityEquivalent(documentTable, document, database, dialect)) result.add("IDENTITY_MODE");
         if (!primaryKeyDefinitions(documentTable, document.name())
                 .equals(primaryKeyDefinitions(databaseTable, database.name()))) result.add("PRIMARY_KEY");
         if (!foreignKeyDefinitions(documentTable, document.name())
@@ -1034,13 +1038,48 @@ public final class SchemaCompareExcelWriter {
         return depth == 0;
     }
 
-    private static boolean identityEquivalent(Column document, Column database) {
+    private static boolean identityEquivalent(
+            Table documentTable, Column document, Column database, Dialect dialect) {
         if (document.identity() == database.identity()) return true;
         String documentDefault = normalizeDefault(document.defaultValue().expression());
         String databaseDefault = normalizeDefault(database.defaultValue().expression());
-        return document.identity() && !database.identity()
+        if (document.identity() && !database.identity()
                 && !documentDefault.isBlank()
-                && documentDefault.equals(databaseDefault);
+                && documentDefault.equals(databaseDefault)) {
+            return true;
+        }
+        return sequenceBackedIdentityEquivalent(documentTable, document, database, dialect);
+    }
+
+    /**
+     * Oracle implements SchemaForge logical identity columns with the deterministic
+     * SEQ_<TABLE>[ _<COLUMN>] sequence. Treat that exact persisted NEXTVAL default
+     * as semantically equivalent to the EA logical IDENTITY marker. Arbitrary
+     * sequences are deliberately not accepted.
+     */
+    private static boolean sequenceBackedIdentityEquivalent(
+            Table documentTable, Column document, Column database, Dialect dialect) {
+        if (!document.identity() || database.identity() || !dialect.identityUsesNamedSequence()) {
+            return false;
+        }
+        if (document.defaultValue().isPresent()) {
+            return false;
+        }
+        String databaseDefault = normalizeSequenceReference(database.defaultValue().expression());
+        if (databaseDefault.isBlank()) {
+            return false;
+        }
+        long identityCount = documentTable.columns().stream().filter(Column::identity).count();
+        QualifiedName expectedSequence = dialect.identitySequenceName(
+                documentTable.qualifiedName(), document, identityCount > 1);
+        String expected = normalizeSequenceReference(expectedSequence + ".NEXTVAL");
+        String expectedUnqualified = normalizeSequenceReference(
+                expectedSequence.name().value() + ".NEXTVAL");
+        return expected.equals(databaseDefault) || expectedUnqualified.equals(databaseDefault);
+    }
+
+    private static String normalizeSequenceReference(String value) {
+        return normalizeDefault(value).replace("\"", "");
     }
 
     private static boolean containsIdentifier(String expression, String normalizedColumn) {

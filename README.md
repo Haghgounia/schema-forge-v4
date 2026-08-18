@@ -80,7 +80,7 @@ The offline CLI does not require a JDBC connection. REST metadata validation and
 
 The authoritative current documentation starts at [`docs/reference/README.md`](docs/reference/README.md). It consolidates architecture, canonical domain model, inputs/outputs, the four-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, the no-guess policy, known limitations, developer guidance, testing, and the current release baseline.
 
-Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 399-test baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
+Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 402-test R4 maintenance baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
 
 ## V4 DBMS-neutral DDL refactoring
 
@@ -397,3 +397,7 @@ Physical DDL rendering/model work P0-P7 remains frozen on the 2026-08-17 P7 base
 Physical Metadata Comparison P8-A/P8-B/P8-C is frozen by P8-D on the user-verified `399`-test baseline with `0` failures, `0` errors and `3` skipped tests. P8 adds expected-vs-actual Excel comparison only: actual database catalog state does not become design intent and is not fed into generated DDL. See `docs/P8D-PHYSICAL-COMPARISON-BASELINE-FREEZE.md`.
 
 Remaining Oracle LOB, PostgreSQL table-access-method/partition, SQL Server TEXTIMAGE/FILESTREAM/partition, and Db2 recovery/organization/partition semantics require dedicated modeling rather than more generic physical options.
+
+### Tables without primary keys
+
+Create-table REST workflows support tables that have no explicit primary key. DDL and diagram/report artifacts are still generated. Metadata-based Oracle/SQL Server CRUD artifacts are not generated for such tables; the metadata CRUD summary records `SKIPPED_NO_PRIMARY_KEY`. SchemaForge does not infer a primary key from column names such as `*_ID`.

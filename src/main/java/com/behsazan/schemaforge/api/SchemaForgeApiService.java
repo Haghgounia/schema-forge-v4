@@ -506,6 +506,15 @@ public class SchemaForgeApiService {
             String schemaName = tableSchema(documentSchema, documentTable);
             String tableName = documentTable.qualifiedName().name().value();
 
+            if (documentTable.primaryKey().isEmpty()) {
+                summary.add(csvLine(platform.name(), schemaName, tableName,
+                        "SKIPPED_NO_PRIMARY_KEY", "",
+                        "Document table has no primary key"));
+                LOGGER.info("[{}] REST CRUD artifact skipped; document table has no primary key: {}.{}",
+                        platform.name(), schemaName, tableName);
+                continue;
+            }
+
             if (!repository.available()) {
                 summary.add(csvLine(platform.name(), schemaName, tableName,
                         "SKIPPED_REPOSITORY_DISABLED", "",
@@ -520,6 +529,14 @@ public class SchemaForgeApiService {
                             "SKIPPED_TABLE_NOT_FOUND", "",
                             "Live table was not found"));
                     LOGGER.warn("[{}] REST CRUD artifact skipped; live table not found: {}.{}",
+                            platform.name(), schemaName, tableName);
+                    continue;
+                }
+                if (liveTable.get().primaryKey().isEmpty()) {
+                    summary.add(csvLine(platform.name(), schemaName, tableName,
+                            "SKIPPED_NO_PRIMARY_KEY", "",
+                            "Live table has no primary key"));
+                    LOGGER.info("[{}] REST CRUD artifact skipped; live table has no primary key: {}.{}",
                             platform.name(), schemaName, tableName);
                     continue;
                 }
@@ -639,7 +656,10 @@ public class SchemaForgeApiService {
             writeEaRunAll(schema, sqlDirectory, platform, dependencyOrder, baseName, timestamp);
         }
 
-        writeMetadataCrudArtifacts(schema, output, baseName + "_" + timestamp, timestamp);
+        String timestampedBaseName = baseName + "_" + timestamp;
+        writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
+        writeMermaidArtifact(schema, output, timestampedBaseName);
+        writeGraphvizArtifact(schema, output, timestampedBaseName);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
@@ -655,6 +675,8 @@ public class SchemaForgeApiService {
                 .map(table -> table.qualifiedName().toString()).toList());
         manifest.put("cyclicTables", dependencyOrder.cyclicTables().stream()
                 .map(table -> table.qualifiedName().toString()).toList());
+        manifest.put("mermaid", timestampedBaseName + ".mermaid.mmd");
+        manifest.put("graphviz", timestampedBaseName + ".graphviz.dot");
         manifest.put("tables", new ArrayList<>(manifestTables.values()));
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(output.resolve("manifest.json").toFile(), manifest);
     }
