@@ -260,6 +260,7 @@ public final class DdlGenerator {
     }
 
     private String createTable(Table table, SqlIssueCatalog issueCatalog, MetadataComparisonResult metadata) {
+        dialect.validateTable(table);
         List<Column> columns = new ArrayList<>(table.columns());
         columns.sort(Comparator.comparing(Column::ordinalPosition, Comparator.nullsLast(Comparator.naturalOrder())));
 
@@ -300,6 +301,12 @@ public final class DdlGenerator {
         String physicalComment = physicalCommentRenderer.tableOptions(
                 table, !activePlacement.isBlank());
         sql.append(dialect.tableTailWithPhysical(activePlacement, physicalComment));
+        String tableComment = table.persianName().isEmpty()
+                ? table.description().value()
+                : table.persianName().value();
+        if (!tableComment.isBlank()) {
+            sql.append(dialect.inlineTableCommentClause(tableComment));
+        }
         return sql.append(dialect.statementTerminator()).toString();
     }
 
@@ -333,6 +340,9 @@ public final class DdlGenerator {
         if (!column.nullable()
                 && (!column.generated() || dialect.generatedColumnIncludesNullability())) {
             sql.append(" NOT NULL");
+        }
+        if (!column.description().isEmpty()) {
+            sql.append(dialect.inlineColumnCommentClause(column));
         }
         return sql.toString();
     }
@@ -632,6 +642,9 @@ public final class DdlGenerator {
     }
 
     private void addComments(List<String> statements, Table table) {
+        if (dialect.commentsInline()) {
+            return;
+        }
         String tableComment = table.persianName().isEmpty()
                 ? table.description().value()
                 : table.persianName().value();
@@ -685,7 +698,9 @@ public final class DdlGenerator {
     private List<Sequence> emittedSequences(DatabaseSchema schema) {
         Map<String, Sequence> sequences = new LinkedHashMap<>();
         for (Sequence sequence : schema.sequences()) {
-            sequences.put(sequence.qualifiedName().toString().toUpperCase(Locale.ROOT), sequence);
+            if (dialect.emitSequence(schema, sequence)) {
+                sequences.put(sequence.qualifiedName().toString().toUpperCase(Locale.ROOT), sequence);
+            }
         }
         if (dialect.identityUsesNamedSequence()) {
             for (Table table : schema.tables()) {

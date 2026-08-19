@@ -51,6 +51,7 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("postgresql/") && name.endsWith(".postgresql.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("db2zos/") && name.endsWith(".db2zos.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("sqlserver/") && name.endsWith(".sqlserver.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mysql/") && name.endsWith(".mysql.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("json/") && name.endsWith(".json")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mermaid/tables/") && name.endsWith(".mermaid.mmd")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("graphviz/tables/") && name.endsWith(".graphviz.dot")));

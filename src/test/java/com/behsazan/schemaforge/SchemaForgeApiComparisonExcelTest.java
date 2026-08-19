@@ -53,6 +53,8 @@ class SchemaForgeApiComparisonExcelTest {
             "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.xlsx");
     private static final Pattern SQLSERVER_COMPARE = Pattern.compile(
             "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.xlsx");
+    private static final Pattern MYSQL_COMPARE = Pattern.compile(
+            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.mysql\\.xlsx");
 
     @Test
     void shouldAddComparisonWorkbookForEachDatabaseWhenTableAlreadyExists() throws Exception {
@@ -96,7 +98,7 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(16, entries.size());
+        assertEquals(18, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "oracle/crud/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
@@ -115,11 +117,14 @@ class SchemaForgeApiComparisonExcelTest {
                 .findFirst().orElseThrow();
         String sqlServerName = entries.keySet().stream().filter(name -> SQLSERVER_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();
+        String mysqlName = entries.keySet().stream().filter(name -> MYSQL_COMPARE.matcher(name).matches())
+                .findFirst().orElseThrow();
 
         verifyWorkbook(entries.get(oracleName));
         verifyWorkbook(entries.get(postgresqlName));
         verifyWorkbook(entries.get(db2ZosName));
         verifyWorkbook(entries.get(sqlServerName));
+        verifyWorkbook(entries.get(mysqlName));
     }
 
     private static void verifyWorkbook(byte[] content) throws Exception {

@@ -797,6 +797,7 @@ public class SchemaForgeApiService {
                 case POSTGRESQL -> script.append("\\ir ").append(fileName);
                 case DB2_ZOS -> script.append("-- Execute in this order: ").append(fileName);
                 case SQLSERVER -> script.append(":r ").append(fileName);
+                case MYSQL -> script.append("-- Execute in this order: ").append(fileName);
             }
             script.append(System.lineSeparator());
         }

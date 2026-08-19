@@ -32,6 +32,7 @@ public class MetadataRepositoryResolver {
             case POSTGRESQL -> postgresql.getIfAvailable();
             case DB2_ZOS -> db2zos.getIfAvailable();
             case SQLSERVER -> sqlserver.getIfAvailable();
+            case MYSQL -> null; // MySQL JDBC metadata starts in the dedicated metadata phase.
         };
         return repository == null ? MetadataRepository.empty() : repository;
     }

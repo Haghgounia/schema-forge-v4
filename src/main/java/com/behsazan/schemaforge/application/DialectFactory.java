@@ -3,6 +3,7 @@ package com.behsazan.schemaforge.application;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
+import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
@@ -21,6 +22,7 @@ public final class DialectFactory {
             case POSTGRESQL -> new PostgreSqlDialect(resolveNumericMappingStrategy());
             case DB2_ZOS -> new Db2ZosDialect(resolveNumericMappingStrategy());
             case SQLSERVER -> new SqlServerDialect(resolveNumericMappingStrategy());
+            case MYSQL -> new MySqlDialect();
         };
     }
 

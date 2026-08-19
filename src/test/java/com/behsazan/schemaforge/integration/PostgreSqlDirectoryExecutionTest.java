@@ -44,7 +44,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * not SQL. The splitter removes those lines before JDBC execution while preserving SQL comments, quoted
  * strings, quoted identifiers, and dollar-quoted bodies.</p>
  *
- * <p>Use only a disposable validation database/schema when {@code dropBeforeCreate=true}.</p>
+ * <p>Use only a disposable validation database/schema when {@code dropBeforeCreate=true}. When enabled,
+ * tables and explicit {@code CREATE SEQUENCE} objects found in each script are dropped before replay.</p>
  */
 class PostgreSqlDirectoryExecutionTest {
 
@@ -60,10 +61,14 @@ class PostgreSqlDirectoryExecutionTest {
             "(?is)^\\s*CREATE\\s+(?:(?:UNLOGGED|TEMP|TEMPORARY)\\s+)?TABLE\\s+"
                     + "(?:IF\\s+NOT\\s+EXISTS\\s+)?(" + QUALIFIED_NAME + ")");
 
+    private static final Pattern CREATE_SEQUENCE = Pattern.compile(
+            "(?is)^\\s*CREATE\\s+SEQUENCE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(" + QUALIFIED_NAME + ")");
+
     private static final Pattern OBJECT_NAME = Pattern.compile(
             "(?is)^\\s*(?:CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?"
                     + "|CREATE\\s+(?:(?:UNLOGGED|TEMP|TEMPORARY)\\s+)?TABLE\\s+"
                     + "(?:IF\\s+NOT\\s+EXISTS\\s+)?"
+                    + "|CREATE\\s+SEQUENCE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?"
                     + "|ALTER\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?(?:ONLY\\s+)?"
                     + ")(" + QUALIFIED_NAME + ")");
 
@@ -74,16 +79,21 @@ class PostgreSqlDirectoryExecutionTest {
                 "Set postgresql.sql.root, postgresql.jdbc.url and postgresql.jdbc.user to run this test.");
         config.validate();
 
-        List<Path> files = findSqlFiles(config.root(), config.fileSuffix(), config.maxFiles());
-        if (files.isEmpty()) {
+        List<Path> discoveredFiles = findSqlFiles(config.root(), config.fileSuffix(), config.maxFiles());
+        if (discoveredFiles.isEmpty()) {
             fail("No PostgreSQL SQL files found below " + config.root()
                     + " with suffix " + config.fileSuffix());
         }
+        if (config.startFileNumber() > discoveredFiles.size()) {
+            fail("postgresql.sql.startFileNumber=" + config.startFileNumber()
+                    + " exceeds discovered file count " + discoveredFiles.size());
+        }
+        List<Path> files = discoveredFiles.subList(config.startFileNumber() - 1, discoveredFiles.size());
 
         Path reportDir = config.reportBase().resolve(LocalDateTime.now().format(RUN_ID));
         Files.createDirectories(reportDir);
 
-        RunReport report = new RunReport(config, reportDir, files.size());
+        RunReport report = new RunReport(config, reportDir, discoveredFiles.size(), files.size());
         Instant runStarted = Instant.now();
         Throwable fatal = null;
 
@@ -99,14 +109,14 @@ class PostgreSqlDirectoryExecutionTest {
                 report.readDatabaseInfo(connection);
                 report.readExpectedSchemaInfo(connection);
 
-                int sequence = 0;
+                int sequence = config.startFileNumber() - 1;
                 for (Path file : files) {
                     sequence++;
                     executeFile(connection, config, report, file, sequence);
-                    if (sequence % config.progressEveryFiles() == 0 || sequence == files.size()) {
+                    if (sequence % config.progressEveryFiles() == 0 || sequence == discoveredFiles.size()) {
                         System.out.printf(Locale.ROOT,
                                 "PostgreSQL scripts: %,d / %,d, statements=%,d, errors=%,d%n",
-                                sequence, files.size(), report.executed(), report.failed());
+                                sequence, discoveredFiles.size(), report.executed(), report.failed());
                     }
                 }
             }
@@ -147,6 +157,7 @@ class PostgreSqlDirectoryExecutionTest {
         int ignored = 0;
         List<SqlUnit> statements;
         Set<String> tables = new LinkedHashSet<>();
+        Set<String> sequences = new LinkedHashSet<>();
 
         try {
             String script = Files.readString(file, StandardCharsets.UTF_8);
@@ -154,9 +165,14 @@ class PostgreSqlDirectoryExecutionTest {
             statements = split.statements();
             report.psqlCommandsSkipped += split.psqlCommandsSkipped();
             for (SqlUnit unit : statements) {
-                Matcher matcher = CREATE_TABLE.matcher(stripLeadingComments(unit.sql()));
+                String executableSql = stripLeadingComments(unit.sql());
+                Matcher matcher = CREATE_TABLE.matcher(executableSql);
                 if (matcher.find()) {
                     tables.add(normalizeName(matcher.group(1)));
+                }
+                Matcher sequenceMatcher = CREATE_SEQUENCE.matcher(executableSql);
+                if (sequenceMatcher.find()) {
+                    sequences.add(normalizeName(sequenceMatcher.group(1)));
                 }
             }
         } catch (Exception exception) {
@@ -167,6 +183,9 @@ class PostgreSqlDirectoryExecutionTest {
         if (config.dropBeforeCreate()) {
             for (String table : tables) {
                 dropTable(connection, config, report, file, fileSequence, table);
+            }
+            for (String sequence : sequences) {
+                dropSequence(connection, config, report, file, fileSequence, sequence);
             }
         }
 
@@ -235,7 +254,7 @@ class PostgreSqlDirectoryExecutionTest {
             String table) throws SQLException {
 
         verifyDestructiveTableOwner(table, config.expectedSchema());
-        String sql = "DROP TABLE IF EXISTS " + table + " CASCADE";
+        String sql = dropTableSql(table);
         report.cleanupAttempted++;
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(config.statementTimeoutSeconds());
@@ -253,6 +272,38 @@ class PostgreSqlDirectoryExecutionTest {
                 throw exception;
             }
         }
+    }
+
+    static String dropTableSql(String table) {
+        return "DROP TABLE IF EXISTS " + table + " CASCADE";
+    }
+
+    private void dropSequence(
+            Connection connection,
+            Config config,
+            RunReport report,
+            Path file,
+            int fileSequence,
+            String sequence) throws SQLException {
+
+        verifyDestructiveTableOwner(sequence, config.expectedSchema());
+        String sql = dropSequenceSql(sequence);
+        report.cleanupAttempted++;
+        try (Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(config.statementTimeoutSeconds());
+            statement.execute(sql);
+            report.cleanupSucceeded++;
+        } catch (SQLException exception) {
+            report.cleanupFailed++;
+            report.addCleanupError(file, fileSequence, sql, sequence, exception);
+            if (connectionFailure(exception)) {
+                throw exception;
+            }
+        }
+    }
+
+    static String dropSequenceSql(String sequence) {
+        return "DROP SEQUENCE IF EXISTS " + sequence + " CASCADE";
     }
 
     private static List<Path> findSqlFiles(Path root, String suffix, int maxFiles) throws IOException {
@@ -577,6 +628,7 @@ class PostgreSqlDirectoryExecutionTest {
         private final Config config;
         private final Path directory;
         private final int discoveredFiles;
+        private final int selectedFiles;
         private final List<ErrorRow> errors = new ArrayList<>();
         private final List<FileRow> files = new ArrayList<>();
         private final List<String> fatalMessages = new ArrayList<>();
@@ -599,10 +651,11 @@ class PostgreSqlDirectoryExecutionTest {
         private long cleanupFailed;
         private Duration elapsed = Duration.ZERO;
 
-        RunReport(Config config, Path directory, int discoveredFiles) {
+        RunReport(Config config, Path directory, int discoveredFiles, int selectedFiles) {
             this.config = config;
             this.directory = directory;
             this.discoveredFiles = discoveredFiles;
+            this.selectedFiles = selectedFiles;
         }
 
         void readDatabaseInfo(Connection connection) throws SQLException {
@@ -716,6 +769,8 @@ class PostgreSqlDirectoryExecutionTest {
         void printSummary() {
             System.out.println("============================================================");
             System.out.println("Files discovered     : " + discoveredFiles);
+            System.out.println("Start file number    : " + config.startFileNumber());
+            System.out.println("Files selected       : " + selectedFiles);
             System.out.println("Statements executed  : " + executed);
             System.out.println("Statements succeeded : " + succeeded);
             System.out.println("Statements failed    : " + failed);
@@ -786,6 +841,8 @@ class PostgreSqlDirectoryExecutionTest {
                     .append("Root directory        : ").append(config.root()).append('\n')
                     .append("File suffix           : ").append(config.fileSuffix()).append('\n')
                     .append("Files discovered      : ").append(discoveredFiles).append('\n')
+                    .append("Start file number     : ").append(config.startFileNumber()).append('\n')
+                    .append("Files selected        : ").append(selectedFiles).append('\n')
                     .append("Statements executed   : ").append(executed).append('\n')
                     .append("Statements succeeded  : ").append(succeeded).append('\n')
                     .append("Statements failed     : ").append(failed).append('\n')
@@ -877,6 +934,7 @@ class PostgreSqlDirectoryExecutionTest {
             int statementTimeoutSeconds,
             int loginTimeoutSeconds,
             int progressEveryFiles,
+            int startFileNumber,
             int maxFiles,
             boolean enabled) {
 
@@ -905,6 +963,7 @@ class PostgreSqlDirectoryExecutionTest {
                     integer("postgresql.sql.statementTimeoutSeconds", 60),
                     integer("postgresql.sql.loginTimeoutSeconds", 20),
                     integer("postgresql.sql.progressEveryFiles", 100),
+                    integer("postgresql.sql.startFileNumber", 1),
                     integer("postgresql.sql.maxFiles", 0),
                     enabled);
         }
@@ -936,7 +995,7 @@ class PostgreSqlDirectoryExecutionTest {
                         "postgresql.sql.expectedSchema must be an unquoted PostgreSQL identifier");
             }
             if (statementTimeoutSeconds < 1 || loginTimeoutSeconds < 1
-                    || progressEveryFiles < 1 || maxFiles < 0) {
+                    || progressEveryFiles < 1 || startFileNumber < 1 || maxFiles < 0) {
                 throw new IllegalArgumentException("PostgreSQL test numeric properties are invalid");
             }
         }

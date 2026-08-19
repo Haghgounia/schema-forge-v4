@@ -44,7 +44,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * The splitter removes standalone {@code GO} lines before JDBC execution while preserving comments, string
  * literals, delimited identifiers, and semicolons inside quoted content.</p>
  *
- * <p>Use only a disposable validation database/schema when {@code dropBeforeCreate=true}.</p>
+ * <p>Use only a disposable validation database/schema when {@code dropBeforeCreate=true}. When enabled,
+ * tables and explicit {@code CREATE SEQUENCE} objects found in each script are dropped before replay.</p>
  */
 class SqlServerDirectoryExecutionTest {
 
@@ -60,10 +61,14 @@ class SqlServerDirectoryExecutionTest {
             "(?is)^\\s*CREATE\\s+(?:(?:UNLOGGED|TEMP|TEMPORARY)\\s+)?TABLE\\s+"
                     + "(?:IF\\s+NOT\\s+EXISTS\\s+)?(" + QUALIFIED_NAME + ")");
 
+    private static final Pattern CREATE_SEQUENCE = Pattern.compile(
+            "(?is)^\\s*CREATE\\s+SEQUENCE\\s+(" + QUALIFIED_NAME + ")");
+
     private static final Pattern OBJECT_NAME = Pattern.compile(
             "(?is)^\\s*(?:CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?"
                     + "|CREATE\\s+(?:(?:UNLOGGED|TEMP|TEMPORARY)\\s+)?TABLE\\s+"
                     + "(?:IF\\s+NOT\\s+EXISTS\\s+)?"
+                    + "|CREATE\\s+SEQUENCE\\s+"
                     + "|ALTER\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?(?:ONLY\\s+)?"
                     + ")(" + QUALIFIED_NAME + ")");
 
@@ -83,16 +88,21 @@ class SqlServerDirectoryExecutionTest {
                 "Set sqlserver.sql.root, sqlserver.jdbc.url and sqlserver.jdbc.user to run this test.");
         config.validate();
 
-        List<Path> files = findSqlFiles(config.root(), config.fileSuffix(), config.maxFiles());
-        if (files.isEmpty()) {
+        List<Path> discoveredFiles = findSqlFiles(config.root(), config.fileSuffix(), config.maxFiles());
+        if (discoveredFiles.isEmpty()) {
             fail("No SQL Server SQL files found below " + config.root()
                     + " with suffix " + config.fileSuffix());
         }
+        if (config.startFileNumber() > discoveredFiles.size()) {
+            fail("sqlserver.sql.startFileNumber=" + config.startFileNumber()
+                    + " exceeds discovered file count " + discoveredFiles.size());
+        }
+        List<Path> files = discoveredFiles.subList(config.startFileNumber() - 1, discoveredFiles.size());
 
         Path reportDir = config.reportBase().resolve(LocalDateTime.now().format(RUN_ID));
         Files.createDirectories(reportDir);
 
-        RunReport report = new RunReport(config, reportDir, files.size());
+        RunReport report = new RunReport(config, reportDir, discoveredFiles.size(), files.size());
         Instant runStarted = Instant.now();
         Throwable fatal = null;
 
@@ -108,14 +118,14 @@ class SqlServerDirectoryExecutionTest {
                 report.readDatabaseInfo(connection);
                 report.readExpectedSchemaInfo(connection);
 
-                int sequence = 0;
+                int sequence = config.startFileNumber() - 1;
                 for (Path file : files) {
                     sequence++;
                     executeFile(connection, config, report, file, sequence);
-                    if (sequence % config.progressEveryFiles() == 0 || sequence == files.size()) {
+                    if (sequence % config.progressEveryFiles() == 0 || sequence == discoveredFiles.size()) {
                         System.out.printf(Locale.ROOT,
                                 "SQL Server scripts: %,d / %,d, statements=%,d, errors=%,d%n",
-                                sequence, files.size(), report.executed(), report.failed());
+                                sequence, discoveredFiles.size(), report.executed(), report.failed());
                     }
                 }
             }
@@ -156,6 +166,7 @@ class SqlServerDirectoryExecutionTest {
         int ignored = 0;
         List<SqlUnit> statements;
         Set<String> tables = new LinkedHashSet<>();
+        Set<String> sequences = new LinkedHashSet<>();
         List<ForeignKeyDefinition> foreignKeys = new ArrayList<>();
         Set<String> skippedForeignKeyConstraints = new LinkedHashSet<>();
         Set<String> failedForeignKeyConstraints = new LinkedHashSet<>();
@@ -170,6 +181,10 @@ class SqlServerDirectoryExecutionTest {
                 Matcher matcher = CREATE_TABLE.matcher(executableSql);
                 if (matcher.find()) {
                     tables.add(normalizeName(matcher.group(1)));
+                }
+                Matcher sequenceMatcher = CREATE_SEQUENCE.matcher(executableSql);
+                if (sequenceMatcher.find()) {
+                    sequences.add(normalizeName(sequenceMatcher.group(1)));
                 }
                 Matcher foreignKeyMatcher = ADD_FOREIGN_KEY.matcher(executableSql);
                 if (foreignKeyMatcher.find()) {
@@ -192,6 +207,9 @@ class SqlServerDirectoryExecutionTest {
             }
             for (String table : tables) {
                 dropTable(connection, config, report, file, fileSequence, table);
+            }
+            for (String sequence : sequences) {
+                dropSequence(connection, config, report, file, fileSequence, sequence);
             }
         }
 
@@ -369,6 +387,34 @@ class SqlServerDirectoryExecutionTest {
         // support a trailing CASCADE clause. HISTORICAL mode already skips cross-table
         // foreign-key creation, so the plain SQL Server DROP TABLE form is sufficient.
         return "DROP TABLE IF EXISTS " + table;
+    }
+
+    private void dropSequence(
+            Connection connection,
+            Config config,
+            RunReport report,
+            Path file,
+            int fileSequence,
+            String sequence) throws SQLException {
+
+        verifyDestructiveTableOwner(sequence, config.expectedSchema());
+        String sql = dropSequenceSql(sequence);
+        report.cleanupAttempted++;
+        try (Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(config.statementTimeoutSeconds());
+            statement.execute(sql);
+            report.cleanupSucceeded++;
+        } catch (SQLException exception) {
+            report.cleanupFailed++;
+            report.addCleanupError(file, fileSequence, sql, sequence, exception);
+            if (connectionFailure(exception)) {
+                throw exception;
+            }
+        }
+    }
+
+    static String dropSequenceSql(String sequence) {
+        return "DROP SEQUENCE IF EXISTS " + sequence;
     }
 
     private static List<Path> findSqlFiles(Path root, String suffix, int maxFiles) throws IOException {
@@ -712,6 +758,7 @@ class SqlServerDirectoryExecutionTest {
         private final Config config;
         private final Path directory;
         private final int discoveredFiles;
+        private final int selectedFiles;
         private final List<ErrorRow> errors = new ArrayList<>();
         private final List<FileRow> files = new ArrayList<>();
         private final List<String> fatalMessages = new ArrayList<>();
@@ -738,10 +785,11 @@ class SqlServerDirectoryExecutionTest {
         private long cleanupFailed;
         private Duration elapsed = Duration.ZERO;
 
-        RunReport(Config config, Path directory, int discoveredFiles) {
+        RunReport(Config config, Path directory, int discoveredFiles, int selectedFiles) {
             this.config = config;
             this.directory = directory;
             this.discoveredFiles = discoveredFiles;
+            this.selectedFiles = selectedFiles;
         }
 
         void readDatabaseInfo(Connection connection) throws SQLException {
@@ -863,6 +911,8 @@ class SqlServerDirectoryExecutionTest {
         void printSummary() {
             System.out.println("============================================================");
             System.out.println("Files discovered     : " + discoveredFiles);
+            System.out.println("Start file number    : " + config.startFileNumber());
+            System.out.println("Files selected       : " + selectedFiles);
             System.out.println("Statements executed  : " + executed);
             System.out.println("Statements succeeded : " + succeeded);
             System.out.println("Statements failed    : " + failed);
@@ -937,6 +987,8 @@ class SqlServerDirectoryExecutionTest {
                     .append("Root directory        : ").append(config.root()).append('\n')
                     .append("File suffix           : ").append(config.fileSuffix()).append('\n')
                     .append("Files discovered      : ").append(discoveredFiles).append('\n')
+                    .append("Start file number     : ").append(config.startFileNumber()).append('\n')
+                    .append("Files selected        : ").append(selectedFiles).append('\n')
                     .append("Statements executed   : ").append(executed).append('\n')
                     .append("Statements succeeded  : ").append(succeeded).append('\n')
                     .append("Statements failed     : ").append(failed).append('\n')
@@ -1044,6 +1096,7 @@ class SqlServerDirectoryExecutionTest {
             int statementTimeoutSeconds,
             int loginTimeoutSeconds,
             int progressEveryFiles,
+            int startFileNumber,
             int maxFiles,
             boolean enabled) {
 
@@ -1073,6 +1126,7 @@ class SqlServerDirectoryExecutionTest {
                     integer("sqlserver.sql.statementTimeoutSeconds", 60),
                     integer("sqlserver.sql.loginTimeoutSeconds", 20),
                     integer("sqlserver.sql.progressEveryFiles", 100),
+                    integer("sqlserver.sql.startFileNumber", 1),
                     integer("sqlserver.sql.maxFiles", 0),
                     enabled);
         }
@@ -1104,7 +1158,7 @@ class SqlServerDirectoryExecutionTest {
                         "sqlserver.sql.expectedSchema must be an unquoted SQL Server identifier");
             }
             if (statementTimeoutSeconds < 1 || loginTimeoutSeconds < 1
-                    || progressEveryFiles < 1 || maxFiles < 0) {
+                    || progressEveryFiles < 1 || startFileNumber < 1 || maxFiles < 0) {
                 throw new IllegalArgumentException("SQL Server test numeric properties are invalid");
             }
         }

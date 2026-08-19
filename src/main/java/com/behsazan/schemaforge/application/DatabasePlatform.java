@@ -8,7 +8,8 @@ public enum DatabasePlatform {
     ORACLE("oracle", "ora"),
     POSTGRESQL("postgresql", "postgres", "pg"),
     DB2_ZOS("db2zos", "db2-zos", "db2", "zos"),
-    SQLSERVER("sqlserver", "sql-server", "mssql", "sqlsrv");
+    SQLSERVER("sqlserver", "sql-server", "mssql", "sqlsrv"),
+    MYSQL("mysql");
 
     private final String[] aliases;
 
@@ -30,6 +31,6 @@ public enum DatabasePlatform {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unsupported database platform: " + value
-                                + ". Supported values: oracle, postgresql, db2zos, sqlserver"));
+                                + ". Supported values: oracle, postgresql, db2zos, sqlserver, mysql"));
     }
 }

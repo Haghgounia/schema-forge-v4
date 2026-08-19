@@ -50,6 +50,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <pre>
  * -Doracle.sql.dropBeforeCreate=true
  * -Doracle.sql.confirmDestructive=true
+ *
+ * When enabled, tables and explicit CREATE SEQUENCE objects found in each script are dropped before replay.
  * </pre>
  */
 class OracleSqlDirectoryExecutionTest {
@@ -62,8 +64,13 @@ class OracleSqlDirectoryExecutionTest {
                     + "((?:\"[^\"]+\"|[A-Z0-9_$#]+)"
                     + "(?:\\s*\\.\\s*(?:\"[^\"]+\"|[A-Z0-9_$#]+))?)");
 
+    private static final Pattern CREATE_SEQUENCE = Pattern.compile(
+            "(?is)^\\s*CREATE\\s+SEQUENCE\\s+"
+                    + "((?:\"[^\"]+\"|[A-Z0-9_$#]+)"
+                    + "(?:\\s*\\.\\s*(?:\"[^\"]+\"|[A-Z0-9_$#]+))?)");
+
     private static final Pattern OBJECT_NAME = Pattern.compile(
-            "(?is)^\\s*(?:CREATE\\s+(?:UNIQUE\\s+)?INDEX|CREATE\\s+TABLE|ALTER\\s+TABLE)\\s+"
+            "(?is)^\\s*(?:CREATE\\s+(?:UNIQUE\\s+)?INDEX|CREATE\\s+TABLE|CREATE\\s+SEQUENCE|ALTER\\s+TABLE)\\s+"
                     + "((?:\"[^\"]+\"|[A-Z0-9_$#]+)"
                     + "(?:\\s*\\.\\s*(?:\"[^\"]+\"|[A-Z0-9_$#]+))?)");
 
@@ -74,9 +81,10 @@ class OracleSqlDirectoryExecutionTest {
                 "Set oracle.sql.root, oracle.jdbc.url and oracle.jdbc.user to run this test.");
         config.validate();
 
-        List<Path> files = findSqlFiles(config.root(), config.maxFiles());
+        List<Path> files = findSqlFiles(config.root(), config.fileSuffix(), config.maxFiles());
         if (files.isEmpty()) {
-            fail("No SQL files found below " + config.root());
+            fail("No Oracle SQL files found below " + config.root()
+                    + " with suffix " + config.fileSuffix());
         }
 
         Path reportDir = config.reportBase()
@@ -145,14 +153,20 @@ class OracleSqlDirectoryExecutionTest {
         int ignored = 0;
         List<SqlUnit> statements;
         Set<String> tables = new LinkedHashSet<>();
+        Set<String> sequences = new LinkedHashSet<>();
 
         try {
             String script = Files.readString(file, StandardCharsets.UTF_8);
             statements = new OracleStatementSplitter().split(script);
             for (SqlUnit unit : statements) {
-                Matcher matcher = CREATE_TABLE.matcher(stripLeadingComments(unit.sql()));
+                String executableSql = stripLeadingComments(unit.sql());
+                Matcher matcher = CREATE_TABLE.matcher(executableSql);
                 if (matcher.find()) {
                     tables.add(normalizeName(matcher.group(1)));
+                }
+                Matcher sequenceMatcher = CREATE_SEQUENCE.matcher(executableSql);
+                if (sequenceMatcher.find()) {
+                    sequences.add(normalizeName(sequenceMatcher.group(1)));
                 }
             }
         } catch (Exception exception) {
@@ -161,8 +175,12 @@ class OracleSqlDirectoryExecutionTest {
         }
 
         if (config.dropBeforeCreate()) {
+            // Drop tables first because defaults/constraints may depend on explicit sequences.
             for (String table : tables) {
                 dropTable(connection, config, report, file, fileSequence, table);
+            }
+            for (String sequence : sequences) {
+                dropSequence(connection, config, report, file, fileSequence, sequence);
             }
         }
 
@@ -231,7 +249,7 @@ class OracleSqlDirectoryExecutionTest {
             String table) throws SQLException {
 
         verifyDestructiveTableOwner(table, config.expectedSchema());
-        String sql = "DROP TABLE " + table + " CASCADE CONSTRAINTS PURGE";
+        String sql = dropTableSql(table);
         report.cleanupAttempted++;
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(config.statementTimeoutSeconds());
@@ -250,12 +268,49 @@ class OracleSqlDirectoryExecutionTest {
         }
     }
 
-    private static List<Path> findSqlFiles(Path root, int maxFiles) throws IOException {
+    static String dropTableSql(String table) {
+        return "DROP TABLE " + table + " CASCADE CONSTRAINTS PURGE";
+    }
+
+    private void dropSequence(
+            Connection connection,
+            Config config,
+            RunReport report,
+            Path file,
+            int fileSequence,
+            String sequence) throws SQLException {
+
+        verifyDestructiveSequenceOwner(sequence, config.expectedSchema());
+        String sql = dropSequenceSql(sequence);
+        report.cleanupAttempted++;
+        try (Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(config.statementTimeoutSeconds());
+            statement.execute(sql);
+            report.cleanupSucceeded++;
+        } catch (SQLException exception) {
+            if (exception.getErrorCode() == 2289) {
+                report.cleanupSucceeded++; // already absent is a successful cleanup state
+                return;
+            }
+            report.cleanupFailed++;
+            report.addCleanupError(file, fileSequence, sql, sequence, exception);
+            if (connectionFailure(exception)) {
+                throw exception;
+            }
+        }
+    }
+
+    static String dropSequenceSql(String sequence) {
+        return "DROP SEQUENCE " + sequence;
+    }
+
+    private static List<Path> findSqlFiles(Path root, String suffix, int maxFiles) throws IOException {
+        String normalizedSuffix = suffix.toLowerCase(Locale.ROOT);
         try (Stream<Path> stream = Files.walk(root)) {
             Stream<Path> result = stream
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString()
-                            .toLowerCase(Locale.ROOT).endsWith(".sql"))
+                            .toLowerCase(Locale.ROOT).endsWith(normalizedSuffix))
                     .sorted(Comparator.comparing(path -> relative(root, path)));
             if (maxFiles > 0) {
                 result = result.limit(maxFiles);
@@ -272,6 +327,17 @@ class OracleSqlDirectoryExecutionTest {
         String owner = table.substring(0, separator).replace("\"", "");
         if (!owner.equalsIgnoreCase(expectedSchema)) {
             throw new IllegalStateException("Refusing to drop table outside expected schema: " + table);
+        }
+    }
+
+    private static void verifyDestructiveSequenceOwner(String sequence, String expectedSchema) {
+        int separator = sequence.indexOf('.');
+        if (separator < 0) {
+            return;
+        }
+        String owner = sequence.substring(0, separator).replace("\"", "");
+        if (!owner.equalsIgnoreCase(expectedSchema)) {
+            throw new IllegalStateException("Refusing to drop sequence outside expected schema: " + sequence);
         }
     }
 
@@ -717,6 +783,7 @@ class OracleSqlDirectoryExecutionTest {
                     .append("Database version     : ").append(databaseVersion).append('\n')
                     .append("Current schema       : ").append(currentSchema).append('\n')
                     .append("Root directory       : ").append(config.root()).append('\n')
+                    .append("File suffix          : ").append(config.fileSuffix()).append('\n')
                     .append("Files discovered     : ").append(discoveredFiles).append('\n')
                     .append("Statements executed  : ").append(executed).append('\n')
                     .append("Statements succeeded : ").append(succeeded).append('\n')
@@ -790,6 +857,7 @@ class OracleSqlDirectoryExecutionTest {
 
     private record Config(
             Path root,
+            String fileSuffix,
             String url,
             String user,
             String password,
@@ -816,6 +884,7 @@ class OracleSqlDirectoryExecutionTest {
 
             return new Config(
                     root.isBlank() ? Path.of(".") : Path.of(root).toAbsolutePath().normalize(),
+                    value("oracle.sql.fileSuffix", ".oracle.sql"),
                     url,
                     user,
                     setting("oracle.jdbc.password", "ORACLE_JDBC_PASSWORD"),
@@ -847,6 +916,8 @@ class OracleSqlDirectoryExecutionTest {
         void validate() {
             if (!Files.isDirectory(root)) throw new IllegalArgumentException(
                     "oracle.sql.root is not a directory: " + root);
+            if (fileSuffix.isBlank()) throw new IllegalArgumentException(
+                    "oracle.sql.fileSuffix must not be blank");
             if (url.isBlank()) throw new IllegalArgumentException("oracle.jdbc.url is required");
             if (user.isBlank()) throw new IllegalArgumentException("oracle.jdbc.user is required");
             if (dropBeforeCreate && !confirmDestructive) throw new IllegalStateException(

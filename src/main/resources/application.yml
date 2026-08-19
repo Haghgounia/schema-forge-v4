@@ -80,15 +80,15 @@ schemaforge:
 
     # Disabled by default because IBM JCC is not bundled with the project.
     db2zos:
-      enabled: ${SCHEMAFORGE_METADATA_DB2ZOS_ENABLED:false}
-      url: ${SCHEMAFORGE_METADATA_DB2ZOS_URL:}
+      enabled: false
+      url: jdbc:db2://172.16.16.92:478/DEV
       username: ${SCHEMAFORGE_METADATA_DB2ZOS_USERNAME:}
       password: ${SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD:}
-      driver-class-name: ${SCHEMAFORGE_METADATA_DB2ZOS_DRIVER:com.ibm.db2.jcc.DB2Driver}
+      driver-class-name: com.ibm.db2.jcc.DB2Driver
 
     sqlserver:
-      enabled: ${SCHEMAFORGE_METADATA_SQLSERVER_ENABLED:false}
-      url: ${SCHEMAFORGE_METADATA_SQLSERVER_URL:jdbc:sqlserver://localhost:1433;databaseName=master;encrypt=true;trustServerCertificate=true}
-      username: ${SCHEMAFORGE_METADATA_SQLSERVER_USERNAME:sa}
-      password: ${SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD:}
-      driver-class-name: ${SCHEMAFORGE_METADATA_SQLSERVER_DRIVER:com.microsoft.sqlserver.jdbc.SQLServerDriver}
+      enabled: true
+      url: jdbc:sqlserver://localhost:1433;databaseName=master;encrypt=true;trustServerCertificate=true
+      username: sa
+      password: sa@123456
+      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

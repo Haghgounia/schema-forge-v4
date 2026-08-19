@@ -1,4 +1,32 @@
+## 2026-08-19 - MySQL logical DDL P1
+
+- Registered `MYSQL` in `DatabasePlatform` and `DialectFactory`; normal CLI, REST/ZIP, and EA DDL paths can now emit `.mysql.sql` artifacts.
+- Added DB-neutral dialect hooks for pre-render table validation, conditional sequence emission, and inline table/column comments without changing existing dialect defaults.
+- Rendered canonical schemas as MySQL databases with idempotent `CREATE DATABASE IF NOT EXISTS` bootstrap.
+- Implemented evidence-safe `AUTO_INCREMENT`: suppresses parser-generated identity backing sequences only when they are identity-only, requires an integer target and a leftmost supporting PK/UK/index, and maps exact decimal identities to signed `BIGINT` only through precision 18.
+- Added inline MySQL comments, stored generated columns, functional-index support through the common generator, and explicit rejection of unsupported standalone sequences / `SET DEFAULT` referential actions.
+- Deliberately deferred MySQL JDBC metadata, live execution, physical tuning, metadata CRUD, and a MySQL-specific offline validator.
+- Updated API/EA/ZIP regression expectations for the fifth registered DDL platform and added focused MySQL full-DDL generation tests.
+
+## 2026-08-19 - Oracle FK live validation R2
+
+- Split live Oracle FK validation into dependency skips, structural FK blockers, and true database execution errors.
+- Added source/referenced column capture from generated ALTER TABLE statements.
+- Added Oracle catalog preflight for missing source columns, missing referenced columns, and referenced column lists that do not match an enabled PRIMARY KEY or UNIQUE constraint.
+- Added `oracle-fk-validation-blockers.csv`; existing error and skip reports now include both FK column lists.
+- `oracle.fk.failOnErrors` now applies only to FKs that passed structural preflight and still failed live Oracle execution; optional `oracle.fk.failOnBlockers` defaults to false.
+- Production DDL generation, canonical parsing, dialect rendering, and MySQL P0 foundation are unchanged.
+
 ## 2026-08-17 - P8-C: column physical metadata comparison
+
+
+## 2026-08-19 - Live SQL directory replay cleanup
+
+- Extended Oracle, PostgreSQL, and SQL Server directory execution integration tests so `dropBeforeCreate=true` removes both tables and explicit sequences discovered in each source SQL script.
+- Cleanup is destructive only when the existing `confirmDestructive=true` and `expectedSchema` safety gates are satisfied.
+- Tables are dropped before sequences to avoid dependency conflicts.
+- Added cross-dialect cleanup SQL regression coverage.
+- Production DDL generation is unchanged.
 
 - Added PostgreSQL column physical metadata acquisition from `pg_attribute.attstorage` and `pg_attribute.attcompression`, with `pg_type.typstorage` retained only as comparison evidence for `STORAGE DEFAULT`.
 - Added `COLUMN_PHYSICAL_COMPARE` to the existing workbook.
@@ -1190,3 +1218,11 @@
 - No parser, canonical snapshot version, datatype mapping, DDL dialect, physical metadata, Excel comparison, or CRUD semantics changed.
 - Adds four focused tests over the user-verified 402-test baseline; expected full-suite total is 406.
 
+
+## 2026-08-18 - Canonical JSON full artifact audit runner
+
+- Added explicit `CanonicalJsonDirectoryAllArtifactsIT` for corpus-wide validation from persisted `*.schema.json` snapshots without reopening Word documents.
+- Generates DDL for every currently registered database platform plus API-style JSON, Mermaid ER/dependency/conceptual-ERD, Graphviz ER/dependency/conceptual-ERD, and corpus batch diagrams.
+- Reuses dialect mapping analysis and existing offline SQL validators and writes artifact-index, validation-issue, and failure reports for manual review.
+- Does not fabricate comparison Excel/P8/metadata-CRUD artifacts when no Actual database metadata repository exists; these database-dependent omissions are explicitly reported.
+- Test-only audit tooling; no production Java, parser, snapshot version, canonical model, DDL renderer, metadata comparison, or REST behavior changed.

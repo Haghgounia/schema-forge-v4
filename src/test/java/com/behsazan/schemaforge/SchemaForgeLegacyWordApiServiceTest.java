@@ -55,13 +55,14 @@ class SchemaForgeLegacyWordApiServiceTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromLegacyWord(file, "DPS"));
 
-        assertEquals(10, entries.size());
+        assertEquals(11, entries.size());
         String oracleName = entries.keySet().stream()
                 .filter(name -> name.endsWith(".oracle.sql"))
                 .findFirst().orElseThrow();
         String sql = new String(entries.get(oracleName), StandardCharsets.UTF_8);
         assertTrue(sql.contains("CREATE TABLE DPS.CTPINCOMEPARAMACTIVITYLOG"));
         assertTrue(sql.contains("COMMENT ON TABLE DPS.CTPINCOMEPARAMACTIVITYLOG"));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".json")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));

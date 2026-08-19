@@ -268,6 +268,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
                     .map(issue -> new ValidationFinding(
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), ""))
                     .toList();
+            case MYSQL -> List.of(); // MySQL offline validator is introduced after logical P1.
         };
     }
 

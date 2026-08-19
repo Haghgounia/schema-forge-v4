@@ -69,6 +69,13 @@ class OutputFileNamerTest {
                         DatabasePlatform.ORACLE,
                         OutputFileNamer.ScriptKind.RUN_ALL,
                         timestamp));
+        assertEquals(
+                "DPS.DEPOSIT_PRODUCT_20260802_101112_345.mysql.sql",
+                namer.scriptFileName(
+                        "DPS.DEPOSIT_PRODUCT",
+                        DatabasePlatform.MYSQL,
+                        OutputFileNamer.ScriptKind.DDL,
+                        timestamp));
     }
 
     @Test

@@ -1,6 +1,6 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server metadata connections are used only for validation and comparison workbooks.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server metadata connections are used only for validation and comparison workbooks. MySQL P1 is logical-DDL only and does not yet provide a JDBC metadata adapter.
 
 ```text
 one input.docx -> one JSON model + one SQL file per registered dialect
@@ -48,7 +48,7 @@ Physical recommendations remain non-executable comments. Source/validation issue
 
 ## Canonical JSON snapshot cache
 
-For large Legacy Word corpora, Word parsing can be materialized once as versioned DBMS-neutral `*.schema.json` snapshots. Subsequent Oracle/PostgreSQL/SQL Server dialect work reads JSON instead of reopening Word documents. Cache reuse is guarded by source SHA-256 plus snapshot/model/parser versions, so a dialect-only change does not trigger a multi-hour Word reparse. See [`docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md`](docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md).
+For large Legacy Word corpora, Word parsing can be materialized once as versioned DBMS-neutral `*.schema.json` snapshots. Subsequent dialect work, including MySQL logical DDL, can read JSON instead of reopening Word documents. Cache reuse is guarded by source SHA-256 plus snapshot/model/parser versions, so a dialect-only change does not trigger a multi-hour Word reparse. See [`docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md`](docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md).
 
 ## Mermaid diagram export
 
@@ -88,13 +88,14 @@ Older phase/release documents remain under [`docs/`](docs/) as implementation hi
 
 ## DBMS selection (V4)
 
-The offline entry point supports Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server while preserving Oracle as the default:
+The offline entry point supports Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL while preserving Oracle as the default:
 
 ```text
 java -jar schema-forge.jar input.docx
 java -jar schema-forge.jar input.docx postgresql
 java -jar schema-forge.jar input.docx db2zos
 java -jar schema-forge.jar input.docx sqlserver
+java -jar schema-forge.jar input.docx mysql
 java -jar schema-forge.jar input.docx output-directory sqlserver
 ```
 
@@ -121,6 +122,7 @@ Generated artifacts use a shared Gregorian timestamp. SQL file names also identi
 <input>_yyyyMMdd_HHmmss_SSS.postgresql.sql
 <input>_yyyyMMdd_HHmmss_SSS.db2zos.sql
 <input>_yyyyMMdd_HHmmss_SSS.sqlserver.sql
+<input>_yyyyMMdd_HHmmss_SSS.mysql.sql
 ```
 
 ### Foreign-key reference flags
@@ -160,6 +162,7 @@ SchemaForge places the schema bootstrap fragment before sequences and tables. On
 |---|---|
 | PostgreSQL | Executable and idempotent `CREATE SCHEMA IF NOT EXISTS <schema> AUTHORIZATION CURRENT_USER;` |
 | Microsoft SQL Server | Executable and idempotent `IF SCHEMA_ID(...) IS NULL EXEC(N'CREATE SCHEMA ... AUTHORIZATION [dbo]');` |
+| MySQL | Executable and idempotent `CREATE DATABASE IF NOT EXISTS <schema>;` because MySQL treats `SCHEMA` as a synonym for `DATABASE`. |
 | Oracle | Non-executable `CREATE USER` provisioning template for DBA review |
 | Db2 for z/OS | Non-executable DSNHSP `CREATE SCHEMA AUTHORIZATION` template |
 
@@ -274,6 +277,10 @@ SCHEMAFORGE_METADATA_DB2ZOS_USERNAME=SCHEMAFORGE
 SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD=change-me
 ```
 
+## MySQL logical DDL P1
+
+Select the dialect with `mysql`. MySQL is registered in the common platform/factory path and generates schema/database bootstrap, tables, evidence-safe `AUTO_INCREMENT` identity, stored generated columns, PK/UK/check/FK constraints, indexes, and inline table/column comments. Parser-generated identity backing sequences are suppressed only when they are identity-only; genuine standalone sequence semantics remain blocking. Cross-DBMS physical placement is not translated. MySQL JDBC metadata, Actual-vs-Design Excel comparison, live execution, physical tuning, and metadata CRUD are deferred to later phases. See [`docs/dialects/MYSQL-DIALECT-P1.md`](docs/dialects/MYSQL-DIALECT-P1.md).
+
 ## Microsoft SQL Server core dialect
 
 Select the dialect with `sqlserver` (aliases: `sql-server`, `mssql`, `sqlsrv`). The dialect generates sequences, tables, identity/computed columns, primary/unique/check/foreign-key constraints, included and filtered indexes, `MS_Description` extended properties, grants, REST artifacts, and EA per-table artifacts. `SAFE` numeric mapping preserves exact values as `DECIMAL`; `OPTIMIZED` uses lossless `SMALLINT`, `INT`, and `BIGINT` boundaries. Conditional live metadata, comparison workbooks, offline DDL validation, a read-only connection/catalog probe, a confirmation-gated execution runner, and an explicit disposable-schema integration test are available. See `docs/dialects/SQL-SERVER-DIALECT.md`, `docs/dialects/SQL-SERVER-METADATA.md`, and `docs/testing/SQL-SERVER-VALIDATION.md`.
@@ -291,13 +298,14 @@ SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, and SQL Server SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific `run_all.sql` files.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific run-all files. MySQL P1 generates DDL/run-all artifacts but has no JDBC metadata adapter yet.
 
 ```text
 oracle/<SCHEMA>.<TABLE>.oracle.sql
 postgresql/<schema>.<table>.postgresql.sql
 db2zos/<SCHEMA>.<TABLE>.db2zos.sql
 sqlserver/<SCHEMA>.<TABLE>.sqlserver.sql
+mysql/<SCHEMA>.<TABLE>.mysql.sql
 comparison/oracle/<SCHEMA>.<TABLE>.oracle.xlsx
 comparison/postgresql/<schema>.<table>.postgresql.xlsx
 comparison/db2zos/<SCHEMA>.<TABLE>.db2zos.xlsx
@@ -306,6 +314,7 @@ oracle/run_all.sql
 postgresql/run_all.sql
 db2zos/run_all.sql
 sqlserver/run_all.sql
+mysql/run_all.sql
 model.json
 manifest.json
 ```

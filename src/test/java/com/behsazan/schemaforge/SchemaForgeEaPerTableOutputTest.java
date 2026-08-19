@@ -68,7 +68,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(19, entries.size());
+        assertEquals(22, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.containsKey("model.json"));
         assertTrue(entries.containsKey("manifest.json"));
@@ -96,15 +96,19 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("db2zos/FEE.FEE_VERSION_" + timestamp + ".db2zos.sql"));
         assertTrue(entries.containsKey("sqlserver/FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
         assertTrue(entries.containsKey("sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
+        assertTrue(entries.containsKey("mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
+        assertTrue(entries.containsKey("mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.sql"));
 
         String oracleRunAllName = "oracle/ea-sample_" + timestamp + ".oracle.run-all.sql";
         String postgresqlRunAllName = "postgresql/ea-sample_" + timestamp + ".postgresql.run-all.sql";
         String db2ZosRunAllName = "db2zos/ea-sample_" + timestamp + ".db2zos.run-all.sql";
         String sqlServerRunAllName = "sqlserver/ea-sample_" + timestamp + ".sqlserver.run-all.sql";
+        String mysqlRunAllName = "mysql/ea-sample_" + timestamp + ".mysql.run-all.sql";
         assertTrue(entries.containsKey(oracleRunAllName));
         assertTrue(entries.containsKey(postgresqlRunAllName));
         assertTrue(entries.containsKey(db2ZosRunAllName));
         assertTrue(entries.containsKey(sqlServerRunAllName));
+        assertTrue(entries.containsKey(mysqlRunAllName));
         assertFalse(entries.containsKey("oracle/FEE.REGULATORY_RULE.oracle.sql"));
         assertFalse(entries.containsKey("oracle/run_all.sql"));
 
@@ -119,6 +123,9 @@ class SchemaForgeEaPerTableOutputTest {
                 ":r FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
         assertTrue(sqlServerRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql")
                 < sqlServerRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
+        String mysqlRunAll = new String(entries.get(mysqlRunAllName), StandardCharsets.UTF_8);
+        assertTrue(mysqlRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".mysql.sql")
+                < mysqlRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         assertEquals(2, manifest.path("tableCount").asInt());
@@ -169,7 +176,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(27, entries.size());
+        assertEquals(32, entries.size());
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));
@@ -178,6 +185,8 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("comparison/db2zos/FEE.FEE_VERSION.db2zos.xlsx"));
         assertTrue(entries.containsKey("comparison/sqlserver/FEE.REGULATORY_RULE.sqlserver.xlsx"));
         assertTrue(entries.containsKey("comparison/sqlserver/FEE.FEE_VERSION.sqlserver.xlsx"));
+        assertTrue(entries.containsKey("comparison/mysql/FEE.REGULATORY_RULE.mysql.xlsx"));
+        assertTrue(entries.containsKey("comparison/mysql/FEE.FEE_VERSION.mysql.xlsx"));
     }
 
 

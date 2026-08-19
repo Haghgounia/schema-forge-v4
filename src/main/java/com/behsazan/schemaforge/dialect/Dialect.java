@@ -2,7 +2,10 @@ package com.behsazan.schemaforge.dialect;
 
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Index;
+import com.behsazan.schemaforge.domain.model.Sequence;
+import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
@@ -31,6 +34,41 @@ public interface Dialect {
     }
 
     String sqlType(Column column);
+
+    /**
+     * Performs dialect-specific table invariants that cannot be validated from a single column.
+     * The default accepts the canonical table unchanged.
+     */
+    default void validateTable(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+    }
+
+    /**
+     * Controls whether a canonical sequence is emitted for this dialect. A dialect with native
+     * identity columns may suppress a parser-generated backing sequence when the identity
+     * semantics are rendered directly by the target database. Genuine standalone sequences
+     * remain visible and therefore fail normally when SEQUENCE is unsupported.
+     */
+    default boolean emitSequence(DatabaseSchema schema, Sequence sequence) {
+        Objects.requireNonNull(schema, "schema must not be null");
+        Objects.requireNonNull(sequence, "sequence must not be null");
+        return true;
+    }
+
+    /** Whether table/column comments are emitted inline in CREATE TABLE. */
+    default boolean commentsInline() {
+        return false;
+    }
+
+    /** Inline column comment fragment positioned at the end of a column definition. */
+    default String inlineColumnCommentClause(Column column) {
+        return "";
+    }
+
+    /** Inline table comment fragment positioned in the CREATE TABLE option tail. */
+    default String inlineTableCommentClause(String comment) {
+        return "";
+    }
 
     /**
      * Renders source/profile-backed physical syntax attached directly to a column definition.
