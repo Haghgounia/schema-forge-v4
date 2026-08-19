@@ -35,6 +35,9 @@ class MermaidBatchDiagramExporterTest {
         assertTrue(result.dependency().contains("SF_APP_CHILD -->|FK_CHILD_PARENT| SF_APP_PARENT"),
                 result.dependency());
         assertTrue(result.er().contains("SF_APP_PARENT ||--o{ SF_APP_CHILD"), result.er());
+        assertTrue(result.conceptualErd().contains("SF_APP_PARENT ||--o{ SF_APP_CHILD"),
+                result.conceptualErd());
+        assertFalse(result.conceptualErd().contains("PARENT_ID FK"), result.conceptualErd());
     }
 
     @Test

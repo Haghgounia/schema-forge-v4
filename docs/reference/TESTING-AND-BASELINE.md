@@ -2,16 +2,16 @@
 
 ## 1. Current verified baseline
 
-Latest user-verified full Maven result for the current R4 maintenance baseline:
+Latest user-verified full Maven result used by this documentation finalization:
 
 ```text
-Tests run: 402
+Tests run: 399
 Failures: 0
 Errors: 0
 Skipped: 3
 BUILD SUCCESS
-Total time: 02:29 min
-Finished: 2026-08-17T23:19:54-07:00
+Total time: 02:21 min
+Finished: 2026-08-17T08:40:09-07:00
 ```
 
 Command:
@@ -22,13 +22,13 @@ mvn clean test
 
 ## 2. Current source fingerprint
 
-Current R4 source-tree fingerprint:
+P8-D/P8-C source tree fingerprint:
 
 ```text
-e2b6969837c6a8ce8c34b75b51126bc9fb7cfcad37d4d0795371c99196510a35
+a864b0f1db1099436a766b39ce9de651503ed217596f252ae3e2dc039ad73c3f
 ```
 
-The R4 documentation-finalization package must retain this exact source-tree fingerprint.
+The documentation-finalization package must retain this exact source-tree fingerprint.
 
 ## 3. Physical milestone history
 
@@ -45,7 +45,6 @@ The R4 documentation-finalization package must retain this exact source-tree fin
 | P8-A table physical comparison | 385 | 0 | 0 | 3 | SUCCESS |
 | P8-B index/PK/UK comparison | 394 | 0 | 0 | 3 | SUCCESS |
 | P8-C/P8-D final comparison | 399 | 0 | 0 | 3 | SUCCESS |
-| R4 identity/EA graph/no-PK maintenance | 402 | 0 | 0 | 3 | SUCCESS |
 
 ## 4. Skipped integration tests
 
@@ -61,7 +60,7 @@ Db2 for z/OS validation has separate documented workflows and is not one of thes
 
 ## 5. Documentation-only freeze validation
 
-For this R4 baseline-documentation finalization, Java source and test code must not change.
+For this documentation finalization, Java source and test code must not change.
 
 Validation procedure:
 
@@ -72,7 +71,7 @@ Validation procedure:
 5. package the project;
 6. verify ZIP integrity.
 
-Because this packaging step changes documentation only, the user-verified 402-test R4 result remains the code regression evidence for this package.
+Because source remains unchanged, the latest user-verified 399-test result remains the code regression evidence for this package.
 
 ## 6. Regression interpretation
 

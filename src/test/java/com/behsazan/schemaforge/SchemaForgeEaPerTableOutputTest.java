@@ -68,7 +68,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(17, entries.size());
+        assertEquals(19, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.containsKey("model.json"));
         assertTrue(entries.containsKey("manifest.json"));
@@ -76,6 +76,16 @@ class SchemaForgeEaPerTableOutputTest {
         String graphvizName = entryName(entries, "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.graphviz\\.dot");
         assertTrue(new String(entries.get(mermaidName), StandardCharsets.UTF_8).contains("erDiagram"));
         assertTrue(new String(entries.get(graphvizName), StandardCharsets.UTF_8).contains("digraph"));
+        String conceptualMermaidName = entryName(entries,
+                "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.conceptual-erd\\.mermaid\\.mmd");
+        String conceptualGraphvizName = entryName(entries,
+                "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.conceptual-erd\\.graphviz\\.dot");
+        String conceptualMermaid = new String(entries.get(conceptualMermaidName), StandardCharsets.UTF_8);
+        String conceptualGraphviz = new String(entries.get(conceptualGraphvizName), StandardCharsets.UTF_8);
+        assertTrue(conceptualMermaid.startsWith("erDiagram"), conceptualMermaid);
+        assertFalse(conceptualMermaid.contains("REGULATORY_RULE_ID"), conceptualMermaid);
+        assertTrue(conceptualGraphviz.startsWith("digraph SchemaForge_Conceptual_ERD"), conceptualGraphviz);
+        assertFalse(conceptualGraphviz.contains("REGULATORY_RULE_ID"), conceptualGraphviz);
         String timestamp = timestampFrom(entryName(entries,
                 "oracle/FEE\\.FEE_VERSION_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
         assertTrue(entries.containsKey("oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.sql"));
@@ -114,6 +124,8 @@ class SchemaForgeEaPerTableOutputTest {
         assertEquals(2, manifest.path("tableCount").asInt());
         assertEquals(mermaidName, manifest.path("mermaid").asText());
         assertEquals(graphvizName, manifest.path("graphviz").asText());
+        assertEquals(conceptualMermaidName, manifest.path("conceptualErdMermaid").asText());
+        assertEquals(conceptualGraphvizName, manifest.path("conceptualErdGraphviz").asText());
         assertEquals(2, manifest.path("tables").size());
     }
 
@@ -157,7 +169,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(25, entries.size());
+        assertEquals(27, entries.size());
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));
@@ -254,6 +266,8 @@ class SchemaForgeEaPerTableOutputTest {
                 && name.endsWith(".oracle.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
         assertFalse(entries.keySet().stream().anyMatch(name -> name.contains("/crud/")));
 
         String summaryName = entries.keySet().stream()

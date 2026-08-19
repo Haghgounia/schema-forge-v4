@@ -52,7 +52,7 @@ For large Legacy Word corpora, Word parsing can be materialized once as versione
 
 ## Mermaid diagram export
 
-The canonical model can also be exported as Mermaid ER or table-dependency diagrams without invoking a SQL dialect. Phase 1 supports whole-schema, selected-table, single-table, and bounded dependency scopes and writes UTF-8 `.mmd` artifacts. Phase 2 adds a test-only canonical JSON pilot for generating real diagrams from the historical snapshot corpus with explicit, reported historical-version selection. See [`docs/diagram/MERMAID-EXPORT-PHASE1.md`](docs/diagram/MERMAID-EXPORT-PHASE1.md) and [`docs/diagram/MERMAID-CANONICAL-JSON-PILOT.md`](docs/diagram/MERMAID-CANONICAL-JSON-PILOT.md).
+The canonical model can also be exported as Mermaid/Graphviz diagrams without invoking a SQL dialect. Existing ER and dependency views remain unchanged. Conceptual ERD Phase 1 adds a field-free `CONCEPTUAL_ERD` view with relationship cardinality/optionality derived only from FK nullability and exact PK/UK evidence. See [`docs/diagram/CONCEPTUAL-ERD-PHASE1.md`](docs/diagram/CONCEPTUAL-ERD-PHASE1.md), [`docs/diagram/MERMAID-EXPORT-PHASE1.md`](docs/diagram/MERMAID-EXPORT-PHASE1.md), and [`docs/diagram/MERMAID-CANONICAL-JSON-PILOT.md`](docs/diagram/MERMAID-CANONICAL-JSON-PILOT.md).
 
 ## Build
 
@@ -80,7 +80,7 @@ The offline CLI does not require a JDBC connection. REST metadata validation and
 
 The authoritative current documentation starts at [`docs/reference/README.md`](docs/reference/README.md). It consolidates architecture, canonical domain model, inputs/outputs, the four-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, the no-guess policy, known limitations, developer guidance, testing, and the current release baseline.
 
-Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 402-test R4 maintenance baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
+Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 399-test baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
 
 ## V4 DBMS-neutral DDL refactoring
 
@@ -336,7 +336,7 @@ The supported Spring Boot runtime exposes Mermaid generation at:
 
 `POST /api/v1/diagram/mermaid/canonical-json`
 
-Upload one `*.schema.json` canonical snapshot or a ZIP containing a unique one-version-per-table canonical set. The response is a UTF-8 `.mmd` file. See `docs/diagram/MERMAID-PRODUCTION-INTEGRATION.md` for parameters and examples.
+Upload one `*.schema.json` canonical snapshot or a ZIP containing a unique one-version-per-table canonical set. The response is a UTF-8 `.mmd` file. The `type` parameter accepts the existing `er` / `dependency` values and the new `conceptual-erd` view. See `docs/diagram/MERMAID-PRODUCTION-INTEGRATION.md` and `docs/diagram/CONCEPTUAL-ERD-PHASE1.md`.
 
 ## Physical DDL phase 1
 

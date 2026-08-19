@@ -105,12 +105,17 @@ public final class MermaidBatchDiagramExporter {
                 .toList();
 
         String er;
+        String conceptualErd;
         String dependency;
         if (exportedTables.isEmpty()) {
             er = "erDiagram\n    %% no unique tables available for batch diagram\n";
+            conceptualErd = "erDiagram\n    %% no unique tables available for conceptual ERD\n";
             dependency = "flowchart LR\n    %% no unique tables available for batch diagram\n";
         } else {
             er = exporter.export(exportedTables, DiagramExportOptions.erAll());
+            conceptualErd = exporter.export(exportedTables, DiagramExportOptions.builder()
+                    .type(DiagramType.CONCEPTUAL_ERD)
+                    .build());
             dependency = exporter.export(exportedTables, DiagramExportOptions.builder()
                     .type(DiagramType.DEPENDENCY)
                     .build());
@@ -123,6 +128,7 @@ public final class MermaidBatchDiagramExporter {
 
         return new Result(
                 er,
+                conceptualErd,
                 dependency,
                 tableDefinitions.size(),
                 grouped.size(),
@@ -156,6 +162,7 @@ public final class MermaidBatchDiagramExporter {
 
     public record Result(
             String er,
+            String conceptualErd,
             String dependency,
             int tableDefinitions,
             int distinctTableNames,

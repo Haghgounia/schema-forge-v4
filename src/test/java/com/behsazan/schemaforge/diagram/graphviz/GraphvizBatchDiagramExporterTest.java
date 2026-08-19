@@ -34,6 +34,9 @@ class GraphvizBatchDiagramExporterTest {
         assertEquals(1, result.physicalForeignKeys());
         assertEquals(1, result.resolvedPhysicalForeignKeys());
         assertTrue(result.dependency().contains("\"BIM.ACCOUNT\" -> \"BIM.CUSTOMER\""));
+        assertTrue(result.conceptualErd().contains(
+                "\"BIM.CUSTOMER\" -> \"BIM.ACCOUNT\" [dir=none, taillabel=\"1\", headlabel=\"0..N\""),
+                result.conceptualErd());
         assertTrue(result.clusteredDependency().contains("label=\"BIM\""));
         assertTrue(result.clusteredDependency().contains("label=\"ARCHIVE\""));
         assertFalse(result.compactDependency().contains("ARCHIVE.CUSTOMER"));
@@ -75,6 +78,7 @@ class GraphvizBatchDiagramExporterTest {
         GraphvizBatchDiagramExporter.Result second = exporter.export(List.of(
                 customer("ARCHIVE"), customer("BIM"), account("BIM", "CUSTOMER")));
 
+        assertEquals(first.conceptualErd(), second.conceptualErd());
         assertEquals(first.dependency(), second.dependency());
         assertEquals(first.clusteredDependency(), second.clusteredDependency());
         assertEquals(first.compactDependency(), second.compactDependency());

@@ -55,9 +55,11 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mermaid/tables/") && name.endsWith(".mermaid.mmd")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("graphviz/tables/") && name.endsWith(".graphviz.dot")));
         assertTrue(output.containsKey("mermaid/batch/schema-er.mmd"));
+        assertTrue(output.containsKey("mermaid/batch/schema-conceptual-erd.mmd"));
         assertTrue(output.containsKey("mermaid/batch/schema-dependency.mmd"));
         assertTrue(output.containsKey("mermaid/batch/issues.csv"));
         assertTrue(output.containsKey("mermaid/batch/summary.txt"));
+        assertTrue(output.containsKey("graphviz/batch/schema-conceptual-erd.dot"));
         assertTrue(output.containsKey("graphviz/batch/schema-dependency.dot"));
         assertTrue(output.containsKey("graphviz/batch/schema-clustered.dot"));
         assertTrue(output.containsKey("graphviz/batch/schema-compact.dot"));
@@ -65,7 +67,10 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(output.containsKey("graphviz/batch/issues.csv"));
         assertTrue(output.containsKey("graphviz/batch/summary.txt"));
         assertTrue(text(output, "mermaid/batch/schema-er.mmd").startsWith("erDiagram"));
+        assertTrue(text(output, "mermaid/batch/schema-conceptual-erd.mmd").startsWith("erDiagram"));
         assertTrue(text(output, "mermaid/batch/schema-dependency.mmd").startsWith("flowchart LR"));
+        assertTrue(text(output, "graphviz/batch/schema-conceptual-erd.dot")
+                .startsWith("digraph SchemaForge_Conceptual_ERD"));
         assertTrue(text(output, "graphviz/batch/schema-dependency.dot").startsWith("digraph SchemaForge_Dependency"));
         assertTrue(text(output, "graphviz/batch/schema-clustered.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
         assertTrue(text(output, "graphviz/batch/schema-compact.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
@@ -108,7 +113,9 @@ class SchemaForgeApiZipBatchTest {
                 .contains("Column specification table was not found"));
         assertFalse(output.keySet().stream().anyMatch(name -> name.endsWith(".sql")));
         assertFalse(output.containsKey("mermaid/batch/schema-er.mmd"));
+        assertFalse(output.containsKey("mermaid/batch/schema-conceptual-erd.mmd"));
         assertFalse(output.containsKey("mermaid/batch/schema-dependency.mmd"));
+        assertFalse(output.containsKey("graphviz/batch/schema-conceptual-erd.dot"));
         assertFalse(output.containsKey("graphviz/batch/schema-dependency.dot"));
         assertFalse(output.containsKey("graphviz/batch/schema-clustered.dot"));
         assertFalse(output.containsKey("graphviz/batch/schema-compact.dot"));

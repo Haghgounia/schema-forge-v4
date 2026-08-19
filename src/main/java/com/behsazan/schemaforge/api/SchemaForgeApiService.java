@@ -14,6 +14,7 @@ import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.diagram.DiagramExportOptions;
+import com.behsazan.schemaforge.diagram.DiagramType;
 import com.behsazan.schemaforge.diagram.graphviz.GraphvizDiagramExporter;
 import com.behsazan.schemaforge.diagram.graphviz.GraphvizBatchDiagramExporter;
 import com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramExporter;
@@ -331,6 +332,7 @@ public class SchemaForgeApiService {
         writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
         writeMermaidArtifact(schema, output, timestampedBaseName);
         writeGraphvizArtifact(schema, output, timestampedBaseName);
+        writeConceptualErdArtifacts(schema, output, timestampedBaseName);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
@@ -369,7 +371,30 @@ public class SchemaForgeApiService {
 
 
     /**
-     * Writes batch-level Mermaid ER and dependency diagrams for ZIP generation. Duplicate qualified
+     * Writes field-free conceptual ERD artifacts from the same canonical schema. Cardinality and
+     * optionality are derived only from FK nullability and exact PK/UK evidence; column names are
+     * never used to infer a relationship.
+     */
+    private void writeConceptualErdArtifacts(
+            DatabaseSchema schema, Path output, String timestampedBaseName) throws IOException {
+        DiagramExportOptions options = DiagramExportOptions.builder()
+                .type(DiagramType.CONCEPTUAL_ERD)
+                .build();
+        String mermaid = mermaidDiagramExporter.export(schema.tables(), options);
+        String dot = graphvizDiagramExporter.export(schema.tables(), options);
+        Files.writeString(
+                output.resolve(timestampedBaseName + ".conceptual-erd.mermaid.mmd"),
+                mermaid,
+                StandardCharsets.UTF_8);
+        Files.writeString(
+                output.resolve(timestampedBaseName + ".conceptual-erd.graphviz.dot"),
+                dot,
+                StandardCharsets.UTF_8);
+    }
+
+
+    /**
+     * Writes batch-level Mermaid ER, conceptual ERD, and dependency diagrams for ZIP generation. Duplicate qualified
      * table names are never auto-selected: every duplicated name is excluded from the batch graph
      * and recorded in the issues report. Per-document Mermaid files are unaffected.
      */
@@ -379,6 +404,10 @@ public class SchemaForgeApiService {
                 output.resolve(MERMAID_DIRECTORY).resolve(MERMAID_BATCH_DIRECTORY));
 
         Files.writeString(batchDirectory.resolve("schema-er.mmd"), result.er(), StandardCharsets.UTF_8);
+        Files.writeString(
+                batchDirectory.resolve("schema-conceptual-erd.mmd"),
+                result.conceptualErd(),
+                StandardCharsets.UTF_8);
         Files.writeString(batchDirectory.resolve("schema-dependency.mmd"), result.dependency(), StandardCharsets.UTF_8);
 
         List<String> issues = new ArrayList<>();
@@ -411,7 +440,7 @@ public class SchemaForgeApiService {
 
 
     /**
-     * Writes batch Graphviz dependency diagrams. The duplicate policy is intentionally identical
+     * Writes batch Graphviz conceptual ERD and dependency diagrams. The duplicate policy is intentionally identical
      * to the Mermaid batch exporter: duplicated qualified table names are excluded, never selected.
      */
     private void writeBatchGraphvizArtifacts(List<Table> tableDefinitions, Path output) throws IOException {
@@ -419,6 +448,10 @@ public class SchemaForgeApiService {
         Path batchDirectory = Files.createDirectories(
                 output.resolve(GRAPHVIZ_DIRECTORY).resolve(GRAPHVIZ_BATCH_DIRECTORY));
 
+        Files.writeString(
+                batchDirectory.resolve("schema-conceptual-erd.dot"),
+                result.conceptualErd(),
+                StandardCharsets.UTF_8);
         Files.writeString(
                 batchDirectory.resolve("schema-dependency.dot"),
                 result.dependency(),
@@ -660,6 +693,7 @@ public class SchemaForgeApiService {
         writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
         writeMermaidArtifact(schema, output, timestampedBaseName);
         writeGraphvizArtifact(schema, output, timestampedBaseName);
+        writeConceptualErdArtifacts(schema, output, timestampedBaseName);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
@@ -677,6 +711,8 @@ public class SchemaForgeApiService {
                 .map(table -> table.qualifiedName().toString()).toList());
         manifest.put("mermaid", timestampedBaseName + ".mermaid.mmd");
         manifest.put("graphviz", timestampedBaseName + ".graphviz.dot");
+        manifest.put("conceptualErdMermaid", timestampedBaseName + ".conceptual-erd.mermaid.mmd");
+        manifest.put("conceptualErdGraphviz", timestampedBaseName + ".conceptual-erd.graphviz.dot");
         manifest.put("tables", new ArrayList<>(manifestTables.values()));
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(output.resolve("manifest.json").toFile(), manifest);
     }

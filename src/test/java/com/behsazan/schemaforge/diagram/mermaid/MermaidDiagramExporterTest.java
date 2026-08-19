@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
@@ -152,6 +153,28 @@ class MermaidDiagramExporterTest {
         String mermaid = exporter.export(List.of(customer, account), DiagramExportOptions.erAll());
 
         assertTrue(mermaid.contains("SF_TSTSHMA_CUSTOMER o|--o{ SF_TSTSHMA_ACCOUNT"), mermaid);
+    }
+
+    @Test
+    void conceptualErdOmitsFieldsAndUsesPkUkEvidenceForCardinality() {
+        Table customer = customer("TSTSHMA");
+        Table profile = Table.builder("TSTSHMA", "CUSTOMER_PROFILE")
+                .addColumn(Column.required("CUSTOMER_ID", DataType.numeric("NUMBER", 19, 0)))
+                .primaryKey(pk("PK_CUSTOMER_PROFILE", "CUSTOMER_ID"))
+                .addUniqueKey(new UniqueKey(id("UK_CUSTOMER_PROFILE_CUSTOMER"), List.of(id("CUSTOMER_ID"))))
+                .addForeignKey(fk("FK_PROFILE_CUSTOMER", "CUSTOMER_ID", "CUSTOMER", "CUSTOMER_ID"))
+                .build();
+
+        String mermaid = exporter.export(List.of(customer, profile), DiagramExportOptions.builder()
+                .type(DiagramType.CONCEPTUAL_ERD)
+                .build());
+
+        assertTrue(mermaid.startsWith("erDiagram\n"), mermaid);
+        assertTrue(mermaid.contains(
+                "SF_TSTSHMA_CUSTOMER ||--o| SF_TSTSHMA_CUSTOMER_PROFILE : \"FK_PROFILE_CUSTOMER\""),
+                mermaid);
+        assertFalse(mermaid.contains("NUMBER_19_0"), mermaid);
+        assertFalse(mermaid.contains("CUSTOMER_ID PK"), mermaid);
     }
 
     @Test

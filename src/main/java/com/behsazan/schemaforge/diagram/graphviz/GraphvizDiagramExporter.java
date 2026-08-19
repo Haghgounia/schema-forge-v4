@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.diagram.graphviz;
 
+import com.behsazan.schemaforge.diagram.ConceptualErdCardinality;
 import com.behsazan.schemaforge.diagram.DiagramExportOptions;
 import com.behsazan.schemaforge.diagram.DiagramExporter;
 import com.behsazan.schemaforge.diagram.DiagramScope;
@@ -67,9 +68,11 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
             selected = connectedTables(selected, catalog, options);
         }
 
-        return options.type() == DiagramType.DEPENDENCY
-                ? renderDependency(selected, catalog, options, renderOptions)
-                : renderEr(selected, catalog, options);
+        return switch (options.type()) {
+            case DEPENDENCY -> renderDependency(selected, catalog, options, renderOptions);
+            case CONCEPTUAL_ERD -> renderConceptualErd(selected, catalog, options);
+            case ER -> renderEr(selected, catalog, options);
+        };
     }
 
     /**
@@ -198,6 +201,45 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
         return out.toString();
     }
 
+    private String renderConceptualErd(
+            Set<Table> selected, Map<String, Table> catalog, DiagramExportOptions options) {
+        StringBuilder out = new StringBuilder();
+        appendHeader(out, "SchemaForge_Conceptual_ERD");
+        out.append("  node [shape=box];\n\n");
+
+        for (Table table : selected) {
+            appendDependencyNode(out, table, "  ");
+        }
+        out.append('\n');
+
+        if (options.includeForeignKeys()) {
+            appendUnresolvedComments(out, selected, catalog, options);
+            for (Relation relation : relations(selected, catalog, options)) {
+                ConceptualErdCardinality cardinality = ConceptualErdCardinality.resolve(
+                        relation.child(), relation.foreignKey());
+                List<String> attributes = new ArrayList<>();
+                attributes.add("dir=none");
+                attributes.add("taillabel=" + quote(cardinality.parentEnd().label()));
+                attributes.add("headlabel=" + quote(cardinality.childEnd().label()));
+                attributes.add("label=" + quote(relationLabel(relation.foreignKey())));
+                attributes.add("labeldistance=2.0");
+                if (!relation.foreignKey().physicalReference()) {
+                    attributes.add("style=dashed");
+                }
+
+                out.append("  ")
+                        .append(quote(relation.parent().qualifiedName().toString()))
+                        .append(" -> ")
+                        .append(quote(relation.child().qualifiedName().toString()))
+                        .append(" [")
+                        .append(String.join(", ", attributes))
+                        .append("];\n");
+            }
+        }
+        out.append("}\n");
+        return out.toString();
+    }
+
     private void appendColumns(StringBuilder out, Table table, DiagramExportOptions options) {
         Set<String> primaryKeyColumns = options.includePrimaryKeys()
                 ? table.primaryKey().map(pk -> pk.columns().stream()
@@ -304,6 +346,28 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
             Map<String, Table> catalog,
             DiagramExportOptions options,
             GraphvizRenderOptions renderOptions) {
+        for (Relation relation : relations(selected, catalog, options)) {
+            out.append("  ")
+                    .append(quote(relation.child().qualifiedName().toString()))
+                    .append(" -> ")
+                    .append(quote(relation.parent().qualifiedName().toString()));
+
+            List<String> attributes = new ArrayList<>(2);
+            if (renderOptions.showFkLabels()) {
+                attributes.add("label=" + quote(relationLabel(relation.foreignKey())));
+            }
+            if (!relation.foreignKey().physicalReference()) {
+                attributes.add("style=dashed");
+            }
+            if (!attributes.isEmpty()) {
+                out.append(" [").append(String.join(", ", attributes)).append(']');
+            }
+            out.append(";\n");
+        }
+    }
+
+    private List<Relation> relations(
+            Set<Table> selected, Map<String, Table> catalog, DiagramExportOptions options) {
         Set<String> selectedKeys = selected.stream()
                 .map(table -> key(table.qualifiedName()))
                 .collect(Collectors.toSet());
@@ -322,25 +386,7 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
                 .comparing((Relation relation) -> key(relation.child().qualifiedName()))
                 .thenComparing(relation -> key(relation.parent().qualifiedName()))
                 .thenComparing(relation -> relationLabel(relation.foreignKey())));
-
-        for (Relation relation : relations) {
-            out.append("  ")
-                    .append(quote(relation.child().qualifiedName().toString()))
-                    .append(" -> ")
-                    .append(quote(relation.parent().qualifiedName().toString()));
-
-            List<String> attributes = new ArrayList<>(2);
-            if (renderOptions.showFkLabels()) {
-                attributes.add("label=" + quote(relationLabel(relation.foreignKey())));
-            }
-            if (!relation.foreignKey().physicalReference()) {
-                attributes.add("style=dashed");
-            }
-            if (!attributes.isEmpty()) {
-                out.append(" [").append(String.join(", ", attributes)).append(']');
-            }
-            out.append(";\n");
-        }
+        return relations;
     }
 
     private LinkedHashSet<Table> connectedTables(

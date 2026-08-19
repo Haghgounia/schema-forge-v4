@@ -3,7 +3,6 @@ Baseline ID: SCHEMAFORGE-V4-DOCFINAL-20260817
 Date: 2026-08-17
 Parent: P8-D Physical Metadata Comparison Freeze
 Project version: 4.0.0-SNAPSHOT
-Status: HISTORICAL PARENT BASELINE (superseded by SCHEMAFORGE-V4-R4-402-20260817)
 
 User-verified regression evidence:
   command  : mvn clean test

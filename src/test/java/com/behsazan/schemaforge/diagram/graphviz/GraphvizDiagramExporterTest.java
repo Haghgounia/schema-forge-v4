@@ -142,6 +142,28 @@ class GraphvizDiagramExporterTest {
     }
 
     @Test
+    void conceptualErdOmitsFieldsAndRendersCardinalityLabels() {
+        Table customer = customer("TSTSHMA");
+        Table profile = Table.builder("TSTSHMA", "CUSTOMER_PROFILE")
+                .addColumn(Column.required("CUSTOMER_ID", DataType.numeric("NUMBER", 19, 0)))
+                .primaryKey(pk("PK_CUSTOMER_PROFILE", "CUSTOMER_ID"))
+                .addForeignKey(fk("FK_PROFILE_CUSTOMER", "CUSTOMER_ID", "CUSTOMER", "CUSTOMER_ID"))
+                .build();
+
+        String dot = exporter.export(List.of(customer, profile), DiagramExportOptions.builder()
+                .type(DiagramType.CONCEPTUAL_ERD)
+                .build());
+
+        assertTrue(dot.startsWith("digraph SchemaForge_Conceptual_ERD"), dot);
+        assertTrue(dot.contains(
+                "\"TSTSHMA.CUSTOMER\" -> \"TSTSHMA.CUSTOMER_PROFILE\" "
+                        + "[dir=none, taillabel=\"1\", headlabel=\"0..1\", "
+                        + "label=\"FK_PROFILE_CUSTOMER\", labeldistance=2.0]"), dot);
+        assertFalse(dot.contains("CUSTOMER_ID"), dot);
+        assertFalse(dot.contains("NUMBER(19,0)"), dot);
+    }
+
+    @Test
     void missingReferencedTableIsWrittenAsDotComment() {
         Table orphan = Table.builder("TSTSHMA", "ORPHAN")
                 .addColumn(Column.required("ID", DataType.numeric("NUMBER", 19, 0)))

@@ -101,17 +101,22 @@ public final class GraphvizBatchDiagramExporter {
                 .sorted(Comparator.comparing(table -> key(table.qualifiedName())))
                 .toList();
 
+        String conceptualErd;
         String dependency;
         String clustered;
         String compact;
         String overview;
         int connectedTables = connectedTableCount(exportedTables);
         if (exportedTables.isEmpty()) {
+            conceptualErd = "digraph SchemaForge_Conceptual_ERD {\n  // no unique tables available for conceptual ERD\n}\n";
             dependency = "digraph SchemaForge_Dependency {\n  // no unique tables available for batch diagram\n}\n";
             clustered = "digraph SchemaForge_Clustered_Dependency {\n  // no unique tables available for batch diagram\n}\n";
             compact = "digraph SchemaForge_Clustered_Dependency {\n  // no connected unique tables available for compact batch diagram\n}\n";
             overview = "digraph SchemaForge_Clustered_Dependency {\n  // no connected unique tables available for overview batch diagram\n}\n";
         } else {
+            conceptualErd = exporter.export(exportedTables, DiagramExportOptions.builder()
+                    .type(DiagramType.CONCEPTUAL_ERD)
+                    .build());
             DiagramExportOptions dependencyOptions = DiagramExportOptions.builder()
                     .type(DiagramType.DEPENDENCY)
                     .build();
@@ -127,6 +132,7 @@ public final class GraphvizBatchDiagramExporter {
                 .thenComparing(Issue::targetTable));
 
         return new Result(
+                conceptualErd,
                 dependency,
                 clustered,
                 compact,
@@ -184,6 +190,7 @@ public final class GraphvizBatchDiagramExporter {
             String detail) { }
 
     public record Result(
+            String conceptualErd,
             String dependency,
             String clusteredDependency,
             String compactDependency,

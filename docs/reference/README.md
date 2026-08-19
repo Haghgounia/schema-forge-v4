@@ -2,17 +2,17 @@
 
 This directory is the authoritative documentation entry point for the current SchemaForge V4 baseline.
 
-Current source baseline: **R4 maintenance baseline, built on P8-D Physical Metadata Comparison Freeze**.
+Current source baseline: **P8-D Physical Metadata Comparison Freeze**.
 
 Current user-verified regression baseline:
 
 ```text
-Tests run: 402
+Tests run: 399
 Failures: 0
 Errors: 0
 Skipped: 3
 BUILD SUCCESS
-Finished: 2026-08-17T23:19:54-07:00
+Finished: 2026-08-17T08:40:09-07:00
 ```
 
 ## Core reference set

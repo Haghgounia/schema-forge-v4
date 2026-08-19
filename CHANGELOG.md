@@ -1179,14 +1179,14 @@
 ## 2026-08-17 - R3 compile fix
 - Fixed missing `QualifiedName` import in `SchemaCompareExcelWriter`.
 - No production behavior change; Identity comparison and no-PK CRUD skip logic are unchanged.
+## 2026-08-18 - Conceptual ERD Phase 1
 
-## 2026-08-17 - R4 EA output regression expectation fix
-- Updated `SchemaForgeEaPerTableOutputTest` to expect 25 EA output artifacts instead of the historical 23 after Mermaid and Graphviz were added to the create-table REST output.
-- No production behavior changed in R4.
+- Added `CONCEPTUAL_ERD` as a third diagram view; existing `ER` and `DEPENDENCY` outputs are unchanged.
+- Added field-free Mermaid and Graphviz conceptual ERD artifacts beside normal create-table REST outputs and in ZIP batch diagrams.
+- Added a shared evidence-based cardinality resolver: FK nullability determines 0..1 vs 1 parent participation; an exact PK/UK match on the FK columns determines 0..1 vs 0..N children.
+- Parent-to-child minimum remains zero because relational constraints alone cannot prove that every parent must have a child.
+- No relationship, relationship verb, strong/weak entity type, or associative collapse is inferred from naming.
+- EA manifests now include `conceptualErdMermaid` and `conceptualErdGraphviz`.
+- No parser, canonical snapshot version, datatype mapping, DDL dialect, physical metadata, Excel comparison, or CRUD semantics changed.
+- Adds four focused tests over the user-verified 402-test baseline; expected full-suite total is 406.
 
-## 2026-08-17 - R4/402 current baseline documentation finalization
-- Recorded the user-verified full Maven result: 402 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS, finished 2026-08-17T23:19:54-07:00.
-- Promoted `SCHEMAFORGE-V4-R4-402-20260817` as the current verified baseline, built on the P8-D/documentation-finalized baseline.
-- Updated current reference documentation for Oracle identity comparison equivalence, EA Mermaid/Graphviz REST parity, and explicit `SKIPPED_NO_PRIMARY_KEY` CRUD behavior.
-- Added `docs/baselines/2026-08-17/R4-MAINTENANCE-MANIFEST.txt`.
-- Documentation-only packaging step: no production or test Java change.

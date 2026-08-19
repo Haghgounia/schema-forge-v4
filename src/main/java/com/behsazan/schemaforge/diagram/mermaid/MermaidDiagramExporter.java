@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.diagram.mermaid;
 
+import com.behsazan.schemaforge.diagram.ConceptualErdCardinality;
 import com.behsazan.schemaforge.diagram.DiagramExportOptions;
 import com.behsazan.schemaforge.diagram.DiagramExporter;
 import com.behsazan.schemaforge.diagram.DiagramScope;
@@ -50,9 +51,11 @@ public final class MermaidDiagramExporter implements DiagramExporter {
             throw new IllegalArgumentException("diagram scope selected no tables");
         }
 
-        return options.type() == DiagramType.DEPENDENCY
-                ? renderDependency(selected, catalog, options)
-                : renderEr(selected, catalog, options);
+        return switch (options.type()) {
+            case DEPENDENCY -> renderDependency(selected, catalog, options);
+            case CONCEPTUAL_ERD -> renderConceptualErd(selected, catalog, options);
+            case ER -> renderEr(selected, catalog, options);
+        };
     }
 
     private Map<String, Table> buildCatalog(Collection<Table> tables) {
@@ -161,6 +164,43 @@ public final class MermaidDiagramExporter implements DiagramExporter {
                         .append(' ')
                         .append(parentCardinality(relation.child(), relation.foreignKey()))
                         .append("--o{ ")
+                        .append(childId)
+                        .append(" : \"")
+                        .append(escapeLabel(relationLabel(relation.foreignKey())))
+                        .append("\"\n");
+            }
+        }
+        return out.toString();
+    }
+
+    private String renderConceptualErd(
+            Set<Table> selected, Map<String, Table> catalog, DiagramExportOptions options) {
+        StringBuilder out = new StringBuilder("erDiagram\n");
+        Map<String, String> ids = entityIds(selected);
+
+        for (Table table : selected) {
+            String id = ids.get(key(table.qualifiedName()));
+            out.append("    %% ").append(id).append(" = ").append(table.qualifiedName()).append('\n');
+            out.append("    ").append(id).append(" {\n    }\n\n");
+        }
+
+        if (options.includeForeignKeys()) {
+            appendUnresolvedReferenceComments(out, selected, catalog, options, "    ");
+            for (Relation relation : relations(selected, catalog, options)) {
+                String parentId = ids.get(key(relation.parent().qualifiedName()));
+                String childId = ids.get(key(relation.child().qualifiedName()));
+                if (parentId == null || childId == null) {
+                    continue;
+                }
+                ConceptualErdCardinality cardinality = ConceptualErdCardinality.resolve(
+                        relation.child(), relation.foreignKey());
+                out.append("    ")
+                        .append(parentId)
+                        .append(' ')
+                        .append(cardinality.parentEnd().mermaid())
+                        .append("--")
+                        .append(cardinality.childEnd().mermaid())
+                        .append(' ')
                         .append(childId)
                         .append(" : \"")
                         .append(escapeLabel(relationLabel(relation.foreignKey())))

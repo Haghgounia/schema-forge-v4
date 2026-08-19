@@ -80,8 +80,6 @@ The CLI does not require JDBC connectivity.
 
 REST/ZIP workflows can generate the registered database outputs from one prepared canonical schema without reparsing the source for every dialect.
 
-All REST workflows that generate create-table artifacts include Mermaid and Graphviz textual graph outputs. This includes EA XML/XMI generation; the EA manifest records the graph artifact paths.
-
 Where target metadata is enabled and the table exists, the response may additionally contain a database comparison workbook.
 
 ## 5. SQL artifact contract
@@ -117,7 +115,7 @@ The workbook contains logical/object comparison plus the frozen P8 physical comp
 
 ## 7. Diagram output
 
-The prepared canonical model can also feed Mermaid and Graphviz textual diagram generation. Diagram generation is independent from SQL dialect rendering.
+The prepared canonical model can also feed Mermaid and Graphviz textual diagram generation. Existing ER/dependency views are preserved, and the field-free conceptual ERD view derives cardinality/optionality only from FK nullability plus exact PK/UK evidence. Diagram generation is independent from SQL dialect rendering.
 
 ## 8. Metadata-based CRUD output
 
@@ -127,5 +125,3 @@ Current dedicated CRUD generation exists for:
 - SQL Server: metadata-based CRUD stored procedures.
 
 These workflows operate from live database metadata and are separate from Word/EA DDL generation.
-
-For create-table workflows, absence of an explicit primary key does not invalidate table DDL. When metadata CRUD output would require a primary key, SchemaForge records `SKIPPED_NO_PRIMARY_KEY`; it never infers a key from an `*_ID` column, identity marker, or sequence name.

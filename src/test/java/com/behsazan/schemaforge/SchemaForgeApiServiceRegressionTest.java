@@ -69,10 +69,12 @@ class SchemaForgeApiServiceRegressionTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(8, entries.size());
+        assertEquals(10, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
 
         String jsonName = entries.keySet().stream().filter(name -> JSON_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();

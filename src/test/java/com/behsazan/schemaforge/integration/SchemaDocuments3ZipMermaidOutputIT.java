@@ -108,30 +108,37 @@ class SchemaDocuments3ZipMermaidOutputIT {
         assertTrue(Files.isDirectory(extracted.resolve("reports")), "reports directory missing");
 
         Path batchEr = extracted.resolve("mermaid").resolve("batch").resolve("schema-er.mmd");
+        Path batchConceptualErd = extracted.resolve("mermaid").resolve("batch").resolve("schema-conceptual-erd.mmd");
         Path batchDependency = extracted.resolve("mermaid").resolve("batch").resolve("schema-dependency.mmd");
         Path batchMermaidIssues = extracted.resolve("mermaid").resolve("batch").resolve("issues.csv");
         Path batchMermaidSummary = extracted.resolve("mermaid").resolve("batch").resolve("summary.txt");
         assertTrue(Files.isRegularFile(batchEr), "Batch Mermaid ER diagram was not generated");
+        assertTrue(Files.isRegularFile(batchConceptualErd), "Batch Mermaid conceptual ERD was not generated");
         assertTrue(Files.isRegularFile(batchDependency), "Batch Mermaid dependency diagram was not generated");
         assertTrue(Files.isRegularFile(batchMermaidIssues), "Batch Mermaid issues report was not generated");
         assertTrue(Files.isRegularFile(batchMermaidSummary), "Batch Mermaid summary was not generated");
         assertTrue(Files.readString(batchEr, StandardCharsets.UTF_8).startsWith("erDiagram"));
+        assertTrue(Files.readString(batchConceptualErd, StandardCharsets.UTF_8).startsWith("erDiagram"));
         assertTrue(Files.readString(batchDependency, StandardCharsets.UTF_8).startsWith("flowchart LR"));
         String batchMermaidSummaryText = Files.readString(batchMermaidSummary, StandardCharsets.UTF_8);
         assertTrue(batchMermaidSummaryText.contains("Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION"));
 
+        Path batchGraphvizConceptualErd = extracted.resolve("graphviz").resolve("batch").resolve("schema-conceptual-erd.dot");
         Path batchGraphvizDependency = extracted.resolve("graphviz").resolve("batch").resolve("schema-dependency.dot");
         Path batchGraphvizClustered = extracted.resolve("graphviz").resolve("batch").resolve("schema-clustered.dot");
         Path batchGraphvizCompact = extracted.resolve("graphviz").resolve("batch").resolve("schema-compact.dot");
         Path batchGraphvizOverview = extracted.resolve("graphviz").resolve("batch").resolve("schema-overview.dot");
         Path batchGraphvizIssues = extracted.resolve("graphviz").resolve("batch").resolve("issues.csv");
         Path batchGraphvizSummary = extracted.resolve("graphviz").resolve("batch").resolve("summary.txt");
+        assertTrue(Files.isRegularFile(batchGraphvizConceptualErd), "Batch Graphviz conceptual ERD was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizDependency), "Batch Graphviz dependency diagram was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizClustered), "Batch Graphviz clustered diagram was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizCompact), "Batch Graphviz compact diagram was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizOverview), "Batch Graphviz overview diagram was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizIssues), "Batch Graphviz issues report was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizSummary), "Batch Graphviz summary was not generated");
+        assertTrue(Files.readString(batchGraphvizConceptualErd, StandardCharsets.UTF_8)
+                .startsWith("digraph SchemaForge_Conceptual_ERD"));
         assertTrue(Files.readString(batchGraphvizDependency, StandardCharsets.UTF_8)
                 .startsWith("digraph SchemaForge_Dependency"));
         assertTrue(Files.readString(batchGraphvizClustered, StandardCharsets.UTF_8)
@@ -161,10 +168,10 @@ class SchemaDocuments3ZipMermaidOutputIT {
                 "Every successful document must have one Db2 z/OS DDL file");
         assertEquals(successfulDocuments, json,
                 "Every successful document must have one canonical JSON output");
-        assertEquals(successfulDocuments, mermaid,
-                "Every successful document must have one Mermaid ER output beside the normal artifacts");
-        assertEquals(successfulDocuments, graphviz,
-                "Every successful document must have one Graphviz DOT output beside the normal artifacts");
+        assertEquals(successfulDocuments * 2, mermaid,
+                "Every successful document must have ER and conceptual-ERD Mermaid outputs");
+        assertEquals(successfulDocuments * 2, graphviz,
+                "Every successful document must have ER and conceptual-ERD Graphviz outputs");
 
         try (var paths = Files.walk(extracted)) {
             for (Path diagram : paths.filter(Files::isRegularFile)
@@ -185,7 +192,8 @@ class SchemaDocuments3ZipMermaidOutputIT {
                     .sorted()
                     .toList()) {
                 String content = Files.readString(diagram, StandardCharsets.UTF_8);
-                assertTrue(content.startsWith("digraph SchemaForge_ER"),
+                assertTrue(content.startsWith("digraph SchemaForge_ER")
+                                || content.startsWith("digraph SchemaForge_Conceptual_ERD"),
                         "Invalid Graphviz per-table artifact: " + diagram);
             }
         }
@@ -206,11 +214,13 @@ class SchemaDocuments3ZipMermaidOutputIT {
         System.out.println("SQL Server SQL       : " + sqlserver);
         System.out.println("Db2 z/OS SQL         : " + db2zos);
         System.out.println("Canonical JSON       : " + json);
-        System.out.println("Mermaid ER           : " + mermaid);
-        System.out.println("Graphviz DOT         : " + graphviz);
+        System.out.println("Mermaid diagrams     : " + mermaid + " (ER + conceptual ERD)");
+        System.out.println("Graphviz diagrams    : " + graphviz + " (ER + conceptual ERD)");
         System.out.println("Comparison Excel     : " + excel + " (live metadata disabled in this test)");
         System.out.println("Batch Mermaid ER     : " + batchEr);
+        System.out.println("Batch conceptual ERD : " + batchConceptualErd);
         System.out.println("Batch dependency     : " + batchDependency);
+        System.out.println("Batch Graphviz ERD   : " + batchGraphvizConceptualErd);
         System.out.println("Batch Graphviz dep.  : " + batchGraphvizDependency);
         System.out.println("Batch Graphviz clust.: " + batchGraphvizClustered);
         System.out.println("Batch Graphviz comp. : " + batchGraphvizCompact);
