@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.util.List;
+import java.util.Set;
+
 /** Regression test for SQL Server destructive cleanup syntax. */
 class SqlServerDirectoryExecutionCleanupSyntaxTest {
 
@@ -26,4 +29,18 @@ class SqlServerDirectoryExecutionCleanupSyntaxTest {
                 sql);
         assertFalse(sql.toUpperCase().contains("CASCADE"));
     }
+    @Test
+    void quotesCatalogIdentifiersForSafeIncomingForeignKeyCleanup() {
+        assertEquals("[TSTSHMA]", SqlServerDirectoryExecutionTest.quoteIdentifier("TSTSHMA"));
+        assertEquals("[A]]B]", SqlServerDirectoryExecutionTest.quoteIdentifier("A]B"));
+    }
+
+    @Test
+    void sparseFileNumberFilterPreservesOriginalDirectorySequence() {
+        assertEquals(
+                List.of(1384, 1638, 3346),
+                SqlServerDirectoryExecutionTest.selectedFileNumbers(
+                        3823, 1, Set.of(3346, 1384, 1638)));
+    }
+
 }

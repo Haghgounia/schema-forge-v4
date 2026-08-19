@@ -1,3 +1,11 @@
+## 2026-08-19 - SQL Server historical replay cleanup R2
+
+- Root-caused the resumed SQL Server replay: all 26 actionable failures were a 13-pair chain of error 3726 (`DEPENDENT_OBJECTS_EXIST`) during cleanup followed by error 2714 (`DUPLICATE_OBJECT`) on CREATE TABLE.
+- In `HISTORICAL` destructive replay, the validator now discovers incoming foreign keys from `sys.foreign_keys` for each target table and drops only constraints whose child table is inside the configured `expectedSchema` safety boundary.
+- Added `sqlserver.sql.fileNumbers` for sparse 1-based reruns while preserving original directory sequence numbers in reports.
+- Added regression coverage for SQL Server catalog-identifier quoting and sparse sequence selection.
+- Production SQL Server DDL generation is unchanged.
+
 ## 2026-08-19 - MySQL logical DDL P1
 
 - Registered `MYSQL` in `DatabasePlatform` and `DialectFactory`; normal CLI, REST/ZIP, and EA DDL paths can now emit `.mysql.sql` artifacts.

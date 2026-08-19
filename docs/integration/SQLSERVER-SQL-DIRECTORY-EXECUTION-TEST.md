@@ -20,7 +20,7 @@ mvnw.cmd -Dtest=SqlServerDirectoryExecutionTest test ^
   -Dsqlserver.sql.failOnErrors=false
 ```
 
-In `HISTORICAL` mode, cross-table foreign keys and grants are skipped. Each qualified table may be dropped before its script is executed so historical versions can be validated independently.
+In `HISTORICAL` mode, cross-table foreign keys and grants are skipped. Each qualified table may be dropped before its script is executed so historical versions can be validated independently. Before a target table is dropped, the validator checks `sys.foreign_keys` for incoming references and removes those constraints only when their child tables are inside the configured disposable `expectedSchema`. This prevents SQL Server error 3726 from leaving the old table in place and cascading into error 2714 on the subsequent `CREATE TABLE`.
 
 ## Reports
 
@@ -48,10 +48,14 @@ A standalone `GO` line is a client batch separator, not a T-SQL statement. The r
 
 ```text
 -Dsqlserver.sql.maxFiles=100
+-Dsqlserver.sql.startFileNumber=1273
+-Dsqlserver.sql.fileNumbers=1384,1638,1662
 -Dsqlserver.sql.statementTimeoutSeconds=60
 -Dsqlserver.sql.ignoreSqlStates=...
 -Dsqlserver.sql.ignoreErrorCodes=...
 -Dsqlserver.sql.skipStatementTypes=GRANT,ALTER_FOREIGN_KEY
 ```
 
-`dropBeforeCreate=true` requires both `sqlserver.sql.confirmDestructive=true` and `sqlserver.sql.expectedSchema`. The runner refuses to drop an unqualified table or a table outside the expected schema.
+`sqlserver.sql.fileNumbers` is an optional sparse, 1-based filter over the fully sorted discovered file list. When present, it overrides contiguous selection for execution and retains the original sequence numbers in CSV/text reports.
+
+`dropBeforeCreate=true` requires both `sqlserver.sql.confirmDestructive=true` and `sqlserver.sql.expectedSchema`. The runner refuses to drop an unqualified table or a table outside the expected schema, and the same safety boundary applies to incoming-FK cleanup.

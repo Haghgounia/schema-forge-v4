@@ -1,4 +1,4 @@
-SchemaForge V4 - Oracle FK R2 + PostgreSQL Resume Green + MySQL Logical DDL P1
+SchemaForge V4 - Oracle FK R2 + PostgreSQL Green + SQL Server Cleanup R2 + MySQL Logical DDL P1
 ================================================================================
 
 Baseline
@@ -22,7 +22,21 @@ PostgreSQL historical resume from file 5210:
   Statements failed    : 0
   Cleanup failed       : 0
 
-SQL Server historical replay remains independent and can resume from file 1273.
+SQL Server historical resume from file 1273 completed:
+  Files selected       : 2551
+  Statements executed  : 64300
+  Statements succeeded : 64287
+  Statements failed    : 13
+  Cleanup failed       : 13
+
+Root cause: the 26 actionable failures are 13 cleanup/create pairs. Each failed DROP
+returned SQL Server 3726 because an incoming FK still referenced the target table; the
+unchanged table then caused 2714 on CREATE TABLE. SQL Server Cleanup R2 removes incoming
+FKs inside the disposable expected schema before historical DROP TABLE. Production DDL is
+unchanged.
+
+Sparse verification is available through:
+  -Dsqlserver.sql.fileNumbers=1384,1638,1662,1740,2053,2265,2763,2774,2775,3311,3329,3342,3346
 
 MySQL Logical DDL P1
 --------------------
@@ -42,7 +56,13 @@ MySQL Logical DDL P1
 
 Focused regression
 ------------------
+MySQL P1 focused suite was verified by the user on 2026-08-19:
+  Tests run: 19, Failures: 0, Errors: 0, Skipped: 0
+
 mvnw.cmd -Dtest=MySqlTypeMapperTest,MySqlIdentifierRendererTest,MySqlDialectFoundationTest,MySqlDdlGeneratorTest,ApplicationDialectSelectionTest,OutputFileNamerTest test
+
+SQL Server Cleanup R2 regression:
+  mvnw.cmd -Dtest=SqlServerDirectoryExecutionCleanupSyntaxTest test
 
 Full regression
 ---------------
@@ -50,7 +70,9 @@ mvnw.cmd clean test
 
 The prior patch expected approximately 415 ordinary tests / 3 skipped. MySQL P1 adds four
 ordinary @Test cases net (one new foundation case and three DDL-generator cases), so the
-expected total is approximately 419 tests / 3 skipped. The user-side Maven run is authoritative.
+expected total was approximately 419 tests / 3 skipped before SQL Server Cleanup R2. Two focused
+cleanup/filter tests were added, so the current expected total is approximately 421 tests / 3 skipped.
+The user-side Maven run is authoritative.
 
 Build-environment validation performed
 --------------------------------------

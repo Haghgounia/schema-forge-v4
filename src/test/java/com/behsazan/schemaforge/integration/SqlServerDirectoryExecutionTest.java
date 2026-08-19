@@ -45,7 +45,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * literals, delimited identifiers, and semicolons inside quoted content.</p>
  *
  * <p>Use only a disposable validation database/schema when {@code dropBeforeCreate=true}. When enabled,
- * tables and explicit {@code CREATE SEQUENCE} objects found in each script are dropped before replay.</p>
+ * tables and explicit {@code CREATE SEQUENCE} objects found in each script are dropped before replay.
+ * In HISTORICAL mode, incoming foreign keys inside the expected disposable schema are removed first so an
+ * older table version can be replaced without SQL Server error 3726.</p>
  */
 class SqlServerDirectoryExecutionTest {
 
@@ -97,7 +99,7 @@ class SqlServerDirectoryExecutionTest {
             fail("sqlserver.sql.startFileNumber=" + config.startFileNumber()
                     + " exceeds discovered file count " + discoveredFiles.size());
         }
-        List<Path> files = discoveredFiles.subList(config.startFileNumber() - 1, discoveredFiles.size());
+        List<SequencedFile> files = selectFiles(discoveredFiles, config);
 
         Path reportDir = config.reportBase().resolve(LocalDateTime.now().format(RUN_ID));
         Files.createDirectories(reportDir);
@@ -118,14 +120,15 @@ class SqlServerDirectoryExecutionTest {
                 report.readDatabaseInfo(connection);
                 report.readExpectedSchemaInfo(connection);
 
-                int sequence = config.startFileNumber() - 1;
-                for (Path file : files) {
-                    sequence++;
-                    executeFile(connection, config, report, file, sequence);
-                    if (sequence % config.progressEveryFiles() == 0 || sequence == discoveredFiles.size()) {
+                int processed = 0;
+                for (SequencedFile selected : files) {
+                    processed++;
+                    executeFile(connection, config, report, selected.file(), selected.sequence());
+                    if (processed % config.progressEveryFiles() == 0 || processed == files.size()) {
                         System.out.printf(Locale.ROOT,
-                                "SQL Server scripts: %,d / %,d, statements=%,d, errors=%,d%n",
-                                sequence, discoveredFiles.size(), report.executed(), report.failed());
+                                "SQL Server scripts: %,d / %,d, selected=%,d / %,d, statements=%,d, errors=%,d%n",
+                                selected.sequence(), discoveredFiles.size(), processed, files.size(),
+                                report.executed(), report.failed());
                     }
                 }
             }
@@ -206,6 +209,9 @@ class SqlServerDirectoryExecutionTest {
                 }
             }
             for (String table : tables) {
+                if (config.executionMode() == ExecutionMode.HISTORICAL) {
+                    dropIncomingForeignKeys(connection, config, report, file, fileSequence, table);
+                }
                 dropTable(connection, config, report, file, fileSequence, table);
             }
             for (String sequence : sequences) {
@@ -358,6 +364,44 @@ class SqlServerDirectoryExecutionTest {
         return schema + "." + table;
     }
 
+    private void dropIncomingForeignKeys(
+            Connection connection,
+            Config config,
+            RunReport report,
+            Path file,
+            int fileSequence,
+            String referencedTable) throws SQLException {
+
+        verifyDestructiveTableOwner(referencedTable, config.expectedSchema());
+        List<ForeignKeyDefinition> incoming = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT ps.name, pt.name, fk.name "
+                        + "FROM sys.foreign_keys fk "
+                        + "JOIN sys.tables pt ON pt.object_id = fk.parent_object_id "
+                        + "JOIN sys.schemas ps ON ps.schema_id = pt.schema_id "
+                        + "WHERE fk.referenced_object_id = OBJECT_ID(?) "
+                        + "ORDER BY ps.name, pt.name, fk.name")) {
+            statement.setString(1, sqlServerObjectIdName(referencedTable));
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    String childTable = quoteIdentifier(result.getString(1))
+                            + "." + quoteIdentifier(result.getString(2));
+                    incoming.add(new ForeignKeyDefinition(
+                            childTable, quoteIdentifier(result.getString(3))));
+                }
+            }
+        }
+
+        for (ForeignKeyDefinition foreignKey : incoming) {
+            verifyDestructiveTableOwner(foreignKey.table(), config.expectedSchema());
+            dropForeignKeyIfExists(connection, config, report, file, fileSequence, foreignKey);
+        }
+    }
+
+    static String quoteIdentifier(String identifier) {
+        return "[" + safe(identifier).replace("]", "]]" ) + "]";
+    }
+
     private void dropTable(
             Connection connection,
             Config config,
@@ -415,6 +459,40 @@ class SqlServerDirectoryExecutionTest {
 
     static String dropSequenceSql(String sequence) {
         return "DROP SEQUENCE IF EXISTS " + sequence;
+    }
+
+    private static List<SequencedFile> selectFiles(List<Path> discoveredFiles, Config config) {
+        List<SequencedFile> selected = new ArrayList<>();
+        for (int sequence : selectedFileNumbers(
+                discoveredFiles.size(), config.startFileNumber(), config.fileNumbers())) {
+            selected.add(new SequencedFile(sequence, discoveredFiles.get(sequence - 1)));
+        }
+        return List.copyOf(selected);
+    }
+
+    static List<Integer> selectedFileNumbers(
+            int discoveredFileCount, int startFileNumber, Set<Integer> fileNumbers) {
+        if (!fileNumbers.isEmpty()) {
+            List<Integer> selected = fileNumbers.stream().sorted().toList();
+            for (int sequence : selected) {
+                if (sequence < 1 || sequence > discoveredFileCount) {
+                    throw new IllegalArgumentException(
+                            "sqlserver.sql.fileNumbers contains out-of-range sequence " + sequence
+                                    + "; discovered file count=" + discoveredFileCount);
+                }
+            }
+            return selected;
+        }
+        if (startFileNumber < 1 || startFileNumber > discoveredFileCount) {
+            throw new IllegalArgumentException(
+                    "sqlserver.sql.startFileNumber=" + startFileNumber
+                            + " exceeds discovered file count " + discoveredFileCount);
+        }
+        List<Integer> selected = new ArrayList<>();
+        for (int sequence = startFileNumber; sequence <= discoveredFileCount; sequence++) {
+            selected.add(sequence);
+        }
+        return List.copyOf(selected);
     }
 
     private static List<Path> findSqlFiles(Path root, String suffix, int maxFiles) throws IOException {
@@ -912,6 +990,7 @@ class SqlServerDirectoryExecutionTest {
             System.out.println("============================================================");
             System.out.println("Files discovered     : " + discoveredFiles);
             System.out.println("Start file number    : " + config.startFileNumber());
+            System.out.println("File number filter   : " + formatFileNumbers(config.fileNumbers()));
             System.out.println("Files selected       : " + selectedFiles);
             System.out.println("Statements executed  : " + executed);
             System.out.println("Statements succeeded : " + succeeded);
@@ -988,6 +1067,7 @@ class SqlServerDirectoryExecutionTest {
                     .append("File suffix           : ").append(config.fileSuffix()).append('\n')
                     .append("Files discovered      : ").append(discoveredFiles).append('\n')
                     .append("Start file number     : ").append(config.startFileNumber()).append('\n')
+                    .append("File number filter    : ").append(formatFileNumbers(config.fileNumbers())).append('\n')
                     .append("Files selected        : ").append(selectedFiles).append('\n')
                     .append("Statements executed   : ").append(executed).append('\n')
                     .append("Statements succeeded  : ").append(succeeded).append('\n')
@@ -1077,6 +1157,14 @@ class SqlServerDirectoryExecutionTest {
         }
     }
 
+    private static String formatFileNumbers(Set<Integer> fileNumbers) {
+        if (fileNumbers.isEmpty()) return "none";
+        return fileNumbers.stream().sorted().map(String::valueOf)
+                .reduce((left, right) -> left + "," + right).orElse("none");
+    }
+
+    private record SequencedFile(int sequence, Path file) { }
+
     private record Config(
             Path root,
             String url,
@@ -1097,6 +1185,7 @@ class SqlServerDirectoryExecutionTest {
             int loginTimeoutSeconds,
             int progressEveryFiles,
             int startFileNumber,
+            Set<Integer> fileNumbers,
             int maxFiles,
             boolean enabled) {
 
@@ -1127,6 +1216,7 @@ class SqlServerDirectoryExecutionTest {
                     integer("sqlserver.sql.loginTimeoutSeconds", 20),
                     integer("sqlserver.sql.progressEveryFiles", 100),
                     integer("sqlserver.sql.startFileNumber", 1),
+                    integerSet(value("sqlserver.sql.fileNumbers", "")),
                     integer("sqlserver.sql.maxFiles", 0),
                     enabled);
         }
@@ -1158,7 +1248,8 @@ class SqlServerDirectoryExecutionTest {
                         "sqlserver.sql.expectedSchema must be an unquoted SQL Server identifier");
             }
             if (statementTimeoutSeconds < 1 || loginTimeoutSeconds < 1
-                    || progressEveryFiles < 1 || startFileNumber < 1 || maxFiles < 0) {
+                    || progressEveryFiles < 1 || startFileNumber < 1 || maxFiles < 0
+                    || fileNumbers.stream().anyMatch(number -> number < 1)) {
                 throw new IllegalArgumentException("SQL Server test numeric properties are invalid");
             }
         }
