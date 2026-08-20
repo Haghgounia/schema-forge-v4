@@ -1,0 +1,21 @@
+SchemaForge V4 - MySQL P2-R7 Strong Table Reconciliation
+
+This cumulative V4 package includes P2-R7.
+
+P2-R7 does not mutate canonical JSON and does not auto-accept fuzzy/cross-schema candidates.
+It applies only corroborated same-schema P2-R6 STRONG_* candidates in memory for audit generation.
+
+Run from the project root:
+
+mvnw.cmd ^
+  -Dtest=MySqlStrongTableReconciliationGenerationIT ^
+  -Dschemaforge.mysql.strong.snapshotDir="D:\get-git-doc-files-master\SchemaForgeCanonicalJson-20260818" ^
+  -Dschemaforge.mysql.strong.db2SysColumnsFile="D:\SYSCOLUMNS-050511.zip" ^
+  -Dschemaforge.mysql.strong.p2r4Dir="D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R4" ^
+  -Dschemaforge.mysql.strong.p2r6Dir="D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R6" ^
+  -Dschemaforge.mysql.strong.outputDir="D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R7" ^
+  -Dschemaforge.mysql.strong.minEvidence=1 ^
+  -Dschemaforge.mysql.strong.minTypeCorroboration=2 ^
+  -Dschemaforge.mysql.strong.cleanOutput=true ^
+  -Dschemaforge.mysql.strong.failOnGenerationErrors=false ^
+  test

@@ -1,0 +1,4 @@
+SchemaForge V4 - MySQL P2-R5 audit-only patch
+
+Extract this ZIP over the current SchemaForge V4 project root with overwrite enabled.
+No production Java source is replaced. One integration audit test and one document are added.

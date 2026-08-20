@@ -1,6 +1,6 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server metadata connections are used only for validation and comparison workbooks. MySQL P1 is logical-DDL only and does not yet provide a JDBC metadata adapter.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server metadata connections are used only for validation and comparison workbooks. MySQL now has logical DDL plus a JDBC-backed live execution regression harness; a MySQL metadata repository / Actual-vs-Design adapter is still deferred.
 
 ```text
 one input.docx -> one JSON model + one SQL file per registered dialect
@@ -279,7 +279,7 @@ SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD=change-me
 
 ## MySQL logical DDL P1
 
-Select the dialect with `mysql`. MySQL is registered in the common platform/factory path and generates schema/database bootstrap, tables, evidence-safe `AUTO_INCREMENT` identity, stored generated columns, PK/UK/check/FK constraints, indexes, and inline table/column comments. Parser-generated identity backing sequences are suppressed only when they are identity-only; genuine standalone sequence semantics remain blocking. Cross-DBMS physical placement is not translated. MySQL JDBC metadata, Actual-vs-Design Excel comparison, live execution, physical tuning, and metadata CRUD are deferred to later phases. See [`docs/dialects/MYSQL-DIALECT-P1.md`](docs/dialects/MYSQL-DIALECT-P1.md).
+Select the dialect with `mysql`. MySQL is registered in the common platform/factory path and generates schema/database bootstrap, tables, evidence-safe `AUTO_INCREMENT` identity, stored generated columns, PK/UK/check/FK constraints, indexes, and inline table/column comments. Parser-generated identity backing sequences are suppressed only when they are identity-only; genuine standalone sequence semantics remain blocking. Cross-DBMS physical placement is not translated. A MySQL 8.4 live execution regression harness is available for generated SQL; MySQL metadata comparison, physical tuning, and metadata CRUD remain deferred. See [`docs/dialects/MYSQL-DIALECT-P1.md`](docs/dialects/MYSQL-DIALECT-P1.md), [`docs/MYSQL-P3-LIVE-EXECUTION.md`](docs/MYSQL-P3-LIVE-EXECUTION.md), and the P2/P3 audit notes under `docs/`.
 
 ## Microsoft SQL Server core dialect
 
@@ -298,7 +298,7 @@ SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific run-all files. MySQL P1 generates DDL/run-all artifacts but has no JDBC metadata adapter yet.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific run-all files. MySQL generates DDL/run-all artifacts and has a separate live execution regression harness, but it still has no JDBC metadata comparison adapter.
 
 ```text
 oracle/<SCHEMA>.<TABLE>.oracle.sql
@@ -410,3 +410,10 @@ Remaining Oracle LOB, PostgreSQL table-access-method/partition, SQL Server TEXTI
 ### Tables without primary keys
 
 Create-table REST workflows support tables that have no explicit primary key. DDL and diagram/report artifacts are still generated. Metadata-based Oracle/SQL Server CRUD artifacts are not generated for such tables; the metadata CRUD summary records `SKIPPED_NO_PRIMARY_KEY`. SchemaForge does not infer a primary key from column names such as `*_ID`.
+
+### MySQL P2-R7 strong table reconciliation
+
+P2-R7 adds a conservative, in-memory reconciliation pass for the P2-R6 `STRONG_SAME_SCHEMA_*` candidates.
+It requires independent datatype-family corroboration from non-blocked shared DB2 columns and rejects any
+observed family conflict. It never mutates canonical JSON and never applies ambiguous or cross-schema matches.
+See `docs/MYSQL-P2-R7-STRONG-TABLE-RECONCILIATION.md`.

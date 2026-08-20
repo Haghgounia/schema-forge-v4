@@ -1,3 +1,33 @@
+## 2026-08-20 - MySQL P2-R6 DB2 table reconciliation audit
+
+- Added an audit-only integration test for the largest remaining MySQL evidence gap: canonical blockers whose exact DB2 SYSCOLUMNS lookup reports `TABLE_NOT_FOUND`.
+- The audit compares DB2 table names and column signatures using conservative classifications for normalized-name, prefix/truncation, near-name, unique column-signature, other-schema, ambiguous, and no-candidate cases.
+- No fuzzy candidate is applied automatically; canonical JSON and production MySQL mapping remain unchanged.
+- Moved accumulated MySQL patch-note text files out of the project root into `docs/patches/mysql/`.
+
+## 2026-08-20 - MySQL P2-R5 cross-source conflict audit
+
+- Compared remaining canonical/DB2 datatype conflicts against independent historical canonical evidence.
+- Audit result: 242 conflict occurrences / 125 unique columns, with only 2 exact cross-source consensus occurrences; conflict recovery is therefore not the primary coverage lever.
+- No production mapping or canonical JSON change.
+
+## 2026-08-20 - MySQL P2-R4 historical consensus recovery audit
+
+- Added evidence-only historical consensus over canonical snapshots after exact DB2 metadata recovery.
+- Historical consensus recovered 104 occurrences / 64 unique columns and newly unblocked 12 snapshots, raising generated coverage from 4,537 to 4,549 snapshots with zero generation failures.
+
+## 2026-08-20 - MySQL P3-R2 storage adaptation
+
+- Added conservative MySQL storage adaptation for oversized `VARCHAR`/row-size cases while preserving logical character limits with checks and avoiding indexed/key columns.
+- Focused live replay of the two remaining storage failures completed 5/5 statements successfully on MySQL 8.4.11.
+- Full regression after P3-R2: 429 tests, 0 failures, 0 errors, 4 skipped.
+
+## 2026-08-20 - MySQL P3-R1 live hardening
+
+- Removed invalid unquoted `DEFAULT NULL` from `NOT NULL` MySQL columns without changing the literal string `'NULL'`.
+- Fixed live execution failure accounting so recorded MySQL errors increment the global failed-statement counter.
+- The previous 18 MySQL error 1067 failures were eliminated in focused live replay.
+
 ## 2026-08-19 - MySQL P1 API packaging regression R3
 
 - Root-caused the two failures from the pre-SQL-Server-R2 full regression: one stale MySQL logical-FK assertion and one real ZIP packaging omission.
@@ -1243,3 +1273,11 @@
 - Reuses dialect mapping analysis and existing offline SQL validators and writes artifact-index, validation-issue, and failure reports for manual review.
 - Does not fabricate comparison Excel/P8/metadata-CRUD artifacts when no Actual database metadata repository exists; these database-dependent omissions are explicitly reported.
 - Test-only audit tooling; no production Java, parser, snapshot version, canonical model, DDL renderer, metadata comparison, or REST behavior changed.
+
+## 2026-08-20 - MySQL P2-R7 strong table reconciliation
+
+- Added `MySqlStrongTableReconciliationGenerationIT`.
+- Revalidates only P2-R6 `STRONG_SAME_SCHEMA_*` table candidates with an independent DB2 datatype-family corroboration gate.
+- Rejects cross-schema, ambiguous, weak, and type-conflicting candidates; canonical JSON is never mutated.
+- Applies evidence-backed mapped-table numeric metadata only in memory and generates only newly unblocked SQL under `generated-new`.
+- Moved MySQL patch application notes out of the project root into `docs/patches/mysql/`.

@@ -1,0 +1,19 @@
+@echo off
+setlocal
+set "ROOT=%~dp0.."
+set "DEST=%ROOT%\docs\patches\mysql"
+if not exist "%DEST%" mkdir "%DEST%"
+for %%F in (
+  APPLY-MYSQL-P2-R1-PATCH.txt
+  APPLY-MYSQL-P2-R2-AUDIT-PATCH.txt
+  APPLY-MYSQL-P2-R3-PATCH.txt
+  APPLY-MYSQL-P2-R4-PATCH.txt
+  APPLY-MYSQL-P2-R5-PATCH.txt
+  APPLY-MYSQL-P3-PATCH.txt
+  APPLY-MYSQL-P3-R1-PATCH.txt
+  APPLY-MYSQL-P3-R2-PATCH.txt
+  PATCH-README.txt
+) do (
+  if exist "%ROOT%\%%F" move /Y "%ROOT%\%%F" "%DEST%\%%F" >nul
+)
+endlocal
