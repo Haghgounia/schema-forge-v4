@@ -87,8 +87,8 @@ public final class Phase1Application {
     private static void printUsageAndExit() {
         System.err.println("Usage:");
         System.err.println("  java -jar schema-forge.jar <input.docx>");
-        System.err.println("  java -jar schema-forge.jar <input.docx> <oracle|postgresql|db2zos|sqlserver>");
-        System.err.println("  java -jar schema-forge.jar <input.docx> <output-directory> [oracle|postgresql|db2zos|sqlserver]");
+        System.err.println("  java -jar schema-forge.jar <input.docx> <oracle|postgresql|db2zos|sqlserver|mysql>");
+        System.err.println("  java -jar schema-forge.jar <input.docx> <output-directory> [oracle|postgresql|db2zos|sqlserver|mysql]");
         System.exit(2);
     }
 

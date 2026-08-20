@@ -4,6 +4,8 @@ import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosTypeMapper;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
+import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
+import com.behsazan.schemaforge.dialect.mysql.MySqlTypeMapper;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlTypeMapper;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
@@ -30,6 +32,21 @@ public final class DatatypeCompatibilityAnalyzer {
     private static final Set<String> ORACLE_TIMESTAMP = Set.of(
             "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
             "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE");
+    private static final Set<String> MYSQL_VARIABLE_CHARACTER = Set.of(
+            "VARCHAR", "VARCHAR2", "NVARCHAR", "NVARCHAR2");
+    private static final Set<String> MYSQL_FIXED_CHARACTER = Set.of(
+            "CHAR", "NCHAR", "CHARACTER");
+    private static final Set<String> MYSQL_BINARY = Set.of("RAW", "VARBINARY");
+    private static final Set<String> MYSQL_TEMPORAL = Set.of("TIMESTAMP", "DATETIME", "TIME");
+    private static final Set<String> MYSQL_TIMEZONE_TEMPORAL = Set.of(
+            "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
+            "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE");
+    private static final Set<String> MYSQL_UNSUPPORTED_ROWID = Set.of("ROWID", "UROWID");
+    private static final Set<String> MYSQL_SUPPORTED_SIMPLE = Set.of(
+            "INT", "INTEGER", "BINARY_INTEGER", "PLS_INTEGER", "BIGINT", "SMALLINT", "TINYINT",
+            "BINARY_DOUBLE", "DOUBLE", "DOUBLE PRECISION", "BINARY_FLOAT", "FLOAT", "REAL",
+            "CLOB", "NCLOB", "LONG", "TEXT", "BLOB", "LONG RAW", "LONG_RAW",
+            "DATE", "BOOLEAN", "BOOL", "JSON", "XMLTYPE", "XML");
     private static final Set<String> SQLSERVER_TEMPORAL = Set.of(
             "TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
             "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE",
@@ -53,6 +70,8 @@ public final class DatatypeCompatibilityAnalyzer {
                     analyzePostgreSql(type, sourceName, path, issues);
                 } else if (dialect instanceof SqlServerDialect) {
                     analyzeSqlServer(type, sourceName, path, issues);
+                } else if (dialect instanceof MySqlDialect) {
+                    analyzeMySql(type, sourceName, path, issues);
                 } else if (dialect instanceof Db2ZosDialect) {
                     analyzeDb2Zos(type, sourceName, path, issues);
                 }
@@ -131,6 +150,78 @@ public final class DatatypeCompatibilityAnalyzer {
                             + "; the current dialect renders precision "
                             + SqlServerTypeMapper.MAX_TEMPORAL_PRECISION + ".");
         }
+    }
+
+
+    private void analyzeMySql(
+            DataType type, String sourceName, String path, List<ValidationIssue> issues) {
+        if (EXACT_NUMERIC.contains(sourceName)) {
+            if (type.precision() == null) {
+                error(issues, "MYSQL_EXACT_NUMERIC_PRECISION_REQUIRED", path,
+                        "Canonical " + sourceName
+                                + " has no explicit precision/scale; MySQL DECIMAL/NUMERIC has fixed precision "
+                                + "and scale semantics, so no lossless target mapping is selected.");
+                return;
+            }
+            if (type.precision() > MySqlTypeMapper.MAX_DECIMAL_PRECISION) {
+                error(issues, "MYSQL_DECIMAL_PRECISION_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds MySQL DECIMAL precision "
+                                + MySqlTypeMapper.MAX_DECIMAL_PRECISION
+                                + "; no target precision is invented or clamped.");
+            }
+            if (type.scale() != null && type.scale() > MySqlTypeMapper.MAX_DECIMAL_SCALE) {
+                error(issues, "MYSQL_DECIMAL_SCALE_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds MySQL DECIMAL scale " + MySqlTypeMapper.MAX_DECIMAL_SCALE
+                                + "; no target scale is invented or clamped.");
+            }
+            return;
+        }
+        if ((MYSQL_VARIABLE_CHARACTER.contains(sourceName) || MYSQL_FIXED_CHARACTER.contains(sourceName))
+                && type.length() == null) {
+            error(issues, "MYSQL_CHARACTER_LENGTH_REQUIRED", path,
+                    "Canonical " + sourceName
+                            + " has no explicit length; SchemaForge does not invent a MySQL character length.");
+            return;
+        }
+        if (MYSQL_BINARY.contains(sourceName) && type.length() == null) {
+            error(issues, "MYSQL_BINARY_LENGTH_REQUIRED", path,
+                    "Canonical " + sourceName
+                            + " has no explicit length; SchemaForge does not invent a MySQL VARBINARY length.");
+            return;
+        }
+        if (MYSQL_TEMPORAL.contains(sourceName)
+                && type.precision() != null
+                && type.precision() > MySqlTypeMapper.MAX_TEMPORAL_PRECISION) {
+            error(issues, "MYSQL_TEMPORAL_PRECISION_UNSUPPORTED", path,
+                    "Canonical " + sourceName + "(" + type.precision() + ") exceeds MySQL temporal precision "
+                            + MySqlTypeMapper.MAX_TEMPORAL_PRECISION
+                            + "; no target precision is invented or clamped.");
+            return;
+        }
+        if (MYSQL_TIMEZONE_TEMPORAL.contains(sourceName)) {
+            error(issues, "MYSQL_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
+                    "Canonical " + sourceName
+                            + " has timezone semantics for which the current MySQL logical dialect has no lossless mapping.");
+            return;
+        }
+        if (MYSQL_UNSUPPORTED_ROWID.contains(sourceName)) {
+            error(issues, "MYSQL_ROWID_UNSUPPORTED", path,
+                    "Canonical " + sourceName
+                            + " carries Oracle row locator semantics for which MySQL has no lossless logical mapping.");
+            return;
+        }
+        if (MYSQL_VARIABLE_CHARACTER.contains(sourceName)
+                || MYSQL_FIXED_CHARACTER.contains(sourceName)
+                || MYSQL_BINARY.contains(sourceName)
+                || MYSQL_TEMPORAL.contains(sourceName)
+                || MYSQL_SUPPORTED_SIMPLE.contains(sourceName)) {
+            return;
+        }
+        error(issues, "MYSQL_DATATYPE_UNSUPPORTED", path,
+                "Canonical datatype " + renderType(sourceName, type)
+                        + " is outside the current MySQL logical datatype coverage.");
     }
 
     private void analyzeDb2Zos(

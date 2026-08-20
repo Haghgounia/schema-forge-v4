@@ -91,6 +91,7 @@ class SchemaDocuments3ZipMermaidOutputIT {
         long postgresql = countFiles(extracted, ".postgresql.sql");
         long sqlserver = countFiles(extracted, ".sqlserver.sql");
         long db2zos = countFiles(extracted, ".db2zos.sql");
+        long mysql = countFiles(extracted, ".mysql.sql");
         long json = countFiles(extracted, ".json");
         long mermaid = countFiles(extracted, ".mermaid.mmd");
         long graphviz = countFiles(extracted, ".graphviz.dot");
@@ -100,6 +101,7 @@ class SchemaDocuments3ZipMermaidOutputIT {
         assertTrue(Files.isDirectory(extracted.resolve("postgresql")), "postgresql directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("sqlserver")), "sqlserver directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("db2zos")), "db2zos directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("mysql")), "mysql directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("json")), "json directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("mermaid").resolve("tables")), "mermaid/tables directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("mermaid").resolve("batch")), "mermaid/batch directory missing");
@@ -166,6 +168,8 @@ class SchemaDocuments3ZipMermaidOutputIT {
                 "Every successful document must have one SQL Server DDL file");
         assertEquals(successfulDocuments, db2zos,
                 "Every successful document must have one Db2 z/OS DDL file");
+        assertEquals(successfulDocuments, mysql,
+                "Every successful document must have one MySQL DDL file");
         assertEquals(successfulDocuments, json,
                 "Every successful document must have one canonical JSON output");
         assertEquals(successfulDocuments * 2, mermaid,

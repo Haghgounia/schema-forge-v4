@@ -1,4 +1,4 @@
-SchemaForge V4 - Oracle FK R2 + PostgreSQL Green + SQL Server Cleanup R2 + MySQL Logical DDL P1
+SchemaForge V4 - Oracle FK R2 + PostgreSQL Green + SQL Server Cleanup R2 + MySQL P1 API Packaging R3
 ================================================================================
 
 Baseline
@@ -22,12 +22,17 @@ PostgreSQL historical resume from file 5210:
   Statements failed    : 0
   Cleanup failed       : 0
 
-SQL Server historical resume from file 1273 completed:
-  Files selected       : 2551
-  Statements executed  : 64300
-  Statements succeeded : 64287
-  Statements failed    : 13
-  Cleanup failed       : 13
+SQL Server historical resume from file 1273 completed, then R2 sparse verification passed:
+  Original files selected       : 2551
+  Original statements executed  : 64300
+  Original statements failed    : 13
+  Sparse files selected         : 13
+  Sparse statements executed    : 398
+  Sparse statements succeeded   : 398
+  Sparse statements failed      : 0
+  Incoming FK cleanup attempted : 4
+  Incoming FK cleanup succeeded : 4
+  Cleanup failed                : 0
 
 Root cause: the 26 actionable failures are 13 cleanup/create pairs. Each failed DROP
 returned SQL Server 3726 because an incoming FK still referenced the target table; the
@@ -54,6 +59,18 @@ MySQL Logical DDL P1
 9) MySQL JDBC metadata, physical tuning, live execution, metadata CRUD and a dedicated
    offline SQL validator are intentionally deferred.
 
+
+MySQL P1 API Packaging R3
+--------------------------
+The pre-R2 full regression at 07:48-07:49 reported 419 tests with two failures. Both were
+root-caused after MySQL registration:
+1) SchemaForgeApiServiceRegressionTest expected an unquoted logical FK name even though the
+   MySQL identifier renderer correctly emits backticks. The regression expectation is fixed.
+2) SchemaForgeApiZipBatchTest exposed a real packaging omission: generated .mysql.sql files
+   were not routed under mysql/. Batch packaging now derives platform folders and SQL suffixes
+   from DatabasePlatform.values(), avoiding another hard-coded platform list.
+The Phase1 CLI usage text and the large ZIP integration test were updated for MySQL as well.
+
 Focused regression
 ------------------
 MySQL P1 focused suite was verified by the user on 2026-08-19:
@@ -68,10 +85,8 @@ Full regression
 ---------------
 mvnw.cmd clean test
 
-The prior patch expected approximately 415 ordinary tests / 3 skipped. MySQL P1 adds four
-ordinary @Test cases net (one new foundation case and three DDL-generator cases), so the
-expected total was approximately 419 tests / 3 skipped before SQL Server Cleanup R2. Two focused
-cleanup/filter tests were added, so the current expected total is approximately 421 tests / 3 skipped.
+The pre-R2 full run observed 419 tests / 3 skipped and exposed two MySQL API regression issues.
+SQL Server Cleanup R2 adds two additional focused tests, so R3 expects 421 tests / 3 skipped.
 The user-side Maven run is authoritative.
 
 Build-environment validation performed

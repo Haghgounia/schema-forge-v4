@@ -1,0 +1,19 @@
+SchemaForge V4 - MySQL P2 R1 patch-only
+========================================
+Baseline: schema-forge-v4-2026-08-19-mysql-p1-sqlserver-r3
+
+Copy/overwrite the src directory from this archive into D:\Projects\schema-forge-v4.
+This patch changes only:
+  src/main/java/com/behsazan/schemaforge/validation/datatype/DatatypeCompatibilityAnalyzer.java
+and adds:
+  src/test/java/com/behsazan/schemaforge/validation/datatype/MySqlDatatypeCompatibilityAnalyzerTest.java
+
+Expected verification:
+  mvnw.cmd -Dtest=MySqlDatatypeCompatibilityAnalyzerTest,MySqlTypeMapperTest,MySqlDdlGeneratorTest test
+  => Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
+
+Expected corpus audit after patch:
+  mysql generated       : 3824
+  mysql blocked mapping : 1497
+  mysql failed          : 0
+The issues CSV should contain DIALECT_MAPPING findings with concrete table/column locations.

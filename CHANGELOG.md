@@ -1,3 +1,12 @@
+## 2026-08-19 - MySQL P1 API packaging regression R3
+
+- Root-caused the two failures from the pre-SQL-Server-R2 full regression: one stale MySQL logical-FK assertion and one real ZIP packaging omission.
+- Batch ZIP packaging now derives database artifact directories and `.<platform>.sql` suffix routing from `DatabasePlatform.values()` instead of a hard-coded four-platform list, so MySQL DDL is packaged under `mysql/` and future registered platforms inherit the same behavior.
+- Updated the MySQL logical-FK regression expectation to preserve MySQL identifier quoting with backticks.
+- Updated the legacy Phase1 CLI usage text to advertise `mysql`.
+- Extended the large ZIP integration test to require one MySQL DDL per successfully processed document and the `mysql/` directory.
+- MySQL DDL rendering, canonical parsing, SQL Server production DDL, and live cleanup semantics are unchanged.
+
 ## 2026-08-19 - SQL Server historical replay cleanup R2
 
 - Root-caused the resumed SQL Server replay: all 26 actionable failures were a 13-pair chain of error 3726 (`DEPENDENT_OBJECTS_EXIST`) during cleanup followed by error 2714 (`DUPLICATE_OBJECT`) on CREATE TABLE.

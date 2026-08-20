@@ -1063,25 +1063,20 @@ public class SchemaForgeApiService {
         Path relative = source.relativize(file);
         if (relative.getNameCount() > 1) {
             String first = relative.getName(0).toString().toLowerCase(Locale.ROOT);
-            if (first.equals("oracle") || first.equals("postgresql")
-                    || first.equals("sqlserver") || first.equals("db2zos")) {
-                return destination.resolve(relative);
+            for (DatabasePlatform platform : DatabasePlatform.values()) {
+                if (platform.commandLineName().equals(first)) {
+                    return destination.resolve(relative);
+                }
             }
         }
 
         String fileName = file.getFileName().toString();
         String lower = fileName.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".oracle.sql")) {
-            return destination.resolve("oracle").resolve(fileName);
-        }
-        if (lower.endsWith(".postgresql.sql")) {
-            return destination.resolve("postgresql").resolve(fileName);
-        }
-        if (lower.endsWith(".sqlserver.sql")) {
-            return destination.resolve("sqlserver").resolve(fileName);
-        }
-        if (lower.endsWith(".db2zos.sql")) {
-            return destination.resolve("db2zos").resolve(fileName);
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            String suffix = "." + platform.commandLineName() + ".sql";
+            if (lower.endsWith(suffix)) {
+                return destination.resolve(platform.commandLineName()).resolve(fileName);
+            }
         }
         if (lower.endsWith(".xlsx")) {
             return destination.resolve("excel").resolve(fileName);

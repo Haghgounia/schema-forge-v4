@@ -153,7 +153,7 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(mysqlSql.contains("CREATE TABLE `BIM`.`PROVINCES`"));
         assertTrue(mysqlSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(mysqlSql.contains("FK_PROVINCES_COUNTRY_ID"));
-        assertTrue(mysqlSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
+        assertTrue(mysqlSql.contains("[LOGICAL FOREIGN KEY] `FK_PROVINCES_CALENDAR_ID`"));
         assertFalse(mysqlSql.contains("ADD CONSTRAINT `FK_PROVINCES_CALENDAR_ID`"));
     }
 
