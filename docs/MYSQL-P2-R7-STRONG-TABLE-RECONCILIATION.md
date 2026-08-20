@@ -25,3 +25,9 @@ Recommended properties:
 - `schemaforge.mysql.strong.minTypeCorroboration` (default `2`)
 - `schemaforge.mysql.strong.cleanOutput` (default `true`)
 - `schemaforge.mysql.strong.failOnGenerationErrors` (default `false`)
+
+## Verified corpus result
+
+User-verified P2-R7 run on the 5,321-snapshot corpus: 94 strong candidates, 70 confirmed, 318 recovery
+occurrences / 220 unique reconciled columns, 50 newly unblocked snapshots, projected 4,599 generated and
+722 blocked, with zero generation failures.

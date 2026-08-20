@@ -1,3 +1,11 @@
+## 2026-08-20 - MySQL P2-R8 cross-schema reconciliation
+
+- Added an evidence-only generation pass for P2-R6 `REVIEW_EXACT_NAME_OTHER_SCHEMA` candidates.
+- Other-schema DB2 tables are evidence sources only; canonical schema/table identity and persisted canonical JSON are never changed.
+- Acceptance requires a unique exact-name candidate, bidirectional column-coverage thresholds, independent datatype-family corroboration, and zero observed datatype-family conflicts.
+- Recovery remains limited to missing-precision exact numeric blockers backed by MySQL-supported DB2 exact numeric metadata.
+- P2-R7 user-verified result entering this phase: 70 confirmed strong candidates, 50 newly unblocked snapshots, projected 4,599 generated / 722 blocked, zero generation failures.
+
 ## 2026-08-20 - MySQL P2-R6 DB2 table reconciliation audit
 
 - Added an audit-only integration test for the largest remaining MySQL evidence gap: canonical blockers whose exact DB2 SYSCOLUMNS lookup reports `TABLE_NOT_FOUND`.

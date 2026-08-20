@@ -1,0 +1,15 @@
+SchemaForge V4 - MySQL P2-R8 Cross-Schema Reconciliation
+=========================================================
+
+This cumulative V4 baseline adds MySqlCrossSchemaReconciliationGenerationIT.
+It evaluates only P2-R6 REVIEW_EXACT_NAME_OTHER_SCHEMA candidates and never mutates canonical JSON.
+
+Safety gates:
+- exact table name
+- unique other-schema candidate
+- bidirectional column coverage
+- independent datatype-family corroboration
+- zero datatype-family conflict
+- exact-numeric, MySQL-supported blocker recovery only
+
+See docs/MYSQL-P2-R8-CROSS-SCHEMA-RECONCILIATION.md for the execution command.

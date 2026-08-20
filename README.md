@@ -417,3 +417,11 @@ P2-R7 adds a conservative, in-memory reconciliation pass for the P2-R6 `STRONG_S
 It requires independent datatype-family corroboration from non-blocked shared DB2 columns and rejects any
 observed family conflict. It never mutates canonical JSON and never applies ambiguous or cross-schema matches.
 See `docs/MYSQL-P2-R7-STRONG-TABLE-RECONCILIATION.md`.
+
+### MySQL P2-R8 cross-schema reconciliation
+
+P2-R8 evaluates only P2-R6 `REVIEW_EXACT_NAME_OTHER_SCHEMA` candidates. The other DB2 schema is used as
+evidence only; the canonical schema/table identity is not rewritten. Acceptance requires one exact-name
+candidate, strong bidirectional column coverage, independent datatype-family corroboration, and zero family
+conflicts. Only supported exact-numeric metadata can fill missing numeric precision. Ambiguous candidates and
+conflicts remain blocked. See `docs/MYSQL-P2-R8-CROSS-SCHEMA-RECONCILIATION.md`.
