@@ -1,0 +1,30 @@
+SchemaForge V4 - MySQL P2-R2 metadata recovery audit patch
+============================================================
+
+Scope
+-----
+Adds one evidence-only integration audit. It DOES NOT modify canonical snapshots,
+MySQL mappings, generated DDL, or any production runtime class.
+
+Added file
+----------
+src/test/java/com/behsazan/schemaforge/integration/MySqlMetadataRecoveryAuditIT.java
+
+Purpose
+-------
+For every MySQL datatype blocker in the canonical snapshot corpus, perform an exact
+case-insensitive schema/table/column lookup against an offline SYSIBM.SYSCOLUMNS
+CSV/TSV/TXT/ZIP export using the existing Db2SysColumnsFileCatalog.
+
+Output classification includes:
+- RECOVERABLE_EXACT_NUMERIC_METADATA
+- METADATA_TABLE_NOT_FOUND
+- METADATA_COLUMN_NOT_FOUND
+- METADATA_INCOMPLETE
+- METADATA_AMBIGUOUS
+- METADATA_STILL_UNSUPPORTED
+- CANONICAL_METADATA_TYPE_CONFLICT
+- RECOVERABLE_WITH_CANONICAL_CONFLICT
+- ROWID_PHYSICAL_ARTIFACT_REVIEW
+
+No fuzzy matching and no datatype guessing are performed.

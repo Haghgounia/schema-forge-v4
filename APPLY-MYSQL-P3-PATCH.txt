@@ -1,0 +1,3 @@
+Overlay this patch on the current SchemaForge V4 project root.
+It adds the official MySQL JDBC runtime dependency and MySQL live directory execution tests.
+No production DDL generator code is changed.

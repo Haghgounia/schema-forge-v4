@@ -1,0 +1,14 @@
+MySQL P2-R3 evidence-overlay generation patch
+===============================================
+
+Adds only:
+- src/test/java/com/behsazan/schemaforge/integration/MySqlMetadataRecoveryGenerationIT.java
+- docs/MYSQL-P2-R3-EVIDENCE-OVERLAY-GENERATION.md
+
+No production source is modified.
+
+Run with:
+  -Dtest=MySqlMetadataRecoveryGenerationIT
+  -Dschemaforge.mysql.recovery.snapshotDir=<canonical-json-dir>
+  -Dschemaforge.mysql.recovery.db2SysColumnsFile=<SYSCOLUMNS export zip/csv>
+  -Dschemaforge.mysql.recovery.outputDir=<output-dir>
