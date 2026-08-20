@@ -318,7 +318,7 @@ public final class DdlGenerator {
         }
         sql.append(dialect.quote(column.name()));
         if (!column.generated() || dialect.generatedColumnIncludesDataType()) {
-            sql.append(" ").append(dialect.sqlType(column));
+            sql.append(" ").append(dialect.sqlType(table, column));
         }
         sql.append(dialect.columnPhysicalClause(column));
         if (column.generated()) {
@@ -344,6 +344,7 @@ public final class DdlGenerator {
         if (!column.description().isEmpty()) {
             sql.append(dialect.inlineColumnCommentClause(column));
         }
+        sql.append(dialect.inlineColumnConstraintClause(table, column));
         return sql.toString();
     }
 

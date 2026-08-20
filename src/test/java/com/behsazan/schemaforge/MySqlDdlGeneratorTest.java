@@ -97,6 +97,26 @@ class MySqlDdlGeneratorTest {
         assertTrue(sql.contains("Dialect      : MySQL"));
     }
 
+
+    @Test
+    void shouldSuppressExplicitNullDefaultOnNotNullColumn() {
+        Column required = new Column(Identifier.of("REQUIRED_VALUE"), DataType.varchar("VARCHAR2", 20),
+                false, new DefaultValue("NULL"), Description.empty(), false, 1);
+        Column quotedNull = new Column(Identifier.of("LITERAL_NULL"), DataType.varchar("VARCHAR2", 20),
+                false, new DefaultValue("'NULL'"), Description.empty(), false, 2);
+        Table table = Table.builder("APP", "DEFAULT_NULL_TEST")
+                .addColumn(required)
+                .addColumn(quotedNull)
+                .build();
+
+        String sql = new DdlGenerator(new MySqlDialect()).generate(
+                DatabaseSchema.builder("APP").addTable(table).build());
+
+        assertTrue(sql.contains("`REQUIRED_VALUE` VARCHAR(20) NOT NULL"));
+        assertFalse(sql.contains("`REQUIRED_VALUE` VARCHAR(20) DEFAULT NULL NOT NULL"));
+        assertTrue(sql.contains("`LITERAL_NULL` VARCHAR(20) DEFAULT 'NULL' NOT NULL"));
+    }
+
     @Test
     void shouldRejectStandaloneSequenceBecauseMySqlHasNoSequenceObject() {
         Column id = new Column(Identifier.of("ID"), DataType.simple("BIGINT"),
@@ -131,4 +151,59 @@ class MySqlDdlGeneratorTest {
                 () -> new DdlGenerator(new MySqlDialect()).generate(
                         DatabaseSchema.builder("APP").addTable(table).build()));
     }
+    @Test
+    void shouldPromoteOversizedUtf8mb4VarcharToMediumTextAndPreserveLogicalLength() {
+        Column payload = new Column(Identifier.of("PAYLOAD"), DataType.varchar("VARCHAR2", 30000),
+                true, null, new Description("Large payload"), false, 1);
+        Table table = Table.builder("APP", "LARGE_PAYLOAD")
+                .addColumn(payload)
+                .build();
+
+        String sql = new DdlGenerator(new MySqlDialect()).generate(
+                DatabaseSchema.builder("APP").addTable(table).build());
+
+        assertTrue(sql.contains("`PAYLOAD` MEDIUMTEXT COMMENT 'Large payload' CHECK (CHAR_LENGTH(`PAYLOAD`) <= 30000)"));
+        assertTrue(sql.contains("SchemaForge MySQL storage adaptation: VARCHAR2(30000) -> MEDIUMTEXT"));
+        assertFalse(sql.contains("`PAYLOAD` VARCHAR(30000)"));
+    }
+
+    @Test
+    void shouldRelieveOversizedUtf8mb4RowUsingMinimalOffRowTextPromotions() {
+        Column p1 = new Column(Identifier.of("P1"), DataType.varchar("VARCHAR2", 7000),
+                true, null, Description.empty(), false, 1);
+        Column p2 = new Column(Identifier.of("P2"), DataType.varchar("VARCHAR2", 7000),
+                true, null, Description.empty(), false, 2);
+        Column p3 = new Column(Identifier.of("P3"), DataType.varchar("VARCHAR2", 7000),
+                true, null, Description.empty(), false, 3);
+        Column p4 = new Column(Identifier.of("P4"), DataType.varchar("VARCHAR2", 7000),
+                true, null, Description.empty(), false, 4);
+        Table table = Table.builder("APP", "SERVICE_LOG")
+                .addColumn(p1).addColumn(p2).addColumn(p3).addColumn(p4)
+                .build();
+
+        String sql = new DdlGenerator(new MySqlDialect()).generate(
+                DatabaseSchema.builder("APP").addTable(table).build());
+
+        assertTrue(sql.contains("`P1` TEXT CHECK (CHAR_LENGTH(`P1`) <= 7000)"));
+        assertTrue(sql.contains("`P2` TEXT CHECK (CHAR_LENGTH(`P2`) <= 7000)"));
+        assertTrue(sql.contains("`P3` VARCHAR(7000)"));
+        assertTrue(sql.contains("`P4` VARCHAR(7000)"));
+    }
+
+    @Test
+    void shouldRejectOversizedVarcharPromotionWhenIndexSemanticsWouldChange() {
+        Column payload = new Column(Identifier.of("PAYLOAD"), DataType.varchar("VARCHAR2", 30000),
+                false, null, Description.empty(), false, 1);
+        Table table = Table.builder("APP", "INDEXED_PAYLOAD")
+                .addColumn(payload)
+                .addIndex(new Index(Identifier.of("IX_INDEXED_PAYLOAD"),
+                        List.of(new IndexColumn(Identifier.of("PAYLOAD"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new DdlGenerator(new MySqlDialect()).generate(
+                        DatabaseSchema.builder("APP").addTable(table).build()));
+    }
+
 }

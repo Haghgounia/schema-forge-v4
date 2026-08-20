@@ -170,6 +170,7 @@ class MySqlDirectoryExecutionTest {
                     report.succeeded++;
                 } catch (SQLException exception) {
                     failed++;
+                    report.failed++;
                     boolean isActionable = report.addSqlError(
                             file, fileSequence, statementIndex, type, objectName(sql), exception,
                             Duration.between(started, Instant.now()), sql);

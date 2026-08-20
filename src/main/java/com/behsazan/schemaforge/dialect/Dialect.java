@@ -36,6 +36,26 @@ public interface Dialect {
     String sqlType(Column column);
 
     /**
+     * Table-aware datatype hook for target-specific storage constraints. Dialects that do not
+     * need table context keep the existing single-column mapping unchanged.
+     */
+    default String sqlType(Table table, Column column) {
+        Objects.requireNonNull(table, "table must not be null");
+        return sqlType(column);
+    }
+
+    /**
+     * Optional inline constraint/annotation emitted after the normal column attributes.
+     * This is intended for semantics-preserving target adaptations such as retaining a
+     * canonical maximum character length when a VARCHAR must use off-row text storage.
+     */
+    default String inlineColumnConstraintClause(Table table, Column column) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(column, "column must not be null");
+        return "";
+    }
+
+    /**
      * Performs dialect-specific table invariants that cannot be validated from a single column.
      * The default accepts the canonical table unchanged.
      */

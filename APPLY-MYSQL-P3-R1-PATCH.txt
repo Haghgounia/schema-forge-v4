@@ -1,0 +1,11 @@
+SchemaForge V4 - MySQL P3-R1 live hardening patch
+
+Apply by extracting this ZIP over the existing D:\Projects\schema-forge-v4 tree with overwrite enabled.
+
+Changes:
+1. MySqlDialect suppresses contradictory unquoted DEFAULT NULL on NOT NULL columns.
+2. Quoted string literal 'NULL' remains unchanged.
+3. MySqlDirectoryExecutionTest now increments the global failed-statement counter correctly.
+4. Adds regression coverage for DEFAULT NULL / NOT NULL handling.
+
+No lossy mapping is added for the two remaining live storage-limit cases (1074 and 1118).

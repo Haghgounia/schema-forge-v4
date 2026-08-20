@@ -1,0 +1,11 @@
+SchemaForge V4 - MySQL P3-R2 patch-only
+
+Prerequisite: MySQL P3-R1 already applied.
+Extract this ZIP over D:\Projects\schema-forge-v4 with overwrite enabled.
+
+Focused regression:
+  mvnw.cmd -Dtest=MySqlDdlGeneratorTest,MySqlTypeMapperTest,MySqlDirectoryExecutionSyntaxTest test
+
+Expected focused count: 10 tests, 0 failures, 0 errors.
+
+Then regenerate MySQL P2-R3 output and sparse-live-test file numbers 2207 and 2762.

@@ -13,6 +13,9 @@ import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -27,6 +30,15 @@ import java.util.Set;
  * than translating them approximately.</p>
  */
 public final class MySqlDialect implements Dialect {
+    private static final int UTF8MB4_MAX_BYTES_PER_CHARACTER = 4;
+    private static final int MYSQL_MAX_LOGICAL_ROW_BYTES = 65_535;
+    private static final int MYSQL_TEXT_MAX_BYTES = 65_535;
+    private static final int MYSQL_MEDIUMTEXT_MAX_BYTES = 16_777_215;
+    private static final int OFF_ROW_POINTER_BUDGET_BYTES = 12;
+    private static final int VARCHAR_LENGTH_PREFIX_BYTES = 2;
+    private static final int MAX_UTF8MB4_VARCHAR_CHARACTERS =
+            (MYSQL_MAX_LOGICAL_ROW_BYTES - VARCHAR_LENGTH_PREFIX_BYTES) / UTF8MB4_MAX_BYTES_PER_CHARACTER;
+
     private static final Set<DialectFeature> FEATURES = Set.of(
             DialectFeature.IDENTITY_COLUMN,
             DialectFeature.GENERATED_COLUMN,
@@ -65,6 +77,31 @@ public final class MySqlDialect implements Dialect {
         throw new IllegalArgumentException(
                 "MySQL AUTO_INCREMENT requires an integer column; no lossless integer mapping exists for "
                         + column.dataType() + " on " + column.name().value());
+    }
+
+    @Override
+    public String sqlType(Table table, Column column) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(column, "column must not be null");
+        if (textStoragePromotions(table).contains(column.name().normalized())) {
+            return promotedTextType(column);
+        }
+        return sqlType(column);
+    }
+
+    @Override
+    public String inlineColumnConstraintClause(Table table, Column column) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(column, "column must not be null");
+        if (!textStoragePromotions(table).contains(column.name().normalized())) {
+            return "";
+        }
+        int logicalLength = Objects.requireNonNull(column.dataType().length());
+        String source = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
+        String target = promotedTextType(column);
+        return " CHECK (CHAR_LENGTH(" + quote(column.name()) + ") <= " + logicalLength + ")"
+                + " /* SchemaForge MySQL storage adaptation: " + source + "(" + logicalLength
+                + ") -> " + target + "; logical max length preserved */";
     }
 
     @Override
@@ -139,7 +176,16 @@ public final class MySqlDialect implements Dialect {
         if (column.identity()) {
             return identityClause(column);
         }
-        return " DEFAULT " + expression(column.defaultValue().expression());
+        String sourceExpression = column.defaultValue().expression();
+        // MySQL rejects an explicit DEFAULT NULL on a NOT NULL column (ER_INVALID_DEFAULT).
+        // Omitting that contradictory explicit default preserves the effective strict-mode
+        // behavior: callers still must supply a non-null value. A quoted string literal
+        // such as 'NULL' is intentionally not suppressed.
+        if (!column.nullable() && sourceExpression != null
+                && sourceExpression.trim().equalsIgnoreCase("NULL")) {
+            return "";
+        }
+        return " DEFAULT " + expression(sourceExpression);
     }
 
     @Override
@@ -201,6 +247,118 @@ public final class MySqlDialect implements Dialect {
         // In MySQL, SCHEMA is a synonym for DATABASE. Qualified table names therefore use
         // the canonical schema as the database name and bootstrap it idempotently.
         return "CREATE DATABASE IF NOT EXISTS " + quote(schemaName) + statementTerminator();
+    }
+
+    private Set<String> textStoragePromotions(Table table) {
+        LinkedHashSet<String> promoted = new LinkedHashSet<>();
+
+        for (Column column : table.columns()) {
+            if (!isVariableCharacter(column)) {
+                continue;
+            }
+            Integer length = column.dataType().length();
+            if (length != null && length > MAX_UTF8MB4_VARCHAR_CHARACTERS) {
+                requireTextPromotionEligible(table, column,
+                        "declared character length exceeds the utf8mb4 VARCHAR capacity of "
+                                + MAX_UTF8MB4_VARCHAR_CHARACTERS);
+                promoted.add(column.name().normalized());
+            }
+        }
+
+        long remainingVarcharBytes = table.columns().stream()
+                .filter(this::isVariableCharacter)
+                .mapToLong(column -> promoted.contains(column.name().normalized())
+                        ? OFF_ROW_POINTER_BUDGET_BYTES
+                        : varcharMaximumBytes(column))
+                .sum();
+
+        if (remainingVarcharBytes <= MYSQL_MAX_LOGICAL_ROW_BYTES) {
+            return Set.copyOf(promoted);
+        }
+
+        List<Column> candidates = new ArrayList<>(table.columns().stream()
+                .filter(this::isVariableCharacter)
+                .filter(column -> !promoted.contains(column.name().normalized()))
+                .filter(column -> textPromotionEligible(table, column))
+                .toList());
+        candidates.sort(Comparator
+                .comparingLong(this::varcharMaximumBytes).reversed()
+                .thenComparing(column -> column.ordinalPosition() == null ? Integer.MAX_VALUE : column.ordinalPosition())
+                .thenComparing(column -> column.name().normalized()));
+
+        for (Column candidate : candidates) {
+            promoted.add(candidate.name().normalized());
+            remainingVarcharBytes -= Math.max(0, varcharMaximumBytes(candidate) - OFF_ROW_POINTER_BUDGET_BYTES);
+            if (remainingVarcharBytes <= MYSQL_MAX_LOGICAL_ROW_BYTES) {
+                break;
+            }
+        }
+
+        if (remainingVarcharBytes > MYSQL_MAX_LOGICAL_ROW_BYTES) {
+            throw new IllegalArgumentException(
+                    "MySQL row-size adaptation cannot preserve indexed/key/defaulted VARCHAR semantics for "
+                            + table.qualifiedName() + "; remaining declared utf8mb4 VARCHAR budget="
+                            + remainingVarcharBytes + " bytes");
+        }
+        return Set.copyOf(promoted);
+    }
+
+    private boolean isVariableCharacter(Column column) {
+        String source = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
+        return Set.of("VARCHAR", "VARCHAR2", "NVARCHAR", "NVARCHAR2").contains(source)
+                && column.dataType().length() != null
+                && column.dataType().length() > 0;
+    }
+
+    private long varcharMaximumBytes(Column column) {
+        return (long) column.dataType().length() * UTF8MB4_MAX_BYTES_PER_CHARACTER
+                + VARCHAR_LENGTH_PREFIX_BYTES;
+    }
+
+    private String promotedTextType(Column column) {
+        long maximumBytes = (long) column.dataType().length() * UTF8MB4_MAX_BYTES_PER_CHARACTER;
+        if (maximumBytes <= MYSQL_TEXT_MAX_BYTES) {
+            return "TEXT";
+        }
+        if (maximumBytes <= MYSQL_MEDIUMTEXT_MAX_BYTES) {
+            return "MEDIUMTEXT";
+        }
+        return "LONGTEXT";
+    }
+
+    private void requireTextPromotionEligible(Table table, Column column, String reason) {
+        if (!textPromotionEligible(table, column)) {
+            throw new IllegalArgumentException(
+                    "MySQL requires off-row text storage for " + table.qualifiedName() + "."
+                            + column.name().value() + " because " + reason
+                            + ", but the column participates in key/index/FK/default/generated semantics; "
+                            + "SchemaForge will not guess a prefix index or alter those semantics");
+        }
+    }
+
+    private boolean textPromotionEligible(Table table, Column column) {
+        if (column.identity() || column.generated() || column.defaultValue().isPresent()) {
+            return false;
+        }
+        String name = column.name().normalized();
+        if (table.primaryKey().isPresent()
+                && table.primaryKey().get().columns().stream().anyMatch(id -> id.normalized().equals(name))) {
+            return false;
+        }
+        if (table.uniqueKeys().stream()
+                .flatMap(key -> key.columns().stream())
+                .anyMatch(id -> id.normalized().equals(name))) {
+            return false;
+        }
+        if (table.foreignKeys().stream()
+                .flatMap(fk -> fk.columns().stream())
+                .anyMatch(id -> id.normalized().equals(name))) {
+            return false;
+        }
+        return table.indexes().stream().noneMatch(index ->
+                index.columns().stream().anyMatch(indexColumn ->
+                        !indexColumn.expressionBased() && indexColumn.column().normalized().equals(name))
+                        || index.includeColumns().stream().anyMatch(id -> id.normalized().equals(name)));
     }
 
     private boolean autoIncrementCompatible(String mappedType) {
