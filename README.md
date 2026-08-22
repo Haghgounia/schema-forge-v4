@@ -22,7 +22,7 @@ The SQL file contains all objects related to that Word specification in one file
 
 ## ALTER / Flyway-compatible migration foundation
 
-For an existing database table, SchemaForge compares live metadata with the desired canonical table and can build a versioned Flyway-compatible `ALTER TABLE` migration. **The ordinary CREATE script is still generated unconditionally**; the migration is an additional artifact under `<platform>/migrations/` and never replaces CREATE DDL. M1 covers column add/drop/type/nullability/default changes for all five DBMS platforms, writes SAFE/REVIEW/DESTRUCTIVE findings directly into the SQL, blocks destructive SQL by default, and never guesses a column rename. M1.2 treats legacy MySQL identity `SEQ_*.NEXTVAL` defaults using effective `AUTO_INCREMENT` semantics. M2 adds table-owned PK/FK/UK/CHECK/INDEX comparison and DROP-before-column / ADD-after-column ordering, and expands MySQL live metadata to those objects. M2-R4 normalizes MySQL `information_schema` CHECK rendering (backticks, automatic UTF charset introducers, and insignificant punctuation whitespace) so a successfully migrated CHECK does not remain as a false residual diff. Incoming foreign keys owned by other tables and physical-option migration remain explicit later work. See [`docs/ALTER-MIGRATION-M1.md`](docs/ALTER-MIGRATION-M1.md) and [`docs/ALTER-MIGRATION-M2.md`](docs/ALTER-MIGRATION-M2.md).
+For an existing database table, SchemaForge compares live metadata with the desired canonical table and can build a versioned Flyway-compatible `ALTER TABLE` migration. **The ordinary CREATE script is still generated unconditionally**; the migration is an additional artifact under `<platform>/migrations/` and never replaces CREATE DDL. M1 covers column add/drop/type/nullability/default changes for all five DBMS platforms, writes SAFE/REVIEW/DESTRUCTIVE findings directly into the SQL, blocks destructive SQL by default, and never guesses a column rename. M1.2 treats legacy MySQL identity `SEQ_*.NEXTVAL` defaults using effective `AUTO_INCREMENT` semantics. M2 adds table-owned PK/FK/UK/CHECK/INDEX comparison and DROP-before-column / ADD-after-column ordering, and expands MySQL live metadata to those objects. M2-R4/R5 normalize MySQL `information_schema` CHECK rendering (backticks, automatic UTF charset introducers, escaped literal delimiters, and insignificant punctuation whitespace), and M2-R8 normalizes PostgreSQL `pg_get_constraintdef(..., true)` CHECK presentation for ordinary identifier case plus redundant parentheses around atomic boolean predicates. Boolean grouping that can affect precedence and string/quoted-identifier semantics are preserved. Incoming foreign keys owned by other tables and physical-option migration remain explicit later work. See [`docs/ALTER-MIGRATION-M1.md`](docs/ALTER-MIGRATION-M1.md) and [`docs/ALTER-MIGRATION-M2.md`](docs/ALTER-MIGRATION-M2.md).
 
 ## Legacy Oracle default and precision safety gate
 
@@ -463,3 +463,10 @@ MySQL 8.4 can expose CHECK string literals in `information_schema` with both cha
 output, executes the confirmed Flyway-compatible migration, preserves seed data, and requires an empty residual
 diff. Oracle PK/UK backing indexes are not modeled a second time as standalone indexes. See
 `docs/ALTER-MIGRATION-M2-ORACLE-LIVE-PILOT.md`.
+
+### ALTER/Migration M2 PostgreSQL live pilot
+
+`PostgreSqlMigrationM2LivePilotIT` validates the M2 CREATE+ALTER path against a real PostgreSQL test database. It uses only `SF_M2_PARENT` and `SF_M2_CHILD` in the explicitly configured test schema, requires explicit destructive confirmation, verifies preserved data and a zero residual metadata diff, and removes the pilot tables at the end.
+
+### ALTER/Migration M2-R7.1 PostgreSQL pilot assertion note
+The PostgreSQL live pilot compares the generated CREATE marker case-insensitively. This is a test-only correction; production CREATE and ALTER behavior is unchanged.

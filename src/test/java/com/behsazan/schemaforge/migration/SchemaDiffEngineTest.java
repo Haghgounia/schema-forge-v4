@@ -215,6 +215,62 @@ class SchemaDiffEngineTest {
     }
 
     @Test
+    void ignoresPostgreSqlCatalogCaseAndRedundantParenthesesAroundAtomicBooleanPredicates() {
+        Column id = Column.required("ID", DataType.numeric("NUMERIC", 10, 0));
+        Column parentId = Column.required("PARENT_ID", DataType.numeric("NUMERIC", 10, 0));
+        Table live = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CHILD_POSITIVE"),
+                        "id > 0 AND parent_id > 0"))
+                .build();
+        Table desired = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CHILD_POSITIVE"),
+                        "(ID > 0) AND (PARENT_ID > 0)"))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.POSTGRESQL, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT));
+    }
+
+    @Test
+    void preservesPostgreSqlBooleanGroupingWhenParenthesesAffectPrecedence() {
+        Column a = Column.required("A", DataType.numeric("NUMERIC", 10, 0));
+        Column b = Column.required("B", DataType.numeric("NUMERIC", 10, 0));
+        Column c = Column.required("C", DataType.numeric("NUMERIC", 10, 0));
+        Table live = Table.builder("APP", "T_RULE")
+                .addColumn(a).addColumn(b).addColumn(c)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_RULE"),
+                        "A = 1 OR B = 2 AND C = 3"))
+                .build();
+        Table desired = Table.builder("APP", "T_RULE")
+                .addColumn(a).addColumn(b).addColumn(c)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_RULE"),
+                        "(A = 1 OR B = 2) AND C = 3"))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.POSTGRESQL, live, desired);
+
+        assertTrue(plan.objectChanges().stream().anyMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT
+                        && change.kind() == TableObjectChangeKind.REPLACE));
+    }
+
+    @Test
+    void preservesPostgreSqlStringLiteralCaseWhileNormalizingCheckCatalogFormatting() {
+        String lower = SchemaDiffEngine.normalizeCheckExpression(DatabasePlatform.POSTGRESQL, "STATUS = 'a'");
+        String upper = SchemaDiffEngine.normalizeCheckExpression(DatabasePlatform.POSTGRESQL, "status = 'A'");
+
+        assertFalse(lower.equals(upper));
+    }
+
+    @Test
     void ignoresMySqlPrimaryKeyCatalogNamePrimaryWhenStructureMatches() {
         Column id = Column.required("ID", DataType.numeric("NUMBER", 10, 0));
         Table live = Table.builder("APP", "CUSTOMER")

@@ -289,6 +289,12 @@ public final class SchemaDiffEngine {
             normalized = normalized.replaceAll("(?i)_(?:utf8mb4|utf8mb3)(?=')", "");
             return normalizeMySqlCheckFormatting(normalized);
         }
+        if (platform == DatabasePlatform.POSTGRESQL) {
+            // pg_get_constraintdef(..., true) lower-cases ordinary identifiers and can remove
+            // redundant parentheses around individual boolean predicates. Preserve grouping
+            // parentheses that contain AND/OR because those can change boolean precedence.
+            return normalizePostgreSqlCheckFormatting(normalized);
+        }
         return normalizeExpression(normalized);
     }
 
@@ -378,10 +384,149 @@ public final class SchemaDiffEngine {
      * avoids accidentally changing values such as 'A, B'.
      */
     static String normalizeMySqlCheckFormatting(String value) {
+        return normalizeCatalogCheckFormatting(value);
+    }
+
+    static String normalizePostgreSqlCheckFormatting(String value) {
+        if (value == null) return null;
+        String source = stripBalancedOuterParentheses(value.trim());
+        source = stripPostgreSqlRedundantPredicateParentheses(source);
+        return normalizeCatalogCheckFormatting(source);
+    }
+
+    /**
+     * Removes only PostgreSQL catalog parentheses that wrap one atomic boolean predicate, e.g.
+     * {@code (ID > 0) AND (PARENT_ID > 0)}. Parentheses containing a top-level AND/OR are kept
+     * because removing them can change boolean precedence. Function calls, IN lists, arithmetic
+     * groups, and other non-boolean-term parentheses are left untouched by context checks.
+     */
+    static String stripPostgreSqlRedundantPredicateParentheses(String value) {
+        if (value == null || value.isBlank()) return value;
+        String source = value;
+        boolean changed;
+        do {
+            changed = false;
+            int[] stack = new int[source.length()];
+            int stackSize = 0;
+            boolean inString = false;
+            boolean inQuotedIdentifier = false;
+            for (int i = 0; i < source.length(); i++) {
+                char ch = source.charAt(i);
+                if (inString) {
+                    if (ch == '\'' && i + 1 < source.length() && source.charAt(i + 1) == '\'') {
+                        i++;
+                    } else if (ch == '\'') {
+                        inString = false;
+                    }
+                    continue;
+                }
+                if (inQuotedIdentifier) {
+                    if (ch == '"' && i + 1 < source.length() && source.charAt(i + 1) == '"') {
+                        i++;
+                    } else if (ch == '"') {
+                        inQuotedIdentifier = false;
+                    }
+                    continue;
+                }
+                if (ch == '\'') {
+                    inString = true;
+                    continue;
+                }
+                if (ch == '"') {
+                    inQuotedIdentifier = true;
+                    continue;
+                }
+                if (ch == '(') {
+                    stack[stackSize++] = i;
+                    continue;
+                }
+                if (ch != ')' || stackSize == 0) continue;
+
+                int open = stack[--stackSize];
+                String inner = source.substring(open + 1, i).trim();
+                if (inner.isEmpty() || containsTopLevelBooleanOperator(inner)) continue;
+                if (!postgreSqlBooleanBoundaryBefore(source, open) || !postgreSqlBooleanBoundaryAfter(source, i)) {
+                    continue;
+                }
+                source = source.substring(0, open) + inner + source.substring(i + 1);
+                changed = true;
+                break;
+            }
+        } while (changed);
+        return source;
+    }
+
+    private static boolean postgreSqlBooleanBoundaryBefore(String value, int open) {
+        int i = open - 1;
+        while (i >= 0 && Character.isWhitespace(value.charAt(i))) i--;
+        if (i < 0 || value.charAt(i) == '(') return true;
+        int end = i + 1;
+        while (i >= 0 && (Character.isLetter(value.charAt(i)) || value.charAt(i) == '_')) i--;
+        if (end == i + 1) return false;
+        String token = value.substring(i + 1, end).toUpperCase(Locale.ROOT);
+        return token.equals("AND") || token.equals("OR");
+    }
+
+    private static boolean postgreSqlBooleanBoundaryAfter(String value, int close) {
+        int i = close + 1;
+        while (i < value.length() && Character.isWhitespace(value.charAt(i))) i++;
+        if (i >= value.length() || value.charAt(i) == ')') return true;
+        int start = i;
+        while (i < value.length() && (Character.isLetter(value.charAt(i)) || value.charAt(i) == '_')) i++;
+        if (i == start) return false;
+        String token = value.substring(start, i).toUpperCase(Locale.ROOT);
+        return token.equals("AND") || token.equals("OR");
+    }
+
+    private static boolean containsTopLevelBooleanOperator(String value) {
+        int depth = 0;
+        boolean inString = false;
+        boolean inQuotedIdentifier = false;
+        for (int i = 0; i < value.length();) {
+            char ch = value.charAt(i);
+            if (inString) {
+                if (ch == '\'' && i + 1 < value.length() && value.charAt(i + 1) == '\'') i += 2;
+                else {
+                    if (ch == '\'') inString = false;
+                    i++;
+                }
+                continue;
+            }
+            if (inQuotedIdentifier) {
+                if (ch == '"' && i + 1 < value.length() && value.charAt(i + 1) == '"') i += 2;
+                else {
+                    if (ch == '"') inQuotedIdentifier = false;
+                    i++;
+                }
+                continue;
+            }
+            if (ch == '\'') { inString = true; i++; continue; }
+            if (ch == '"') { inQuotedIdentifier = true; i++; continue; }
+            if (ch == '(') { depth++; i++; continue; }
+            if (ch == ')') { depth--; i++; continue; }
+            if (depth == 0 && (Character.isLetter(ch) || ch == '_')) {
+                int start = i++;
+                while (i < value.length() && (Character.isLetter(value.charAt(i)) || value.charAt(i) == '_')) i++;
+                String token = value.substring(start, i).toUpperCase(Locale.ROOT);
+                if (token.equals("AND") || token.equals("OR")) return true;
+                continue;
+            }
+            i++;
+        }
+        return false;
+    }
+
+    /**
+     * Quote-aware CHECK formatter shared by catalog-specific normalizers. SQL keywords and
+     * unquoted identifiers are folded to upper case while string literals and quoted identifiers
+     * retain their semantic case/content.
+     */
+    private static String normalizeCatalogCheckFormatting(String value) {
         if (value == null) return null;
         String source = stripBalancedOuterParentheses(value.trim());
         StringBuilder out = new StringBuilder(source.length());
         boolean inString = false;
+        boolean inQuotedIdentifier = false;
         boolean pendingSpace = false;
 
         for (int i = 0; i < source.length(); i++) {
@@ -397,12 +542,30 @@ public final class SchemaDiffEngine {
                 }
                 continue;
             }
+            if (inQuotedIdentifier) {
+                out.append(ch);
+                if (ch == '"') {
+                    if (i + 1 < source.length() && source.charAt(i + 1) == '"') {
+                        out.append(source.charAt(++i));
+                    } else {
+                        inQuotedIdentifier = false;
+                    }
+                }
+                continue;
+            }
 
             if (ch == '\'') {
                 appendPendingSpace(out, pendingSpace, ch);
                 pendingSpace = false;
                 out.append(ch);
                 inString = true;
+                continue;
+            }
+            if (ch == '"') {
+                appendPendingSpace(out, pendingSpace, ch);
+                pendingSpace = false;
+                out.append(ch);
+                inQuotedIdentifier = true;
                 continue;
             }
             if (Character.isWhitespace(ch)) {

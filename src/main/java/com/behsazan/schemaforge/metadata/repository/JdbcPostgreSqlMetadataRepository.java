@@ -176,7 +176,7 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
              ORDER BY con.conname
             """;
 
-    private static final String INDEXES_SQL = """
+    static final String INDEXES_SQL = """
             SELECT index_table.relname AS index_name,
                    index_definition.indisunique,
                    access_method.amname AS access_method,
@@ -204,6 +204,12 @@ public class JdbcPostgreSqlMetadataRepository implements PostgreSqlMetadataRepos
                 ON attribute.attrelid = table_definition.oid
                AND attribute.attnum = item.attnum
              WHERE table_definition.oid = :tableOid
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM pg_constraint constraint_definition
+                    WHERE constraint_definition.conindid = index_definition.indexrelid
+                      AND constraint_definition.contype IN ('p', 'u')
+               )
              ORDER BY index_table.relname, item.ordinality
             """;
 

@@ -1,3 +1,11 @@
+## 2026-08-22 - ALTER Migration M2-R8 PostgreSQL CHECK catalog normalization
+
+- PostgreSQL M2 live pilot reached real migration execution and returned a single residual CHECK drift: live `id > 0 AND parent_id > 0` versus desired `(ID > 0) AND (PARENT_ID > 0)`.
+- Added PostgreSQL-only CHECK comparison normalization for ordinary unquoted identifier case and redundant parentheses around atomic boolean predicates emitted/removed by `pg_get_constraintdef(..., true)`.
+- Parentheses containing a top-level `AND`/`OR` are deliberately preserved so boolean precedence changes remain visible as real migration drift.
+- String literal case/content and quoted-identifier case remain semantic and are not folded away.
+- CREATE DDL, ALTER rendering, destructive-confirmation policy, and the other four DBMS dialects are unchanged.
+
 ## 2026-08-22 - ALTER Migration M2-R4.1 test compile fix
 
 - Added the missing JUnit `assertFalse` static import used by the MySQL CHECK literal-preservation regression test.
@@ -1408,3 +1416,15 @@
 - `JdbcOracleMetadataRepository` no longer double-counts PK/UK enforcing indexes as standalone indexes; those backing-index physical values remain attached to their constraint objects.
 - The pilot refuses `SYS`/`SYSTEM`, requires the configured schema to equal the connected user, and cleans up only the fixed `SF_M2_PARENT`/`SF_M2_CHILD` tables.
 - MySQL M2-R5 behavior and all CREATE-DDL semantics remain unchanged.
+
+## 2026-08-22 - ALTER/Migration M2-R7 PostgreSQL live pilot
+
+- Added `PostgreSqlMigrationM2LivePilotIT` for real live-to-document M2 execution validation.
+- The pilot verifies CREATE generation remains independent when the table already exists, executes confirmed Flyway-style ALTER SQL, re-reads PostgreSQL catalog metadata, requires zero residual diff, checks row preservation, and cleans up its fixed `SF_M2_*` tables.
+- PostgreSQL metadata now excludes primary-key and unique-constraint backing indexes from the standalone index collection so M2 does not emit false INDEX drift for catalog-owned enforcement indexes.
+
+## 2026-08-22 - ALTER/Migration M2-R7.1 PostgreSQL live-pilot CREATE assertion fix
+
+- Fixed the PostgreSQL live-pilot CREATE verification to compare both the generated SQL and the expected `CREATE TABLE` marker in the same lowercase form.
+- The previous assertion lowercased only the generated SQL while leaving the `CREATE TABLE` prefix uppercase, causing a false failure before any migration execution.
+- No production CREATE/ALTER generation, PostgreSQL metadata logic, destructive-confirmation policy, or migration SQL changed.

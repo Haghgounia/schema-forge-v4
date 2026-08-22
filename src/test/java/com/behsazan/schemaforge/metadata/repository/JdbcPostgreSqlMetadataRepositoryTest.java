@@ -76,4 +76,10 @@ class JdbcPostgreSqlMetadataRepositoryTest {
         assertTrue(JdbcPostgreSqlMetadataRepository.COLUMNS_SQL.contains("JOIN pg_type"));
     }
 
+    @Test
+    void indexQueryExcludesPrimaryAndUniqueConstraintBackingIndexes() {
+        assertTrue(JdbcPostgreSqlMetadataRepository.INDEXES_SQL.contains("conindid = index_definition.indexrelid"));
+        assertTrue(JdbcPostgreSqlMetadataRepository.INDEXES_SQL.contains("contype IN ('p', 'u')"));
+    }
+
 }
