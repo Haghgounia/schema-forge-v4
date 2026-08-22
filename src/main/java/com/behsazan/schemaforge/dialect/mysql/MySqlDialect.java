@@ -44,6 +44,7 @@ public final class MySqlDialect implements Dialect {
             DialectFeature.GENERATED_COLUMN,
             DialectFeature.TABLE_COMMENT,
             DialectFeature.COLUMN_COMMENT,
+            DialectFeature.GRANT,
             DialectFeature.EXPRESSION_INDEX);
 
     private final MySqlTypeMapper typeMapper = new MySqlTypeMapper();

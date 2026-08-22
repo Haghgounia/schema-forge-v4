@@ -1,5 +1,12 @@
 # SchemaForge V4 Changelog
 
+## 2026-08-22 - Consolidation execution control plan
+
+- Added `SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md` as the authoritative stage-control roadmap after the C1 official freeze.
+- Recorded completed C0-C3/C1 consolidation work and remaining C4-C11 stages.
+- Added the mandatory rule that every stage must be explained with its exact work/change/test/risk/exit list before implementation begins.
+- Linked the execution plan from the current documentation and baseline entry points.
+
 ## 2026-08-03 - EA table Persian name separation
 
 - Preserved EA table `alias` as `Table.persianName`, independently from table description.

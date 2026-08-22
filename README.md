@@ -84,7 +84,9 @@ The offline CLI does not require a JDBC connection. REST metadata validation and
 
 The authoritative current documentation starts at [`docs/reference/README.md`](docs/reference/README.md). It consolidates architecture, canonical domain model, inputs/outputs, the multi-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, the no-guess policy, known limitations, developer guidance, testing, and the current release baseline.
 
-Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 399-test baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
+The controlled sequence for remaining V4 consolidation work is maintained in [`docs/roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md`](docs/roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md). That roadmap must be consulted and updated before each stage starts.
+
+Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. The current source state is the official `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1` documented in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). Its user-verified clean regression completed with 467 tests, 0 failures, 0 errors, 4 configuration-based skips, and `BUILD SUCCESS` on 2026-08-22. The project-level history remains in `CHANGELOG.md`.
 
 ## V4 DBMS-neutral DDL refactoring
 

@@ -1,17 +1,21 @@
 # Testing and Regression Baseline
 
-## 1. Current verified baseline
+## 1. Current frozen baseline status
 
-Latest user-verified full Maven result used by this documentation finalization:
+The current official source baseline is `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1`, described in `CURRENT-RELEASE-BASELINE.md`.
+
+The exact frozen source passed both the focused consolidation regression and the clean full Maven regression.
+
+## 2. User-verified clean full regression
 
 ```text
-Tests run: 399
+Tests run: 467
 Failures: 0
 Errors: 0
-Skipped: 3
+Skipped: 4
 BUILD SUCCESS
-Total time: 02:21 min
-Finished: 2026-08-17T08:40:09-07:00
+Total time: 01:54 min
+Finished: 2026-08-22T07:01:53-07:00
 ```
 
 Command:
@@ -20,17 +24,29 @@ Command:
 mvn clean test
 ```
 
-## 2. Current source fingerprint
+The four skipped normal-suite tests are `MySqlDirectoryExecutionTest`, `OracleSqlDirectoryExecutionTest`, `PostgreSqlDirectoryExecutionTest`, and `SqlServerDirectoryExecutionTest`; each is guarded by required SQL-root/JDBC properties and is intentionally inactive in an ordinary build without that environment.
 
-P8-D/P8-C source tree fingerprint:
+The targeted C1 regression immediately before the full suite also passed 28 tests with 0 failures, 0 errors, and 0 skips.
+
+The same clean build reported Standard Word regression: 9 documents, 9 passed, 0 failed, 9 tables, 117 columns.
+
+## 3. Frozen source fingerprint
+
+Current C1 frozen fingerprint:
+
+```text
+77e038a4acb5631d4a407174d9e075cc3d773d21b96a7e884410d9fbdc00525c
+```
+
+The fingerprint is the SHA-256 of the sorted per-file SHA-256 manifest for the complete frozen `src` tree. Any subsequent source/test change requires a new candidate baseline and a new fingerprint.
+
+Previous P8-D/P8-C source fingerprint, retained only as historical evidence:
 
 ```text
 a864b0f1db1099436a766b39ce9de651503ed217596f252ae3e2dc039ad73c3f
 ```
 
-The documentation-finalization package must retain this exact source-tree fingerprint.
-
-## 3. Physical milestone history
+## 4. Physical milestone history
 
 | Milestone | Tests | Failures | Errors | Skipped | Result |
 |---|---:|---:|---:|---:|---|
@@ -46,33 +62,37 @@ The documentation-finalization package must retain this exact source-tree finger
 | P8-B index/PK/UK comparison | 394 | 0 | 0 | 3 | SUCCESS |
 | P8-C/P8-D final comparison | 399 | 0 | 0 | 3 | SUCCESS |
 
-## 4. Skipped integration tests
+These counts document historical milestones and are not the current expected test count after MySQL, Migration M1/M2, and subsequent consolidation work.
 
-The three skipped tests in the normal baseline are environment-dependent live database execution tests for:
+## 5. Current opt-in live-test inventory
+
+The current source contains database-dependent live or directory execution paths beyond the old three-skip P8 baseline. In particular, M2 live pilot harnesses exist for:
 
 - Oracle;
 - PostgreSQL;
-- SQL Server.
+- Db2 for z/OS;
+- SQL Server;
+- MySQL.
 
-They require explicit connection configuration and are intentionally guarded in the ordinary regression run.
+The frozen normal-suite skipped count is 4, as recorded above. This count does not include opt-in `*IT` live pilots that are outside the ordinary Surefire naming/execution path.
 
-Db2 for z/OS validation has separate documented workflows and is not one of these three normal skipped integration tests.
+For live-validation evidence, classify each database test separately as one of:
 
-## 5. Documentation-only freeze validation
+```text
+EXECUTED_AND_PASSED
+SKIPPED_BY_CONFIGURATION
+NOT_EXECUTED_ENVIRONMENT_UNAVAILABLE
+FAILED
+```
 
-For this documentation finalization, Java source and test code must not change.
+Db2 for z/OS additionally depends on the external IBM JCC environment and explicit destructive acknowledgement.
 
-Validation procedure:
+## 6. Freeze evidence and future baseline rule
 
-1. hash all files under `src` before documentation edits;
-2. finalize documentation only;
-3. hash all files under `src` again;
-4. require byte-for-byte equality;
-5. package the project;
-6. verify ZIP integrity.
+The C1 baseline freeze evidence is complete for the standard regression gate: the exact source passed `mvn clean test`, result counts and skips are recorded, the frozen `src` fingerprint is recorded, and the project archive is integrity-checked.
 
-Because source remains unchanged, the latest user-verified 399-test result remains the code regression evidence for this package.
+Opt-in live pilots remain separately classified evidence; unavailable database environments must never be treated as successful execution. Any future source change requires a new candidate ID, a recalculated `src` fingerprint, and a new clean regression before promotion.
 
-## 6. Regression interpretation
+## 7. Regression interpretation
 
 A green unit/regression suite does not authorize guessing unsupported vendor behavior. New database-specific physical or metadata behavior still requires explicit model/evidence rules and focused tests.

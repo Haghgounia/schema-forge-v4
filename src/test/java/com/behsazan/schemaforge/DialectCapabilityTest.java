@@ -2,6 +2,7 @@ package com.behsazan.schemaforge;
 
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
+import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
@@ -20,12 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DialectCapabilityTest {
 
     @Test
-    void oracleAndPostgreSqlShouldDeclareTheirSupportedCapabilities() {
+    void allRegisteredDialectsShouldDeclareTheirSupportedCapabilities() {
 
         OracleDialect oracle = new OracleDialect();
         PostgreSqlDialect postgreSql = new PostgreSqlDialect();
         Db2ZosDialect db2Zos = new Db2ZosDialect();
         SqlServerDialect sqlServer = new SqlServerDialect();
+        MySqlDialect mySql = new MySqlDialect();
 
         // PostgreSQL
         for (DialectFeature feature : DialectFeature.values()) {
@@ -71,5 +73,17 @@ class DialectCapabilityTest {
         assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.PARTIAL_INDEX));
         assertFalse(sqlServer.supportedFeatures().contains(DialectFeature.EXPRESSION_INDEX));
         assertFalse(sqlServer.supportedFeatures().contains(DialectFeature.DEFERRABLE_CONSTRAINT));
+
+        // MySQL logical scope
+        assertFalse(mySql.supportedFeatures().contains(DialectFeature.SEQUENCE));
+        assertTrue(mySql.supportedFeatures().contains(DialectFeature.IDENTITY_COLUMN));
+        assertTrue(mySql.supportedFeatures().contains(DialectFeature.GENERATED_COLUMN));
+        assertTrue(mySql.supportedFeatures().contains(DialectFeature.TABLE_COMMENT));
+        assertTrue(mySql.supportedFeatures().contains(DialectFeature.COLUMN_COMMENT));
+        assertTrue(mySql.supportedFeatures().contains(DialectFeature.GRANT));
+        assertFalse(mySql.supportedFeatures().contains(DialectFeature.INDEX_INCLUDE));
+        assertFalse(mySql.supportedFeatures().contains(DialectFeature.PARTIAL_INDEX));
+        assertTrue(mySql.supportedFeatures().contains(DialectFeature.EXPRESSION_INDEX));
+        assertFalse(mySql.supportedFeatures().contains(DialectFeature.DEFERRABLE_CONSTRAINT));
     }
 }

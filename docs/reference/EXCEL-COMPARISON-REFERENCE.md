@@ -103,7 +103,7 @@ STATUS
 NOTE
 ```
 
-Supported for all four databases.
+Supported for all four DBMS currently covered by the frozen physical-comparison contract: Oracle, PostgreSQL, Db2 for z/OS, and SQL Server. MySQL logical comparison is supported, but its physical-comparison contract is deferred.
 
 ## 7. `INDEX_PHYSICAL_COMPARE`
 
@@ -127,7 +127,7 @@ PRIMARY_KEY
 UNIQUE_KEY
 ```
 
-Supported for all four databases.
+Supported for all four DBMS currently covered by the frozen physical-comparison contract: Oracle, PostgreSQL, Db2 for z/OS, and SQL Server. MySQL physical index comparison is deferred.
 
 ## 8. `COLUMN_PHYSICAL_COMPARE`
 

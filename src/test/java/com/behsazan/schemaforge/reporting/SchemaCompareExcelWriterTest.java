@@ -30,6 +30,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -403,6 +404,29 @@ class SchemaCompareExcelWriterTest {
             assertEquals("COLUMN", sheet.getRow(0).getCell(0).getStringCellValue());
             assertEquals("MATCH", columnPhysicalStatus(sheet, "PAYLOAD", "STORAGE"));
             assertEquals("MISMATCH", columnPhysicalStatus(sheet, "PAYLOAD", "COMPRESSION"));
+        }
+    }
+
+    @Test
+    void shouldKeepMySqlComparisonLogicalOnlyUntilPhysicalContractIsDefined() throws Exception {
+        Table document = Table.builder("CRM", "CUSTOMERS")
+                .addColumn(column("CUSTOMER_ID", DataType.simple("BIGINT"), false, 1))
+                .build();
+        Table database = Table.builder("CRM", "CUSTOMERS")
+                .addColumn(column("CUSTOMER_ID", DataType.simple("BIGINT"), false, 1))
+                .physicalOption("MYSQL_ENGINE", "InnoDB")
+                .physicalOption("MYSQL_COLLATION", "utf8mb4_0900_ai_ci")
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.MYSQL);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            assertTrue(workbook.getSheet("CUSTOMERS") != null);
+            assertTrue(workbook.getSheet("TABLE_METADATA") != null);
+            assertNull(workbook.getSheet("TABLE_PHYSICAL_COMPARE"));
+            assertNull(workbook.getSheet("INDEX_PHYSICAL_COMPARE"));
+            assertNull(workbook.getSheet("COLUMN_PHYSICAL_COMPARE"));
         }
     }
 

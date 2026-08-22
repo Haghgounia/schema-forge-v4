@@ -1,3 +1,26 @@
+## 2026-08-22 - V4 consolidation C1 official baseline freeze
+
+- Promoted `SCHEMAFORGE-V4-CONSOLIDATION-CANDIDATE-20260822-C1` to official frozen baseline `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1`.
+- User-verified targeted consolidation regression: 28 tests, 0 failures, 0 errors, 0 skipped, `BUILD SUCCESS`, finished 2026-08-22T06:36:43-07:00.
+- User-verified clean full regression: 467 tests, 0 failures, 0 errors, 4 configuration-gated skips, `BUILD SUCCESS`, finished 2026-08-22T07:01:53-07:00.
+- The four normal-suite skips are MySQL, Oracle, PostgreSQL, and SQL Server directory-execution tests that require explicit SQL-root/JDBC configuration; opt-in live `*IT` pilots remain separate evidence.
+- Standard Word regression inside the clean build: 9 documents, 9 passed, 0 failed, 9 tables, 117 columns.
+- Frozen `src` fingerprint remains `77e038a4acb5631d4a407174d9e075cc3d773d21b96a7e884410d9fbdc00525c`; documentation-only freeze edits do not change the `src` tree.
+- Repository source inventory: 242 `.java` files under `src/main/java`, 167 under `src/test/java`; Maven reported 243 main compilation units.
+
+## 2026-08-22 - V4 consolidation C1 baseline cleanup
+
+- Enabled the existing standard table-GRANT pipeline for MySQL by declaring `DialectFeature.GRANT` in `MySqlDialect`; no shared GRANT generation logic or configuration format was changed.
+- Added MySQL GRANT regression coverage in the dialect foundation, core DDL, shared grant-enrichment, and central capability tests.
+- Removed the unused duplicate `DatabaseCapability` enum so `DialectFeature` remains the single active optional-DDL capability contract.
+- Added MySQL to the central dialect capability regression matrix.
+- Prevented MySQL comparison workbooks from emitting generic/fallback physical-comparison sheets while the MySQL physical design contract remains intentionally deferred; logical/object comparison remains enabled.
+- Added regression coverage proving MySQL workbooks omit `TABLE_PHYSICAL_COMPARE`, `INDEX_PHYSICAL_COMPARE`, and `COLUMN_PHYSICAL_COMPARE` until an explicit MySQL physical contract is modeled.
+- Updated REST/OpenAPI documentation to the current seven endpoints and five registered DBMS, including legacy Word and canonical-JSON Mermaid export.
+- Reworked the authoritative reference baseline so the 2026-08-17 399-test result is retained as historical evidence rather than being misrepresented as certification of the current 2026-08-22 source candidate.
+- Current C1 source fingerprint: `77e038a4acb5631d4a407174d9e075cc3d773d21b96a7e884410d9fbdc00525c`.
+- A new clean Maven regression is required before this candidate can be promoted to an official frozen baseline.
+
 ## 2026-08-22 - ALTER/Migration M2-R13 Db2 for z/OS live pilot
 
 - Added `Db2ZosMigrationM2LivePilotIT` as the final opt-in M2 live pilot for the five-database migration path.

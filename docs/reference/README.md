@@ -2,18 +2,20 @@
 
 This directory is the authoritative documentation entry point for the current SchemaForge V4 baseline.
 
-Current source baseline: **P8-D Physical Metadata Comparison Freeze**.
+Current source baseline: **SchemaForge V4 Consolidated Baseline 2026-08-22 (C1)**.
 
-Current user-verified regression baseline:
+The exact frozen source passed the user-verified clean full regression:
 
 ```text
-Tests run: 399
+Tests run: 467
 Failures: 0
 Errors: 0
-Skipped: 3
+Skipped: 4
 BUILD SUCCESS
-Finished: 2026-08-17T08:40:09-07:00
+Finished: 2026-08-22T07:01:53-07:00
 ```
+
+The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are separate from the standard Surefire freeze result.
 
 ## Core reference set
 
@@ -29,6 +31,7 @@ Finished: 2026-08-17T08:40:09-07:00
 10. [Developer guide](DEVELOPER-GUIDE.md)
 11. [Testing and regression baseline](TESTING-AND-BASELINE.md)
 12. [Current release baseline](CURRENT-RELEASE-BASELINE.md)
+13. [V4 consolidation execution plan](../roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md)
 
 ## Documentation authority
 

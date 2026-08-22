@@ -106,14 +106,17 @@ A new platform is not complete merely because `CREATE TABLE` renders.
 
 ## 9. Regression discipline
 
-Current green baseline:
+Current official consolidated baseline (2026-08-22 C1):
 
 ```text
-399 tests
+467 tests
 0 failures
 0 errors
-3 skipped
+4 skipped
+BUILD SUCCESS
 ```
+
+The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are tracked separately and are not implied by the standard-suite result.
 
 For source changes:
 

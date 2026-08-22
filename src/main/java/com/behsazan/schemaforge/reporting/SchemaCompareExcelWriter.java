@@ -153,12 +153,14 @@ public final class SchemaCompareExcelWriter {
 
             configureSheet(sheet, Math.max(1, rowNumber - 1));
             writeTableMetadataSheet(workbook, documentTable, databaseTable, styles);
-            writeTablePhysicalComparisonSheet(
-                    workbook, documentTable, databaseTable, databaseType, styles);
-            writeIndexPhysicalComparisonSheet(
-                    workbook, documentTable, databaseTable, databaseType, styles);
-            writeColumnPhysicalComparisonSheet(
-                    workbook, documentTable, databaseTable, databaseType, styles);
+            if (supportsPhysicalComparison(databaseType)) {
+                writeTablePhysicalComparisonSheet(
+                        workbook, documentTable, databaseTable, databaseType, styles);
+                writeIndexPhysicalComparisonSheet(
+                        workbook, documentTable, databaseTable, databaseType, styles);
+                writeColumnPhysicalComparisonSheet(
+                        workbook, documentTable, databaseTable, databaseType, styles);
+            }
             writePrimaryKeySheet(workbook, documentTable, databaseTable, styles);
             writeObjectComparisonSheet(workbook, "FOREIGN_KEYS_COMPARE",
                     foreignKeySnapshots(documentTable), foreignKeySnapshots(databaseTable), styles);
@@ -173,6 +175,21 @@ public final class SchemaCompareExcelWriter {
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot create schema comparison Excel", exception);
         }
+    }
+
+    /**
+     * Physical comparison is an explicit vendor contract, not a generic fallback.
+     * MySQL metadata can be acquired for logical comparison, but its physical
+     * design contract is intentionally deferred until vendor-specific expected
+     * properties and comparison rules are modeled and frozen.
+     */
+    private static boolean supportsPhysicalComparison(String databaseType) {
+        String normalized = databaseType.trim().toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]", "");
+        return switch (normalized) {
+            case "ORACLE", "POSTGRESQL", "DB2ZOS", "SQLSERVER" -> true;
+            default -> false;
+        };
     }
 
 

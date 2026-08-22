@@ -41,7 +41,7 @@ Specification / profile                  Existing database
 - ordinary indexes;
 - primary-key backing indexes;
 - unique-key backing indexes;
-- all four supported databases.
+- all four databases currently supported by the frozen physical-comparison contract: Oracle, PostgreSQL, SQL Server, and Db2 for z/OS. MySQL remains outside this physical scope.
 
 ### P8-C
 

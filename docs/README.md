@@ -17,8 +17,9 @@ For the current SchemaForge V4 baseline, start here:
 - [Developer guide](reference/DEVELOPER-GUIDE.md)
 - [Testing and baseline](reference/TESTING-AND-BASELINE.md)
 - [Current release baseline](reference/CURRENT-RELEASE-BASELINE.md)
+- [V4 consolidation execution plan](roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md)
 
-Current user-verified regression baseline: **399 tests, 0 failures, 0 errors, 3 skipped, BUILD SUCCESS**.
+Current source state: **official 2026-08-22 V4 consolidated baseline C1**. User-verified clean regression: **467 tests, 0 failures, 0 errors, 4 configuration-based skips, BUILD SUCCESS**, finished 2026-08-22T07:01:53-07:00.
 
 ## Physical phase evidence
 

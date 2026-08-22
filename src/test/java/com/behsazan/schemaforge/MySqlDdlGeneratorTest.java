@@ -64,6 +64,7 @@ class MySqlDdlGeneratorTest {
                 .addIndex(new Index(Identifier.of("IX_CUSTOMERS_STATUS"),
                         List.of(new IndexColumn(Identifier.of("STATUS"), SortDirection.DESC)),
                         IndexType.NORMAL, Description.empty()))
+                .physicalOption("GRANTS", "SELECT, INSERT, UPDATE, DELETE TO U_DEVELOPER")
                 .physicalOption("TABLESPACE", "ORACLE_DATA_TS")
                 .physicalOption("INDEX_TABLESPACE", "ORACLE_INDEX_TS")
                 .build();
@@ -91,6 +92,8 @@ class MySqlDdlGeneratorTest {
                 + " REFERENCES `CRM`.`BRANCHES`(`BRANCH_ID`) ON DELETE CASCADE ON UPDATE RESTRICT;"));
         assertTrue(sql.contains("CREATE INDEX `IX_CUSTOMERS_STATUS` ON `CRM`.`CUSTOMERS`(`STATUS` DESC);"));
         assertTrue(sql.contains(") COMMENT='Customer''s master';"));
+        assertTrue(sql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON `CRM`.`CUSTOMERS` TO U_DEVELOPER;"));
         assertFalse(sql.contains("ORACLE_DATA_TS"));
         assertFalse(sql.contains("ORACLE_INDEX_TS"));
         assertTrue(sql.contains("Sequences    : 0"));

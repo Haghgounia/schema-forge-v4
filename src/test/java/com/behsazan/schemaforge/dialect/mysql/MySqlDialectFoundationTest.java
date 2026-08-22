@@ -22,6 +22,7 @@ class MySqlDialectFoundationTest {
         assertTrue(dialect.supports(DialectFeature.GENERATED_COLUMN));
         assertTrue(dialect.supports(DialectFeature.TABLE_COMMENT));
         assertTrue(dialect.supports(DialectFeature.COLUMN_COMMENT));
+        assertTrue(dialect.supports(DialectFeature.GRANT));
         assertTrue(dialect.supports(DialectFeature.EXPRESSION_INDEX));
         assertFalse(dialect.supports(DialectFeature.SEQUENCE));
         assertFalse(dialect.supports(DialectFeature.DEFERRABLE_CONSTRAINT));

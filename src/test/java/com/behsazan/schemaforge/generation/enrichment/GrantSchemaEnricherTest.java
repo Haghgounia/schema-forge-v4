@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.generation.enrichment;
 
 import com.behsazan.schemaforge.config.GrantProperties;
+import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.domain.model.Column;
@@ -27,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GrantSchemaEnricherTest {
 
     @Test
-    void shouldApplyConfiguredRoleGrantsAndRenderThemAtTheEndForBothDialects() {
+    void shouldApplyConfiguredRoleGrantsAndRenderThemAtTheEndForSupportedDialects() {
         Table table = Table.builder("DPS", "DEPOSITS")
                 .persianName("سپرده‌ها")
                 .description("Deposit master")
@@ -54,6 +55,7 @@ class GrantSchemaEnricherTest {
 
         String oracle = new DdlGenerator(new OracleDialect()).generate(enriched);
         String postgresql = new DdlGenerator(new PostgreSqlDialect()).generate(enriched);
+        String mysql = new DdlGenerator(new MySqlDialect()).generate(enriched);
 
         assertTrue(oracle.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.DEPOSITS TO U_DEVELOPER;"));
@@ -63,9 +65,14 @@ class GrantSchemaEnricherTest {
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.deposits TO U_DEVELOPER;"));
         assertTrue(postgresql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON dps.deposits TO U_DESIGNER;"));
+        assertTrue(mysql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON `DPS`.`DEPOSITS` TO U_DEVELOPER;"));
+        assertTrue(mysql.contains(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON `DPS`.`DEPOSITS` TO U_DESIGNER;"));
 
         assertTrue(oracle.lastIndexOf("GRANT ") > oracle.lastIndexOf("COMMENT ON COLUMN"));
         assertTrue(postgresql.lastIndexOf("GRANT ") > postgresql.lastIndexOf("COMMENT ON COLUMN"));
+        assertTrue(mysql.lastIndexOf("GRANT ") > mysql.lastIndexOf("CREATE TABLE"));
     }
 
     @Test
