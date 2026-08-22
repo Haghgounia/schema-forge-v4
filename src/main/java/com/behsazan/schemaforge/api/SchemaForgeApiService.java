@@ -24,6 +24,10 @@ import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudGeneration
 import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudPackageGenerator;
 import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudGenerationOptions;
 import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudProcedureGenerator;
+import com.behsazan.schemaforge.migration.MigrationArtifact;
+import com.behsazan.schemaforge.migration.MigrationFileWriter;
+import com.behsazan.schemaforge.migration.MigrationGenerationService;
+import com.behsazan.schemaforge.migration.MigrationRenderOptions;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
@@ -102,6 +106,8 @@ public class SchemaForgeApiService {
     private final MermaidBatchDiagramExporter mermaidBatchDiagramExporter = new MermaidBatchDiagramExporter();
     private final GraphvizDiagramExporter graphvizDiagramExporter = new GraphvizDiagramExporter();
     private final GraphvizBatchDiagramExporter graphvizBatchDiagramExporter = new GraphvizBatchDiagramExporter();
+    private final MigrationGenerationService migrationGenerationService = new MigrationGenerationService();
+    private final MigrationFileWriter migrationFileWriter = new MigrationFileWriter();
 
     public SchemaForgeApiService(
             AuditProperties auditProperties,
@@ -326,6 +332,9 @@ public class SchemaForgeApiService {
             requireValidOracleDdl(platform, sql, sqlFileName);
             Files.writeString(output.resolve(sqlFileName), sql, StandardCharsets.UTF_8);
 
+            // CREATE DDL is always emitted first, even when the live table already exists.
+            // ALTER/Flyway output is an additional artifact and never replaces the CREATE script.
+            writeMigrationArtifacts(schema, repository, output, platform);
             writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform, dialect);
         }
 
@@ -686,6 +695,9 @@ public class SchemaForgeApiService {
                 }
             }
 
+            // Per-table CREATE scripts above remain unconditional. If matching live tables exist,
+            // emit additional Flyway migrations under <platform>/migrations/.
+            writeMigrationArtifacts(schema, repository, output, platform);
             writeEaRunAll(schema, sqlDirectory, platform, dependencyOrder, baseName, timestamp);
         }
 
@@ -974,6 +986,55 @@ public class SchemaForgeApiService {
     }
 
     private record DependencyOrder(List<Table> tables, List<Table> cyclicTables) { }
+
+    /**
+     * Writes additional Flyway-compatible ALTER scripts for desired tables that already exist.
+     *
+     * <p>This is deliberately additive: normal CREATE DDL is generated independently before this
+     * method is called. A missing live table, an unavailable metadata repository, or an empty diff
+     * never suppresses the normal CREATE artifact.</p>
+     */
+    private void writeMigrationArtifacts(
+            DatabaseSchema schema,
+            MetadataRepository repository,
+            Path output,
+            DatabasePlatform platform) throws IOException {
+
+        if (!repository.available()) return;
+
+        Path migrationDirectory = output
+                .resolve(platform.commandLineName())
+                .resolve("migrations");
+
+        for (Table desiredTable : schema.tables()) {
+            String schemaName = desiredTable.qualifiedName().schemaName()
+                    .map(identifier -> identifier.value())
+                    .orElse(schema.name().value());
+            String tableName = desiredTable.qualifiedName().name().value();
+
+            var liveTable = repository.findTable(schemaName, tableName);
+            if (liveTable.isEmpty()) {
+                LOGGER.debug("[{}] Migration skipped; live table not found: {}.{}",
+                        platform.name(), schemaName, tableName);
+                continue;
+            }
+
+            MigrationArtifact artifact = migrationGenerationService.generate(
+                    platform,
+                    liveTable.get(),
+                    desiredTable,
+                    MigrationRenderOptions.safeDefaults());
+            if (artifact.plan().empty()) {
+                LOGGER.info("[{}] Migration not required; live table already matches desired columns: {}.{}",
+                        platform.name(), schemaName, tableName);
+                continue;
+            }
+
+            Path written = migrationFileWriter.write(migrationDirectory, artifact);
+            LOGGER.info("[{}] Flyway migration generated: {}",
+                    platform.name(), output.relativize(written));
+        }
+    }
 
     private void writeComparisonWorkbooks(
             DatabaseSchema schema,

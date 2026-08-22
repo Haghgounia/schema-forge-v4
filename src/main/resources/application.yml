@@ -92,3 +92,11 @@ schemaforge:
       username: sa
       password: sa@123456
       driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+    # MySQL metadata is enabled explicitly for migration/live comparison.
+    mysql:
+      enabled: ${SCHEMAFORGE_METADATA_MYSQL_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_MYSQL_URL:jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
+      username: ${SCHEMAFORGE_METADATA_MYSQL_USERNAME:root}
+      password: ${SCHEMAFORGE_METADATA_MYSQL_PASSWORD:}
+      driver-class-name: com.mysql.cj.jdbc.Driver

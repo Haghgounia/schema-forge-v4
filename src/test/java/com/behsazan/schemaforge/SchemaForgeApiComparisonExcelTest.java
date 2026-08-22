@@ -98,7 +98,7 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(18, entries.size());
+        assertEquals(23, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "oracle/crud/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
@@ -108,6 +108,30 @@ class SchemaForgeApiComparisonExcelTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            String prefix = platform.commandLineName() + "/migrations/";
+            assertTrue(entries.keySet().stream().anyMatch(name ->
+                    name.startsWith(prefix)
+                            && name.matches(java.util.regex.Pattern.quote(prefix)
+                            + "V\\d{17}__BIM_PROVINCES_ALTER\\.sql")),
+                    "missing Flyway migration for " + platform);
+        }
+        // Existing-table detection must never replace the ordinary CREATE scripts.
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".oracle.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".postgresql.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".db2zos.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".sqlserver.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
+
+        String oracleCreateName = entries.keySet().stream()
+                .filter(name -> !name.contains("/") && name.endsWith(".oracle.sql"))
+                .findFirst().orElseThrow();
+        String oracleMigrationName = entries.keySet().stream()
+                .filter(name -> name.startsWith("oracle/migrations/")
+                        && name.endsWith("__BIM_PROVINCES_ALTER.sql"))
+                .findFirst().orElseThrow();
+        assertTrue(new String(entries.get(oracleCreateName)).contains("CREATE TABLE BIM.PROVINCES"));
+        assertTrue(new String(entries.get(oracleMigrationName)).contains("ALTER TABLE BIM.PROVINCES"));
 
         String oracleName = entries.keySet().stream().filter(name -> ORACLE_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();

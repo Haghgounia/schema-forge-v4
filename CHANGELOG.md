@@ -1,3 +1,44 @@
+## 2026-08-21 - ALTER Migration M2 real MySQL live pilot
+
+- Added `MySqlMigrationM2LivePilotIT` for an opt-in destructive pilot against a dedicated `SCHEMAFORGE_*` MySQL database.
+- The pilot proves that normal full CREATE SQL is still generated while the live table already exists.
+- Exercises live-to-desired column changes plus PK/FK/UK/CHECK/INDEX replacement, writes both safe/commented and explicitly confirmed Flyway-compatible migrations, executes the confirmed migration, and re-diffs live metadata.
+- Requires zero residual changes after execution and verifies that surviving seed data is preserved.
+- Pilot cleanup drops the dedicated database in `finally`; ordinary builds remain unaffected.
+
+
+## 2026-08-21 - ALTER Migration M2-R1 test alignment
+
+- Corrected two stale `MigrationSqlRendererTest` expectations introduced when M1 advanced to M2.
+- Rename-safety assertion now follows the M2 header text: `SchemaForge never infers column renames`.
+- SQL Server index DROP expectation now follows the existing SQL Server identifier renderer: safe ordinary identifiers remain unquoted (`DROP INDEX IX_CUSTOMER_STATUS ON APP.CUSTOMER`).
+- Production SQL semantics are unchanged; the failing assertions did not indicate a renderer defect.
+- Removed the obsolete `M1` label from the identity/generated-expression manual-review hint.
+
+## 2026-08-21 — ALTER/Flyway M1.2 MySQL identity-default diff hardening
+
+- Fixed MySQL migration diffing so a legacy Oracle `SEQ_*.NEXTVAL` default attached to a logical identity column is compared using the effective MySQL `AUTO_INCREMENT` semantics instead of being passed to the MySQL expression mapper.
+- Migration discovery no longer aborts the complete CREATE + ALTER output when a dialect cannot automatically map a default expression; unsupported REVIEW changes are left as commented/manual migration hints.
+- CREATE DDL remains unconditional and independent from live-table ALTER generation.
+- Added regression coverage for MySQL identity/NEXTVAL equivalence and unsupported default-expression migration rendering.
+
+
+## 2026-08-21 — ALTER/Flyway M1.1 dual CREATE + ALTER output
+
+- Existing-table detection no longer changes the normal CREATE-DDL path: CREATE scripts are always generated exactly as before.
+- When the same table exists in live metadata and a column diff is detected, an additional Flyway-compatible ALTER migration is emitted under `<platform>/migrations/`.
+- No migration file is created when the live table is absent or when no column changes are detected.
+- Flyway migration versions now use millisecond precision with a monotonic in-process guard so multi-table generation cannot create duplicate Flyway versions.
+- Word/ZIP and EA per-table API outputs now follow the same additive CREATE + ALTER policy.
+
+## 2026-08-21 — ALTER/Flyway migration foundation M1
+
+- Added live-vs-desired column diff planning for existing tables.
+- Added Flyway-compatible versioned migration naming and no-overwrite file writing.
+- Added SAFE / REVIEW / DESTRUCTIVE risk classification; destructive SQL is commented unless explicitly confirmed.
+- Added DBMS-specific column ALTER rendering for Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL.
+- Added MySQL JDBC metadata table/column repository and runtime resolver/configuration support.
+- Column rename inference is deliberately forbidden; PK/FK/UK/CHECK/INDEX migration planning remains M2.
 
 ## 2026-08-21 — MySQL P2-FINAL evidence-backed recovery freeze
 
@@ -1319,3 +1360,15 @@
 - Restricts the P2-R10 historical corroboration audit to canonical `*.schema.json` files.
 - Skips malformed/non-canonical snapshot artifacts instead of aborting the audit with `snapshot schema` NPE.
 - No production mapping or canonical JSON mutation.
+## 2026-08-21 - ALTER / Flyway Migration M2
+
+- Extended live-to-document migration diff from columns to table-owned PK, FK, UK, CHECK and standalone INDEX objects.
+- Added deterministic structural ADD/DROP/REPLACE changes with object-specific SAFE/REVIEW/DESTRUCTIVE risk classification.
+- Migration renderer now orders owned-object DROP/REPLACE before column changes and ADD/REPLACE after column changes.
+- Destructive constraint drops and both sides of destructive replacements remain commented unless explicitly confirmed.
+- Reused the validated DDL generator for structural ADD syntax so Oracle, PostgreSQL, Db2/zOS, SQL Server and MySQL migration syntax stays aligned with CREATE DDL.
+- Expanded `JdbcMySqlMetadataRepository` to read primary/unique constraints, foreign keys, checks and standalone indexes from `information_schema`.
+- MySQL catalog primary-key name `PRIMARY` is structurally equivalent to a named canonical PK and no longer causes false replacement.
+- CREATE DDL remains unconditional and independent; Flyway migration remains an additional artifact only when a live table differs.
+- Incoming foreign keys owned by other tables and physical-option migration are deliberately not auto-applied in M2.
+

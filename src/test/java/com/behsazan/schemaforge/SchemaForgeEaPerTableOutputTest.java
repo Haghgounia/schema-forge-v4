@@ -176,7 +176,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(32, entries.size());
+        assertEquals(42, entries.size());
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
         assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));
@@ -187,6 +187,13 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("comparison/sqlserver/FEE.FEE_VERSION.sqlserver.xlsx"));
         assertTrue(entries.containsKey("comparison/mysql/FEE.REGULATORY_RULE.mysql.xlsx"));
         assertTrue(entries.containsKey("comparison/mysql/FEE.FEE_VERSION.mysql.xlsx"));
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            String prefix = platform.commandLineName() + "/migrations/";
+            assertTrue(entries.keySet().stream().anyMatch(name ->
+                    name.startsWith(prefix) && name.endsWith("__FEE_REGULATORY_RULE_ALTER.sql")));
+            assertTrue(entries.keySet().stream().anyMatch(name ->
+                    name.startsWith(prefix) && name.endsWith("__FEE_FEE_VERSION_ALTER.sql")));
+        }
     }
 
 

@@ -69,6 +69,20 @@ public class MetadataDataSourceConfiguration {
         return new NamedParameterJdbcTemplate(dataSource);
     }
 
+
+    @Bean("mySqlMetadataDataSource")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.mysql", name = "enabled", havingValue = "true")
+    DataSource mySqlMetadataDataSource(MetadataProperties properties) {
+        return create(properties.getMysql(), "MySQL");
+    }
+
+    @Bean("mySqlMetadataJdbcTemplate")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.mysql", name = "enabled", havingValue = "true")
+    NamedParameterJdbcTemplate mySqlMetadataJdbcTemplate(
+            @Qualifier("mySqlMetadataDataSource") DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
     private static DataSource create(MetadataProperties.Database properties, String databaseName) {
         require(properties.getUrl(), databaseName + " metadata URL");
         require(properties.getUsername(), databaseName + " metadata username");

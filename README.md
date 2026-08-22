@@ -1,6 +1,6 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server metadata connections are used only for validation and comparison workbooks. MySQL now has logical DDL plus a JDBC-backed live execution regression harness; a MySQL metadata repository / Actual-vs-Design adapter is still deferred.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL metadata connections are used for validation/comparison and live-vs-design migration planning. MySQL has logical DDL, live execution regression coverage, and a JDBC metadata table/column adapter.
 
 ```text
 one input.docx -> one JSON model + one SQL file per registered dialect
@@ -19,6 +19,10 @@ The SQL file contains all objects related to that Word specification in one file
 - table and column comments
 - grants
 - parser recovery warnings and generation footer
+
+## ALTER / Flyway-compatible migration foundation
+
+For an existing database table, SchemaForge compares live metadata with the desired canonical table and can build a versioned Flyway-compatible `ALTER TABLE` migration. **The ordinary CREATE script is still generated unconditionally**; the migration is an additional artifact under `<platform>/migrations/` and never replaces CREATE DDL. M1 covers column add/drop/type/nullability/default changes for all five DBMS platforms, writes SAFE/REVIEW/DESTRUCTIVE findings directly into the SQL, blocks destructive SQL by default, and never guesses a column rename. M1.2 treats legacy MySQL identity `SEQ_*.NEXTVAL` defaults using effective `AUTO_INCREMENT` semantics. M2 adds table-owned PK/FK/UK/CHECK/INDEX comparison and DROP-before-column / ADD-after-column ordering, and expands MySQL live metadata to those objects. Incoming foreign keys owned by other tables and physical-option migration remain explicit later work. See [`docs/ALTER-MIGRATION-M1.md`](docs/ALTER-MIGRATION-M1.md) and [`docs/ALTER-MIGRATION-M2.md`](docs/ALTER-MIGRATION-M2.md).
 
 ## Legacy Oracle default and precision safety gate
 
@@ -78,7 +82,7 @@ The offline CLI does not require a JDBC connection. REST metadata validation and
 
 ## Current project documentation
 
-The authoritative current documentation starts at [`docs/reference/README.md`](docs/reference/README.md). It consolidates architecture, canonical domain model, inputs/outputs, the four-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, the no-guess policy, known limitations, developer guidance, testing, and the current release baseline.
+The authoritative current documentation starts at [`docs/reference/README.md`](docs/reference/README.md). It consolidates architecture, canonical domain model, inputs/outputs, the multi-database support matrix, Physical DDL, P8 physical metadata comparison, Excel workbook behavior, the no-guess policy, known limitations, developer guidance, testing, and the current release baseline.
 
 Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. Some historical documents contain earlier test counts; current status is defined by the 399-test baseline in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). The project-level history remains in `CHANGELOG.md`.
 
@@ -279,7 +283,7 @@ SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD=change-me
 
 ## MySQL logical DDL P1
 
-Select the dialect with `mysql`. MySQL is registered in the common platform/factory path and generates schema/database bootstrap, tables, evidence-safe `AUTO_INCREMENT` identity, stored generated columns, PK/UK/check/FK constraints, indexes, and inline table/column comments. Parser-generated identity backing sequences are suppressed only when they are identity-only; genuine standalone sequence semantics remain blocking. Cross-DBMS physical placement is not translated. A MySQL 8.4 live execution regression harness is available for generated SQL; MySQL metadata comparison, physical tuning, and metadata CRUD remain deferred. See [`docs/dialects/MYSQL-DIALECT-P1.md`](docs/dialects/MYSQL-DIALECT-P1.md), [`docs/MYSQL-P3-LIVE-EXECUTION.md`](docs/MYSQL-P3-LIVE-EXECUTION.md), and the P2/P3 audit notes under `docs/`.
+Select the dialect with `mysql`. MySQL is registered in the common platform/factory path and generates schema/database bootstrap, tables, evidence-safe `AUTO_INCREMENT` identity, stored generated columns, PK/UK/check/FK constraints, indexes, and inline table/column comments. Parser-generated identity backing sequences are suppressed only when they are identity-only; genuine standalone sequence semantics remain blocking. Cross-DBMS physical placement is not translated. A MySQL 8.4 live execution regression harness is available for generated SQL. MySQL table/column metadata comparison is active for migration M1; physical tuning, full constraint/index metadata parity, and metadata CRUD remain deferred. See [`docs/dialects/MYSQL-DIALECT-P1.md`](docs/dialects/MYSQL-DIALECT-P1.md), [`docs/MYSQL-P3-LIVE-EXECUTION.md`](docs/MYSQL-P3-LIVE-EXECUTION.md), and the P2/P3 audit notes under `docs/`.
 
 ## Microsoft SQL Server core dialect
 
@@ -443,3 +447,7 @@ See `docs/MYSQL-P2-R10-HISTORICAL-COLUMN-CORROBORATION-AUDIT.md`.
 
 
 MySQL P2 final recovery/freeze details: `docs/MYSQL-P2-FINAL-RECOVERY-FREEZE.md`.
+### ALTER/Migration M2 real MySQL pilot
+
+`MySqlMigrationM2LivePilotIT` is an opt-in destructive integration test for the Flyway-compatible M2 path. It uses a dedicated `SCHEMAFORGE_*` database, verifies that CREATE generation remains unconditional for existing tables, executes a confirmed column + PK/FK/UK/CHECK/INDEX migration, and requires an empty post-migration live diff. See `docs/ALTER-MIGRATION-M2-LIVE-PILOT.md`.
+

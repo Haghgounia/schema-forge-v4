@@ -129,6 +129,59 @@ public final class DdlGenerator {
         return List.copyOf(statements);
     }
 
+    /** Renders ALTER statements that add the desired primary key to an existing table. */
+    public List<String> renderMigrationAddPrimaryKey(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        PrimaryKey primaryKey = table.primaryKey().orElseThrow(
+                () -> new IllegalArgumentException("table has no primary key: " + table.qualifiedName()));
+        String tableName = qualifiedName(table.qualifiedName());
+        List<String> statements = new ArrayList<>();
+        statements.add("ALTER TABLE " + tableName + " ADD "
+                + primaryKeyDefinition(table, primaryKey) + dialect.statementTerminator());
+        if (dialect.requiresExplicitConstraintIndexes()) {
+            statements.add(createPrimaryKeyIndex(table, primaryKey));
+        }
+        return List.copyOf(statements);
+    }
+
+    /** Renders ALTER/CREATE statements that add one desired unique key to an existing table. */
+    public List<String> renderMigrationAddUniqueKey(Table table, UniqueKey uniqueKey) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(uniqueKey, "uniqueKey must not be null");
+        List<String> statements = new ArrayList<>();
+        statements.add(createUnique(table, uniqueKey));
+        if (dialect.requiresExplicitConstraintIndexes()) {
+            statements.add(createUniqueKeyIndex(table, uniqueKey));
+        }
+        return List.copyOf(statements);
+    }
+
+    /** Renders one desired check constraint for an existing table. */
+    public String renderMigrationAddCheck(Table table, CheckConstraint check) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(check, "check must not be null");
+        return createCheck(table, check);
+    }
+
+    /** Renders one desired standalone index for an existing table. */
+    public String renderMigrationAddIndex(Table table, Index index) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(index, "index must not be null");
+        return createIndex(table, index);
+    }
+
+    /** Renders one desired physical foreign key using its canonical referenced table. */
+    public String renderMigrationAddForeignKey(Table table, ForeignKey foreignKey) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(foreignKey, "foreignKey must not be null");
+        QualifiedName referenced = foreignKey.referencedTable().schemaName().isPresent()
+                ? foreignKey.referencedTable()
+                : QualifiedName.of(
+                        table.qualifiedName().schemaName().map(Identifier::value).orElse(null),
+                        foreignKey.referencedTable().name().value());
+        return createForeignKey(table, foreignKey, referenced);
+    }
+
     /** Renders one resolved physical foreign key for integrated phase 3. */
     public String renderIntegratedForeignKey(
             Table table, ForeignKey foreignKey, QualifiedName referencedTable) {
