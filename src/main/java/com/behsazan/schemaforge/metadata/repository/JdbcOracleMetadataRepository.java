@@ -145,7 +145,7 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
              ORDER BY c.CONSTRAINT_NAME, cc.POSITION
             """;
 
-    private static final String INDEXES_SQL = """
+    static final String INDEXES_SQL = """
             SELECT i.INDEX_NAME,
                    i.UNIQUENESS,
                    i.INDEX_TYPE,
@@ -174,6 +174,15 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                AND ie.COLUMN_POSITION = ic.COLUMN_POSITION
              WHERE i.TABLE_OWNER = :owner
                AND i.TABLE_NAME = :tableName
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM ALL_CONSTRAINTS c
+                    WHERE c.OWNER = i.TABLE_OWNER
+                      AND c.TABLE_NAME = i.TABLE_NAME
+                      AND c.CONSTRAINT_TYPE IN ('P', 'U')
+                      AND c.INDEX_OWNER = i.OWNER
+                      AND c.INDEX_NAME = i.INDEX_NAME
+               )
              ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION
             """;
 

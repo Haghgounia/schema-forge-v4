@@ -1400,3 +1400,11 @@
 - Internal apostrophes remain semantically preserved by converting catalog `\'` escapes inside a literal to SQL-standard doubled apostrophes for comparison.
 - Added regressions for the exact live-pilot metadata form and for an `O'Reilly` literal safety case.
 - CREATE generation, ALTER SQL, destructive-confirmation policy, canonical JSON, and all non-MySQL dialect behavior are unchanged.
+
+## 2026-08-22 - ALTER / Flyway Migration M2-R6 Oracle live-pilot readiness
+
+- Added `OracleMigrationM2LivePilotIT` to execute a real column + PK/FK/UK/CHECK/INDEX migration against a disposable/test Oracle schema user.
+- The Oracle pilot proves CREATE generation remains unconditional, executes a confirmed migration, preserves seed data, and requires an empty post-migration metadata diff.
+- `JdbcOracleMetadataRepository` no longer double-counts PK/UK enforcing indexes as standalone indexes; those backing-index physical values remain attached to their constraint objects.
+- The pilot refuses `SYS`/`SYSTEM`, requires the configured schema to equal the connected user, and cleans up only the fixed `SF_M2_PARENT`/`SF_M2_CHILD` tables.
+- MySQL M2-R5 behavior and all CREATE-DDL semantics remain unchanged.

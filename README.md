@@ -455,3 +455,11 @@ MySQL P2 final recovery/freeze details: `docs/MYSQL-P2-FINAL-RECOVERY-FREEZE.md`
 
 ### ALTER / Migration M2-R5 MySQL CHECK metadata note
 MySQL 8.4 can expose CHECK string literals in `information_schema` with both charset introducers and backslash-escaped quote delimiters (for example `_utf8mb4\'A\'`). SchemaForge normalizes that catalog-only representation during live-vs-document CHECK comparison; generated CREATE and ALTER SQL are not rewritten by this normalization.
+
+### ALTER / Migration M2 Oracle live pilot
+
+`OracleMigrationM2LivePilotIT` is the Oracle counterpart of the validated MySQL M2 pilot. It uses only the fixed
+`SF_M2_PARENT`/`SF_M2_CHILD` tables in an explicitly supplied test schema user, verifies unconditional CREATE
+output, executes the confirmed Flyway-compatible migration, preserves seed data, and requires an empty residual
+diff. Oracle PK/UK backing indexes are not modeled a second time as standalone indexes. See
+`docs/ALTER-MIGRATION-M2-ORACLE-LIVE-PILOT.md`.

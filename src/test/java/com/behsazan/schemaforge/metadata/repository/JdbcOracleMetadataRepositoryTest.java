@@ -49,4 +49,11 @@ class JdbcOracleMetadataRepositoryTest {
         assertEquals("PARALLEL 4", options.get("ORACLE_INDEX_PARALLEL"));
     }
 
+
+    @Test
+    void standaloneIndexQueryExcludesPrimaryAndUniqueConstraintBackingIndexes() {
+        assertTrue(JdbcOracleMetadataRepository.INDEXES_SQL.contains("NOT EXISTS"));
+        assertTrue(JdbcOracleMetadataRepository.INDEXES_SQL.contains("CONSTRAINT_TYPE IN ('P', 'U')"));
+        assertTrue(JdbcOracleMetadataRepository.INDEXES_SQL.contains("c.INDEX_NAME = i.INDEX_NAME"));
+    }
 }
