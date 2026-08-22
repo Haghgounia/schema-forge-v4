@@ -159,6 +159,8 @@ class JdbcSqlServerMetadataRepositoryTest {
         assertTrue(JdbcSqlServerMetadataRepository.CHECKS_SQL.contains("sys.check_constraints"));
         assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("sys.index_columns"));
         assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("is_included_column"));
+        assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("I.is_primary_key = 0"));
+        assertTrue(JdbcSqlServerMetadataRepository.INDEXES_SQL.contains("I.is_unique_constraint = 0"));
         assertTrue(JdbcSqlServerMetadataRepository.TABLE_SQL.contains("sys.extended_properties"));
         assertTrue(JdbcSqlServerMetadataRepository.TABLE_PHYSICAL_SQL.contains("sys.partitions"));
         assertTrue(JdbcSqlServerMetadataRepository.TABLE_PHYSICAL_SQL.contains("data_compression_desc"));

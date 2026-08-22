@@ -325,6 +325,8 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
              WHERE I.object_id = :tableId
                AND I.index_id > 0
                AND I.is_hypothetical = 0
+               AND I.is_primary_key = 0
+               AND I.is_unique_constraint = 0
                AND I.type IN (1, 2)
              ORDER BY I.index_id,
                       CASE WHEN IC.is_included_column = 0 THEN 0 ELSE 1 END,

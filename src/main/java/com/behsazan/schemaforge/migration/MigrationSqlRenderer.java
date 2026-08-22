@@ -15,11 +15,14 @@ import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /** Renders a table migration plan as a Flyway-compatible versioned SQL body. */
 public final class MigrationSqlRenderer {
@@ -38,6 +41,9 @@ public final class MigrationSqlRenderer {
             return sql.toString();
         }
 
+        List<TableObjectChange> dependencyRefreshes = sqlServerDependencyRefreshes(plan);
+        Set<String> dependencyGuardedColumns = sqlServerDependencyGuardedColumns(plan, dependencyRefreshes);
+        renderDependencyRefreshDropPhase(sql, plan, dialect, options, dependencyRefreshes);
         renderObjectDropPhase(sql, plan, dialect, options);
 
         Set<String> renderedComposite = new HashSet<>();
@@ -71,8 +77,17 @@ public final class MigrationSqlRenderer {
                         .append(NL);
                 continue;
             }
+            boolean dependencyBlocked = !options.confirmDestructive()
+                    && plan.platform() == DatabasePlatform.SQLSERVER
+                    && dependencyGuardedColumns.contains(change.columnName().normalized())
+                    && (change.kind() == ColumnChangeKind.ALTER_TYPE
+                    || change.kind() == ColumnChangeKind.ALTER_NULLABILITY);
             boolean blocked = change.risk() == MigrationRisk.DESTRUCTIVE && !options.confirmDestructive();
-            if (blocked) {
+            blocked = blocked || dependencyBlocked;
+            if (dependencyBlocked) {
+                sql.append("-- BLOCKED: SQL Server ALTER COLUMN is commented because a required dependent-object DROP is blocked until confirmDestructive=true.")
+                        .append(NL);
+            } else if (blocked) {
                 sql.append("-- BLOCKED: destructive SQL is commented out. Re-render with confirmDestructive=true after DBA approval.")
                         .append(NL);
             }
@@ -83,12 +98,13 @@ public final class MigrationSqlRenderer {
         }
 
         renderObjectAddPhase(sql, plan, dialect, ddlGenerator, options);
+        renderDependencyRefreshAddPhase(sql, plan, ddlGenerator, options, dependencyRefreshes);
         return sql.toString();
     }
 
     private void renderObjectDropPhase(
             StringBuilder sql, TableMigrationPlan plan, Dialect dialect, MigrationRenderOptions options) {
-        for (TableObjectChange change : plan.objectChanges()) {
+        for (TableObjectChange change : orderedObjectChangesForDrop(plan.objectChanges())) {
             if (change.kind() == TableObjectChangeKind.ADD) continue;
             appendObjectHeading(sql, change, "DROP PHASE");
             boolean blocked = change.risk() == MigrationRisk.DESTRUCTIVE && !options.confirmDestructive();
@@ -110,7 +126,7 @@ public final class MigrationSqlRenderer {
     private void renderObjectAddPhase(
             StringBuilder sql, TableMigrationPlan plan, Dialect dialect, DdlGenerator ddlGenerator,
             MigrationRenderOptions options) {
-        for (TableObjectChange change : plan.objectChanges()) {
+        for (TableObjectChange change : orderedObjectChangesForAdd(plan.objectChanges())) {
             if (change.kind() == TableObjectChangeKind.DROP) continue;
             appendObjectHeading(sql, change, "ADD PHASE");
             boolean blocked = change.risk() == MigrationRisk.DESTRUCTIVE && !options.confirmDestructive();
@@ -127,6 +143,300 @@ public final class MigrationSqlRenderer {
                         .append(safeComment(unsupported.getMessage())).append(NL);
             }
         }
+    }
+
+
+    private void renderDependencyRefreshDropPhase(
+            StringBuilder sql, TableMigrationPlan plan, Dialect dialect, MigrationRenderOptions options,
+            List<TableObjectChange> refreshes) {
+        for (TableObjectChange change : orderedObjectChangesForDrop(refreshes)) {
+            appendObjectHeading(sql, change, "SQLSERVER DEPENDENCY DROP");
+            boolean blocked = !options.confirmDestructive();
+            if (blocked) {
+                sql.append("-- BLOCKED: SQL Server requires this temporary dependency DROP before ALTER COLUMN; re-render with confirmDestructive=true after DBA approval.")
+                        .append(NL);
+            }
+            for (String statement : renderObjectDrop(plan, dialect, change)) {
+                if (statement != null && !statement.isBlank()) appendStatement(sql, statement, blocked);
+            }
+        }
+    }
+
+    private void renderDependencyRefreshAddPhase(
+            StringBuilder sql, TableMigrationPlan plan, DdlGenerator ddlGenerator, MigrationRenderOptions options,
+            List<TableObjectChange> refreshes) {
+        for (TableObjectChange change : orderedObjectChangesForAdd(refreshes)) {
+            appendObjectHeading(sql, change, "SQLSERVER DEPENDENCY RECREATE");
+            boolean blocked = !options.confirmDestructive();
+            if (blocked) {
+                sql.append("-- BLOCKED: dependency recreation stays commented while its temporary DROP is blocked.")
+                        .append(NL);
+            }
+            for (String statement : renderObjectAdd(plan, ddlGenerator, change)) {
+                if (statement != null && !statement.isBlank()) appendStatement(sql, statement, blocked);
+            }
+        }
+    }
+
+    private List<TableObjectChange> sqlServerDependencyRefreshes(TableMigrationPlan plan) {
+        if (plan.platform() != DatabasePlatform.SQLSERVER) return List.of();
+
+        Set<String> alteredColumns = new HashSet<>();
+        for (ColumnChange change : plan.columnChanges()) {
+            if (change.kind() == ColumnChangeKind.ALTER_TYPE
+                    || change.kind() == ColumnChangeKind.ALTER_NULLABILITY) {
+                alteredColumns.add(change.columnName().normalized());
+            }
+        }
+        if (alteredColumns.isEmpty()) return List.of();
+
+        List<TableObjectChange> refreshes = new ArrayList<>();
+        Table live = plan.liveTable();
+        Table desired = plan.desiredTable();
+
+        live.primaryKey().ifPresent(before -> {
+            PrimaryKey after = desired.primaryKey().orElse(null);
+            Set<String> dependencyColumns = referencedIdentifierColumns(before.columns(), alteredColumns);
+            if (after != null
+                    && !dependencyColumns.isEmpty()
+                    && !alreadyChanged(plan, TableObjectType.PRIMARY_KEY, before)) {
+                refreshes.add(dependencyRefresh(TableObjectType.PRIMARY_KEY, chooseName(after.name(), before.name()),
+                        before, after, dependencyColumns));
+            }
+        });
+
+        for (UniqueKey before : live.uniqueKeys()) {
+            UniqueKey after = desired.uniqueKeys().stream()
+                    .filter(candidate -> sameName(candidate.name(), before.name()))
+                    .findFirst().orElse(null);
+            Set<String> dependencyColumns = referencedIdentifierColumns(before.columns(), alteredColumns);
+            if (after != null
+                    && !dependencyColumns.isEmpty()
+                    && !alreadyChanged(plan, TableObjectType.UNIQUE_KEY, before)) {
+                refreshes.add(dependencyRefresh(TableObjectType.UNIQUE_KEY, chooseName(after.name(), before.name()),
+                        before, after, dependencyColumns));
+            }
+        }
+
+        for (ForeignKey before : live.foreignKeys()) {
+            ForeignKey after = desired.foreignKeys().stream()
+                    .filter(candidate -> sameName(candidate.name(), before.name()))
+                    .findFirst().orElse(null);
+            Set<String> dependencyColumns = new HashSet<>(
+                    referencedIdentifierColumns(before.columns(), alteredColumns));
+            if (sameQualifiedTable(before.referencedTable(), live.qualifiedName())) {
+                dependencyColumns.addAll(referencedIdentifierColumns(before.referencedColumns(), alteredColumns));
+            }
+            if (after != null
+                    && !dependencyColumns.isEmpty()
+                    && !alreadyChanged(plan, TableObjectType.FOREIGN_KEY, before)) {
+                refreshes.add(dependencyRefresh(TableObjectType.FOREIGN_KEY, chooseName(after.name(), before.name()),
+                        before, after, dependencyColumns));
+            }
+        }
+
+        for (CheckConstraint before : live.checkConstraints()) {
+            CheckConstraint after = desired.checkConstraints().stream()
+                    .filter(candidate -> sameName(candidate.name(), before.name()))
+                    .findFirst().orElse(null);
+            Set<String> dependencyColumns = referencedExpressionColumns(before.expression(), alteredColumns);
+            if (after != null
+                    && !dependencyColumns.isEmpty()
+                    && !alreadyChanged(plan, TableObjectType.CHECK_CONSTRAINT, before)) {
+                refreshes.add(dependencyRefresh(TableObjectType.CHECK_CONSTRAINT,
+                        chooseName(after.name(), before.name()), before, after, dependencyColumns));
+            }
+        }
+
+        for (Index before : live.indexes()) {
+            Index after = desired.indexes().stream()
+                    .filter(candidate -> sameName(candidate.name(), before.name()))
+                    .findFirst().orElse(null);
+            Set<String> dependencyColumns = referencedIndexColumns(before, alteredColumns);
+            if (after != null
+                    && !dependencyColumns.isEmpty()
+                    && !alreadyChanged(plan, TableObjectType.INDEX, before)) {
+                refreshes.add(dependencyRefresh(TableObjectType.INDEX, chooseName(after.name(), before.name()),
+                        before, after, dependencyColumns));
+            }
+        }
+
+        return List.copyOf(refreshes);
+    }
+
+    private static Set<String> sqlServerDependencyGuardedColumns(
+            TableMigrationPlan plan, List<TableObjectChange> refreshes) {
+        if (plan.platform() != DatabasePlatform.SQLSERVER) return Set.of();
+        List<TableObjectChange> dependencies = new ArrayList<>(refreshes);
+        plan.objectChanges().stream()
+                .filter(change -> change.kind() != TableObjectChangeKind.ADD && change.before() != null)
+                .forEach(dependencies::add);
+
+        Set<String> guarded = new HashSet<>();
+        for (ColumnChange columnChange : plan.columnChanges()) {
+            if (columnChange.kind() != ColumnChangeKind.ALTER_TYPE
+                    && columnChange.kind() != ColumnChangeKind.ALTER_NULLABILITY) {
+                continue;
+            }
+            String column = columnChange.columnName().normalized();
+            if (dependencies.stream().anyMatch(change -> dependencyReferencesColumn(
+                    change, column, plan.liveTable()))) {
+                guarded.add(column);
+            }
+        }
+        return Set.copyOf(guarded);
+    }
+
+    private static boolean dependencyReferencesColumn(
+            TableObjectChange change, String column, Table liveTable) {
+        if (change.before() == null) return false;
+        Set<String> one = Set.of(column);
+        return switch (change.objectType()) {
+            case PRIMARY_KEY -> referencesAny(((PrimaryKey) change.before()).columns(), one);
+            case UNIQUE_KEY -> referencesAny(((UniqueKey) change.before()).columns(), one);
+            case CHECK_CONSTRAINT -> expressionReferencesAny(((CheckConstraint) change.before()).expression(), one);
+            case INDEX -> indexReferencesAny((Index) change.before(), one);
+            case FOREIGN_KEY -> {
+                ForeignKey foreignKey = (ForeignKey) change.before();
+                boolean local = referencesAny(foreignKey.columns(), one);
+                boolean selfReferenced = sameQualifiedTable(foreignKey.referencedTable(), liveTable.qualifiedName())
+                        && referencesAny(foreignKey.referencedColumns(), one);
+                yield local || selfReferenced;
+            }
+        };
+    }
+
+    private static TableObjectChange dependencyRefresh(
+            TableObjectType type, Identifier name, Object before, Object after, Set<String> alteredColumns) {
+        return new TableObjectChange(
+                type, TableObjectChangeKind.REPLACE, name, before, after, MigrationRisk.DESTRUCTIVE,
+                "SQL Server requires temporary DROP/recreate while ALTER COLUMN changes dependent column(s): "
+                        + String.join(",", alteredColumns));
+    }
+
+    private static boolean alreadyChanged(TableMigrationPlan plan, TableObjectType type, Object before) {
+        return plan.objectChanges().stream().anyMatch(change ->
+                change.objectType() == type && Objects.equals(change.before(), before));
+    }
+
+    private static boolean referencesAny(List<Identifier> columns, Set<String> alteredColumns) {
+        return !referencedIdentifierColumns(columns, alteredColumns).isEmpty();
+    }
+
+    private static Set<String> referencedIdentifierColumns(
+            List<Identifier> columns, Set<String> alteredColumns) {
+        Set<String> referenced = new HashSet<>();
+        for (Identifier column : columns) {
+            if (alteredColumns.contains(column.normalized())) referenced.add(column.normalized());
+        }
+        return Set.copyOf(referenced);
+    }
+
+    private static Set<String> referencedIndexColumns(Index index, Set<String> alteredColumns) {
+        Set<String> referenced = new HashSet<>();
+        for (var column : index.columns()) {
+            if (column.column() != null && alteredColumns.contains(column.column().normalized())) {
+                referenced.add(column.column().normalized());
+            }
+            if (column.expression() != null) {
+                referenced.addAll(referencedExpressionColumns(column.expression(), alteredColumns));
+            }
+        }
+        referenced.addAll(referencedIdentifierColumns(index.includeColumns(), alteredColumns));
+        if (index.predicate() != null) {
+            referenced.addAll(referencedExpressionColumns(index.predicate(), alteredColumns));
+        }
+        return Set.copyOf(referenced);
+    }
+
+    private static Set<String> referencedExpressionColumns(String expression, Set<String> alteredColumns) {
+        Set<String> referenced = new HashSet<>();
+        for (String column : alteredColumns) {
+            if (expressionReferencesAny(expression, Set.of(column))) referenced.add(column);
+        }
+        return Set.copyOf(referenced);
+    }
+
+    private static boolean indexReferencesAny(Index index, Set<String> alteredColumns) {
+        boolean key = index.columns().stream().anyMatch(column ->
+                column.column() != null && alteredColumns.contains(column.column().normalized())
+                        || column.expression() != null && expressionReferencesAny(column.expression(), alteredColumns));
+        if (key) return true;
+        if (referencesAny(index.includeColumns(), alteredColumns)) return true;
+        return index.predicate() != null && expressionReferencesAny(index.predicate(), alteredColumns);
+    }
+
+    private static boolean expressionReferencesAny(String expression, Set<String> alteredColumns) {
+        if (expression == null || expression.isBlank()) return false;
+        StringBuilder outsideLiterals = new StringBuilder(expression.length());
+        boolean inLiteral = false;
+        for (int i = 0; i < expression.length(); i++) {
+            char c = expression.charAt(i);
+            if (c == '\'') {
+                if (inLiteral && i + 1 < expression.length() && expression.charAt(i + 1) == '\'') {
+                    i++;
+                    continue;
+                }
+                inLiteral = !inLiteral;
+                outsideLiterals.append(' ');
+                continue;
+            }
+            outsideLiterals.append(inLiteral ? ' ' : c);
+        }
+        String normalized = outsideLiterals.toString().toUpperCase(Locale.ROOT)
+                .replace("[", "").replace("]", "");
+        for (String column : alteredColumns) {
+            Pattern token = Pattern.compile("(?<![A-Z0-9_$#])" + Pattern.quote(column) + "(?![A-Z0-9_$#])");
+            if (token.matcher(normalized).find()) return true;
+        }
+        return false;
+    }
+
+    private static boolean sameQualifiedTable(QualifiedName left, QualifiedName right) {
+        if (!left.name().normalized().equals(right.name().normalized())) return false;
+        String leftSchema = left.schemaName().map(Identifier::normalized).orElse("");
+        String rightSchema = right.schemaName().map(Identifier::normalized).orElse("");
+        return leftSchema.isEmpty() || rightSchema.isEmpty() || leftSchema.equals(rightSchema);
+    }
+
+    private static boolean sameName(Identifier left, Identifier right) {
+        return left != null && right != null && left.normalized().equals(right.normalized());
+    }
+
+    private static Identifier chooseName(Identifier preferred, Identifier fallback) {
+        return preferred != null ? preferred : fallback;
+    }
+
+    private static List<TableObjectChange> orderedObjectChangesForDrop(List<TableObjectChange> changes) {
+        return changes.stream()
+                .sorted(Comparator.comparingInt(change -> dropPriority(change.objectType())))
+                .toList();
+    }
+
+    private static List<TableObjectChange> orderedObjectChangesForAdd(List<TableObjectChange> changes) {
+        return changes.stream()
+                .sorted(Comparator.comparingInt(change -> addPriority(change.objectType())))
+                .toList();
+    }
+
+    private static int dropPriority(TableObjectType type) {
+        return switch (type) {
+            case FOREIGN_KEY -> 0;
+            case INDEX -> 1;
+            case CHECK_CONSTRAINT -> 2;
+            case UNIQUE_KEY -> 3;
+            case PRIMARY_KEY -> 4;
+        };
+    }
+
+    private static int addPriority(TableObjectType type) {
+        return switch (type) {
+            case PRIMARY_KEY -> 0;
+            case UNIQUE_KEY -> 1;
+            case CHECK_CONSTRAINT -> 2;
+            case INDEX -> 3;
+            case FOREIGN_KEY -> 4;
+        };
     }
 
     private static void appendObjectHeading(StringBuilder sql, TableObjectChange change, String phase) {
@@ -217,6 +527,8 @@ public final class MigrationSqlRenderer {
                 .append("-- HINT: SchemaForge never infers column renames. Missing old + new names are DROP + ADD until explicit evidence exists.")
                 .append(NL)
                 .append("-- HINT: M2 orders owned-object DROP/REPLACE before column changes and owned-object ADD/REPLACE after them.")
+                .append(NL)
+                .append("-- HINT: SQL Server temporarily drops and recreates unchanged owned dependencies that would otherwise block ALTER COLUMN; these operational refreshes require confirmDestructive=true.")
                 .append(NL)
                 .append("-- HINT: Incoming foreign keys owned by other tables are not auto-dropped; DBA/deployment-wide dependency planning remains required for referenced-key changes.")
                 .append(NL);
@@ -333,13 +645,19 @@ public final class MigrationSqlRenderer {
         String columnLiteral = sqlLiteral(desired.name().value());
         String objectLiteral = sqlLiteral(tableName.replace("[", "").replace("]", ""));
         String variable = "@SchemaForgeDf_" + Integer.toUnsignedString(desired.name().normalized().hashCode(), 16);
-        String drop = "DECLARE " + variable + " sysname; "
+        String sqlVariable = variable + "_sql";
+        String dropBatch = "DECLARE " + variable + " sysname; "
                 + "SELECT " + variable + " = dc.name FROM sys.default_constraints dc "
                 + "JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id "
                 + "WHERE dc.parent_object_id = OBJECT_ID(N'" + objectLiteral + "') "
                 + "AND c.name = N'" + columnLiteral + "'; "
-                + "IF " + variable + " IS NOT NULL EXEC(N'ALTER TABLE " + tableName
-                + " DROP CONSTRAINT ' + QUOTENAME(" + variable + "));";
+                + "IF " + variable + " IS NOT NULL BEGIN "
+                + "DECLARE " + sqlVariable + " nvarchar(max); "
+                + "SET " + sqlVariable + " = N'ALTER TABLE " + tableName
+                + " DROP CONSTRAINT ' + QUOTENAME(" + variable + "); "
+                + "EXEC sys.sp_executesql " + sqlVariable + "; END;";
+        String drop = "EXEC sys.sp_executesql N'" + dropBatch.replace("'", "''") + "'"
+                + dialect.statementTerminator();
         if (!desired.defaultValue().isPresent()) return List.of(drop);
 
         String constraint = deterministicDefaultConstraint(desired.name(), tableName);

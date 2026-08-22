@@ -1,3 +1,19 @@
+## 2026-08-22 - ALTER/Migration M2-R11 SQL Server dynamic default-drop fix
+
+- Fixed SQL Server default-constraint removal after live M2 exposed `Incorrect syntax near 'QUOTENAME'`.
+- Dynamic constraint DROP now assigns the composed `ALTER TABLE ... DROP CONSTRAINT` command to an `nvarchar(max)` variable before invoking `sys.sp_executesql`; `QUOTENAME(...)` is no longer used directly inside the EXEC string argument.
+- The default-constraint discovery and DROP still execute inside one outer `sys.sp_executesql` batch, preserving JDBC/Flyway statement-splitting safety and local-variable scope.
+- Added focused renderer regression assertions for the executable dynamic-SQL shape.
+- CREATE generation, semantic diff, dependency refresh, and destructive-confirmation policies are unchanged.
+
+## 2026-08-22 - ALTER Migration M2-R9 SQL Server live pilot
+
+- Added `SqlServerMigrationM2LivePilotIT` for opt-in live validation of the existing-table CREATE+ALTER path against Microsoft SQL Server.
+- The pilot uses only `SF_M2_PARENT` and `SF_M2_CHILD` inside the explicitly configured non-system schema, verifies unconditional CREATE generation, executes confirmed column + PK/FK/UK/CHECK/INDEX migration SQL, preserves seed data, re-reads `sys.*` metadata, and requires zero residual drift.
+- SQL Server PK/UNIQUE backing indexes are now excluded from standalone index metadata so constraint-owned indexes are not modeled twice.
+- SQL Server default-constraint removal is emitted through a single `sys.sp_executesql` JDBC/Flyway-safe batch; internal semicolons stay inside the dynamic batch instead of losing local-variable scope when SQL is statement-split for live validation.
+- Added focused regression coverage for the standalone-index filter and single-statement SQL Server default-drop batch.
+
 ## 2026-08-22 - ALTER Migration M2-R8 PostgreSQL CHECK catalog normalization
 
 - PostgreSQL M2 live pilot reached real migration execution and returned a single residual CHECK drift: live `id > 0 AND parent_id > 0` versus desired `(ID > 0) AND (PARENT_ID > 0)`.
@@ -1428,3 +1444,20 @@
 - Fixed the PostgreSQL live-pilot CREATE verification to compare both the generated SQL and the expected `CREATE TABLE` marker in the same lowercase form.
 - The previous assertion lowercased only the generated SQL while leaving the `CREATE TABLE` prefix uppercase, causing a false failure before any migration execution.
 - No production CREATE/ALTER generation, PostgreSQL metadata logic, destructive-confirmation policy, or migration SQL changed.
+
+## 2026-08-22 - ALTER/Migration M2-R10 SQL Server ALTER COLUMN dependency refresh
+
+- Fixed the real SQL Server M2 live-pilot failure where an unchanged standalone index on `PARENT_ID` blocked `ALTER COLUMN`.
+- SQL Server migration rendering now detects unchanged table-owned PK/UK/FK/CHECK/INDEX objects that depend on columns whose datatype or nullability is being changed, temporarily drops them before `ALTER COLUMN`, and recreates the desired definitions afterward.
+- Semantic diff remains unchanged: temporary dependency refreshes are operational migration steps and are not reported as design drift.
+- Structural DROP ordering is dependency-aware (`FK -> INDEX -> CHECK -> UK -> PK`) and ADD ordering is the safe reverse dependency direction (`PK -> UK -> CHECK -> INDEX -> FK`).
+- SAFE rendering now comments an SQL Server `ALTER COLUMN` when its prerequisite dependency DROP is blocked, preventing a knowingly non-executable half-migration.
+- Incoming foreign keys owned by other tables remain explicitly outside automatic per-table migration scope.
+- Added a focused regression for an unchanged SQL Server index that must be dropped/recreated around a nullability change.
+
+## 2026-08-22 - ALTER/Migration M2-R12 SQL Server CHECK catalog normalization
+
+- Fixed the SQL Server M2 live-pilot residual drift where `sys.check_constraints.definition` returned catalog formatting such as `([ID]>(0) AND [PARENT_ID]>(0))` for the authored `(ID > 0) AND (PARENT_ID > 0)` expression.
+- SQL Server CHECK comparison now ignores only catalog-only bracket quoting of ordinary identifiers, numeric scalar parentheses, redundant atomic predicate parentheses, and whitespace adjacent to operators.
+- Boolean grouping that changes precedence and string-literal contents/case remain significant, so semantic CHECK changes are still reported.
+- CREATE SQL, migration SQL, SQL Server dependency refresh, destructive-confirmation policy, and the other four database dialects are unchanged.

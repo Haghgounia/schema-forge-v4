@@ -17,6 +17,7 @@ import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.validation.SqlScriptStatementParser;
 import org.junit.jupiter.api.Test;
 
 import java.util.stream.Stream;
@@ -54,6 +55,65 @@ class MigrationSqlRendererTest {
         String sql = render(DatabasePlatform.SQLSERVER);
         assertTrue(sql.contains("ALTER TABLE APP.CUSTOMER ALTER COLUMN NAME VARCHAR(100) NULL;"));
         assertTrue(sql.contains("ALTER TABLE APP.CUSTOMER ADD MOBILE_NO VARCHAR(20);"));
+    }
+
+    @Test
+    void sqlServerTemporarilyRefreshesUnchangedIndexThatBlocksAlterColumn() {
+        Index dependency = new Index(
+                Identifier.of("IX_CHILD_PARENT"),
+                java.util.List.of(new IndexColumn(Identifier.of("PARENT_ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Table live = Table.builder("APP", "CHILD")
+                .addColumn(Column.nullable("PARENT_ID", DataType.simple("BIGINT")))
+                .addIndex(dependency)
+                .build();
+        Table desired = Table.builder("APP", "CHILD")
+                .addColumn(Column.required("PARENT_ID", DataType.simple("BIGINT")))
+                .addIndex(dependency)
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired);
+        assertTrue(plan.objectChanges().isEmpty(), "unchanged index must not be reported as semantic drift");
+
+        String confirmed = new MigrationSqlRenderer().render(plan, new MigrationRenderOptions(true));
+        int drop = confirmed.indexOf("DROP INDEX IX_CHILD_PARENT ON APP.CHILD;");
+        int alter = confirmed.indexOf("ALTER TABLE APP.CHILD ALTER COLUMN PARENT_ID BIGINT NOT NULL;");
+        int recreate = confirmed.indexOf("CREATE INDEX IX_CHILD_PARENT ON APP.CHILD(PARENT_ID)");
+        assertTrue(drop >= 0, "dependency index must be dropped before ALTER COLUMN");
+        assertTrue(alter > drop, "ALTER COLUMN must run after dependency DROP");
+        assertTrue(recreate > alter, "dependency index must be recreated after ALTER COLUMN");
+
+        String safe = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
+        assertTrue(safe.contains("-- DROP INDEX IX_CHILD_PARENT ON APP.CHILD;"));
+        assertTrue(safe.contains("-- ALTER TABLE APP.CHILD ALTER COLUMN PARENT_ID BIGINT NOT NULL;"));
+        assertTrue(safe.contains("-- CREATE INDEX IX_CHILD_PARENT ON APP.CHILD(PARENT_ID)"));
+    }
+
+    @Test
+    void rendersSqlServerDefaultDropAsSingleJdbcExecutableStatement() {
+        Table live = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.nullable("CODE", DataType.varchar("VARCHAR2", 20)))
+                .build();
+        Column desiredCode = new Column(
+                Identifier.of("CODE"), DataType.varchar("VARCHAR2", 20), true,
+                new DefaultValue("'NEW'"), Description.empty(), false, 1);
+        Table desired = Table.builder("APP", "CUSTOMER")
+                .addColumn(desiredCode)
+                .build();
+
+        String sql = new MigrationSqlRenderer().render(
+                new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired),
+                new MigrationRenderOptions(true));
+
+        assertTrue(sql.contains("EXEC sys.sp_executesql N'DECLARE @SchemaForgeDf_"));
+        assertTrue(sql.contains("nvarchar(max)"));
+        assertTrue(sql.contains("SET @SchemaForgeDf_"));
+        assertTrue(sql.contains("EXEC sys.sp_executesql @SchemaForgeDf_"));
+        assertFalse(sql.contains("EXEC(N''ALTER TABLE"),
+                "SQL Server EXEC string form must not call QUOTENAME directly in the EXEC argument");
+        var statements = new SqlScriptStatementParser().parse(sql, DatabasePlatform.SQLSERVER);
+        assertTrue(statements.stream().anyMatch(value -> value.contains("EXEC sys.sp_executesql")));
+        assertTrue(statements.stream().anyMatch(value -> value.contains("ADD CONSTRAINT DF_")));
     }
 
     @Test

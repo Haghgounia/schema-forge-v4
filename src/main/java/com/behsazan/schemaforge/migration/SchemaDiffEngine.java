@@ -295,6 +295,13 @@ public final class SchemaDiffEngine {
             // parentheses that contain AND/OR because those can change boolean precedence.
             return normalizePostgreSqlCheckFormatting(normalized);
         }
+        if (platform == DatabasePlatform.SQLSERVER) {
+            // SQL Server sys.check_constraints.definition commonly decorates ordinary identifiers
+            // with brackets, wraps numeric scalar literals in parentheses, and removes whitespace
+            // around comparison operators. Normalize only those catalog-rendering differences;
+            // boolean grouping and string-literal contents remain significant.
+            return normalizeSqlServerCheckFormatting(normalized);
+        }
         return normalizeExpression(normalized);
     }
 
@@ -392,6 +399,206 @@ public final class SchemaDiffEngine {
         String source = stripBalancedOuterParentheses(value.trim());
         source = stripPostgreSqlRedundantPredicateParentheses(source);
         return normalizeCatalogCheckFormatting(source);
+    }
+
+    static String normalizeSqlServerCheckFormatting(String value) {
+        if (value == null) return null;
+        String source = stripSqlServerSimpleIdentifierBrackets(value.trim());
+        source = stripSqlServerNumericLiteralParentheses(source);
+        source = stripBalancedOuterParentheses(source);
+        // The predicate-parenthesis rule is dialect-neutral once SQL Server brackets are removed:
+        // it removes only atomic boolean wrappers and preserves groups containing top-level AND/OR.
+        source = stripPostgreSqlRedundantPredicateParentheses(source);
+        return normalizeSqlServerOperatorSpacing(normalizeCatalogCheckFormatting(source));
+    }
+
+    /** Remove SQL Server bracket quoting only for ordinary identifier tokens such as [ID]. */
+    static String stripSqlServerSimpleIdentifierBrackets(String value) {
+        if (value == null || value.isEmpty()) return value;
+        StringBuilder out = new StringBuilder(value.length());
+        boolean inString = false;
+        for (int i = 0; i < value.length();) {
+            char ch = value.charAt(i);
+            if (inString) {
+                out.append(ch);
+                if (ch == '\'' && i + 1 < value.length() && value.charAt(i + 1) == '\'') {
+                    out.append(value.charAt(i + 1));
+                    i += 2;
+                    continue;
+                }
+                if (ch == '\'') inString = false;
+                i++;
+                continue;
+            }
+            if (ch == '\'') {
+                inString = true;
+                out.append(ch);
+                i++;
+                continue;
+            }
+            if (ch != '[') {
+                out.append(ch);
+                i++;
+                continue;
+            }
+
+            int j = i + 1;
+            StringBuilder inner = new StringBuilder();
+            boolean closed = false;
+            while (j < value.length()) {
+                char current = value.charAt(j);
+                if (current == ']') {
+                    if (j + 1 < value.length() && value.charAt(j + 1) == ']') {
+                        inner.append(']');
+                        j += 2;
+                        continue;
+                    }
+                    closed = true;
+                    break;
+                }
+                inner.append(current);
+                j++;
+            }
+            if (closed && isSimpleSqlServerIdentifier(inner.toString())) {
+                out.append(inner);
+                i = j + 1;
+            } else {
+                out.append(ch);
+                i++;
+            }
+        }
+        return out.toString();
+    }
+
+    private static boolean isSimpleSqlServerIdentifier(String value) {
+        if (value == null || value.isEmpty()) return false;
+        char first = value.charAt(0);
+        if (!(Character.isLetter(first) || first == '_' || first == '@' || first == '#')) return false;
+        for (int i = 1; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (!(Character.isLetterOrDigit(ch) || ch == '_' || ch == '$' || ch == '@' || ch == '#')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** SQL Server catalog CHECK text often renders a scalar numeric literal as (0), (1), etc. */
+    static String stripSqlServerNumericLiteralParentheses(String value) {
+        if (value == null || value.isEmpty()) return value;
+        String source = value;
+        boolean changed;
+        do {
+            changed = false;
+            StringBuilder out = new StringBuilder(source.length());
+            boolean inString = false;
+            for (int i = 0; i < source.length();) {
+                char ch = source.charAt(i);
+                if (inString) {
+                    out.append(ch);
+                    if (ch == '\'' && i + 1 < source.length() && source.charAt(i + 1) == '\'') {
+                        out.append(source.charAt(i + 1));
+                        i += 2;
+                        continue;
+                    }
+                    if (ch == '\'') inString = false;
+                    i++;
+                    continue;
+                }
+                if (ch == '\'') {
+                    inString = true;
+                    out.append(ch);
+                    i++;
+                    continue;
+                }
+                if (ch == '(') {
+                    int close = source.indexOf(')', i + 1);
+                    if (close > i) {
+                        String inner = source.substring(i + 1, close).trim();
+                        if (isNumericLiteral(inner)) {
+                            out.append(inner);
+                            i = close + 1;
+                            changed = true;
+                            continue;
+                        }
+                    }
+                }
+                out.append(ch);
+                i++;
+            }
+            source = out.toString();
+        } while (changed);
+        return source;
+    }
+
+    private static boolean isNumericLiteral(String value) {
+        if (value == null || value.isBlank()) return false;
+        int i = 0;
+        if (value.charAt(i) == '+' || value.charAt(i) == '-') i++;
+        boolean digit = false;
+        while (i < value.length() && Character.isDigit(value.charAt(i))) { digit = true; i++; }
+        if (i < value.length() && value.charAt(i) == '.') {
+            i++;
+            while (i < value.length() && Character.isDigit(value.charAt(i))) { digit = true; i++; }
+        }
+        if (!digit) return false;
+        if (i < value.length() && (value.charAt(i) == 'e' || value.charAt(i) == 'E')) {
+            i++;
+            if (i < value.length() && (value.charAt(i) == '+' || value.charAt(i) == '-')) i++;
+            int exponentStart = i;
+            while (i < value.length() && Character.isDigit(value.charAt(i))) i++;
+            if (i == exponentStart) return false;
+        }
+        return i == value.length();
+    }
+
+    /** Canonicalize only whitespace adjacent to SQL operator characters, outside string literals. */
+    static String normalizeSqlServerOperatorSpacing(String value) {
+        if (value == null || value.isEmpty()) return value;
+        StringBuilder out = new StringBuilder(value.length());
+        boolean inString = false;
+        boolean inQuotedIdentifier = false;
+        for (int i = 0; i < value.length();) {
+            char ch = value.charAt(i);
+            if (inString) {
+                out.append(ch);
+                if (ch == '\'' && i + 1 < value.length() && value.charAt(i + 1) == '\'') {
+                    out.append(value.charAt(i + 1));
+                    i += 2;
+                    continue;
+                }
+                if (ch == '\'') inString = false;
+                i++;
+                continue;
+            }
+            if (inQuotedIdentifier) {
+                out.append(ch);
+                if (ch == '"') inQuotedIdentifier = false;
+                i++;
+                continue;
+            }
+            if (ch == '\'') { inString = true; out.append(ch); i++; continue; }
+            if (ch == '"') { inQuotedIdentifier = true; out.append(ch); i++; continue; }
+            if (Character.isWhitespace(ch)) {
+                int j = i;
+                while (j < value.length() && Character.isWhitespace(value.charAt(j))) j++;
+                char prev = out.length() == 0 ? '\0' : out.charAt(out.length() - 1);
+                char next = j >= value.length() ? '\0' : value.charAt(j);
+                if (!isSqlOperatorChar(prev) && !isSqlOperatorChar(next) && out.length() > 0 && j < value.length()) {
+                    out.append(' ');
+                }
+                i = j;
+                continue;
+            }
+            out.append(ch);
+            i++;
+        }
+        return out.toString();
+    }
+
+    private static boolean isSqlOperatorChar(char ch) {
+        return ch == '=' || ch == '<' || ch == '>' || ch == '!' || ch == '+' || ch == '-'
+                || ch == '*' || ch == '/' || ch == '%';
     }
 
     /**

@@ -271,6 +271,42 @@ class SchemaDiffEngineTest {
     }
 
     @Test
+    void ignoresSqlServerCatalogBracketsNumericLiteralParenthesesAndOperatorSpacing() {
+        Column id = Column.required("ID", DataType.numeric("BIGINT", 19, 0));
+        Column parentId = Column.required("PARENT_ID", DataType.numeric("BIGINT", 19, 0));
+        Table live = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CHILD_POSITIVE"),
+                        "([ID]>(0) AND [PARENT_ID]>(0))"))
+                .build();
+        Table desired = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CHILD_POSITIVE"),
+                        "(ID > 0) AND (PARENT_ID > 0)"))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT));
+    }
+
+    @Test
+    void preservesSqlServerBooleanGroupingAndStringLiteralSemantics() {
+        String grouped = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.SQLSERVER, "([A]=(1) OR [B]=(2)) AND [STATUS]='A'");
+        String ungrouped = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.SQLSERVER, "[A]=(1) OR [B]=(2) AND [STATUS]='A'");
+        String differentLiteral = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.SQLSERVER, "([A]=(1) OR [B]=(2)) AND [STATUS]='a'");
+
+        assertFalse(grouped.equals(ungrouped));
+        assertFalse(grouped.equals(differentLiteral));
+    }
+
+    @Test
     void ignoresMySqlPrimaryKeyCatalogNamePrimaryWhenStructureMatches() {
         Column id = Column.required("ID", DataType.numeric("NUMBER", 10, 0));
         Table live = Table.builder("APP", "CUSTOMER")

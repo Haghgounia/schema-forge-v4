@@ -470,3 +470,18 @@ diff. Oracle PK/UK backing indexes are not modeled a second time as standalone i
 
 ### ALTER/Migration M2-R7.1 PostgreSQL pilot assertion note
 The PostgreSQL live pilot compares the generated CREATE marker case-insensitively. This is a test-only correction; production CREATE and ALTER behavior is unchanged.
+
+### ALTER/Migration M2 SQL Server live pilot
+
+`SqlServerMigrationM2LivePilotIT` validates the same M2 existing-table workflow against a real Microsoft SQL Server test database. It creates only `SF_M2_PARENT` and `SF_M2_CHILD` in the explicitly configured non-system schema, keeps normal CREATE DDL generation independent from table existence, executes the confirmed Flyway-compatible ALTER migration, verifies seed-data preservation, re-reads `sys.*` metadata, and requires a zero residual diff before cleanup. Constraint-owned PK/UNIQUE indexes are excluded from standalone index comparison, and default-constraint discovery/drop is kept inside one `sys.sp_executesql` batch so local-variable scope survives statement parsing.
+
+### ALTER/Migration M2-R11 SQL Server dynamic default-drop fix
+
+SQL Server default-constraint removal composes the runtime `ALTER TABLE ... DROP CONSTRAINT` statement into an `nvarchar(max)` variable and then executes that variable via `sys.sp_executesql`. This avoids the SQL Server grammar error caused by invoking `QUOTENAME(...)` directly in an `EXEC(...)` string expression while retaining the single outer batch required by JDBC/Flyway statement splitting.
+
+### ALTER/Migration M2-R10 SQL Server dependent-object refresh
+
+SQL Server can reject `ALTER COLUMN` even when a dependent index or constraint is logically unchanged. M2 therefore treats such objects as operational dependencies rather than semantic drift: table-owned unchanged PK/UK/FK/CHECK/INDEX dependencies are temporarily dropped before datatype/nullability changes and recreated afterward. SAFE output keeps both the dependency DROP/ADD and the guarded `ALTER COLUMN` commented until `confirmDestructive=true`. Incoming foreign keys owned by other tables still require deployment-wide DBA planning.
+
+### ALTER/Migration M2-R12 SQL Server CHECK comparison
+SQL Server catalog CHECK text is normalized for catalog-only formatting (ordinary `[IDENTIFIER]` brackets, scalar numeric parentheses such as `(0)`, redundant atomic predicate parentheses, and operator whitespace). Boolean grouping and string literals remain semantically significant.
