@@ -1,0 +1,7 @@
+SchemaForge V4 - MySQL P2-R10 Historical Column-Name Corroboration Audit
+
+This is a cumulative V4 source release. Replace/extract over the current SchemaForge V4 project.
+No production mapping changes are made by P2-R10.
+
+P2-R10 audits only P2-R9 REVIEW_* column candidates and requires independent historical canonical evidence.
+See docs/MYSQL-P2-R10-HISTORICAL-COLUMN-CORROBORATION-AUDIT.md.

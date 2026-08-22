@@ -1,3 +1,27 @@
+
+## 2026-08-21 — MySQL P2-FINAL evidence-backed recovery freeze
+
+- Added cumulative final MySQL recovery generation audit.
+- Reapplies exact DB2 and unanimous historical numeric evidence.
+- Consumes only confirmed P2-R7, P2-R8, and P2-R10 recovery decisions.
+- Produces one cumulative `generated/` corpus and a frozen hard-blocker report.
+- Persisted canonical JSON remains unchanged; no fuzzy or conflicting mapping is guessed.
+## 2026-08-20 - MySQL P2-R10 historical column-name corroboration audit
+
+- Added `MySqlHistoricalColumnNameCorroborationAuditIT`.
+- P2-R9 user-verified baseline: 619 projected remaining snapshots, 91 column-not-found snapshots, 129 occurrences, and zero strong normalized candidates.
+- Evaluates only the 40 P2-R9 `REVIEW_*` typo/prefix occurrences against independent historical canonical snapshots of the same schema/table.
+- Similarity alone is never accepted; coexistence, rename ambiguity, and datatype-family conflicts remain blocked.
+- Audit-only: no canonical JSON, production MySQL mapping, or DDL generation behavior is changed.
+
+## 2026-08-20 - MySQL P2-R9 remaining blocker / column reconciliation audit
+
+- Added `MySqlRemainingColumnReconciliationAuditIT`.
+- Reconstructs the exact post-P2-R8 residual snapshot set from P2-R4/P2-R7/P2-R8 evidence.
+- Reports residual blocker composition using the original P2-R2 metadata classifications.
+- Audits `METADATA_COLUMN_NOT_FOUND` cases against unused columns of the exact DB2 schema/table.
+- Separates normalized-name evidence from prefix/edit-distance review candidates; applies no recovery.
+
 ## 2026-08-20 - MySQL P2-R8 cross-schema reconciliation
 
 - Added an evidence-only generation pass for P2-R6 `REVIEW_EXACT_NAME_OTHER_SCHEMA` candidates.
@@ -1289,3 +1313,9 @@
 - Rejects cross-schema, ambiguous, weak, and type-conflicting candidates; canonical JSON is never mutated.
 - Applies evidence-backed mapped-table numeric metadata only in memory and generates only newly unblocked SQL under `generated-new`.
 - Moved MySQL patch application notes out of the project root into `docs/patches/mysql/`.
+
+
+### MySQL P2-R10-R1 - historical snapshot loader hardening
+- Restricts the P2-R10 historical corroboration audit to canonical `*.schema.json` files.
+- Skips malformed/non-canonical snapshot artifacts instead of aborting the audit with `snapshot schema` NPE.
+- No production mapping or canonical JSON mutation.

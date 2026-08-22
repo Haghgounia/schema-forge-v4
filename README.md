@@ -425,3 +425,21 @@ evidence only; the canonical schema/table identity is not rewritten. Acceptance 
 candidate, strong bidirectional column coverage, independent datatype-family corroboration, and zero family
 conflicts. Only supported exact-numeric metadata can fill missing numeric precision. Ambiguous candidates and
 conflicts remain blocked. See `docs/MYSQL-P2-R8-CROSS-SCHEMA-RECONCILIATION.md`.
+### MySQL P2-R9 remaining blocker / column reconciliation audit
+
+P2-R9 reconstructs the exact post-P2-R8 blocked snapshot set and isolates residual
+`METADATA_COLUMN_NOT_FOUND` cases. It searches only the exact DB2 schema/table and reports
+unused MySQL-mappable exact-numeric column candidates using conservative normalized-name,
+prefix, and edit-distance evidence tiers. P2-R9 is audit-only: it does not mutate canonical JSON
+and does not apply any candidate automatically. See `docs/MYSQL-P2-R9-REMAINING-COLUMN-RECONCILIATION-AUDIT.md`.
+
+### MySQL P2-R10 historical column-name corroboration audit
+
+P2-R10 evaluates only P2-R9 `REVIEW_*` typo/prefix column candidates and requires the exact DB2 candidate
+column name to be corroborated by another canonical snapshot of the same schema/table. Similarity alone,
+historical coexistence, rename ambiguity, and datatype-family conflicts remain blocked. P2-R10 is audit-only.
+See `docs/MYSQL-P2-R10-HISTORICAL-COLUMN-CORROBORATION-AUDIT.md`.
+
+
+
+MySQL P2 final recovery/freeze details: `docs/MYSQL-P2-FINAL-RECOVERY-FREEZE.md`.

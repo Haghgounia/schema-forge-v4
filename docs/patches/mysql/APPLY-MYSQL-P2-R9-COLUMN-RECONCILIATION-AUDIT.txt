@@ -1,0 +1,3 @@
+SchemaForge V4 - MySQL P2-R9
+
+This phase is audit-only. It reconstructs the post-P2-R8 blocker set and audits exact-table DB2 column-name candidates for residual METADATA_COLUMN_NOT_FOUND cases. No production mapper or persisted canonical JSON is changed.

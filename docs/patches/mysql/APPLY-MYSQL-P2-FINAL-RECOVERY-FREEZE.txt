@@ -1,0 +1,7 @@
+SchemaForge V4 - MySQL P2-FINAL Evidence-backed Recovery Freeze
+
+Run the MySqlFinalRecoveryGenerationIT integration test with the canonical snapshot directory,
+DB2 SYSCOLUMNS file, and the P2-R2/P2-R7/P2-R8/P2-R10 audit output directories.
+
+This stage does not mutate persisted canonical JSON. It creates one cumulative generated corpus and
+freezes all residual unsupported/evidence-conflict cases into an explicit hard-blocker report.
