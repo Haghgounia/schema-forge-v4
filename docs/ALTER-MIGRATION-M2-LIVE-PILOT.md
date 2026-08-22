@@ -29,3 +29,5 @@ Artifacts are written under `target/mysql-migration-m2-live-pilot/` unless overr
 - confirmed `V...__SF_M2_CHILD_ALTER.sql`
 - `mysql-m2-live-pilot-summary.txt`
 - `residual-diff.txt` only when the post-migration diff is non-empty
+M2-R3 closes a MySQL catalog-normalization false positive discovered by this pilot: after a CHECK was replaced successfully, `information_schema.CHECK_CONSTRAINTS.CHECK_CLAUSE` returned MySQL-rendered backticks and UTF literal introducers. The diff engine now treats those catalog decorations as equivalent while preserving the real expression comparison.
+

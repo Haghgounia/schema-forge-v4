@@ -295,10 +295,18 @@ class MySqlMigrationM2LivePilotIT {
         plan.columnChanges().forEach(change -> value.append("COLUMN ")
                 .append(change.kind()).append(' ').append(change.columnName()).append(" : ")
                 .append(change.rationale()).append(System.lineSeparator()));
-        plan.objectChanges().forEach(change -> value.append("OBJECT ")
-                .append(change.kind()).append(' ').append(change.objectType()).append(' ')
-                .append(change.objectName()).append(" : ").append(change.rationale())
-                .append(System.lineSeparator()));
+        plan.objectChanges().forEach(change -> {
+            value.append("OBJECT ")
+                    .append(change.kind()).append(' ').append(change.objectType()).append(' ')
+                    .append(change.objectName()).append(" : ").append(change.rationale())
+                    .append(System.lineSeparator());
+            if (change.before() instanceof CheckConstraint before) {
+                value.append("  live-check    : ").append(before.expression()).append(System.lineSeparator());
+            }
+            if (change.after() instanceof CheckConstraint after) {
+                value.append("  desired-check : ").append(after.expression()).append(System.lineSeparator());
+            }
+        });
         return value.toString();
     }
 
@@ -338,7 +346,7 @@ class MySqlMigrationM2LivePilotIT {
             return new Config(
                     property("schemaforge.mysql.migration.jdbc.url", ""),
                     property("schemaforge.mysql.migration.jdbc.user", ""),
-                    password == null ? "" : password,
+                    password == null ? "" : password.trim(),
                     property("schemaforge.mysql.migration.database", DEFAULT_DATABASE),
                     Boolean.parseBoolean(property("schemaforge.mysql.migration.confirmDestructive", "false")),
                     Boolean.parseBoolean(property("schemaforge.mysql.migration.cleanup", "true")),

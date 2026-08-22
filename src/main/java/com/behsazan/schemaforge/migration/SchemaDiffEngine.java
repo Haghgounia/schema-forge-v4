@@ -118,7 +118,7 @@ public final class SchemaDiffEngine {
                 UniqueKey::name, this::uniqueSignature, changes);
         diffNamedObjects(
                 TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(), desired.checkConstraints(),
-                CheckConstraint::name, check -> checkSignature(dialect, check), changes);
+                CheckConstraint::name, check -> checkSignature(platform, dialect, check), changes);
         diffNamedObjects(
                 TableObjectType.INDEX, live.indexes(), desired.indexes(),
                 Index::name, index -> indexSignature(dialect, index), changes);
@@ -266,12 +266,209 @@ public final class SchemaDiffEngine {
                 + "|PHYS=" + key.physicalReference();
     }
 
-    private String checkSignature(Dialect dialect, CheckConstraint check) {
+    private String checkSignature(DatabasePlatform platform, Dialect dialect, CheckConstraint check) {
+        String expression;
         try {
-            return normalizeExpression(dialect.expression(check.expression()));
+            expression = dialect.expression(check.expression());
         } catch (UnsupportedOperationException unsupported) {
-            return normalizeExpression(check.expression());
+            expression = check.expression();
         }
+        return normalizeCheckExpression(platform, expression);
+    }
+
+    static String normalizeCheckExpression(DatabasePlatform platform, String value) {
+        if (value == null) return null;
+        String normalized = value;
+        if (platform == DatabasePlatform.MYSQL) {
+            // MySQL information_schema CHECK_CLAUSE decorates identifiers with backticks and
+            // ordinary UTF string literals with charset introducers such as _utf8mb4. Some
+            // server/JDBC combinations also expose those literal delimiters as \' instead of '.
+            // These are catalog-rendering details, not logical drift from the canonical CHECK.
+            normalized = normalized.replaceAll("`([^`]+)`", "$1");
+            normalized = normalizeMySqlCatalogEscapedLiterals(normalized);
+            normalized = normalized.replaceAll("(?i)_(?:utf8mb4|utf8mb3)(?=')", "");
+            return normalizeMySqlCheckFormatting(normalized);
+        }
+        return normalizeExpression(normalized);
+    }
+
+    /**
+     * Reconstructs ordinary quoted literals when MySQL information_schema exposes
+     * charset-prefixed CHECK literals with backslash-escaped quote delimiters, e.g.
+     * {@code _utf8mb4\'A\'}. Only charset-prefixed catalog literals are rewritten.
+     * Internal escaped apostrophes are converted to SQL-standard doubled apostrophes so
+     * the later quote-aware formatter preserves their literal value.
+     */
+    static String normalizeMySqlCatalogEscapedLiterals(String value) {
+        if (value == null || value.isEmpty()) return value;
+        StringBuilder out = new StringBuilder(value.length());
+        boolean inCatalogLiteral = false;
+
+        for (int i = 0; i < value.length();) {
+            if (!inCatalogLiteral) {
+                int introducerLength = mySqlCharsetIntroducerLength(value, i);
+                int quoteSlash = i + introducerLength;
+                if (introducerLength > 0
+                        && quoteSlash + 1 < value.length()
+                        && value.charAt(quoteSlash) == '\\'
+                        && value.charAt(quoteSlash + 1) == '\'') {
+                    out.append('\'');
+                    i = quoteSlash + 2;
+                    inCatalogLiteral = true;
+                    continue;
+                }
+                out.append(value.charAt(i++));
+                continue;
+            }
+
+            if (i + 1 < value.length() && value.charAt(i) == '\\' && value.charAt(i + 1) == '\'') {
+                if (isMySqlCatalogLiteralTerminator(value, i + 2)) {
+                    out.append('\'');
+                    i += 2;
+                    inCatalogLiteral = false;
+                } else {
+                    out.append("''");
+                    i += 2;
+                }
+                continue;
+            }
+
+            out.append(value.charAt(i++));
+        }
+        return out.toString();
+    }
+
+    private static int mySqlCharsetIntroducerLength(String value, int offset) {
+        if (regionMatchesIgnoreCase(value, offset, "_utf8mb4")) return 8;
+        if (regionMatchesIgnoreCase(value, offset, "_utf8mb3")) return 8;
+        return 0;
+    }
+
+    private static boolean regionMatchesIgnoreCase(String value, int offset, String token) {
+        return offset >= 0
+                && offset + token.length() <= value.length()
+                && value.regionMatches(true, offset, token, 0, token.length());
+    }
+
+    private static boolean isMySqlCatalogLiteralTerminator(String value, int offset) {
+        int i = offset;
+        while (i < value.length() && Character.isWhitespace(value.charAt(i))) i++;
+        if (i >= value.length()) return true;
+
+        char ch = value.charAt(i);
+        if (ch == ',' || ch == ')' || ch == ';'
+                || ch == '=' || ch == '<' || ch == '>' || ch == '!'
+                || ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
+            return true;
+        }
+
+        int start = i;
+        while (i < value.length() && (Character.isLetter(value.charAt(i)) || value.charAt(i) == '_')) i++;
+        if (i == start) return false;
+        String token = value.substring(start, i).toUpperCase(java.util.Locale.ROOT);
+        return token.equals("AND") || token.equals("OR") || token.equals("IS") || token.equals("LIKE")
+                || token.equals("REGEXP") || token.equals("RLIKE") || token.equals("BETWEEN")
+                || token.equals("IN") || token.equals("NOT") || token.equals("COLLATE");
+    }
+
+    /**
+     * Canonicalizes MySQL CHECK formatting without changing quoted literal contents.
+     * information_schema may add/remove insignificant whitespace around commas and
+     * parentheses compared with the authored document expression. A quote-aware scan
+     * avoids accidentally changing values such as 'A, B'.
+     */
+    static String normalizeMySqlCheckFormatting(String value) {
+        if (value == null) return null;
+        String source = stripBalancedOuterParentheses(value.trim());
+        StringBuilder out = new StringBuilder(source.length());
+        boolean inString = false;
+        boolean pendingSpace = false;
+
+        for (int i = 0; i < source.length(); i++) {
+            char ch = source.charAt(i);
+            if (inString) {
+                out.append(ch);
+                if (ch == '\'') {
+                    if (i + 1 < source.length() && source.charAt(i + 1) == '\'') {
+                        out.append(source.charAt(++i));
+                    } else {
+                        inString = false;
+                    }
+                }
+                continue;
+            }
+
+            if (ch == '\'') {
+                appendPendingSpace(out, pendingSpace, ch);
+                pendingSpace = false;
+                out.append(ch);
+                inString = true;
+                continue;
+            }
+            if (Character.isWhitespace(ch)) {
+                pendingSpace = out.length() > 0;
+                continue;
+            }
+            if (ch == '(' || ch == ')' || ch == ',') {
+                trimTrailingSpace(out);
+                out.append(ch);
+                pendingSpace = false;
+                continue;
+            }
+
+            appendPendingSpace(out, pendingSpace, ch);
+            pendingSpace = false;
+            out.append(Character.toUpperCase(ch));
+        }
+        return stripBalancedOuterParentheses(out.toString());
+    }
+
+    private static void appendPendingSpace(StringBuilder out, boolean pendingSpace, char next) {
+        if (!pendingSpace || out.length() == 0) return;
+        char previous = out.charAt(out.length() - 1);
+        if (previous != '(' && previous != ',' && next != ')' && next != ',') out.append(' ');
+    }
+
+    private static void trimTrailingSpace(StringBuilder out) {
+        while (out.length() > 0 && Character.isWhitespace(out.charAt(out.length() - 1))) {
+            out.setLength(out.length() - 1);
+        }
+    }
+
+    private static String stripBalancedOuterParentheses(String value) {
+        String normalized = value == null ? null : value.trim();
+        if (normalized == null) return null;
+        boolean changed = true;
+        while (changed && normalized.length() >= 2 && normalized.startsWith("(") && normalized.endsWith(")")) {
+            String inner = normalized.substring(1, normalized.length() - 1).trim();
+            if (balancedSql(inner)) normalized = inner;
+            else changed = false;
+        }
+        return normalized;
+    }
+
+    private static boolean balancedSql(String value) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (inString) {
+                if (ch == '\'') {
+                    if (i + 1 < value.length() && value.charAt(i + 1) == '\'') i++;
+                    else inString = false;
+                }
+                continue;
+            }
+            if (ch == '\'') {
+                inString = true;
+            } else if (ch == '(') {
+                depth++;
+            } else if (ch == ')') {
+                depth--;
+                if (depth < 0) return false;
+            }
+        }
+        return depth == 0 && !inString;
     }
 
     private String indexSignature(Dialect dialect, Index index) {

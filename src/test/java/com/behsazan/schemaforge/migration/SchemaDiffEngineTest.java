@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SchemaDiffEngineTest {
@@ -122,6 +123,95 @@ class SchemaDiffEngineTest {
         assertTrue(plan.objectChanges().stream().anyMatch(change ->
                 change.objectType() == TableObjectType.INDEX && change.kind() == TableObjectChangeKind.DROP));
         assertTrue(plan.objectChanges().stream().noneMatch(change -> change.objectType() == TableObjectType.PRIMARY_KEY));
+    }
+
+    @Test
+    void ignoresMySqlCheckCatalogQuotingAndUtf8CharsetIntroducers() {
+        Column status = Column.nullable("STATUS", DataType.varchar("VARCHAR", 1));
+        Table live = Table.builder("APP", "CUSTOMER")
+                .addColumn(status)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        "(`STATUS` in (_utf8mb4'A',_utf8mb4'I',_utf8mb4'S'))"))
+                .build();
+        Table desired = Table.builder("APP", "CUSTOMER")
+                .addColumn(status)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        "STATUS IN ('A','I','S')"))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MYSQL, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT));
+    }
+
+    @Test
+    void ignoresMySqlCheckCatalogWhitespaceAroundCommaAndParentheses() {
+        Column status = Column.nullable("STATUS", DataType.varchar("VARCHAR", 1));
+        Table live = Table.builder("APP", "CUSTOMER")
+                .addColumn(status)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        "((`STATUS` in (_utf8mb4'A', _utf8mb4'I', _utf8mb4'S')))"))
+                .build();
+        Table desired = Table.builder("APP", "CUSTOMER")
+                .addColumn(status)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        "STATUS IN ( 'A' , 'I' , 'S' )"))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MYSQL, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT));
+    }
+
+    @Test
+    void ignoresMySqlCheckCatalogBackslashEscapedQuoteDelimitersFromLiveServer() {
+        Column status = Column.nullable("STATUS", DataType.varchar("VARCHAR", 1));
+        Table live = Table.builder("APP", "CUSTOMER")
+                .addColumn(status)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        "(`STATUS` in (_utf8mb4\\'A\\',_utf8mb4\\'I\\',_utf8mb4\\'S\\'))"))
+                .build();
+        Table desired = Table.builder("APP", "CUSTOMER")
+                .addColumn(status)
+                .addCheck(new CheckConstraint(
+                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        "STATUS IN ('A','I','S')"))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MYSQL, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT));
+    }
+
+    @Test
+    void preservesApostropheSemanticsWhileNormalizingMySqlCatalogEscapedLiterals() {
+        String live = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.MYSQL, "NAME = _utf8mb4\\'O\\'Reilly\\'");
+        String desired = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.MYSQL, "NAME = 'O''Reilly'");
+        String different = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.MYSQL, "NAME = 'OReilly'");
+
+        assertEquals(desired, live);
+        assertFalse(live.equals(different));
+    }
+
+    @Test
+    void preservesCommaAndWhitespaceInsideMySqlCheckStringLiterals() {
+        String left = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.MYSQL, "NOTE IN ('A, B','X Y')");
+        String right = SchemaDiffEngine.normalizeCheckExpression(
+                DatabasePlatform.MYSQL, "NOTE IN ('A,B','X Y')");
+
+        assertFalse(left.equals(right));
     }
 
     @Test

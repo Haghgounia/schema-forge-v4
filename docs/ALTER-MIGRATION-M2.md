@@ -31,7 +31,7 @@ This ordering prevents many local dependency errors when a changed object must b
 
 ## MySQL live metadata
 
-M2 expands `JdbcMySqlMetadataRepository` to load primary/unique constraints, foreign keys, checks and standalone indexes from `information_schema`. The MySQL catalog name `PRIMARY` is treated as equivalent to an explicitly named canonical primary key when the key columns are identical; this avoids a false replacement on every existing MySQL primary key.
+M2 expands `JdbcMySqlMetadataRepository` to load primary/unique constraints, foreign keys, checks and standalone indexes from `information_schema`. The MySQL catalog name `PRIMARY` is treated as equivalent to an explicitly named canonical primary key when the key columns are identical; this avoids a false replacement on every existing MySQL primary key. MySQL CHECK comparison also removes catalog-only identifier backticks and automatic `_utf8mb4`/`_utf8mb3` literal introducers before semantic signature comparison; the actual CHECK expression values and operators are still compared.
 
 ## No-guess rules
 

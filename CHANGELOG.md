@@ -1,3 +1,8 @@
+## 2026-08-22 - ALTER Migration M2-R4.1 test compile fix
+
+- Added the missing JUnit `assertFalse` static import used by the MySQL CHECK literal-preservation regression test.
+- This is test-source-only; production migration, diff, renderer, CREATE, and ALTER behavior are unchanged.
+
 ## 2026-08-21 - ALTER Migration M2 real MySQL live pilot
 
 - Added `MySqlMigrationM2LivePilotIT` for an opt-in destructive pilot against a dedicated `SCHEMAFORGE_*` MySQL database.
@@ -1371,4 +1376,27 @@
 - MySQL catalog primary-key name `PRIMARY` is structurally equivalent to a named canonical PK and no longer causes false replacement.
 - CREATE DDL remains unconditional and independent; Flyway migration remains an additional artifact only when a live table differs.
 - Incoming foreign keys owned by other tables and physical-option migration are deliberately not auto-applied in M2.
+## 2026-08-21 - ALTER / Flyway Migration M2-R3 MySQL CHECK metadata equivalence
 
+- Fixed the real MySQL M2 pilot residual false-positive for CHECK constraints after successful ALTER execution.
+- MySQL CHECK comparison now ignores information_schema catalog decoration that is not logical drift: identifier backticks and automatic `_utf8mb4`/`_utf8mb3` string-literal introducers.
+- Added a focused regression test proving `STATUS IN ('A','I','S')` is equivalent to MySQL metadata form ``(`STATUS` in (_utf8mb4'A',_utf8mb4'I',_utf8mb4'S'))``.
+- The live-pilot password read from `MYSQL_JDBC_PASSWORD` is trimmed to avoid cmd.exe trailing-space surprises.
+- CREATE generation, destructive-confirmation policy, structural migration ordering, and all non-MySQL dialect behavior are unchanged.
+
+## 2026-08-22 - ALTER / Flyway Migration M2-R4 MySQL CHECK formatting normalization
+
+- Hardened MySQL CHECK equivalence after the R3 live pilot still reported the same CHECK as a residual replacement.
+- Added quote-aware normalization of insignificant whitespace around CHECK commas and parentheses while preserving literal contents such as `'A, B'` exactly.
+- Kept catalog-only normalization narrow: identifier backticks and automatic `_utf8mb4`/`_utf8mb3` introducers are still ignored only for MySQL CHECK comparison.
+- Added focused regressions for punctuation whitespace and for preserving commas/spaces inside quoted literals.
+- Live-pilot residual diagnostics now include the raw live and desired CHECK expressions if a CHECK replacement remains.
+- No CREATE-DDL behavior, destructive-confirmation policy, non-MySQL dialect logic, canonical JSON, or structural migration ordering changed.
+
+## 2026-08-22 - ALTER / Flyway Migration M2-R5 MySQL CHECK escaped-literal normalization
+
+- Fixed the real MySQL 8.4 live-pilot CHECK residual where `information_schema.check_constraints.CHECK_CLAUSE` returned charset-prefixed string delimiters as `_utf8mb4\'A\'`.
+- MySQL CHECK comparison now reconstructs only charset-prefixed catalog escaped literals before existing quote-aware formatting normalization.
+- Internal apostrophes remain semantically preserved by converting catalog `\'` escapes inside a literal to SQL-standard doubled apostrophes for comparison.
+- Added regressions for the exact live-pilot metadata form and for an `O'Reilly` literal safety case.
+- CREATE generation, ALTER SQL, destructive-confirmation policy, canonical JSON, and all non-MySQL dialect behavior are unchanged.
