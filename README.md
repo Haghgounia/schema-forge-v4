@@ -483,5 +483,9 @@ SQL Server default-constraint removal composes the runtime `ALTER TABLE ... DROP
 
 SQL Server can reject `ALTER COLUMN` even when a dependent index or constraint is logically unchanged. M2 therefore treats such objects as operational dependencies rather than semantic drift: table-owned unchanged PK/UK/FK/CHECK/INDEX dependencies are temporarily dropped before datatype/nullability changes and recreated afterward. SAFE output keeps both the dependency DROP/ADD and the guarded `ALTER COLUMN` commented until `confirmDestructive=true`. Incoming foreign keys owned by other tables still require deployment-wide DBA planning.
 
+### ALTER/Migration M2 Db2 for z/OS live pilot
+
+`Db2ZosMigrationM2LivePilotIT` is the final per-platform M2 live pilot. It uses the existing local IBM JCC profile, creates only `SF_M2_PARENT` and `SF_M2_CHILD` in the explicitly approved schema, verifies unconditional CREATE generation, executes the confirmed column + PK/FK/UK/CHECK/INDEX migration, preserves seed data, re-reads `SYSIBM` catalog metadata, requires zero residual drift, and cleans up the pilot tables. Db2 PK/UK enforcing indexes are filtered from standalone-index metadata while their physical attributes remain on the constraint model. See `docs/ALTER-MIGRATION-M2-DB2-ZOS-LIVE-PILOT.md`.
+
 ### ALTER/Migration M2-R12 SQL Server CHECK comparison
 SQL Server catalog CHECK text is normalized for catalog-only formatting (ordinary `[IDENTIFIER]` brackets, scalar numeric parentheses such as `(0)`, redundant atomic predicate parentheses, and operator whitespace). Boolean grouping and string literals remain semantically significant.

@@ -176,6 +176,8 @@ class JdbcDb2ZosMetadataRepositoryTest {
         assertTrue(JdbcDb2ZosMetadataRepository.FOREIGN_KEYS_SQL.contains("SYSIBM.SYSFOREIGNKEYS"));
         assertTrue(JdbcDb2ZosMetadataRepository.CHECKS_SQL.contains("SYSIBM.SYSCHECKS"));
         assertTrue(JdbcDb2ZosMetadataRepository.INDEXES_SQL.contains("SYSIBM.SYSINDEXES"));
+        assertTrue(JdbcDb2ZosMetadataRepository.INDEXES_SQL.contains("NOT EXISTS"));
+        assertTrue(JdbcDb2ZosMetadataRepository.INDEXES_SQL.contains("SYSIBM.SYSTABCONST"));
         assertTrue(JdbcDb2ZosMetadataRepository.COLUMNS_SQL.contains("HIDDEN = 'N'"));
         assertTrue(JdbcDb2ZosMetadataRepository.KEY_CONSTRAINTS_SQL.contains("K.ORDERING IN"));
         assertTrue(JdbcDb2ZosMetadataRepository.TABLE_SQL.contains("WITH UR"));

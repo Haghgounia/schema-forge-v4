@@ -1,3 +1,11 @@
+## 2026-08-22 - ALTER/Migration M2-R13 Db2 for z/OS live pilot
+
+- Added `Db2ZosMigrationM2LivePilotIT` as the final opt-in M2 live pilot for the five-database migration path.
+- The pilot preserves unconditional CREATE generation while exercising live column + PK/FK/UK/CHECK/INDEX migration, explicit destructive confirmation, seed-data preservation, catalog re-read, zero residual drift, and best-effort cleanup.
+- Db2 PK/UNIQUE enforcing indexes referenced by `SYSIBM.SYSTABCONST` are now excluded from standalone-index metadata so a constraint-owned index is not modeled twice; physical index properties remain attached to PK/UK metadata.
+- The test reuses the existing local-JCC `db2zos-live` Maven profile and the exact `I_UNDERSTAND_DB2_DDL_MAY_COMMIT` acknowledgement; the IBM driver remains unbundled.
+- No CREATE-DDL policy change: CREATE remains unconditional and Flyway-compatible ALTER remains an additive artifact.
+
 ## 2026-08-22 - ALTER/Migration M2-R11 SQL Server dynamic default-drop fix
 
 - Fixed SQL Server default-constraint removal after live M2 exposed `Incorrect syntax near 'QUOTENAME'`.

@@ -235,6 +235,15 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
                AND K.IXNAME = I.NAME
              WHERE I.TBCREATOR = :schemaName
                AND I.TBNAME = :tableName
+               AND NOT EXISTS (
+                    SELECT 1
+                      FROM SYSIBM.SYSTABCONST C
+                     WHERE C.TBCREATOR = I.TBCREATOR
+                       AND C.TBNAME = I.TBNAME
+                       AND C.IXOWNER = I.CREATOR
+                       AND C.IXNAME = I.NAME
+                       AND C.TYPE IN ('P', 'U')
+               )
              ORDER BY I.NAME, K.COLSEQ
              WITH UR
             """;
