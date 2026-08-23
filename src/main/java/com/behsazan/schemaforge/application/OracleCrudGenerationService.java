@@ -1,5 +1,10 @@
 package com.behsazan.schemaforge.application;
 
+import com.behsazan.schemaforge.artifact.ArtifactDescriptor;
+import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
+import com.behsazan.schemaforge.artifact.ArtifactOrigin;
+import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudGenerationOptions;
@@ -18,7 +23,7 @@ public class OracleCrudGenerationService {
     private final MetadataRepositoryResolver repositoryResolver;
     private final OracleCrudPackageGenerator generator;
     private final OracleCrudGenerationOptions options;
-    private final OutputFileNamer outputFileNamer;
+    private final ArtifactNamingPolicy artifactNamingPolicy;
 
     @Autowired
     public OracleCrudGenerationService(
@@ -26,7 +31,7 @@ public class OracleCrudGenerationService {
             GrantProperties grantProperties) {
         this.repositoryResolver = repositoryResolver;
         this.generator = new OracleCrudPackageGenerator();
-        this.outputFileNamer = new OutputFileNamer();
+        this.artifactNamingPolicy = new ArtifactNamingPolicy();
         List<String> grantees = grantProperties.getGrants().stream()
                 .filter(OracleCrudGenerationService::hasWritePrivilege)
                 .map(GrantProperties.GrantRule::getGrantee)
@@ -50,7 +55,7 @@ public class OracleCrudGenerationService {
         this.repositoryResolver = repositoryResolver;
         this.generator = generator;
         this.options = options;
-        this.outputFileNamer = outputFileNamer;
+        this.artifactNamingPolicy = new ArtifactNamingPolicy(outputFileNamer);
     }
 
     public OracleCrudGenerationResult generate(String schemaName, String tableName) {
@@ -65,12 +70,16 @@ public class OracleCrudGenerationService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Oracle table was not found: " + schema + "." + table));
         String sql = generator.generate(metadata, options);
-        String fileName = outputFileNamer.scriptFileName(
-                schema + "." + table,
-                DatabasePlatform.ORACLE,
-                OutputFileNamer.ScriptKind.CRUD,
-                outputFileNamer.timestamp());
-        return new OracleCrudGenerationResult(fileName, sql);
+        String logicalName = schema + "." + table;
+        String timestamp = artifactNamingPolicy.timestamp();
+        String fileName = artifactNamingPolicy.crudFileName(
+                logicalName, DatabasePlatform.ORACLE, timestamp);
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.DATABASE_METADATA, logicalName, timestamp);
+        context.ledger().generated(context, ArtifactType.CRUD, DatabasePlatform.ORACLE,
+                logicalName, fileName, "application/sql", "OracleCrudPackageGenerator");
+        ArtifactDescriptor descriptor = context.ledger().snapshot().getFirst();
+        return new OracleCrudGenerationResult(fileName, sql, descriptor);
     }
 
 
@@ -97,5 +106,10 @@ public class OracleCrudGenerationService {
         return normalized;
     }
 
-    public record OracleCrudGenerationResult(String fileName, String sql) { }
+    public record OracleCrudGenerationResult(
+            String fileName, String sql, ArtifactDescriptor artifact) {
+        public OracleCrudGenerationResult(String fileName, String sql) {
+            this(fileName, sql, null);
+        }
+    }
 }

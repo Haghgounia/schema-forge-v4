@@ -47,35 +47,35 @@ class SchemaForgeApiZipBatchTest {
 
         Map<String, byte[]> output = unzip(service().generateFromZip(upload("batch.zip", upload)));
 
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("oracle/") && name.endsWith(".oracle.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("postgresql/") && name.endsWith(".postgresql.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("db2zos/") && name.endsWith(".db2zos.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("sqlserver/") && name.endsWith(".sqlserver.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mysql/") && name.endsWith(".mysql.sql")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("json/") && name.endsWith(".json")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("mermaid/tables/") && name.endsWith(".mermaid.mmd")));
-        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("graphviz/tables/") && name.endsWith(".graphviz.dot")));
-        assertTrue(output.containsKey("mermaid/batch/schema-er.mmd"));
-        assertTrue(output.containsKey("mermaid/batch/schema-conceptual-erd.mmd"));
-        assertTrue(output.containsKey("mermaid/batch/schema-dependency.mmd"));
-        assertTrue(output.containsKey("mermaid/batch/issues.csv"));
-        assertTrue(output.containsKey("mermaid/batch/summary.txt"));
-        assertTrue(output.containsKey("graphviz/batch/schema-conceptual-erd.dot"));
-        assertTrue(output.containsKey("graphviz/batch/schema-dependency.dot"));
-        assertTrue(output.containsKey("graphviz/batch/schema-clustered.dot"));
-        assertTrue(output.containsKey("graphviz/batch/schema-compact.dot"));
-        assertTrue(output.containsKey("graphviz/batch/schema-overview.dot"));
-        assertTrue(output.containsKey("graphviz/batch/issues.csv"));
-        assertTrue(output.containsKey("graphviz/batch/summary.txt"));
-        assertTrue(text(output, "mermaid/batch/schema-er.mmd").startsWith("erDiagram"));
-        assertTrue(text(output, "mermaid/batch/schema-conceptual-erd.mmd").startsWith("erDiagram"));
-        assertTrue(text(output, "mermaid/batch/schema-dependency.mmd").startsWith("flowchart LR"));
-        assertTrue(text(output, "graphviz/batch/schema-conceptual-erd.dot")
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/postgresql/") && name.endsWith(".postgresql.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/db2zos/") && name.endsWith(".db2zos.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/sqlserver/") && name.endsWith(".sqlserver.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/mysql/") && name.endsWith(".mysql.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("model/") && name.endsWith(".schema.json")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("diagram/mermaid/tables/") && (name.endsWith(".er.mmd") || name.endsWith(".conceptual-erd.mmd"))));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("diagram/graphviz/tables/") && (name.endsWith(".er.dot") || name.endsWith(".conceptual-erd.dot"))));
+        assertTrue(output.containsKey("diagram/mermaid/batch/schema-er.mmd"));
+        assertTrue(output.containsKey("diagram/mermaid/batch/schema-conceptual-erd.mmd"));
+        assertTrue(output.containsKey("diagram/mermaid/batch/schema-dependency.mmd"));
+        assertTrue(output.containsKey("diagram/mermaid/batch/issues.csv"));
+        assertTrue(output.containsKey("diagram/mermaid/batch/summary.txt"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/schema-conceptual-erd.dot"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/schema-dependency.dot"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/schema-clustered.dot"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/schema-compact.dot"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/schema-overview.dot"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/issues.csv"));
+        assertTrue(output.containsKey("diagram/graphviz/batch/summary.txt"));
+        assertTrue(text(output, "diagram/mermaid/batch/schema-er.mmd").startsWith("erDiagram"));
+        assertTrue(text(output, "diagram/mermaid/batch/schema-conceptual-erd.mmd").startsWith("erDiagram"));
+        assertTrue(text(output, "diagram/mermaid/batch/schema-dependency.mmd").startsWith("flowchart LR"));
+        assertTrue(text(output, "diagram/graphviz/batch/schema-conceptual-erd.dot")
                 .startsWith("digraph SchemaForge_Conceptual_ERD"));
-        assertTrue(text(output, "graphviz/batch/schema-dependency.dot").startsWith("digraph SchemaForge_Dependency"));
-        assertTrue(text(output, "graphviz/batch/schema-clustered.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
-        assertTrue(text(output, "graphviz/batch/schema-compact.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
-        assertTrue(text(output, "graphviz/batch/schema-overview.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(text(output, "diagram/graphviz/batch/schema-dependency.dot").startsWith("digraph SchemaForge_Dependency"));
+        assertTrue(text(output, "diagram/graphviz/batch/schema-clustered.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(text(output, "diagram/graphviz/batch/schema-compact.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
+        assertTrue(text(output, "diagram/graphviz/batch/schema-overview.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
 
         String summary = text(output, "reports/batch-generation-summary.csv");
         assertTrue(summary.contains("MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SUCCESS"));
@@ -86,6 +86,33 @@ class SchemaForgeApiZipBatchTest {
         String errors = text(output, "reports/batch-generation-errors.log");
         assertTrue(errors.contains("Document : specifications/notes.docx"));
         assertTrue(errors.contains("Column specification table was not found"));
+    }
+
+    @Test
+    void zipGenerationShouldResolveDuplicateArtifactPathsDeterministicallyWithinOneBatch() throws Exception {
+        byte[] valid = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
+        byte[] upload = inputZip(Map.of(
+                "first/MCB.BIM.TBL.PROVINCES.V1.2.docx", valid,
+                "second/MCB.BIM.TBL.PROVINCES.V1.2.docx", valid));
+
+        Map<String, byte[]> output = unzip(service().generateFromZip(upload("duplicates.zip", upload)));
+
+        var oracleDdls = output.keySet().stream()
+                .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))
+                .sorted()
+                .toList();
+        assertTrue(oracleDdls.size() == 2, oracleDdls.toString());
+        assertTrue(oracleDdls.stream().anyMatch(name -> !name.contains("__sf_")), oracleDdls.toString());
+        assertTrue(oracleDdls.stream().anyMatch(name ->
+                name.matches("ddl/oracle/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2__sf_[0-9a-f]{10}_"
+                        + "\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql")), oracleDdls.toString());
+
+        String firstTimestamp = oracleDdls.getFirst().replaceFirst(
+                ".*_(\\d{8}_\\d{6}_\\d{3})\\.oracle\\.sql", "$1");
+        String secondTimestamp = oracleDdls.getLast().replaceFirst(
+                ".*_(\\d{8}_\\d{6}_\\d{3})\\.oracle\\.sql", "$1");
+        assertTrue(firstTimestamp.matches("\\d{8}_\\d{6}_\\d{3}"), firstTimestamp);
+        assertTrue(firstTimestamp.equals(secondTimestamp), oracleDdls.toString());
     }
 
     @Test
@@ -113,14 +140,14 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(text(output, "reports/batch-generation-errors.log")
                 .contains("Column specification table was not found"));
         assertFalse(output.keySet().stream().anyMatch(name -> name.endsWith(".sql")));
-        assertFalse(output.containsKey("mermaid/batch/schema-er.mmd"));
-        assertFalse(output.containsKey("mermaid/batch/schema-conceptual-erd.mmd"));
-        assertFalse(output.containsKey("mermaid/batch/schema-dependency.mmd"));
-        assertFalse(output.containsKey("graphviz/batch/schema-conceptual-erd.dot"));
-        assertFalse(output.containsKey("graphviz/batch/schema-dependency.dot"));
-        assertFalse(output.containsKey("graphviz/batch/schema-clustered.dot"));
-        assertFalse(output.containsKey("graphviz/batch/schema-compact.dot"));
-        assertFalse(output.containsKey("graphviz/batch/schema-overview.dot"));
+        assertFalse(output.containsKey("diagram/mermaid/batch/schema-er.mmd"));
+        assertFalse(output.containsKey("diagram/mermaid/batch/schema-conceptual-erd.mmd"));
+        assertFalse(output.containsKey("diagram/mermaid/batch/schema-dependency.mmd"));
+        assertFalse(output.containsKey("diagram/graphviz/batch/schema-conceptual-erd.dot"));
+        assertFalse(output.containsKey("diagram/graphviz/batch/schema-dependency.dot"));
+        assertFalse(output.containsKey("diagram/graphviz/batch/schema-clustered.dot"));
+        assertFalse(output.containsKey("diagram/graphviz/batch/schema-compact.dot"));
+        assertFalse(output.containsKey("diagram/graphviz/batch/schema-overview.dot"));
     }
 
     private static SchemaForgeApiService service() {

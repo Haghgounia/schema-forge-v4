@@ -63,7 +63,8 @@ public final class MetadataComparisonValidator {
                 String path = path(table, column);
                 if (metadataAvailable) frequencies.put(path, profile == null ? 0L : profile.totalFrequency());
                 if (profile == null) continue;
-                String documentType = MetadataTypeFrequency.normalize(dialect.sqlType(column));
+                String documentType = MetadataTypeFrequency.normalize(
+                        dialect.sqlType(schema, table, column));
                 boolean knownType = profile.typeFrequencies().stream().anyMatch(item ->
                         typeEquivalence.equivalent(
                                 dialect.name(), documentType, item.typeSignature(),

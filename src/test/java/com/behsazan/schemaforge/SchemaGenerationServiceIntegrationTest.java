@@ -40,10 +40,10 @@ class SchemaGenerationServiceIntegrationTest {
         assertTrue(Files.isRegularFile(output.jsonFile()));
         assertTrue(Files.isRegularFile(output.sqlFile()));
         assertTrue(output.valid());
-        assertTrue(output.jsonFile().getFileName().toString()
-                .endsWith("_20260725_010938_000.json"));
-        assertTrue(output.sqlFile().getFileName().toString()
-                .endsWith("_20260725_010938_000.postgresql.sql"));
+        assertTrue(output.jsonFile().toString().replace('\\', '/').endsWith(
+                "/model/MCB.BIM.TBL.CONTINENTS.V1.0_20260725_010938_000.schema.json"));
+        assertTrue(output.sqlFile().toString().replace('\\', '/').endsWith(
+                "/ddl/postgresql/MCB.BIM.TBL.CONTINENTS.V1.0_20260725_010938_000.postgresql.sql"));
 
         String sql = Files.readString(output.sqlFile(), StandardCharsets.UTF_8);
         assertTrue(sql.contains("SchemaForge Offline PostgreSQL DDL"));

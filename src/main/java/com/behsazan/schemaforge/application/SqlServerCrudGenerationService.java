@@ -1,5 +1,10 @@
 package com.behsazan.schemaforge.application;
 
+import com.behsazan.schemaforge.artifact.ArtifactDescriptor;
+import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
+import com.behsazan.schemaforge.artifact.ArtifactOrigin;
+import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudGenerationOptions;
@@ -18,7 +23,7 @@ public class SqlServerCrudGenerationService {
     private final MetadataRepositoryResolver repositoryResolver;
     private final SqlServerCrudProcedureGenerator generator;
     private final SqlServerCrudGenerationOptions options;
-    private final OutputFileNamer outputFileNamer;
+    private final ArtifactNamingPolicy artifactNamingPolicy;
 
     @Autowired
     public SqlServerCrudGenerationService(
@@ -26,7 +31,7 @@ public class SqlServerCrudGenerationService {
             GrantProperties grantProperties) {
         this.repositoryResolver = repositoryResolver;
         this.generator = new SqlServerCrudProcedureGenerator();
-        this.outputFileNamer = new OutputFileNamer();
+        this.artifactNamingPolicy = new ArtifactNamingPolicy();
         List<String> grantees = grantProperties.getGrants().stream()
                 .filter(SqlServerCrudGenerationService::hasWritePrivilege)
                 .map(GrantProperties.GrantRule::getGrantee)
@@ -50,7 +55,7 @@ public class SqlServerCrudGenerationService {
         this.repositoryResolver = repositoryResolver;
         this.generator = generator;
         this.options = options;
-        this.outputFileNamer = outputFileNamer;
+        this.artifactNamingPolicy = new ArtifactNamingPolicy(outputFileNamer);
     }
 
     public SqlServerCrudGenerationResult generate(String schemaName, String tableName) {
@@ -65,12 +70,16 @@ public class SqlServerCrudGenerationService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "SQL Server table was not found: " + schema + "." + table));
         String sql = generator.generate(metadata, options);
-        String fileName = outputFileNamer.scriptFileName(
-                schema + "." + table,
-                DatabasePlatform.SQLSERVER,
-                OutputFileNamer.ScriptKind.CRUD,
-                outputFileNamer.timestamp());
-        return new SqlServerCrudGenerationResult(fileName, sql);
+        String logicalName = schema + "." + table;
+        String timestamp = artifactNamingPolicy.timestamp();
+        String fileName = artifactNamingPolicy.crudFileName(
+                logicalName, DatabasePlatform.SQLSERVER, timestamp);
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.DATABASE_METADATA, logicalName, timestamp);
+        context.ledger().generated(context, ArtifactType.CRUD, DatabasePlatform.SQLSERVER,
+                logicalName, fileName, "application/sql", "SqlServerCrudProcedureGenerator");
+        ArtifactDescriptor descriptor = context.ledger().snapshot().getFirst();
+        return new SqlServerCrudGenerationResult(fileName, sql, descriptor);
     }
 
     private static boolean hasWritePrivilege(GrantProperties.GrantRule rule) {
@@ -96,5 +105,10 @@ public class SqlServerCrudGenerationService {
         return normalized;
     }
 
-    public record SqlServerCrudGenerationResult(String fileName, String sql) { }
+    public record SqlServerCrudGenerationResult(
+            String fileName, String sql, ArtifactDescriptor artifact) {
+        public SqlServerCrudGenerationResult(String fileName, String sql) {
+            this(fileName, sql, null);
+        }
+    }
 }

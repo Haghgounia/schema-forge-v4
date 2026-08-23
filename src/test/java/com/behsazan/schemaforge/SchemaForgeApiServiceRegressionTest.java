@@ -38,17 +38,18 @@ import static org.mockito.Mockito.when;
 class SchemaForgeApiServiceRegressionTest {
 
     private static final Pattern JSON_NAME = Pattern.compile(
-            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.json");
+            "model/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.schema\\.json");
     private static final Pattern ORACLE_NAME = Pattern.compile(
-            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql");
+            "ddl/oracle/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql");
     private static final Pattern POSTGRESQL_NAME = Pattern.compile(
-            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.sql");
+            "ddl/postgresql/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.sql");
     private static final Pattern DB2_ZOS_NAME = Pattern.compile(
-            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.sql");
+            "ddl/db2zos/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.sql");
     private static final Pattern SQLSERVER_NAME = Pattern.compile(
-            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.sql");
+            "ddl/sqlserver/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.sql");
     private static final Pattern MYSQL_NAME = Pattern.compile(
-            "MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.mysql\\.sql");
+            "ddl/mysql/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.mysql\\.sql");
+
 
     @Test
     void restWordGenerationShouldUseLatestParserAndTimestampAllArtifacts() throws Exception {
@@ -73,10 +74,10 @@ class SchemaForgeApiServiceRegressionTest {
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
         assertEquals(11, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.dot")));
 
         String jsonName = entries.keySet().stream().filter(name -> JSON_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();
@@ -92,7 +93,7 @@ class SchemaForgeApiServiceRegressionTest {
                 .findFirst().orElseThrow();
 
         String sharedTimestamp = jsonName.substring(
-                "MCB.BIM.TBL.PROVINCES.V1.2_".length(), jsonName.length() - ".json".length());
+                "model/MCB.BIM.TBL.PROVINCES.V1.2_".length(), jsonName.length() - ".schema.json".length());
         assertTrue(oracleName.contains("_" + sharedTimestamp + ".oracle.sql"));
         assertTrue(postgresqlName.contains("_" + sharedTimestamp + ".postgresql.sql"));
         assertTrue(db2ZosName.contains("_" + sharedTimestamp + ".db2zos.sql"));

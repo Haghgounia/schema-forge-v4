@@ -64,24 +64,28 @@ class DirectoryDualDatabaseGenerationRunnerTest {
         assertTrue(recoveryWarnings.startsWith("document,warning_type,details"));
 
         List<Path> files;
-        try (Stream<Path> stream = Files.list(output)) {
-            files = stream.toList();
+        try (Stream<Path> stream = Files.walk(output)) {
+            files = stream
+                    .filter(Files::isRegularFile)
+                    .toList();
         }
 
-        assertEquals(
-                result.oracleScripts(),
-                files.stream()
-                        .filter(path -> path.toString().endsWith(".oracle.sql"))
-                        .count()
-        );
+        List<Path> oracleFiles = files.stream()
+                .filter(path -> path.toString().endsWith(".oracle.sql"))
+                .toList();
+        assertEquals(result.oracleScripts(), oracleFiles.size());
+        assertTrue(oracleFiles.stream().allMatch(path ->
+                normalize(output.relativize(path)).startsWith("ddl/oracle/")));
 
-        assertEquals(
-                result.postgreSqlScripts(),
-                files.stream()
-                        .filter(path -> path.toString().endsWith(".postgresql.sql"))
-                        .count()
-        );
-
-        assertTrue(files.stream().allMatch(Files::isRegularFile));
+        List<Path> postgreSqlFiles = files.stream()
+                .filter(path -> path.toString().endsWith(".postgresql.sql"))
+                .toList();
+        assertEquals(result.postgreSqlScripts(), postgreSqlFiles.size());
+        assertTrue(postgreSqlFiles.stream().allMatch(path ->
+                normalize(output.relativize(path)).startsWith("ddl/postgresql/")));
     }
+    private static String normalize(Path path) {
+        return path.toString().replace('\\', '/');
+    }
+
 }

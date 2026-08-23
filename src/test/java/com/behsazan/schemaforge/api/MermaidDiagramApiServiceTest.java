@@ -1,5 +1,7 @@
 package com.behsazan.schemaforge.api;
 
+import com.behsazan.schemaforge.artifact.ArtifactStatus;
+import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.diagram.DiagramExportOptions;
 import com.behsazan.schemaforge.diagram.DiagramScope;
 import com.behsazan.schemaforge.diagram.DiagramType;
@@ -53,6 +55,10 @@ class MermaidDiagramApiServiceTest {
 
         assertEquals(2, artifact.inputTableCount());
         assertTrue(artifact.content().contains("FK_ACCOUNT_CUSTOMER"), artifact.content());
+        assertEquals(ArtifactType.MERMAID_DIAGRAM, artifact.artifact().type());
+        assertEquals(ArtifactStatus.GENERATED, artifact.artifact().status());
+        assertTrue(artifact.artifact().platformNeutral());
+        assertEquals(artifact.fileName(), artifact.artifact().relativePath());
     }
 
     @Test

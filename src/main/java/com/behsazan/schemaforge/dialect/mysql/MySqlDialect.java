@@ -15,6 +15,7 @@ import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -91,6 +92,20 @@ public final class MySqlDialect implements Dialect {
     }
 
     @Override
+    public String sqlType(DatabaseSchema schemaContext, Table table, Column column) {
+        Objects.requireNonNull(schemaContext, "schemaContext must not be null");
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(column, "column must not be null");
+        if (textStoragePromotions(table).contains(column.name().normalized())) {
+            return promotedTextType(column);
+        }
+        if (requiresUnsignedIdentityCompatibility(schemaContext, table, column, new HashSet<>())) {
+            return "BIGINT UNSIGNED";
+        }
+        return sqlType(column);
+    }
+
+    @Override
     public String inlineColumnConstraintClause(Table table, Column column) {
         Objects.requireNonNull(table, "table must not be null");
         Objects.requireNonNull(column, "column must not be null");
@@ -103,6 +118,25 @@ public final class MySqlDialect implements Dialect {
         return " CHECK (CHAR_LENGTH(" + quote(column.name()) + ") <= " + logicalLength + ")"
                 + " /* SchemaForge MySQL storage adaptation: " + source + "(" + logicalLength
                 + ") -> " + target + "; logical max length preserved */";
+    }
+
+    @Override
+    public String inlineColumnConstraintClause(
+            DatabaseSchema schemaContext, Table table, Column column) {
+        Objects.requireNonNull(schemaContext, "schemaContext must not be null");
+        String existing = inlineColumnConstraintClause(table, column);
+        if (!requiresUnsignedIdentityCompatibility(schemaContext, table, column, new HashSet<>())) {
+            return existing;
+        }
+        if (column.identity()) {
+            return existing
+                    + " /* SchemaForge MySQL portability adaptation: NUMBER(19,0) identity -> "
+                    + "BIGINT UNSIGNED; AUTO_INCREMENT values are nonnegative; review pre-existing "
+                    + "negative source values before migration */";
+        }
+        return existing
+                + " /* SchemaForge MySQL FK type adaptation: NUMBER(19,0) -> BIGINT UNSIGNED "
+                + "to match referenced AUTO_INCREMENT key */";
     }
 
     @Override
@@ -374,11 +408,84 @@ public final class MySqlDialect implements Dialect {
         }
         Integer precision = type.precision();
         int scale = type.scale() == null ? 0 : type.scale();
-        if (precision == null || scale != 0 || precision < 1 || precision > 18) {
+        if (precision == null || scale != 0 || precision < 1 || precision > 19) {
             return null;
         }
         // Signed BIGINT covers the full signed range of every exact decimal with <=18 digits.
-        return "BIGINT";
+        if (precision <= 18) {
+            return "BIGINT";
+        }
+        // MySQL AUTO_INCREMENT generates nonnegative values. BIGINT UNSIGNED covers the full
+        // nonnegative NUMBER(19,0) range while retaining an integer type required by MySQL 8.4.
+        return "BIGINT UNSIGNED";
+    }
+
+    private boolean requiresUnsignedIdentityCompatibility(
+            DatabaseSchema schemaContext, Table table, Column column, Set<String> visiting) {
+        if (!isExactNumber19(column.dataType())) {
+            return false;
+        }
+        if (column.identity()) {
+            return true;
+        }
+
+        String key = table.qualifiedName().toString().toUpperCase(Locale.ROOT)
+                + "." + column.name().normalized();
+        if (!visiting.add(key)) {
+            return false;
+        }
+        try {
+            for (var foreignKey : table.foreignKeys()) {
+                for (int i = 0; i < foreignKey.columns().size(); i++) {
+                    if (!foreignKey.columns().get(i).normalized().equals(column.name().normalized())) {
+                        continue;
+                    }
+                    Table referencedTable = resolveReferencedTable(
+                            schemaContext, table, foreignKey.referencedTable());
+                    if (referencedTable == null) {
+                        continue;
+                    }
+                    Column referencedColumn = referencedTable
+                            .findColumn(foreignKey.referencedColumns().get(i).value())
+                            .orElse(null);
+                    if (referencedColumn != null
+                            && requiresUnsignedIdentityCompatibility(
+                                    schemaContext, referencedTable, referencedColumn, visiting)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } finally {
+            visiting.remove(key);
+        }
+    }
+
+    private boolean isExactNumber19(DataType type) {
+        String source = type.name().normalized().toUpperCase(Locale.ROOT);
+        if (!Set.of("NUMBER", "NUMERIC", "DECIMAL", "DEC").contains(source)) {
+            return false;
+        }
+        int scale = type.scale() == null ? 0 : type.scale();
+        return Integer.valueOf(19).equals(type.precision()) && scale == 0;
+    }
+
+    private Table resolveReferencedTable(
+            DatabaseSchema schemaContext, Table sourceTable, QualifiedName referencedTable) {
+        String expectedSchema = referencedTable.schemaName()
+                .map(Identifier::normalized)
+                .orElseGet(() -> sourceTable.qualifiedName().schemaName()
+                        .map(Identifier::normalized)
+                        .orElse(schemaContext.name().normalized()));
+        String expectedTable = referencedTable.name().normalized();
+        return schemaContext.tables().stream()
+                .filter(candidate -> candidate.qualifiedName().name().normalized().equals(expectedTable))
+                .filter(candidate -> candidate.qualifiedName().schemaName()
+                        .map(Identifier::normalized)
+                        .orElse(schemaContext.name().normalized())
+                        .equals(expectedSchema))
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean isLeftmostIndexed(Table table, Identifier column) {

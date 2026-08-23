@@ -45,6 +45,17 @@ public interface Dialect {
     }
 
     /**
+     * Schema-aware datatype hook for target adaptations that depend on relationships outside
+     * the table currently being rendered. The default preserves the existing table-aware
+     * behavior. A caller may render a table subset while still supplying the full canonical
+     * schema as mapping context.
+     */
+    default String sqlType(DatabaseSchema schemaContext, Table table, Column column) {
+        Objects.requireNonNull(schemaContext, "schemaContext must not be null");
+        return sqlType(table, column);
+    }
+
+    /**
      * Optional inline constraint/annotation emitted after the normal column attributes.
      * This is intended for semantics-preserving target adaptations such as retaining a
      * canonical maximum character length when a VARCHAR must use off-row text storage.
@@ -53,6 +64,16 @@ public interface Dialect {
         Objects.requireNonNull(table, "table must not be null");
         Objects.requireNonNull(column, "column must not be null");
         return "";
+    }
+
+    /**
+     * Schema-aware variant of the inline adaptation hook. The default delegates to the
+     * historical table-local contract so existing dialects remain unchanged.
+     */
+    default String inlineColumnConstraintClause(
+            DatabaseSchema schemaContext, Table table, Column column) {
+        Objects.requireNonNull(schemaContext, "schemaContext must not be null");
+        return inlineColumnConstraintClause(table, column);
     }
 
     /**

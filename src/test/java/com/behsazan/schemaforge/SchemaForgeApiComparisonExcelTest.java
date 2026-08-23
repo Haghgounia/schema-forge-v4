@@ -46,15 +46,16 @@ import static org.mockito.Mockito.when;
  */
 class SchemaForgeApiComparisonExcelTest {
     private static final Pattern ORACLE_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.xlsx");
+            "comparison/oracle/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.compare\\.xlsx");
     private static final Pattern POSTGRESQL_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.xlsx");
+            "comparison/postgresql/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.compare\\.xlsx");
     private static final Pattern DB2_ZOS_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.xlsx");
+            "comparison/db2zos/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.compare\\.xlsx");
     private static final Pattern SQLSERVER_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.xlsx");
+            "comparison/sqlserver/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.compare\\.xlsx");
     private static final Pattern MYSQL_COMPARE = Pattern.compile(
-            "BIM\\.PROVINCES_compare_\\d{8}_\\d{6}_\\d{3}\\.mysql\\.xlsx");
+            "comparison/mysql/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.mysql\\.compare\\.xlsx");
+
 
     @Test
     void shouldAddComparisonWorkbookForEachDatabaseWhenTableAlreadyExists() throws Exception {
@@ -100,16 +101,16 @@ class SchemaForgeApiComparisonExcelTest {
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
         assertEquals(23, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
-                "oracle/crud/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
+                "crud/oracle/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
-                "sqlserver/crud/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.crud-procedures\\.sql")));
+                "crud/sqlserver/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.crud-procedures\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.dot")));
         for (DatabasePlatform platform : DatabasePlatform.values()) {
-            String prefix = platform.commandLineName() + "/migrations/";
+            String prefix = "migration/" + platform.commandLineName() + "/";
             assertTrue(entries.keySet().stream().anyMatch(name ->
                     name.startsWith(prefix)
                             && name.matches(java.util.regex.Pattern.quote(prefix)
@@ -124,10 +125,10 @@ class SchemaForgeApiComparisonExcelTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
 
         String oracleCreateName = entries.keySet().stream()
-                .filter(name -> !name.contains("/") && name.endsWith(".oracle.sql"))
+                .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))
                 .findFirst().orElseThrow();
         String oracleMigrationName = entries.keySet().stream()
-                .filter(name -> name.startsWith("oracle/migrations/")
+                .filter(name -> name.startsWith("migration/oracle/")
                         && name.endsWith("__BIM_PROVINCES_ALTER.sql"))
                 .findFirst().orElseThrow();
         assertTrue(new String(entries.get(oracleCreateName)).contains("CREATE TABLE BIM.PROVINCES"));

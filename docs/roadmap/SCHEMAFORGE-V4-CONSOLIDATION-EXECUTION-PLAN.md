@@ -1,8 +1,8 @@
 # SchemaForge V4 - Consolidation Execution Plan
 
-**Track:** V4 Consolidation and Baseline Hardening  
-**Baseline at plan creation:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1`  
-**Plan status:** ACTIVE / AUTHORITATIVE FOR NEXT-STAGE EXECUTION  
+**Track:** V4 Consolidation and Baseline Hardening
+**Baseline at plan creation:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1`
+**Plan status:** ACTIVE / AUTHORITATIVE FOR NEXT-STAGE EXECUTION
 **Source fingerprint at plan creation:** `77e038a4acb5631d4a407174d9e075cc3d773d21b96a7e884410d9fbdc00525c`
 
 ## 1. Purpose
@@ -43,7 +43,7 @@ Every implementation item should be classified as one of the following:
 
 ## 4. Completed consolidation foundation
 
-The following consolidation work is already complete and is represented by the official C1 baseline.
+The following consolidation foundation work was completed and frozen at the historical C1 checkpoint. The current project baseline is C5.3; C1 remains the foundation checkpoint for these rows.
 
 | ID | Stage | Status | Evidence / result |
 |---|---|---|---|
@@ -55,13 +55,17 @@ The following consolidation work is already complete and is represented by the o
 | C3.2 | Capability-model cleanup | DONE | Unused `DatabaseCapability` removed; `DialectFeature` remains the active contract |
 | C3.3 | MySQL physical-comparison guard | DONE | MySQL physical sheets suppressed until a real physical contract exists |
 | C3.4 | Documentation alignment | DONE | Current baseline, DBMS matrix, API and OpenAPI descriptions aligned |
-| C3.5 | C1 official freeze | DONE | `467` tests, `0` failures, `0` errors, `4` environment-gated skips; BUILD SUCCESS |
+| C3.5 | C1 official freeze | DONE / REVERIFIED | `467` tests, `0` failures, `0` errors, `4` environment-gated skips; BUILD SUCCESS; reverified 2026-08-22T07:28:27-07:00 |
 
-The official checkpoint is:
+The foundation checkpoint for C0-C3.5 is:
 
 ```text
 SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1
 ```
+
+The current official project baseline is tracked in `docs/reference/CURRENT-RELEASE-BASELINE.md`; candidate/repair/freeze history is tracked in `CONSOLIDATION-VERSION-HISTORY.md`.
+
+Official source inventory note: the corrected baseline contains **242** files under `src/main/java`. The previously observed compiler count of 243 was traced to a stale, unused `DatabaseCapability.java` in an intermediate workspace and is not part of the frozen source.
 
 No later stage should silently alter the semantic behavior of the frozen parser, canonical model, DDL mapping, metadata recovery, or migration safety logic unless that change is explicitly declared in the relevant stage.
 
@@ -69,16 +73,24 @@ No later stage should silently alter the semantic behavior of the frozen parser,
 
 ### C4 - Artifact Contract V1
 
-**Status:** NEXT  
+**Status:** DONE / USER-VERIFIED - ARTIFACT CONTRACT V1 COMPLETE
 **Primary objective:** Define one explicit SchemaForge artifact model that all generation paths can use.
+
+Progress evidence:
+
+- `C4.1 - Artifact Inventory`: **DONE**; source-derived inventory recorded in `docs/architecture/SCHEMAFORGE-ARTIFACT-INVENTORY.md`.
+- `C4.2 - Common artifact attributes / contract model`: **DONE / USER-VERIFIED**; core model recorded in `docs/architecture/ARTIFACT-CONTRACT.md`; targeted 8/8 and full 475-test regression are green.
+- `C4.3 - Pipeline mapping to Artifact Contract`: **DONE / USER-VERIFIED**; request-local generation context/ledger tracks all current REST artifact paths without layout or filename changes; targeted 23/23 and full 482-test regression are green.
+- `C4.2 official source fingerprint`: `8b76049ff698850bfd79cd497c309ea61bda607db719d33bb93b9c3f6721ad75`.
+- `C4.3 official source fingerprint`: `2d75fbbc67e0d1006282d3485bbb25055da120265dd05655324f6c79e8129423`; source inventory `251` main Java / `170` test Java; full regression `482/0/0/4` green.
 
 Planned work:
 
-1. inventory exact artifacts emitted by Word, Legacy Word, ZIP batch, EA, CRUD, and Mermaid endpoints;
-2. define common artifact concepts such as type, platform, logical identity, media type, relative path, generation ID, status, and provenance;
-3. define `Artifact Contract V1` and contract-version semantics;
-4. separate artifact production from HTTP/ZIP packaging concerns;
-5. add contract-level tests before changing existing layouts.
+1. inventory exact artifacts emitted by Word, Legacy Word, ZIP batch, EA, CRUD, and Mermaid endpoints; **DONE (C4.1)**
+2. define common artifact concepts such as type, platform, logical identity, media type, relative path, generation ID, status, and provenance; **IMPLEMENTED (C4.2)**
+3. define `Artifact Contract V1` and contract-version semantics; **IMPLEMENTED (C4.2)**
+4. separate artifact production from HTTP/ZIP packaging concerns; **DONE (C4.3): descriptor tracking is request-local and transport remains unchanged**
+5. add contract-level tests before changing existing layouts; **DONE (C4.2 + C4.3); archive-to-ledger mapping and standalone descriptor tests are regression-green**
 
 Expected change type: `NEW / REFACTOR / TEST / DOC`.
 
@@ -101,7 +113,7 @@ Exit criteria:
 
 ### C5 - Artifact Naming and Layout Consolidation
 
-**Status:** PENDING / DEPENDS ON C4  
+**Status:** DONE / USER-VERIFIED - C5.1 + C5.2 + C5.3-R1 COMPLETE
 **Primary objective:** Replace endpoint-specific naming and directory conventions with one controlled policy.
 
 Planned work:
@@ -120,7 +132,7 @@ Key risk: changing consumer-visible ZIP paths. Compatibility must therefore be e
 
 ### C6 - Standard Artifact Manifest
 
-**Status:** PENDING / DEPENDS ON C4-C5  
+**Status:** C6.1 DESIGN DONE / C6.2 IMPLEMENTATION WAITS FOR C5.3-R2 REGRESSION
 **Primary objective:** Give every generated package an authoritative machine-readable inventory.
 
 Planned work:
@@ -131,6 +143,12 @@ Planned work:
 4. optionally include artifact checksums when appropriate;
 5. make Word, Legacy Word, ZIP batch and EA use the same manifest contract.
 
+C6.1 fixed design decisions are documented in
+`docs/architecture/ARTIFACT-MANIFEST-C6.1.md`. They include the
+`schemaforge-manifest/v1` JSON shape, request timestamps, source/model identity, validation counts,
+Artifact Contract outcome serialization, SHA-256/size integrity, manifest self-entry behavior,
+deterministic ordering, EA legacy-manifest migration, and the C6.2 test plan.
+
 Expected change type: `NEW / CHANGE / TEST / DOC`.
 
 Exit criterion: a consumer can determine exactly what was generated without inferring package contents from filenames.
@@ -139,7 +157,7 @@ Exit criterion: a consumer can determine exactly what was generated without infe
 
 ### C7 - REST Response and Error Contract
 
-**Status:** PENDING / DEPENDS ON C4-C6  
+**Status:** PENDING / DEPENDS ON C4-C6
 **Primary objective:** Make HTTP-level behavior consistent while preserving generation semantics.
 
 Planned work:
@@ -158,7 +176,7 @@ Explicit non-goal: redesigning the business behavior of DDL/CRUD/migration gener
 
 ### C8 - API/Application Service Decomposition
 
-**Status:** PENDING / DEPENDS ON C4-C7  
+**Status:** PENDING / DEPENDS ON C4-C7
 **Primary objective:** Decompose the current large API service after contracts are stable.
 
 Candidate decomposition:
@@ -192,7 +210,7 @@ Key rule: do not refactor mature parser/recovery internals merely because they a
 
 ### C9 - Test Matrix and Live-Validation Classification
 
-**Status:** PENDING  
+**Status:** PENDING
 **Primary objective:** Separate source coverage, standard regression, opt-in integration tests, and actual live DB evidence.
 
 Planned work:
@@ -208,17 +226,26 @@ Expected change type: `TEST / DOC`.
 Current checkpoint evidence:
 
 ```text
-Standard clean regression: 467 tests
+Current official baseline: SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3
+Current standard clean regression: 492 tests
 Failures: 0
 Errors: 0
 Skipped: 4 configuration-gated directory tests
+Current C5.3-R1 verification: 2026-08-22T23:33:56-07:00
+Targeted C5.3 regression: 50 tests at 2026-08-22T23:19:22-07:00
+C5.3-R1 repair verification: 1 test at 2026-08-22T23:31:05-07:00
+Previous C4.3 verification: 482 tests at 2026-08-22T22:53:13-07:00
+Previous C4.2 verification: 475 tests at 2026-08-22T21:39:20-07:00
+Result: BUILD SUCCESS
 ```
+
+Candidate, repair, and freeze-level traceability is maintained in `CONSOLIDATION-VERSION-HISTORY.md`.
 
 ---
 
 ### C10 - Documentation Consolidation
 
-**Status:** PARTIALLY DONE / FINAL PASS PENDING  
+**Status:** PARTIALLY DONE / FINAL PASS PENDING
 **Primary objective:** Keep one current reference set and preserve older phase documents strictly as historical evidence.
 
 Planned work:
@@ -235,7 +262,7 @@ Expected change type: `DOC`.
 
 ### C11 - Final Consolidation Regression and Baseline Freeze
 
-**Status:** PENDING / FINAL STAGE  
+**Status:** PENDING / FINAL STAGE
 **Primary objective:** Freeze a new post-contract SchemaForge V4 baseline.
 
 Planned work:
@@ -285,10 +312,12 @@ When a stage is completed, this roadmap must be updated before the next stage is
 
 ## 8. Current next action
 
-The next controlled stage is:
+The next controlled roadmap stage is:
 
 ```text
-C4 - Artifact Contract V1
+C6 - Standard Artifact Manifest
 ```
 
-Before any C4 code change, the mandatory stage-start protocol in section 2 must be applied and the exact work/change list must be presented.
+C5 is complete and user-verified. Targeted naming/layout regression passed `50/50`; the R1 repair verification passed `1/1`; and the exact repaired source passed full `mvnw.cmd clean test` with `492` tests, `0` failures, `0` errors, and `4` environment-gated skips at `2026-08-22T23:33:56-07:00`. The current official frozen source inventory remains `253` main Java files / `172` test Java files with fingerprint `8566f2218d2737b0c571452e465760908a8c527c05fa0b2bc0b6d8f1a04bad37`.
+
+A post-freeze repair candidate `C5.3-R2` now addresses the real-EA MySQL `NUMBER(19,0)` AutoNum compatibility gap. Its candidate source inventory is `253` main Java files / `173` test Java files with fingerprint `de0eaac67c9488f71d8a57fe36a55459b6b558dcc61161976def3b25aa29a42c`. C6.1 manifest-schema design may proceed, but C6 production-source implementation must wait until R2 passes its targeted and full regression gate. C6 must still be explained with its exact manifest schema, producer/writer changes, compatibility impact, and test plan before implementation starts.

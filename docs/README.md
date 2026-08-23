@@ -18,8 +18,14 @@ For the current SchemaForge V4 baseline, start here:
 - [Testing and baseline](reference/TESTING-AND-BASELINE.md)
 - [Current release baseline](reference/CURRENT-RELEASE-BASELINE.md)
 - [V4 consolidation execution plan](roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md)
+- [Consolidation candidate/repair/version history](roadmap/CONSOLIDATION-VERSION-HISTORY.md)
+- [Artifact inventory (C4.1)](architecture/SCHEMAFORGE-ARTIFACT-INVENTORY.md)
+- [Artifact Contract V1 (C4)](architecture/ARTIFACT-CONTRACT.md)
+- [Artifact Naming/Layout contract (C5)](architecture/ARTIFACT-NAMING-LAYOUT.md)
+- [Artifact Manifest V1 design (C6.1)](architecture/ARTIFACT-MANIFEST-C6.1.md)
+- [C5.3-R2 MySQL NUMBER(19) AutoNum repair](maintenance/2026-08-23-MYSQL-NUMBER19-AUTOINCREMENT-R2.md)
 
-Current source state: **official 2026-08-22 V4 consolidated baseline C1**. User-verified clean regression: **467 tests, 0 failures, 0 errors, 4 configuration-based skips, BUILD SUCCESS**, finished 2026-08-22T07:01:53-07:00.
+Last frozen source state: **official 2026-08-22 V4 consolidated baseline C5.3**. The exact C5.3-R1 source is user-verified at **492 tests, 0 failures, 0 errors, 4 configuration-based skips, BUILD SUCCESS**; verification finished 2026-08-22T23:33:56-07:00. A post-freeze C5.3-R2 MySQL compatibility repair is pending Maven regression. C6.1 Manifest V1 design is complete/documentation-only; C6.2 production implementation waits for the R2 regression gate.
 
 ## Physical phase evidence
 
@@ -93,4 +99,5 @@ Files under `docs/release/` preserve earlier V4 release/freeze evidence. Some us
 ## Roadmap/history
 
 - [Roadmap change log](roadmap/CHANGELOG.md)
+- [Consolidation version/repair history](roadmap/CONSOLIDATION-VERSION-HISTORY.md)
 - [Gap matrix](roadmap/GAP-MATRIX.md)

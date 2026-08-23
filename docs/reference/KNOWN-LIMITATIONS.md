@@ -89,3 +89,15 @@ Oracle, SQL Server, and Db2 for z/OS therefore do not receive invented generic c
 ## 10. Environment-dependent live database tests
 
 The normal regression baseline contains three skipped environment-dependent live database execution tests. They require explicit database configuration/credentials and are intentionally not part of every local Maven run.
+
+## 11. MySQL timezone-aware timestamps
+
+The current MySQL logical dialect does not claim a lossless mapping for canonical
+`TIMESTAMP WITH TIME ZONE` / `TIMESTAMP WITH LOCAL TIME ZONE` semantics.
+
+This remains intentional. Mapping these values to `DATETIME` or `TIMESTAMP` would discard or alter
+timezone semantics. A real Enterprise Architect corpus contains such columns; after the separate
+`NUMBER(19,0)` AutoNum blocker is repaired, full MySQL generation can reach this boundary.
+
+This limitation is distinct from C5.3-R2 and remains deferred until a target semantic policy is
+explicitly approved.

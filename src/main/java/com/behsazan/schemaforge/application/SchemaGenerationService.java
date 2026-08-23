@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.application;
 
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
@@ -19,7 +20,7 @@ import java.util.Objects;
 
 /** Executes the complete offline Word-to-JSON-and-SQL pipeline. */
 public final class SchemaGenerationService {
-    private final OutputFileNamer outputFileNamer;
+    private final ArtifactNamingPolicy artifactNamingPolicy;
     private final SchemaPreparationService preparationService;
 
     public SchemaGenerationService() {
@@ -35,7 +36,8 @@ public final class SchemaGenerationService {
     }
 
     public SchemaGenerationService(OutputFileNamer outputFileNamer, AuditProperties auditProperties) {
-        this.outputFileNamer = Objects.requireNonNull(outputFileNamer, "outputFileNamer must not be null");
+        this.artifactNamingPolicy = new ArtifactNamingPolicy(
+                Objects.requireNonNull(outputFileNamer, "outputFileNamer must not be null"));
         this.preparationService = new SchemaPreparationService(
                 Objects.requireNonNull(auditProperties, "auditProperties must not be null"));
     }
@@ -61,10 +63,14 @@ public final class SchemaGenerationService {
         PreparedSchema prepared = preparationService.prepare(parsed);
         DatabaseSchema enriched = prepared.schema();
         ValidationReport report = prepared.validationReport();
-        OutputFileNamer.OutputNames outputNames = outputFileNamer.create(
-                normalizedOutput, normalizedInput.getFileName().toString(), platform);
-        Path jsonOutput = outputNames.jsonFile();
-        Path sqlOutput = outputNames.sqlFile();
+        String timestamp = artifactNamingPolicy.timestamp();
+        String sourceBaseName = sourceBaseName(normalizedInput.getFileName().toString());
+        Path jsonOutput = normalizedOutput.resolve(
+                artifactNamingPolicy.canonicalJsonRelativePath(sourceBaseName, timestamp));
+        Path sqlOutput = normalizedOutput.resolve(
+                artifactNamingPolicy.ddlRelativePath(sourceBaseName, platform, timestamp));
+        Files.createDirectories(jsonOutput.getParent());
+        Files.createDirectories(sqlOutput.getParent());
 
         new JsonExporter().write(jsonOutput, enriched, report);
         Dialect dialect = DialectFactory.create(platform);
@@ -75,6 +81,12 @@ public final class SchemaGenerationService {
         Files.writeString(sqlOutput, sql, StandardCharsets.UTF_8);
 
         return new GenerationOutput(jsonOutput, sqlOutput, platform, report.valid());
+    }
+
+    private static String sourceBaseName(String fileName) {
+        String simpleName = Path.of(fileName).getFileName().toString();
+        int dot = simpleName.lastIndexOf('.');
+        return dot > 0 ? simpleName.substring(0, dot) : simpleName;
     }
 
 }

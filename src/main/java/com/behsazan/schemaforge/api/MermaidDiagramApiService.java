@@ -1,5 +1,8 @@
 package com.behsazan.schemaforge.api;
 
+import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
+import com.behsazan.schemaforge.artifact.ArtifactOrigin;
+import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.diagram.DiagramExportOptions;
 import com.behsazan.schemaforge.diagram.mermaid.GeneratedMermaidDiagram;
 import com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramGenerationService;
@@ -59,7 +62,13 @@ public class MermaidDiagramApiService {
                     Files.copy(stream, input, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
-            return generationService.generate(input, options);
+            GeneratedMermaidDiagram generated = generationService.generate(input, options);
+            ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                    ArtifactOrigin.CANONICAL_JSON, originalName);
+            context.ledger().generated(context, ArtifactType.MERMAID_DIAGRAM, null,
+                    generated.fileName(), generated.fileName(), "text/plain",
+                    "MermaidDiagramGenerationService");
+            return generated.withArtifact(context.ledger().snapshot().getFirst());
         } finally {
             deleteRecursively(work);
         }

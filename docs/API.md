@@ -93,7 +93,7 @@ The value may also be supplied with `SCHEMAFORGE_EA_DEFAULT_SCHEMA`. An explicit
 
 The EA importer reads table classes, ordered columns, datatype/length/precision/scale, nullability, descriptions, primary keys, foreign keys and standalone indexes. Imported objects enter the same canonical model used by Word input.
 
-EA output produces per-table SQL for all five registered dialects, consolidated `model.json` and `manifest.json`, dialect-specific `run_all.sql` files, and comparison workbooks when the corresponding live metadata repository is enabled.
+EA output follows the C5 common artifact-first layout: per-table DDL under `ddl/<platform>/`, a timestamped canonical snapshot under `model/*.schema.json`, dialect run-all scripts under `scripts/<platform>/`, comparison workbooks under `comparison/<platform>/` when metadata is available, and the current EA `manifest.json`. The common manifest contract for Word/Legacy/ZIP/EA is C6 scope.
 
 ## Oracle metadata CRUD package
 

@@ -106,15 +106,17 @@ A new platform is not complete merely because `CREATE TABLE` renders.
 
 ## 9. Regression discipline
 
-Current official consolidated baseline (2026-08-22 C1):
+Current official consolidated baseline (2026-08-22 C5.3, exact C5.3-R1 source):
 
 ```text
-467 tests
+492 tests
 0 failures
 0 errors
 4 skipped
 BUILD SUCCESS
 ```
+
+The current frozen `src` fingerprint is `8566f2218d2737b0c571452e465760908a8c527c05fa0b2bc0b6d8f1a04bad37`. Candidate and corrective versions must also be recorded in `docs/roadmap/CONSOLIDATION-VERSION-HISTORY.md`.
 
 The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are tracked separately and are not implied by the standard-suite result.
 

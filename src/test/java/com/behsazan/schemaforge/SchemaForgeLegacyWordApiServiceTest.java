@@ -63,12 +63,12 @@ class SchemaForgeLegacyWordApiServiceTest {
         assertTrue(sql.contains("CREATE TABLE DPS.CTPINCOMEPARAMACTIVITYLOG"));
         assertTrue(sql.contains("COMMENT ON TABLE DPS.CTPINCOMEPARAMACTIVITYLOG"));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".json")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".schema.json")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.dot")));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {

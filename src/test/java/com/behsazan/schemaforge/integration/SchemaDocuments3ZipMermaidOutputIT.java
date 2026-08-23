@@ -92,28 +92,28 @@ class SchemaDocuments3ZipMermaidOutputIT {
         long sqlserver = countFiles(extracted, ".sqlserver.sql");
         long db2zos = countFiles(extracted, ".db2zos.sql");
         long mysql = countFiles(extracted, ".mysql.sql");
-        long json = countFiles(extracted, ".json");
-        long mermaid = countFiles(extracted, ".mermaid.mmd");
-        long graphviz = countFiles(extracted, ".graphviz.dot");
+        long json = countFiles(extracted.resolve("model"), ".schema.json");
+        long mermaid = countFiles(extracted.resolve("diagram").resolve("mermaid").resolve("tables"), ".mmd");
+        long graphviz = countFiles(extracted.resolve("diagram").resolve("graphviz").resolve("tables"), ".dot");
         long excel = countFiles(extracted, ".xlsx");
 
-        assertTrue(Files.isDirectory(extracted.resolve("oracle")), "oracle directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("postgresql")), "postgresql directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("sqlserver")), "sqlserver directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("db2zos")), "db2zos directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("mysql")), "mysql directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("json")), "json directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("mermaid").resolve("tables")), "mermaid/tables directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("mermaid").resolve("batch")), "mermaid/batch directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("graphviz").resolve("tables")), "graphviz/tables directory missing");
-        assertTrue(Files.isDirectory(extracted.resolve("graphviz").resolve("batch")), "graphviz/batch directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("ddl").resolve("oracle")), "ddl/oracle directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("ddl").resolve("postgresql")), "ddl/postgresql directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("ddl").resolve("sqlserver")), "ddl/sqlserver directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("ddl").resolve("db2zos")), "ddl/db2zos directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("ddl").resolve("mysql")), "ddl/mysql directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("model")), "model directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("diagram").resolve("mermaid").resolve("tables")), "diagram/mermaid/tables directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("diagram").resolve("mermaid").resolve("batch")), "diagram/mermaid/batch directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("diagram").resolve("graphviz").resolve("tables")), "diagram/graphviz/tables directory missing");
+        assertTrue(Files.isDirectory(extracted.resolve("diagram").resolve("graphviz").resolve("batch")), "diagram/graphviz/batch directory missing");
         assertTrue(Files.isDirectory(extracted.resolve("reports")), "reports directory missing");
 
-        Path batchEr = extracted.resolve("mermaid").resolve("batch").resolve("schema-er.mmd");
-        Path batchConceptualErd = extracted.resolve("mermaid").resolve("batch").resolve("schema-conceptual-erd.mmd");
-        Path batchDependency = extracted.resolve("mermaid").resolve("batch").resolve("schema-dependency.mmd");
-        Path batchMermaidIssues = extracted.resolve("mermaid").resolve("batch").resolve("issues.csv");
-        Path batchMermaidSummary = extracted.resolve("mermaid").resolve("batch").resolve("summary.txt");
+        Path batchEr = extracted.resolve("diagram").resolve("mermaid").resolve("batch").resolve("schema-er.mmd");
+        Path batchConceptualErd = extracted.resolve("diagram").resolve("mermaid").resolve("batch").resolve("schema-conceptual-erd.mmd");
+        Path batchDependency = extracted.resolve("diagram").resolve("mermaid").resolve("batch").resolve("schema-dependency.mmd");
+        Path batchMermaidIssues = extracted.resolve("diagram").resolve("mermaid").resolve("batch").resolve("issues.csv");
+        Path batchMermaidSummary = extracted.resolve("diagram").resolve("mermaid").resolve("batch").resolve("summary.txt");
         assertTrue(Files.isRegularFile(batchEr), "Batch Mermaid ER diagram was not generated");
         assertTrue(Files.isRegularFile(batchConceptualErd), "Batch Mermaid conceptual ERD was not generated");
         assertTrue(Files.isRegularFile(batchDependency), "Batch Mermaid dependency diagram was not generated");
@@ -125,13 +125,13 @@ class SchemaDocuments3ZipMermaidOutputIT {
         String batchMermaidSummaryText = Files.readString(batchMermaidSummary, StandardCharsets.UTF_8);
         assertTrue(batchMermaidSummaryText.contains("Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION"));
 
-        Path batchGraphvizConceptualErd = extracted.resolve("graphviz").resolve("batch").resolve("schema-conceptual-erd.dot");
-        Path batchGraphvizDependency = extracted.resolve("graphviz").resolve("batch").resolve("schema-dependency.dot");
-        Path batchGraphvizClustered = extracted.resolve("graphviz").resolve("batch").resolve("schema-clustered.dot");
-        Path batchGraphvizCompact = extracted.resolve("graphviz").resolve("batch").resolve("schema-compact.dot");
-        Path batchGraphvizOverview = extracted.resolve("graphviz").resolve("batch").resolve("schema-overview.dot");
-        Path batchGraphvizIssues = extracted.resolve("graphviz").resolve("batch").resolve("issues.csv");
-        Path batchGraphvizSummary = extracted.resolve("graphviz").resolve("batch").resolve("summary.txt");
+        Path batchGraphvizConceptualErd = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("schema-conceptual-erd.dot");
+        Path batchGraphvizDependency = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("schema-dependency.dot");
+        Path batchGraphvizClustered = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("schema-clustered.dot");
+        Path batchGraphvizCompact = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("schema-compact.dot");
+        Path batchGraphvizOverview = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("schema-overview.dot");
+        Path batchGraphvizIssues = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("issues.csv");
+        Path batchGraphvizSummary = extracted.resolve("diagram").resolve("graphviz").resolve("batch").resolve("summary.txt");
         assertTrue(Files.isRegularFile(batchGraphvizConceptualErd), "Batch Graphviz conceptual ERD was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizDependency), "Batch Graphviz dependency diagram was not generated");
         assertTrue(Files.isRegularFile(batchGraphvizClustered), "Batch Graphviz clustered diagram was not generated");
@@ -177,10 +177,10 @@ class SchemaDocuments3ZipMermaidOutputIT {
         assertEquals(successfulDocuments * 2, graphviz,
                 "Every successful document must have ER and conceptual-ERD Graphviz outputs");
 
-        try (var paths = Files.walk(extracted)) {
+        try (var paths = Files.walk(extracted.resolve("diagram").resolve("mermaid").resolve("tables"))) {
             for (Path diagram : paths.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)
-                            .endsWith(".mermaid.mmd"))
+                            .endsWith(".mmd"))
                     .sorted()
                     .toList()) {
                 String content = Files.readString(diagram, StandardCharsets.UTF_8);
@@ -189,10 +189,10 @@ class SchemaDocuments3ZipMermaidOutputIT {
             }
         }
 
-        try (var paths = Files.walk(extracted)) {
+        try (var paths = Files.walk(extracted.resolve("diagram").resolve("graphviz").resolve("tables"))) {
             for (Path diagram : paths.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)
-                            .endsWith(".graphviz.dot"))
+                            .endsWith(".dot"))
                     .sorted()
                     .toList()) {
                 String content = Files.readString(diagram, StandardCharsets.UTF_8);

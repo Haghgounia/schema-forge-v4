@@ -60,18 +60,19 @@ databaseTable
 
 ## 3. Offline CLI output
 
-The offline generation service writes:
+The offline generation service writes the same C5 canonical artifact layout used by the REST generation paths:
 
-- canonical JSON;
-- SQL for the selected database platform.
+- canonical JSON under `model/` using the `*.schema.json` convention;
+- selected-platform DDL under `ddl/<platform>/`.
 
-Typical platform names are:
+Registered platform names are:
 
 ```text
 oracle
 postgresql
 db2zos
 sqlserver
+mysql
 ```
 
 The CLI does not require JDBC connectivity.
@@ -80,7 +81,7 @@ The CLI does not require JDBC connectivity.
 
 REST/ZIP workflows can generate the registered database outputs from one prepared canonical schema without reparsing the source for every dialect.
 
-Where target metadata is enabled and the table exists, the response may additionally contain a database comparison workbook.
+Where target metadata is enabled and the table exists, the response may additionally contain a database comparison workbook. C5 standardizes package roots across Word, Legacy Word, ZIP Batch, and EA as `ddl/`, `migration/`, `crud/`, `model/`, `comparison/`, `diagram/`, `scripts/`, and `reports/`. See `../architecture/ARTIFACT-NAMING-LAYOUT.md`.
 
 ## 5. SQL artifact contract
 

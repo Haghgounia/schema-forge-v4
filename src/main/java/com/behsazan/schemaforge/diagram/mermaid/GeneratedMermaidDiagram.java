@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.diagram.mermaid;
 
+import com.behsazan.schemaforge.artifact.ArtifactDescriptor;
 import com.behsazan.schemaforge.diagram.DiagramScope;
 import com.behsazan.schemaforge.diagram.DiagramType;
 
@@ -12,7 +13,17 @@ public record GeneratedMermaidDiagram(
         String content,
         DiagramType type,
         DiagramScope scope,
-        int inputTableCount) {
+        int inputTableCount,
+        ArtifactDescriptor artifact) {
+
+    public GeneratedMermaidDiagram(
+            String fileName,
+            String content,
+            DiagramType type,
+            DiagramScope scope,
+            int inputTableCount) {
+        this(fileName, content, type, scope, inputTableCount, null);
+    }
 
     public GeneratedMermaidDiagram {
         Objects.requireNonNull(fileName, "fileName must not be null");
@@ -22,6 +33,12 @@ public record GeneratedMermaidDiagram(
         if (inputTableCount < 1) {
             throw new IllegalArgumentException("inputTableCount must be positive");
         }
+    }
+
+    public GeneratedMermaidDiagram withArtifact(ArtifactDescriptor descriptor) {
+        return new GeneratedMermaidDiagram(
+                fileName, content, type, scope, inputTableCount,
+                Objects.requireNonNull(descriptor, "descriptor must not be null"));
     }
 
     public byte[] utf8() {

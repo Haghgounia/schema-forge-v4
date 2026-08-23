@@ -100,6 +100,90 @@ class MySqlDdlGeneratorTest {
         assertTrue(sql.contains("Dialect      : MySQL"));
     }
 
+    @Test
+    void shouldAdaptNumber19IdentityAndItsInternalForeignKeyToUnsignedBigInt() {
+        Column parentId = new Column(Identifier.of("PARENT_ID"), DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), true, 1);
+        Table parent = Table.builder("APP", "PARENT")
+                .addColumn(parentId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_PARENT"), List.of(Identifier.of("PARENT_ID"))))
+                .build();
+
+        Column childId = new Column(Identifier.of("CHILD_ID"), DataType.numeric("NUMBER", 18, 0),
+                false, null, Description.empty(), true, 1);
+        Column parentFk = new Column(Identifier.of("PARENT_ID"), DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), false, 2);
+        Table child = Table.builder("APP", "CHILD")
+                .addColumn(childId)
+                .addColumn(parentFk)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CHILD"), List.of(Identifier.of("CHILD_ID"))))
+                .addForeignKey(new ForeignKey(Identifier.of("FK_CHILD_PARENT"),
+                        List.of(Identifier.of("PARENT_ID")), QualifiedName.of("APP", "PARENT"),
+                        List.of(Identifier.of("PARENT_ID")), ReferentialAction.NO_ACTION,
+                        ReferentialAction.NO_ACTION))
+                .build();
+
+        DatabaseSchema schema = DatabaseSchema.builder("APP")
+                .addTable(parent)
+                .addTable(child)
+                .build();
+
+        String sql = new DdlGenerator(new MySqlDialect()).generate(schema);
+
+        assertTrue(sql.contains("`PARENT_ID` BIGINT UNSIGNED AUTO_INCREMENT NOT NULL"));
+        assertTrue(sql.contains("NUMBER(19,0) identity -> BIGINT UNSIGNED"));
+        assertTrue(sql.contains("`PARENT_ID` BIGINT UNSIGNED NOT NULL"));
+        assertTrue(sql.contains("FK type adaptation: NUMBER(19,0) -> BIGINT UNSIGNED"));
+    }
+
+    @Test
+    void shouldUseFullSchemaTypeContextWhenRenderingOnlyTheChildTable() {
+        Column parentId = new Column(Identifier.of("PARENT_ID"), DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), true, 1);
+        Table parent = Table.builder("APP", "PARENT")
+                .addColumn(parentId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_PARENT"), List.of(Identifier.of("PARENT_ID"))))
+                .build();
+        Column parentFk = new Column(Identifier.of("PARENT_ID"), DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), false, 1);
+        Table child = Table.builder("APP", "CHILD")
+                .addColumn(parentFk)
+                .addForeignKey(new ForeignKey(Identifier.of("FK_CHILD_PARENT"),
+                        List.of(Identifier.of("PARENT_ID")), QualifiedName.of("APP", "PARENT"),
+                        List.of(Identifier.of("PARENT_ID")), ReferentialAction.NO_ACTION,
+                        ReferentialAction.NO_ACTION))
+                .build();
+        DatabaseSchema fullSchema = DatabaseSchema.builder("APP")
+                .addTable(parent)
+                .addTable(child)
+                .build();
+        DatabaseSchema childOnly = DatabaseSchema.builder("APP").addTable(child).build();
+
+        String sql = new DdlGenerator(new MySqlDialect(), fullSchema).generate(childOnly);
+
+        assertTrue(sql.contains("`PARENT_ID` BIGINT UNSIGNED NOT NULL"));
+        assertTrue(sql.contains("FK type adaptation: NUMBER(19,0) -> BIGINT UNSIGNED"));
+    }
+
+    @Test
+    void shouldNotGuessUnsignedMappingWhenReferencedParentIsOutsideSchemaContext() {
+        Column externalId = new Column(Identifier.of("EXTERNAL_ID"), DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), false, 1);
+        Table child = Table.builder("APP", "CHILD")
+                .addColumn(externalId)
+                .addForeignKey(new ForeignKey(Identifier.of("FK_CHILD_EXTERNAL"),
+                        List.of(Identifier.of("EXTERNAL_ID")), QualifiedName.of("REF", "EXTERNAL_PARENT"),
+                        List.of(Identifier.of("EXTERNAL_ID")), ReferentialAction.NO_ACTION,
+                        ReferentialAction.NO_ACTION))
+                .build();
+
+        String sql = new DdlGenerator(new MySqlDialect()).generate(
+                DatabaseSchema.builder("APP").addTable(child).build());
+
+        assertTrue(sql.contains("`EXTERNAL_ID` DECIMAL(19) NOT NULL"));
+        assertFalse(sql.contains("`EXTERNAL_ID` BIGINT UNSIGNED"));
+    }
+
 
     @Test
     void shouldSuppressExplicitNullDefaultOnNotNullColumn() {

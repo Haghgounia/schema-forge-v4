@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MySqlDialectFoundationTest {
@@ -50,10 +49,10 @@ class MySqlDialectFoundationTest {
     }
 
     @Test
-    void shouldRejectAutoIncrementWhenExactNumericRangeCannotBePreserved() {
-        Column invalid = new Column(
+    void shouldUseUnsignedBigIntForNineteenDigitAutoIncrementIdentity() {
+        Column identity = new Column(
                 Identifier.of("ID"), DataType.numeric("NUMBER", 19, 0), false,
                 null, Description.empty(), true, 1);
-        assertThrows(IllegalArgumentException.class, () -> dialect.sqlType(invalid));
+        assertEquals("BIGINT UNSIGNED", dialect.sqlType(identity));
     }
 }

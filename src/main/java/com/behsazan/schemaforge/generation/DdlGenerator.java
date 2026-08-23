@@ -53,17 +53,34 @@ public final class DdlGenerator {
 
     private final Dialect dialect;
     private final Clock clock;
+    private final DatabaseSchema typeMappingContext;
     private final InlineIssueRenderer inlineIssueRenderer;
     private final PhysicalCommentRenderer physicalCommentRenderer;
     private final DatatypeCompatibilityAnalyzer datatypeCompatibilityAnalyzer;
 
     public DdlGenerator(Dialect dialect) {
-        this(dialect, Clock.systemDefaultZone());
+        this(dialect, Clock.systemDefaultZone(), null);
     }
 
     public DdlGenerator(Dialect dialect, Clock clock) {
+        this(dialect, clock, null);
+    }
+
+    /**
+     * Creates a generator that renders the supplied output schema while resolving dialect
+     * datatype adaptations against a broader canonical schema context. This is used by
+     * per-table artifact generation where relationships to other canonical tables still
+     * influence target datatype compatibility.
+     */
+    public DdlGenerator(Dialect dialect, DatabaseSchema typeMappingContext) {
+        this(dialect, Clock.systemDefaultZone(),
+                Objects.requireNonNull(typeMappingContext, "typeMappingContext must not be null"));
+    }
+
+    private DdlGenerator(Dialect dialect, Clock clock, DatabaseSchema typeMappingContext) {
         this.dialect = Objects.requireNonNull(dialect, "dialect must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.typeMappingContext = typeMappingContext;
         this.inlineIssueRenderer = new InlineIssueRenderer();
         this.physicalCommentRenderer = PhysicalCommentRendererResolver.resolve(dialect);
         this.datatypeCompatibilityAnalyzer = new DatatypeCompatibilityAnalyzer();
@@ -104,7 +121,7 @@ public final class DdlGenerator {
                 List.of(), Map.of(), Map.of(), false);
         SqlIssueCatalog issues = issueCatalog(
                 singleTableSchema, new ValidationReport(true, List.of()), metadata);
-        return createTable(table, issues, metadata);
+        return createTable(effectiveTypeMappingContext(singleTableSchema), table, issues, metadata);
     }
 
     /**
@@ -223,6 +240,7 @@ public final class DdlGenerator {
         Objects.requireNonNull(report, "report must not be null");
         Objects.requireNonNull(metadata, "metadata must not be null");
         SqlIssueCatalog issueCatalog = issueCatalog(schema, report, metadata);
+        DatabaseSchema mappingContext = effectiveTypeMappingContext(schema);
 
         List<String> statements = new ArrayList<>();
         List<String> grantStatements = new ArrayList<>();
@@ -240,7 +258,7 @@ public final class DdlGenerator {
         }
 
         for (Table table : schema.tables()) {
-            statements.add(createTable(table, issueCatalog, metadata));
+            statements.add(createTable(mappingContext, table, issueCatalog, metadata));
             if (dialect.requiresExplicitConstraintIndexes()) {
                 table.primaryKey().map(primaryKey -> createPrimaryKeyIndex(table, primaryKey))
                         .ifPresent(statements::add);
@@ -312,7 +330,11 @@ public final class DdlGenerator {
         return sql.append(dialect.statementTerminator()).toString();
     }
 
-    private String createTable(Table table, SqlIssueCatalog issueCatalog, MetadataComparisonResult metadata) {
+    private String createTable(
+            DatabaseSchema schemaContext,
+            Table table,
+            SqlIssueCatalog issueCatalog,
+            MetadataComparisonResult metadata) {
         dialect.validateTable(table);
         List<Column> columns = new ArrayList<>(table.columns());
         columns.sort(Comparator.comparing(Column::ordinalPosition, Comparator.nullsLast(Comparator.naturalOrder())));
@@ -322,7 +344,8 @@ public final class DdlGenerator {
         for (int index = 0; index < columns.size(); index++) {
             Column column = columns.get(index);
             String path = MetadataComparisonValidator.path(table, column);
-            String definition = columnDefinition(table, column, metadata.frequency(path), metadata.metadataAvailable());
+            String definition = columnDefinition(
+                    schemaContext, table, column, metadata.frequency(path), metadata.metadataAvailable());
             if (index < columns.size() - 1 || hasPrimaryKey) {
                 definition += ",";
             }
@@ -364,14 +387,18 @@ public final class DdlGenerator {
     }
 
     private String columnDefinition(
-            Table table, Column column, long metadataFrequency, boolean metadataAvailable) {
+            DatabaseSchema schemaContext,
+            Table table,
+            Column column,
+            long metadataFrequency,
+            boolean metadataAvailable) {
         StringBuilder sql = new StringBuilder("  ");
         if (metadataAvailable) {
             sql.append("/* ").append(String.format(Locale.ROOT, "%3d", metadataFrequency)).append("*/  ");
         }
         sql.append(dialect.quote(column.name()));
         if (!column.generated() || dialect.generatedColumnIncludesDataType()) {
-            sql.append(" ").append(dialect.sqlType(table, column));
+            sql.append(" ").append(dialect.sqlType(schemaContext, table, column));
         }
         sql.append(dialect.columnPhysicalClause(column));
         if (column.generated()) {
@@ -397,8 +424,12 @@ public final class DdlGenerator {
         if (!column.description().isEmpty()) {
             sql.append(dialect.inlineColumnCommentClause(column));
         }
-        sql.append(dialect.inlineColumnConstraintClause(table, column));
+        sql.append(dialect.inlineColumnConstraintClause(schemaContext, table, column));
         return sql.toString();
+    }
+
+    private DatabaseSchema effectiveTypeMappingContext(DatabaseSchema generatedSchema) {
+        return typeMappingContext == null ? generatedSchema : typeMappingContext;
     }
 
     private String primaryKeyDefinition(Table table, PrimaryKey primaryKey) {

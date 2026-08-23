@@ -86,7 +86,7 @@ The authoritative current documentation starts at [`docs/reference/README.md`](d
 
 The controlled sequence for remaining V4 consolidation work is maintained in [`docs/roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md`](docs/roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md). That roadmap must be consulted and updated before each stage starts.
 
-Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. The current source state is the official `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1` documented in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). Its user-verified clean regression completed with 467 tests, 0 failures, 0 errors, 4 configuration-based skips, and `BUILD SUCCESS` on 2026-08-22. The project-level history remains in `CHANGELOG.md`.
+Older phase/release documents remain under [`docs/`](docs/) as implementation history and validation evidence. The current source state is the official `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3` documented in [`docs/reference/CURRENT-RELEASE-BASELINE.md`](docs/reference/CURRENT-RELEASE-BASELINE.md). Its exact C5.3-R1 source passed the user-verified clean regression with 492 tests, 0 failures, 0 errors, 4 configuration-based skips, and `BUILD SUCCESS` at 2026-08-22T23:33:56-07:00. Candidate/repair/freeze traceability is maintained in [`docs/roadmap/CONSOLIDATION-VERSION-HISTORY.md`](docs/roadmap/CONSOLIDATION-VERSION-HISTORY.md).
 
 ## V4 DBMS-neutral DDL refactoring
 
@@ -105,31 +105,43 @@ java -jar schema-forge.jar input.docx mysql
 java -jar schema-forge.jar input.docx output-directory sqlserver
 ```
 
-## Timestamped output files
+## Artifact naming and layout
 
-All generated SQL scripts use the central `OutputFileNamer.scriptFileName(...)` policy and share one Gregorian timestamp per generation request:
+C5 makes `ArtifactNamingPolicy` the naming/layout authority for non-Flyway artifacts. Every top-level generation request owns one Gregorian `generationTimestamp`, shared by its normal timestamped artifacts. Flyway migration filenames remain owned by `FlywayMigrationNamer`.
 
-```text
-<logical-name>_yyyyMMdd_HHmmss_SSS.<database>.sql
-<schema>.<table>_yyyyMMdd_HHmmss_SSS.oracle.crud-package.sql
-<schema>.<table>_yyyyMMdd_HHmmss_SSS.sqlserver.crud-procedures.sql
-<source>_yyyyMMdd_HHmmss_SSS.<database>.run-all.sql
-```
-
-JSON and report artifacts retain their existing timestamped naming rules.
-
-## DBMS-aware generated file names
-
-Generated artifacts use a shared Gregorian timestamp. SQL file names also identify the selected dialect:
+Canonical package roots are:
 
 ```text
-<input>_yyyyMMdd_HHmmss_SSS.json
-<input>_yyyyMMdd_HHmmss_SSS.oracle.sql
-<input>_yyyyMMdd_HHmmss_SSS.postgresql.sql
-<input>_yyyyMMdd_HHmmss_SSS.db2zos.sql
-<input>_yyyyMMdd_HHmmss_SSS.sqlserver.sql
-<input>_yyyyMMdd_HHmmss_SSS.mysql.sql
+ddl/<platform>/
+migration/<platform>/
+crud/<platform>/
+model/
+comparison/<platform>/
+diagram/mermaid/tables/
+diagram/mermaid/batch/
+diagram/graphviz/tables/
+diagram/graphviz/batch/
+scripts/<platform>/
+reports/
+manifest.json                  # EA today; common manifest contract is C6
 ```
+
+Representative names:
+
+```text
+ddl/oracle/<logical>_<timestamp>.oracle.sql
+ddl/postgresql/<logical>_<timestamp>.postgresql.sql
+ddl/db2zos/<logical>_<timestamp>.db2zos.sql
+ddl/sqlserver/<logical>_<timestamp>.sqlserver.sql
+ddl/mysql/<logical>_<timestamp>.mysql.sql
+model/<source>_<timestamp>.schema.json
+crud/oracle/<schema.table>_<timestamp>.oracle.crud-package.sql
+crud/sqlserver/<schema.table>_<timestamp>.sqlserver.crud-procedures.sql
+comparison/oracle/<schema.table>_<timestamp>.oracle.compare.xlsx
+scripts/oracle/<source>_<timestamp>.oracle.run-all.sql
+```
+
+See [`docs/architecture/ARTIFACT-NAMING-LAYOUT.md`](docs/architecture/ARTIFACT-NAMING-LAYOUT.md) for the complete C5 contract and collision rules.
 
 ### Foreign-key reference flags
 - `TABLE/Y`: physical reference.
@@ -240,10 +252,11 @@ The response is `<SCHEMA>.<TABLE>.sqlserver.crud-procedures.sql` and contains `<
 When metadata is enabled and the exact document table already exists in a target database, the REST response ZIP also contains a comparison workbook:
 
 ```text
-<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.oracle.xlsx
-<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.postgresql.xlsx
-<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.db2zos.xlsx
-<SCHEMA>.<TABLE>_compare_<yyyyMMdd_HHmmss_SSS>.sqlserver.xlsx
+comparison/oracle/<SCHEMA>.<TABLE>_<yyyyMMdd_HHmmss_SSS>.oracle.compare.xlsx
+comparison/postgresql/<schema>.<table>_<yyyyMMdd_HHmmss_SSS>.postgresql.compare.xlsx
+comparison/db2zos/<SCHEMA>.<TABLE>_<yyyyMMdd_HHmmss_SSS>.db2zos.compare.xlsx
+comparison/sqlserver/<SCHEMA>.<TABLE>_<yyyyMMdd_HHmmss_SSS>.sqlserver.compare.xlsx
+comparison/mysql/<SCHEMA>.<TABLE>_<yyyyMMdd_HHmmss_SSS>.mysql.compare.xlsx
 ```
 
 The workbook preserves the established SchemaForge v3 22-column table sheet and adds database-object comparison sheets for keys and indexes. Metadata is read during the REST request and is not cached. If the table does not exist in a target database, the workbook for that database is omitted while SQL and JSON generation continue.
@@ -259,7 +272,7 @@ INDEXES_COMPARE
 UNIQUE_INDEXES_COMPARE
 ```
 
-Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle, PostgreSQL, Db2 for z/OS, and Microsoft SQL Server have JDBC metadata adapters. Db2 configuration is disabled by default and requires the IBM JCC driver at runtime. SQL Server metadata is also disabled by default and uses the Microsoft JDBC driver from Maven Central.
+Object rows use `ADD`, `DROP`, `MODIFY` and `SAME`. A new single-column or composite index in the document is therefore shown explicitly as `ADD`, even when the indexed columns already exist in the database. All report cells have thin borders. The writer works with canonical `Table` models and the generic `Dialect` contract. Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL have JDBC metadata adapters for the implemented logical/object comparison paths. Db2 configuration is disabled by default and requires the IBM JCC driver at runtime. SQL Server metadata is also disabled by default and uses the Microsoft JDBC driver from Maven Central. MySQL physical comparison sheets remain intentionally suppressed until a formal MySQL physical contract is defined.
 
 P8-A also adds `TABLE_PHYSICAL_COMPARE`. The document/profile side supplies expected physical design values and the JDBC `databaseTable` supplies actual table physical metadata; database state is never promoted back into design intent or generated DDL. Rows are classified as `MATCH`, `MISMATCH`, `NOT_SPECIFIED`, `NOT_AVAILABLE`, or `REVIEW`. See [`docs/P8-TABLE-PHYSICAL-METADATA-COMPARISON.md`](docs/P8-TABLE-PHYSICAL-METADATA-COMPARISON.md).
 
@@ -304,24 +317,25 @@ SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP contains one Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL SQL file per table, comparison workbooks for dialects with available metadata, a consolidated `model.json`, a `manifest.json`, and dialect-specific run-all files. MySQL generates DDL/run-all artifacts and has a separate live execution regression harness, but it still has no JDBC metadata comparison adapter.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect XML/XMI 1.x exports. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. EA primary-key columns imported through this endpoint are normalized as identity, `NOT NULL` columns. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP follows the common C5 artifact-first layout: one DDL file per table and dialect, comparison workbooks when metadata is available, one timestamped canonical `*.schema.json`, dialect-specific run-all scripts, diagrams/reports as applicable, and the current EA `manifest.json`. Common manifest semantics for all generation paths are reserved for C6.
 
 ```text
-oracle/<SCHEMA>.<TABLE>.oracle.sql
-postgresql/<schema>.<table>.postgresql.sql
-db2zos/<SCHEMA>.<TABLE>.db2zos.sql
-sqlserver/<SCHEMA>.<TABLE>.sqlserver.sql
-mysql/<SCHEMA>.<TABLE>.mysql.sql
-comparison/oracle/<SCHEMA>.<TABLE>.oracle.xlsx
-comparison/postgresql/<schema>.<table>.postgresql.xlsx
-comparison/db2zos/<SCHEMA>.<TABLE>.db2zos.xlsx
-comparison/sqlserver/<SCHEMA>.<TABLE>.sqlserver.xlsx
-oracle/run_all.sql
-postgresql/run_all.sql
-db2zos/run_all.sql
-sqlserver/run_all.sql
-mysql/run_all.sql
-model.json
+ddl/oracle/<SCHEMA>.<TABLE>_<timestamp>.oracle.sql
+ddl/postgresql/<schema>.<table>_<timestamp>.postgresql.sql
+ddl/db2zos/<SCHEMA>.<TABLE>_<timestamp>.db2zos.sql
+ddl/sqlserver/<SCHEMA>.<TABLE>_<timestamp>.sqlserver.sql
+ddl/mysql/<SCHEMA>.<TABLE>_<timestamp>.mysql.sql
+comparison/oracle/<SCHEMA>.<TABLE>_<timestamp>.oracle.compare.xlsx
+comparison/postgresql/<schema>.<table>_<timestamp>.postgresql.compare.xlsx
+comparison/db2zos/<SCHEMA>.<TABLE>_<timestamp>.db2zos.compare.xlsx
+comparison/sqlserver/<SCHEMA>.<TABLE>_<timestamp>.sqlserver.compare.xlsx
+comparison/mysql/<SCHEMA>.<TABLE>_<timestamp>.mysql.compare.xlsx
+scripts/oracle/<source>_<timestamp>.oracle.run-all.sql
+scripts/postgresql/<source>_<timestamp>.postgresql.run-all.sql
+scripts/db2zos/<source>_<timestamp>.db2zos.run-all.sql
+scripts/sqlserver/<source>_<timestamp>.sqlserver.run-all.sql
+scripts/mysql/<source>_<timestamp>.mysql.run-all.sql
+model/<source>_<timestamp>.schema.json
 manifest.json
 ```
 

@@ -1,5 +1,12 @@
 package com.behsazan.schemaforge.api;
 
+import com.behsazan.schemaforge.artifact.ArtifactDescriptor;
+import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
+import com.behsazan.schemaforge.artifact.ArtifactOrigin;
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
+import com.behsazan.schemaforge.artifact.ArtifactPaths;
+import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocator;
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.config.AuditProperties;
@@ -42,7 +49,6 @@ import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.application.PreparedSchema;
-import com.behsazan.schemaforge.application.OutputFileNamer;
 import com.behsazan.schemaforge.application.SchemaPreparationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,20 +87,11 @@ import java.util.zip.ZipOutputStream;
 @Service
 public class SchemaForgeApiService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaForgeApiService.class);
-    private static final String BATCH_SUMMARY_FILE = "batch-generation-summary.csv";
-    private static final String BATCH_ERROR_FILE = "batch-generation-errors.log";
-    private static final String REPORTS_DIRECTORY = "reports";
-    private static final String MERMAID_DIRECTORY = "mermaid";
-    private static final String MERMAID_TABLES_DIRECTORY = "tables";
-    private static final String MERMAID_BATCH_DIRECTORY = "batch";
-    private static final String GRAPHVIZ_DIRECTORY = "graphviz";
-    private static final String GRAPHVIZ_TABLES_DIRECTORY = "tables";
-    private static final String GRAPHVIZ_BATCH_DIRECTORY = "batch";
     private final SchemaPreparationService preparationService;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
     private final EaImportProperties eaImportProperties;
     private final ObjectMapper objectMapper;
-    private final OutputFileNamer outputFileNamer = new OutputFileNamer();
+    private final ArtifactNamingPolicy artifactNamingPolicy = new ArtifactNamingPolicy();
     private final LegacyWordSpecificationParser legacyWordSpecificationParser = new LegacyWordSpecificationParser();
     private final SchemaCompareExcelWriter compareExcelWriter = new SchemaCompareExcelWriter();
     private final OracleCrudPackageGenerator oracleCrudGenerator = new OracleCrudPackageGenerator();
@@ -142,40 +139,61 @@ public class SchemaForgeApiService {
     }
 
     public byte[] generateFromWord(MultipartFile file) throws IOException {
+        return generateFromWordTracked(file).content();
+    }
+
+    GenerationArchive generateFromWordTracked(MultipartFile file) throws IOException {
         requireExtension(file, ".docx");
+        String sourceName = safeName(file.getOriginalFilename(), "input.docx");
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.STANDARD_WORD, sourceName);
         Path work = Files.createTempDirectory("schemaforge-word-");
         try {
-            Path input = work.resolve(safeName(file.getOriginalFilename(), "input.docx"));
+            Path input = work.resolve(sourceName);
             file.transferTo(input);
             Path output = Files.createDirectories(work.resolve("output"));
-            generateWordForAll(input, output);
-            return zipDirectory(output);
+            generateWordForAll(input, output, context);
+            return new GenerationArchive(zipDirectory(output), context.ledger().snapshot());
         } finally {
             deleteRecursively(work);
         }
     }
 
     public byte[] generateFromLegacyWord(MultipartFile file, String schemaName) throws IOException {
+        return generateFromLegacyWordTracked(file, schemaName).content();
+    }
+
+    GenerationArchive generateFromLegacyWordTracked(MultipartFile file, String schemaName) throws IOException {
         requireWordExtension(file);
         String schema = requireText(schemaName, "Legacy Word schema parameter is required");
+        String fallback = file.getOriginalFilename() != null
+                && file.getOriginalFilename().toLowerCase(Locale.ROOT).endsWith(".docx")
+                ? "input.docx"
+                : "input.doc";
+        String sourceName = safeName(file.getOriginalFilename(), fallback);
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.LEGACY_WORD, sourceName);
         Path work = Files.createTempDirectory("schemaforge-legacy-word-");
         try {
-            String fallback = file.getOriginalFilename() != null
-                    && file.getOriginalFilename().toLowerCase(Locale.ROOT).endsWith(".docx")
-                    ? "input.docx"
-                    : "input.doc";
-            Path input = work.resolve(safeName(file.getOriginalFilename(), fallback));
+            Path input = work.resolve(sourceName);
             file.transferTo(input);
             Path output = Files.createDirectories(work.resolve("output"));
-            generateLegacyWordForAll(input, output, schema);
-            return zipDirectory(output);
+            generateLegacyWordForAll(input, output, schema, context);
+            return new GenerationArchive(zipDirectory(output), context.ledger().snapshot());
         } finally {
             deleteRecursively(work);
         }
     }
 
     public byte[] generateFromZip(MultipartFile file) throws IOException {
+        return generateFromZipTracked(file).content();
+    }
+
+    GenerationArchive generateFromZipTracked(MultipartFile file) throws IOException {
         requireExtension(file, ".zip");
+        String sourceName = safeName(file.getOriginalFilename(), "input.zip");
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.ZIP_BATCH, sourceName);
         Path work = Files.createTempDirectory("schemaforge-zip-");
         try {
             Path inputDir = Files.createDirectories(work.resolve("input"));
@@ -199,6 +217,8 @@ public class SchemaForgeApiService {
             StringBuilder errors = new StringBuilder();
             int sequence = 0;
             List<Table> batchDiagramTables = new ArrayList<>();
+            CollisionSafeArtifactTargetAllocator batchTargetAllocator =
+                    new CollisionSafeArtifactTargetAllocator();
 
             for (Path document : documents) {
                 sequence++;
@@ -206,10 +226,14 @@ public class SchemaForgeApiService {
                 Path documentOutput = Files.createDirectories(
                         work.resolve("staging").resolve(String.format(Locale.ROOT, "%05d", sequence)));
                 try {
-                    PreparedSchema prepared = generateWordForAll(document, documentOutput);
+                    ArtifactGenerationContext documentContext = context.isolatedChild(
+                            ArtifactOrigin.ZIP_BATCH, relativeDocument);
+                    PreparedSchema prepared = generateWordForAll(document, documentOutput, documentContext);
                     batchDiagramTables.addAll(prepared.schema().tables());
                     long generatedFiles = countRegularFiles(documentOutput);
-                    moveGeneratedFiles(documentOutput, outputDir);
+                    Map<String, String> remappedPaths = moveGeneratedFiles(
+                            documentOutput, outputDir, batchTargetAllocator, relativeDocument);
+                    mergeBatchArtifacts(documentContext, context, remappedPaths);
                     summary.add(csvLine(
                             Integer.toString(sequence),
                             relativeDocument,
@@ -233,21 +257,29 @@ public class SchemaForgeApiService {
             }
 
             if (!batchDiagramTables.isEmpty()) {
-                writeBatchMermaidArtifacts(batchDiagramTables, outputDir);
-                writeBatchGraphvizArtifacts(batchDiagramTables, outputDir);
+                writeBatchMermaidArtifacts(batchDiagramTables, outputDir, context);
+                writeBatchGraphvizArtifacts(batchDiagramTables, outputDir, context);
             }
 
-            Path reportsDirectory = Files.createDirectories(outputDir.resolve(REPORTS_DIRECTORY));
+            Path summaryPath = outputDir.resolve(artifactNamingPolicy.batchGenerationSummaryRelativePath());
+            Files.createDirectories(summaryPath.getParent());
             Files.writeString(
-                    reportsDirectory.resolve(BATCH_SUMMARY_FILE),
+                    summaryPath,
                     String.join("\n", summary) + "\n",
                     StandardCharsets.UTF_8);
+            context.ledger().generated(context, ArtifactType.SUMMARY_REPORT, null,
+                    "batch-generation", ArtifactPaths.relative(outputDir, summaryPath),
+                    "text/csv", "SchemaForgeApiService");
+            Path errorPath = outputDir.resolve(artifactNamingPolicy.batchGenerationErrorRelativePath());
             Files.writeString(
-                    reportsDirectory.resolve(BATCH_ERROR_FILE),
+                    errorPath,
                     errors.toString(),
                     StandardCharsets.UTF_8);
+            context.ledger().generated(context, ArtifactType.ERROR_REPORT, null,
+                    "batch-generation", ArtifactPaths.relative(outputDir, errorPath),
+                    "text/plain", "SchemaForgeApiService");
 
-            return zipDirectory(outputDir);
+            return new GenerationArchive(zipDirectory(outputDir), context.ledger().snapshot());
         } finally {
             deleteRecursively(work);
         }
@@ -258,6 +290,10 @@ public class SchemaForgeApiService {
     }
 
     public byte[] generateFromEaXml(MultipartFile file, String schemaName) throws IOException {
+        return generateFromEaXmlTracked(file, schemaName).content();
+    }
+
+    GenerationArchive generateFromEaXmlTracked(MultipartFile file, String schemaName) throws IOException {
         String name = safeName(file.getOriginalFilename(), "ea-model.xml");
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
@@ -273,8 +309,10 @@ public class SchemaForgeApiService {
             }
             PreparedSchema prepared = preparationService.prepare(parsed);
             Path output = Files.createDirectories(work.resolve("output"));
-            writeEaPerTableOutputs(prepared, output, stripExtension(name));
-            return zipDirectory(output);
+            ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                    ArtifactOrigin.ENTERPRISE_ARCHITECT, name);
+            writeEaPerTableOutputs(prepared, output, stripExtension(name), context);
+            return new GenerationArchive(zipDirectory(output), context.ledger().snapshot());
         } finally {
             deleteRecursively(work);
         }
@@ -284,32 +322,37 @@ public class SchemaForgeApiService {
      * Parses and enriches the Word model only once. All registered database dialects are generated
      * from the exact same enriched model, so configured audit columns cannot diverge.
      */
-    private PreparedSchema generateWordForAll(Path input, Path output) throws IOException {
+    private PreparedSchema generateWordForAll(
+            Path input, Path output, ArtifactGenerationContext context) throws IOException {
         DatabaseSchema parsed;
         try (InputStream stream = Files.newInputStream(input)) {
             parsed = new WordSpecificationParser().parse(
                     new SpecificationSource(input.getFileName().toString(), stream));
         }
         PreparedSchema prepared = preparationService.prepare(parsed);
-        writeAllDatabaseOutputs(prepared, output, stripExtension(input.getFileName().toString()));
+        writeAllDatabaseOutputs(
+                prepared, output, stripExtension(input.getFileName().toString()), context);
         return prepared;
     }
 
-    private void generateLegacyWordForAll(Path input, Path output, String schemaName) throws IOException {
+    private void generateLegacyWordForAll(
+            Path input, Path output, String schemaName, ArtifactGenerationContext context) throws IOException {
         DatabaseSchema parsed = legacyWordSpecificationParser.parse(
                 input.getParent(), input, schemaName);
         PreparedSchema prepared = preparationService.prepare(parsed);
-        writeAllDatabaseOutputs(prepared, output, stripExtension(input.getFileName().toString()));
+        writeAllDatabaseOutputs(
+                prepared, output, stripExtension(input.getFileName().toString()), context);
     }
 
-    private void writeAllDatabaseOutputs(PreparedSchema prepared, Path output, String baseName) throws IOException {
+    private void writeAllDatabaseOutputs(
+            PreparedSchema prepared, Path output, String baseName, ArtifactGenerationContext context)
+            throws IOException {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
 
-        // All artifacts for one source document share the same timestamp.
-        String timestamp = outputFileNamer.timestamp();
-        String timestampedBaseName = baseName + "_" + timestamp;
+        // All normal artifacts in one top-level request share the same timestamp.
+        String timestamp = context.generationTimestamp();
 
         // Metadata is queried once per database output. The same comparison result is
         // reused by SQL generation and the consolidated JSON validation report.
@@ -327,26 +370,37 @@ public class SchemaForgeApiService {
                     .forEach(jsonIssues::add);
 
             String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
-            String sqlFileName = outputFileNamer.scriptFileName(
-                    baseName, platform, OutputFileNamer.ScriptKind.DDL, timestamp);
+            Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(baseName, platform, timestamp);
+            String sqlFileName = ddlRelativePath.getFileName().toString();
             requireValidOracleDdl(platform, sql, sqlFileName);
-            Files.writeString(output.resolve(sqlFileName), sql, StandardCharsets.UTF_8);
+            Path ddlPath = output.resolve(ddlRelativePath);
+            Files.createDirectories(ddlPath.getParent());
+            Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
+            context.ledger().generated(context, ArtifactType.DDL, platform,
+                    baseName, ArtifactPaths.relative(output, ddlPath),
+                    "application/sql", "DdlGenerator");
 
             // CREATE DDL is always emitted first, even when the live table already exists.
             // ALTER/Flyway output is an additional artifact and never replaces the CREATE script.
-            writeMigrationArtifacts(schema, repository, output, platform);
-            writeComparisonWorkbooks(schema, repository, metadata, output, timestamp, platform, dialect);
+            writeMigrationArtifacts(schema, repository, output, platform, context);
+            writeComparisonWorkbooks(
+                    schema, repository, metadata, output, timestamp, platform, dialect, context);
         }
 
-        writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
-        writeMermaidArtifact(schema, output, timestampedBaseName);
-        writeGraphvizArtifact(schema, output, timestampedBaseName);
-        writeConceptualErdArtifacts(schema, output, timestampedBaseName);
+        writeMetadataCrudArtifacts(schema, output, baseName, timestamp, context);
+        writeMermaidArtifact(schema, output, baseName, timestamp, context);
+        writeGraphvizArtifact(schema, output, baseName, timestamp, context);
+        writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
-        new JsonExporter().write(output.resolve(timestampedBaseName + ".json"), schema, jsonReport);
+        Path jsonPath = output.resolve(artifactNamingPolicy.canonicalJsonRelativePath(baseName, timestamp));
+        Files.createDirectories(jsonPath.getParent());
+        new JsonExporter().write(jsonPath, schema, jsonReport);
+        context.ledger().generated(context, ArtifactType.CANONICAL_JSON, null,
+                baseName, ArtifactPaths.relative(output, jsonPath),
+                "application/json", "JsonExporter");
     }
 
 
@@ -355,13 +409,16 @@ public class SchemaForgeApiService {
      * The diagram is rendered from the same prepared canonical schema used by all SQL dialects,
      * so no source document is reparsed and no historical version selection is performed.
      */
-    private void writeMermaidArtifact(DatabaseSchema schema, Path output, String timestampedBaseName)
-            throws IOException {
+    private void writeMermaidArtifact(
+            DatabaseSchema schema, Path output, String baseName, String timestamp,
+            ArtifactGenerationContext context) throws IOException {
         String mermaid = mermaidDiagramExporter.export(schema.tables(), DiagramExportOptions.erAll());
-        Files.writeString(
-                output.resolve(timestampedBaseName + ".mermaid.mmd"),
-                mermaid,
-                StandardCharsets.UTF_8);
+        Path path = output.resolve(artifactNamingPolicy.mermaidErRelativePath(baseName, timestamp));
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, mermaid, StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.MERMAID_DIAGRAM, null,
+                baseName + ":er", ArtifactPaths.relative(output, path),
+                "text/plain", "MermaidDiagramExporter");
     }
 
 
@@ -369,13 +426,16 @@ public class SchemaForgeApiService {
      * Writes one Graphviz ER artifact beside the normal per-document SQL/JSON/Excel outputs.
      * Only textual DOT is generated; SchemaForge does not execute a Graphviz binary.
      */
-    private void writeGraphvizArtifact(DatabaseSchema schema, Path output, String timestampedBaseName)
-            throws IOException {
+    private void writeGraphvizArtifact(
+            DatabaseSchema schema, Path output, String baseName, String timestamp,
+            ArtifactGenerationContext context) throws IOException {
         String dot = graphvizDiagramExporter.export(schema.tables(), DiagramExportOptions.erAll());
-        Files.writeString(
-                output.resolve(timestampedBaseName + ".graphviz.dot"),
-                dot,
-                StandardCharsets.UTF_8);
+        Path path = output.resolve(artifactNamingPolicy.graphvizErRelativePath(baseName, timestamp));
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, dot, StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.GRAPHVIZ_DIAGRAM, null,
+                baseName + ":er", ArtifactPaths.relative(output, path),
+                "text/vnd.graphviz", "GraphvizDiagramExporter");
     }
 
 
@@ -385,20 +445,25 @@ public class SchemaForgeApiService {
      * never used to infer a relationship.
      */
     private void writeConceptualErdArtifacts(
-            DatabaseSchema schema, Path output, String timestampedBaseName) throws IOException {
+            DatabaseSchema schema, Path output, String baseName, String timestamp,
+            ArtifactGenerationContext context) throws IOException {
         DiagramExportOptions options = DiagramExportOptions.builder()
                 .type(DiagramType.CONCEPTUAL_ERD)
                 .build();
         String mermaid = mermaidDiagramExporter.export(schema.tables(), options);
         String dot = graphvizDiagramExporter.export(schema.tables(), options);
-        Files.writeString(
-                output.resolve(timestampedBaseName + ".conceptual-erd.mermaid.mmd"),
-                mermaid,
-                StandardCharsets.UTF_8);
-        Files.writeString(
-                output.resolve(timestampedBaseName + ".conceptual-erd.graphviz.dot"),
-                dot,
-                StandardCharsets.UTF_8);
+        Path mermaidPath = output.resolve(artifactNamingPolicy.mermaidConceptualRelativePath(baseName, timestamp));
+        Path graphvizPath = output.resolve(artifactNamingPolicy.graphvizConceptualRelativePath(baseName, timestamp));
+        Files.createDirectories(mermaidPath.getParent());
+        Files.createDirectories(graphvizPath.getParent());
+        Files.writeString(mermaidPath, mermaid, StandardCharsets.UTF_8);
+        Files.writeString(graphvizPath, dot, StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.MERMAID_DIAGRAM, null,
+                baseName + ":conceptual-erd", ArtifactPaths.relative(output, mermaidPath),
+                "text/plain", "MermaidDiagramExporter");
+        context.ledger().generated(context, ArtifactType.GRAPHVIZ_DIAGRAM, null,
+                baseName + ":conceptual-erd", ArtifactPaths.relative(output, graphvizPath),
+                "text/vnd.graphviz", "GraphvizDiagramExporter");
     }
 
 
@@ -407,17 +472,30 @@ public class SchemaForgeApiService {
      * table names are never auto-selected: every duplicated name is excluded from the batch graph
      * and recorded in the issues report. Per-document Mermaid files are unaffected.
      */
-    private void writeBatchMermaidArtifacts(List<Table> tableDefinitions, Path output) throws IOException {
+    private void writeBatchMermaidArtifacts(
+            List<Table> tableDefinitions, Path output, ArtifactGenerationContext context) throws IOException {
         MermaidBatchDiagramExporter.Result result = mermaidBatchDiagramExporter.export(tableDefinitions);
         Path batchDirectory = Files.createDirectories(
-                output.resolve(MERMAID_DIRECTORY).resolve(MERMAID_BATCH_DIRECTORY));
+                output.resolve(artifactNamingPolicy.batchMermaidDirectory()));
 
-        Files.writeString(batchDirectory.resolve("schema-er.mmd"), result.er(), StandardCharsets.UTF_8);
-        Files.writeString(
-                batchDirectory.resolve("schema-conceptual-erd.mmd"),
-                result.conceptualErd(),
-                StandardCharsets.UTF_8);
-        Files.writeString(batchDirectory.resolve("schema-dependency.mmd"), result.dependency(), StandardCharsets.UTF_8);
+        Path erPath = output.resolve(artifactNamingPolicy.batchMermaidRelativePath(
+                ArtifactNamingPolicy.BatchMermaidArtifact.ER));
+        Path conceptualPath = output.resolve(artifactNamingPolicy.batchMermaidRelativePath(
+                ArtifactNamingPolicy.BatchMermaidArtifact.CONCEPTUAL_ERD));
+        Path dependencyPath = output.resolve(artifactNamingPolicy.batchMermaidRelativePath(
+                ArtifactNamingPolicy.BatchMermaidArtifact.DEPENDENCY));
+        Files.writeString(erPath, result.er(), StandardCharsets.UTF_8);
+        Files.writeString(conceptualPath, result.conceptualErd(), StandardCharsets.UTF_8);
+        Files.writeString(dependencyPath, result.dependency(), StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.MERMAID_DIAGRAM, null,
+                "batch:schema-er", ArtifactPaths.relative(output, erPath),
+                "text/plain", "MermaidBatchDiagramExporter");
+        context.ledger().generated(context, ArtifactType.MERMAID_DIAGRAM, null,
+                "batch:conceptual-erd", ArtifactPaths.relative(output, conceptualPath),
+                "text/plain", "MermaidBatchDiagramExporter");
+        context.ledger().generated(context, ArtifactType.MERMAID_DIAGRAM, null,
+                "batch:dependency", ArtifactPaths.relative(output, dependencyPath),
+                "text/plain", "MermaidBatchDiagramExporter");
 
         List<String> issues = new ArrayList<>();
         issues.add("code,source_table,target_table,occurrences,detail");
@@ -429,10 +507,12 @@ public class SchemaForgeApiService {
                     Integer.toString(issue.occurrences()),
                     issue.detail()));
         }
-        Files.writeString(
-                batchDirectory.resolve("issues.csv"),
-                String.join("\n", issues) + "\n",
-                StandardCharsets.UTF_8);
+        Path issuesPath = output.resolve(artifactNamingPolicy.batchMermaidRelativePath(
+                ArtifactNamingPolicy.BatchMermaidArtifact.ISSUES));
+        Files.writeString(issuesPath, String.join("\n", issues) + "\n", StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.ISSUE_REPORT, null,
+                "batch:mermaid", ArtifactPaths.relative(output, issuesPath),
+                "text/csv", "MermaidBatchDiagramExporter");
 
         String summary = "SchemaForge batch Mermaid summary\n"
                 + "=================================\n"
@@ -444,7 +524,12 @@ public class SchemaForgeApiService {
                 + "Resolved physical FKs   : " + result.resolvedPhysicalForeignKeys() + "\n"
                 + "Issues                   : " + result.issues().size() + "\n"
                 + "Duplicate policy         : EXCLUDE_ALL_DUPLICATE_DEFINITIONS_NO_AUTO_SELECTION\n";
-        Files.writeString(batchDirectory.resolve("summary.txt"), summary, StandardCharsets.UTF_8);
+        Path summaryPath = output.resolve(artifactNamingPolicy.batchMermaidRelativePath(
+                ArtifactNamingPolicy.BatchMermaidArtifact.SUMMARY));
+        Files.writeString(summaryPath, summary, StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.SUMMARY_REPORT, null,
+                "batch:mermaid", ArtifactPaths.relative(output, summaryPath),
+                "text/plain", "MermaidBatchDiagramExporter");
     }
 
 
@@ -452,31 +537,34 @@ public class SchemaForgeApiService {
      * Writes batch Graphviz conceptual ERD and dependency diagrams. The duplicate policy is intentionally identical
      * to the Mermaid batch exporter: duplicated qualified table names are excluded, never selected.
      */
-    private void writeBatchGraphvizArtifacts(List<Table> tableDefinitions, Path output) throws IOException {
+    private void writeBatchGraphvizArtifacts(
+            List<Table> tableDefinitions, Path output, ArtifactGenerationContext context) throws IOException {
         GraphvizBatchDiagramExporter.Result result = graphvizBatchDiagramExporter.export(tableDefinitions);
         Path batchDirectory = Files.createDirectories(
-                output.resolve(GRAPHVIZ_DIRECTORY).resolve(GRAPHVIZ_BATCH_DIRECTORY));
+                output.resolve(artifactNamingPolicy.batchGraphvizDirectory()));
 
-        Files.writeString(
-                batchDirectory.resolve("schema-conceptual-erd.dot"),
-                result.conceptualErd(),
-                StandardCharsets.UTF_8);
-        Files.writeString(
-                batchDirectory.resolve("schema-dependency.dot"),
-                result.dependency(),
-                StandardCharsets.UTF_8);
-        Files.writeString(
-                batchDirectory.resolve("schema-clustered.dot"),
-                result.clusteredDependency(),
-                StandardCharsets.UTF_8);
-        Files.writeString(
-                batchDirectory.resolve("schema-compact.dot"),
-                result.compactDependency(),
-                StandardCharsets.UTF_8);
-        Files.writeString(
-                batchDirectory.resolve("schema-overview.dot"),
-                result.overviewDependency(),
-                StandardCharsets.UTF_8);
+        Path conceptualPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.CONCEPTUAL_ERD));
+        Path dependencyPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.DEPENDENCY));
+        Path clusteredPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.CLUSTERED));
+        Path compactPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.COMPACT));
+        Path overviewPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.OVERVIEW));
+        Files.writeString(conceptualPath, result.conceptualErd(), StandardCharsets.UTF_8);
+        Files.writeString(dependencyPath, result.dependency(), StandardCharsets.UTF_8);
+        Files.writeString(clusteredPath, result.clusteredDependency(), StandardCharsets.UTF_8);
+        Files.writeString(compactPath, result.compactDependency(), StandardCharsets.UTF_8);
+        Files.writeString(overviewPath, result.overviewDependency(), StandardCharsets.UTF_8);
+
+        for (Path diagram : List.of(conceptualPath, dependencyPath, clusteredPath, compactPath, overviewPath)) {
+            context.ledger().generated(context, ArtifactType.GRAPHVIZ_DIAGRAM, null,
+                    "batch:" + diagram.getFileName().toString().replace("schema-", "").replace(".dot", ""),
+                    ArtifactPaths.relative(output, diagram), "text/vnd.graphviz",
+                    "GraphvizBatchDiagramExporter");
+        }
 
         List<String> issues = new ArrayList<>();
         issues.add("code,source_table,target_table,occurrences,detail");
@@ -488,10 +576,12 @@ public class SchemaForgeApiService {
                     Integer.toString(issue.occurrences()),
                     issue.detail()));
         }
-        Files.writeString(
-                batchDirectory.resolve("issues.csv"),
-                String.join("\n", issues) + "\n",
-                StandardCharsets.UTF_8);
+        Path issuesPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.ISSUES));
+        Files.writeString(issuesPath, String.join("\n", issues) + "\n", StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.ISSUE_REPORT, null,
+                "batch:graphviz", ArtifactPaths.relative(output, issuesPath),
+                "text/csv", "GraphvizBatchDiagramExporter");
 
         String summary = "SchemaForge batch Graphviz summary\n"
                 + "=================================\n"
@@ -508,7 +598,12 @@ public class SchemaForgeApiService {
                 + "Compact profile          : disconnected=false, labels=true, clusterBySchema=true\n"
                 + "Overview profile         : disconnected=false, labels=false, clusterBySchema=true\n"
                 + "Renderer                 : DOT_ONLY_NO_GRAPHVIZ_EXECUTION\n";
-        Files.writeString(batchDirectory.resolve("summary.txt"), summary, StandardCharsets.UTF_8);
+        Path summaryPath = output.resolve(artifactNamingPolicy.batchGraphvizRelativePath(
+                ArtifactNamingPolicy.BatchGraphvizArtifact.SUMMARY));
+        Files.writeString(summaryPath, summary, StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.SUMMARY_REPORT, null,
+                "batch:graphviz", ArtifactPaths.relative(output, summaryPath),
+                "text/plain", "GraphvizBatchDiagramExporter");
     }
 
 
@@ -519,21 +614,23 @@ public class SchemaForgeApiService {
      * A per-document summary makes every skip or failure visible to the caller.
      */
     private void writeMetadataCrudArtifacts(
-            DatabaseSchema documentSchema, Path output, String timestampedBaseName, String timestamp)
-            throws IOException {
+            DatabaseSchema documentSchema, Path output, String baseName, String timestamp,
+            ArtifactGenerationContext context) throws IOException {
 
         List<String> summary = new ArrayList<>();
         summary.add("platform,schema,table,status,file,error");
 
         writeMetadataCrudArtifactsForPlatform(
-                documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary);
+                documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary, context);
         writeMetadataCrudArtifactsForPlatform(
-                documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary);
+                documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary, context);
 
-        Files.writeString(
-                output.resolve(timestampedBaseName + ".metadata-crud-summary.csv"),
-                String.join("\n", summary) + "\n",
-                StandardCharsets.UTF_8);
+        Path summaryPath = output.resolve(artifactNamingPolicy.metadataCrudSummaryRelativePath(baseName, timestamp));
+        Files.createDirectories(summaryPath.getParent());
+        Files.writeString(summaryPath, String.join("\n", summary) + "\n", StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.SUMMARY_REPORT, null,
+                baseName + ":metadata-crud", ArtifactPaths.relative(output, summaryPath),
+                "text/csv", "SchemaForgeApiService");
     }
 
     private void writeMetadataCrudArtifactsForPlatform(
@@ -541,7 +638,8 @@ public class SchemaForgeApiService {
             Path output,
             String timestamp,
             DatabasePlatform platform,
-            List<String> summary) {
+            List<String> summary,
+            ArtifactGenerationContext context) {
 
         MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
         for (Table documentTable : documentSchema.tables()) {
@@ -554,6 +652,8 @@ public class SchemaForgeApiService {
                         "Document table has no primary key"));
                 LOGGER.info("[{}] REST CRUD artifact skipped; document table has no primary key: {}.{}",
                         platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                        schemaName + "." + tableName, "SchemaForgeApiService");
                 continue;
             }
 
@@ -561,6 +661,8 @@ public class SchemaForgeApiService {
                 summary.add(csvLine(platform.name(), schemaName, tableName,
                         "SKIPPED_REPOSITORY_DISABLED", "",
                         "Metadata repository is not enabled"));
+                context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                        schemaName + "." + tableName, "SchemaForgeApiService");
                 continue;
             }
 
@@ -572,6 +674,8 @@ public class SchemaForgeApiService {
                             "Live table was not found"));
                     LOGGER.warn("[{}] REST CRUD artifact skipped; live table not found: {}.{}",
                             platform.name(), schemaName, tableName);
+                    context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                            schemaName + "." + tableName, "SchemaForgeApiService");
                     continue;
                 }
                 if (liveTable.get().primaryKey().isEmpty()) {
@@ -580,21 +684,27 @@ public class SchemaForgeApiService {
                             "Live table has no primary key"));
                     LOGGER.info("[{}] REST CRUD artifact skipped; live table has no primary key: {}.{}",
                             platform.name(), schemaName, tableName);
+                    context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                            schemaName + "." + tableName, "SchemaForgeApiService");
                     continue;
                 }
 
                 String logicalName = schemaName.toUpperCase(Locale.ROOT) + "."
                         + tableName.toUpperCase(Locale.ROOT);
-                String fileName = outputFileNamer.scriptFileName(
-                        logicalName, platform, OutputFileNamer.ScriptKind.CRUD, timestamp);
+                String fileName = artifactNamingPolicy.crudFileName(logicalName, platform, timestamp);
                 String sql = platform == DatabasePlatform.ORACLE
                         ? oracleCrudGenerator.generate(liveTable.get(), oracleCrudOptions)
                         : sqlServerCrudGenerator.generate(liveTable.get(), sqlServerCrudOptions);
 
-                Path crudDirectory = Files.createDirectories(
-                        output.resolve(platform.commandLineName()).resolve("crud"));
-                String relativeFileName = platform.commandLineName() + "/crud/" + fileName;
-                Files.writeString(crudDirectory.resolve(fileName), sql, StandardCharsets.UTF_8);
+                Path crudRelativePath = artifactNamingPolicy.crudRelativePath(logicalName, platform, timestamp);
+                Path crudPath = output.resolve(crudRelativePath);
+                Files.createDirectories(crudPath.getParent());
+                String relativeFileName = ArtifactPaths.relative(output, crudPath);
+                Files.writeString(crudPath, sql, StandardCharsets.UTF_8);
+                context.ledger().generated(context, ArtifactType.CRUD, platform, logicalName,
+                        ArtifactPaths.relative(output, crudPath), "application/sql",
+                        platform == DatabasePlatform.ORACLE
+                                ? "OracleCrudPackageGenerator" : "SqlServerCrudProcedureGenerator");
                 summary.add(csvLine(platform.name(), schemaName, tableName,
                         "GENERATED", relativeFileName, ""));
                 LOGGER.info("[{}] REST CRUD artifact generated: {}",
@@ -605,6 +715,8 @@ public class SchemaForgeApiService {
                         "FAILED", "", exception.getClass().getSimpleName() + ": " + message));
                 LOGGER.warn("[{}] REST CRUD artifact generation failed for {}.{}: {}",
                         platform.name(), schemaName, tableName, message);
+                context.ledger().failed(context, ArtifactType.CRUD, platform,
+                        schemaName + "." + tableName, "SchemaForgeApiService");
             }
         }
     }
@@ -642,11 +754,13 @@ public class SchemaForgeApiService {
      * independent comparison workbook. The canonical model and a manifest remain
      * consolidated at archive root.
      */
-    private void writeEaPerTableOutputs(PreparedSchema prepared, Path output, String baseName) throws IOException {
+    private void writeEaPerTableOutputs(
+            PreparedSchema prepared, Path output, String baseName, ArtifactGenerationContext context)
+            throws IOException {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
-        String timestamp = outputFileNamer.timestamp();
+        String timestamp = context.generationTimestamp();
 
         Map<String, Map<String, Object>> manifestTables = new LinkedHashMap<>();
         for (Table table : schema.tables()) {
@@ -670,47 +784,56 @@ public class SchemaForgeApiService {
                             "[" + platform.name() + "] " + issue.message()))
                     .forEach(jsonIssues::add);
 
-            Path sqlDirectory = Files.createDirectories(output.resolve(platform.commandLineName()));
-            Path comparisonDirectory = Files.createDirectories(
-                    output.resolve("comparison").resolve(platform.commandLineName()));
-
             for (Table table : schema.tables()) {
                 DatabaseSchema tableSchema = singleTableSchema(schema, table);
                 ValidationReport tableReport = validationForTable(report, table);
                 MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
-                String sql = new DdlGenerator(dialect).generate(tableSchema, tableReport, tableMetadata);
-                String sqlFileName = eaSqlFileName(schema, table, platform, timestamp);
+                String sql = new DdlGenerator(dialect, schema)
+                        .generate(tableSchema, tableReport, tableMetadata);
+                Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
+                        eaArtifactBaseName(schema, table, platform), platform, timestamp);
+                String sqlFileName = ddlRelativePath.getFileName().toString();
                 requireValidOracleDdl(platform, sql, sqlFileName);
-                Files.writeString(sqlDirectory.resolve(sqlFileName), sql, StandardCharsets.UTF_8);
+                Path ddlPath = output.resolve(ddlRelativePath);
+                Files.createDirectories(ddlPath.getParent());
+                Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
+                context.ledger().generated(context, ArtifactType.DDL, platform,
+                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                        ArtifactPaths.relative(output, ddlPath), "application/sql", "DdlGenerator");
 
                 Map<String, Object> item = manifestTables.get(tableKey(table));
                 item.put(platform.commandLineName() + "Sql",
-                        platform.commandLineName() + "/" + sqlFileName);
+                        ArtifactPaths.relative(output, ddlPath));
 
-                String workbook = writeEaComparisonWorkbook(
-                        schema, table, repository, metadata, comparisonDirectory, platform, dialect);
-                if (workbook != null) {
-                    item.put(platform.commandLineName() + "Excel",
-                            "comparison/" + platform.commandLineName() + "/" + workbook);
+                String workbookPath = writeEaComparisonWorkbook(
+                        schema, table, repository, metadata, output, platform, dialect,
+                        context, timestamp);
+                if (workbookPath != null) {
+                    item.put(platform.commandLineName() + "Excel", workbookPath);
                 }
             }
 
             // Per-table CREATE scripts above remain unconditional. If matching live tables exist,
-            // emit additional Flyway migrations under <platform>/migrations/.
-            writeMigrationArtifacts(schema, repository, output, platform);
-            writeEaRunAll(schema, sqlDirectory, platform, dependencyOrder, baseName, timestamp);
+            // emit additional Flyway migrations under migration/<platform>/.
+            writeMigrationArtifacts(schema, repository, output, platform, context);
+            writeEaRunAll(
+                    schema, platform, dependencyOrder, baseName, timestamp, output, context);
         }
 
-        String timestampedBaseName = baseName + "_" + timestamp;
-        writeMetadataCrudArtifacts(schema, output, timestampedBaseName, timestamp);
-        writeMermaidArtifact(schema, output, timestampedBaseName);
-        writeGraphvizArtifact(schema, output, timestampedBaseName);
-        writeConceptualErdArtifacts(schema, output, timestampedBaseName);
+        writeMetadataCrudArtifacts(schema, output, baseName, timestamp, context);
+        writeMermaidArtifact(schema, output, baseName, timestamp, context);
+        writeGraphvizArtifact(schema, output, baseName, timestamp, context);
+        writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);
 
         ValidationReport jsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
-        new JsonExporter().write(output.resolve("model.json"), schema, jsonReport);
+        Path modelPath = output.resolve(artifactNamingPolicy.canonicalJsonRelativePath(baseName, timestamp));
+        Files.createDirectories(modelPath.getParent());
+        new JsonExporter().write(modelPath, schema, jsonReport);
+        context.ledger().generated(context, ArtifactType.CANONICAL_JSON, null,
+                baseName, ArtifactPaths.relative(output, modelPath),
+                "application/json", "JsonExporter");
 
         Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("sourceFile", sourceFileName(schema, baseName));
@@ -721,12 +844,16 @@ public class SchemaForgeApiService {
                 .map(table -> table.qualifiedName().toString()).toList());
         manifest.put("cyclicTables", dependencyOrder.cyclicTables().stream()
                 .map(table -> table.qualifiedName().toString()).toList());
-        manifest.put("mermaid", timestampedBaseName + ".mermaid.mmd");
-        manifest.put("graphviz", timestampedBaseName + ".graphviz.dot");
-        manifest.put("conceptualErdMermaid", timestampedBaseName + ".conceptual-erd.mermaid.mmd");
-        manifest.put("conceptualErdGraphviz", timestampedBaseName + ".conceptual-erd.graphviz.dot");
+        manifest.put("mermaid", normalizePath(artifactNamingPolicy.mermaidErRelativePath(baseName, timestamp)));
+        manifest.put("graphviz", normalizePath(artifactNamingPolicy.graphvizErRelativePath(baseName, timestamp)));
+        manifest.put("conceptualErdMermaid", normalizePath(artifactNamingPolicy.mermaidConceptualRelativePath(baseName, timestamp)));
+        manifest.put("conceptualErdGraphviz", normalizePath(artifactNamingPolicy.graphvizConceptualRelativePath(baseName, timestamp)));
         manifest.put("tables", new ArrayList<>(manifestTables.values()));
-        objectMapper.writerWithDefaultPrettyPrinter().writeValue(output.resolve("manifest.json").toFile(), manifest);
+        Path manifestPath = output.resolve(artifactNamingPolicy.manifestRelativePath());
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(manifestPath.toFile(), manifest);
+        context.ledger().generated(context, ArtifactType.MANIFEST, null,
+                baseName, ArtifactPaths.relative(output, manifestPath),
+                "application/json", "SchemaForgeApiService");
     }
 
     private String writeEaComparisonWorkbook(
@@ -734,11 +861,18 @@ public class SchemaForgeApiService {
             Table documentTable,
             MetadataRepository repository,
             MetadataComparisonResult metadata,
-            Path output,
+            Path artifactRoot,
             DatabasePlatform platform,
-            Dialect dialect) throws IOException {
+            Dialect dialect,
+            ArtifactGenerationContext context,
+            String timestamp) throws IOException {
 
-        if (!repository.available()) return null;
+        if (!repository.available()) {
+            context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                    tableSchema(schema, documentTable) + "." + documentTable.qualifiedName().name().value(),
+                    "SchemaCompareExcelWriter");
+            return null;
+        }
 
         String schemaName = tableSchema(schema, documentTable);
         String tableName = documentTable.qualifiedName().name().value();
@@ -756,6 +890,8 @@ public class SchemaForgeApiService {
         if (databaseTable.isEmpty()) {
             LOGGER.warn("[{}] EA comparison workbook skipped; table not found. requestedSchema={}, requestedTable={}",
                     platform.name(), schemaName, tableName);
+            context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                    schemaName + "." + tableName, "SchemaCompareExcelWriter");
             return null;
         }
 
@@ -766,11 +902,18 @@ public class SchemaForgeApiService {
 
         byte[] workbook = compareExcelWriter.write(
                 documentTable, databaseTable.get(), usageCounts, platform.name(), dialect);
-        String fileName = eaArtifactBaseName(schema, documentTable, platform)
-                + "." + platform.commandLineName() + ".xlsx";
-        Files.write(output.resolve(fileName), workbook);
-        LOGGER.info("[{}] EA comparison workbook generated: {}", platform.name(), fileName);
-        return fileName;
+        String logicalName = eaArtifactBaseName(schema, documentTable, platform);
+        Path relativePath = artifactNamingPolicy.comparisonRelativePath(logicalName, platform, timestamp);
+        Path workbookPath = artifactRoot.resolve(relativePath);
+        Files.createDirectories(workbookPath.getParent());
+        Files.write(workbookPath, workbook);
+        context.ledger().generated(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                schemaName + "." + tableName, ArtifactPaths.relative(artifactRoot, workbookPath),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "SchemaCompareExcelWriter");
+        String normalized = ArtifactPaths.relative(artifactRoot, workbookPath);
+        LOGGER.info("[{}] EA comparison workbook generated: {}", platform.name(), normalized);
+        return normalized;
     }
 
     private void requireValidOracleDdl(DatabasePlatform platform, String sql, String source) {
@@ -781,11 +924,17 @@ public class SchemaForgeApiService {
 
     private void writeEaRunAll(
             DatabaseSchema schema,
-            Path sqlDirectory,
             DatabasePlatform platform,
             DependencyOrder order,
             String sourceBaseName,
-            String timestamp) throws IOException {
+            String timestamp,
+            Path artifactRoot,
+            ArtifactGenerationContext context) throws IOException {
+
+        Path runAllRelativePath = artifactNamingPolicy.runAllRelativePath(
+                sourceBaseName, platform, timestamp);
+        Path runAllPath = artifactRoot.resolve(runAllRelativePath);
+        Files.createDirectories(runAllPath.getParent());
 
         StringBuilder script = new StringBuilder();
         String comment = "--";
@@ -803,19 +952,22 @@ public class SchemaForgeApiService {
         script.append(System.lineSeparator());
 
         for (Table table : order.tables()) {
-            String fileName = eaSqlFileName(schema, table, platform, timestamp);
+            Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
+                    eaArtifactBaseName(schema, table, platform), platform, timestamp);
+            String reference = normalizePath(runAllPath.getParent().relativize(artifactRoot.resolve(ddlRelativePath)));
             switch (platform) {
-                case ORACLE -> script.append("@@").append(fileName);
-                case POSTGRESQL -> script.append("\\ir ").append(fileName);
-                case DB2_ZOS -> script.append("-- Execute in this order: ").append(fileName);
-                case SQLSERVER -> script.append(":r ").append(fileName);
-                case MYSQL -> script.append("-- Execute in this order: ").append(fileName);
+                case ORACLE -> script.append("@@").append(reference);
+                case POSTGRESQL -> script.append("\\ir ").append(reference);
+                case DB2_ZOS -> script.append("-- Execute in this order: ").append(reference);
+                case SQLSERVER -> script.append(":r ").append(reference);
+                case MYSQL -> script.append("-- Execute in this order: ").append(reference);
             }
             script.append(System.lineSeparator());
         }
-        String runAllFileName = outputFileNamer.scriptFileName(
-                sourceBaseName, platform, OutputFileNamer.ScriptKind.RUN_ALL, timestamp);
-        Files.writeString(sqlDirectory.resolve(runAllFileName), script.toString(), StandardCharsets.UTF_8);
+        Files.writeString(runAllPath, script.toString(), StandardCharsets.UTF_8);
+        context.ledger().generated(context, ArtifactType.RUN_SCRIPT, platform,
+                sourceBaseName, ArtifactPaths.relative(artifactRoot, runAllPath),
+                "application/sql", "SchemaForgeApiService");
     }
 
     private DatabaseSchema singleTableSchema(DatabaseSchema source, Table table) {
@@ -945,18 +1097,6 @@ public class SchemaForgeApiService {
                 .orElse(null);
     }
 
-    private String eaSqlFileName(
-            DatabaseSchema schema,
-            Table table,
-            DatabasePlatform platform,
-            String timestamp) {
-        return outputFileNamer.scriptFileName(
-                eaArtifactBaseName(schema, table, platform),
-                platform,
-                OutputFileNamer.ScriptKind.DDL,
-                timestamp);
-    }
-
     private String eaArtifactBaseName(DatabaseSchema schema, Table table, DatabasePlatform platform) {
         String value = tableSchema(schema, table) + "." + table.qualifiedName().name().value();
         return platform == DatabasePlatform.POSTGRESQL
@@ -998,13 +1138,19 @@ public class SchemaForgeApiService {
             DatabaseSchema schema,
             MetadataRepository repository,
             Path output,
-            DatabasePlatform platform) throws IOException {
+            DatabasePlatform platform,
+            ArtifactGenerationContext context) throws IOException {
 
-        if (!repository.available()) return;
+        if (!repository.available()) {
+            for (Table table : schema.tables()) {
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                        "MigrationGenerationService");
+            }
+            return;
+        }
 
-        Path migrationDirectory = output
-                .resolve(platform.commandLineName())
-                .resolve("migrations");
+        Path migrationDirectory = output.resolve(artifactNamingPolicy.migrationDirectory(platform));
 
         for (Table desiredTable : schema.tables()) {
             String schemaName = desiredTable.qualifiedName().schemaName()
@@ -1016,6 +1162,8 @@ public class SchemaForgeApiService {
             if (liveTable.isEmpty()) {
                 LOGGER.debug("[{}] Migration skipped; live table not found: {}.{}",
                         platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        schemaName + "." + tableName, "MigrationGenerationService");
                 continue;
             }
 
@@ -1027,10 +1175,15 @@ public class SchemaForgeApiService {
             if (artifact.plan().empty()) {
                 LOGGER.info("[{}] Migration not required; live table already matches desired columns: {}.{}",
                         platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        schemaName + "." + tableName, "MigrationGenerationService");
                 continue;
             }
 
             Path written = migrationFileWriter.write(migrationDirectory, artifact);
+            context.ledger().generated(context, ArtifactType.MIGRATION, platform,
+                    schemaName + "." + tableName, ArtifactPaths.relative(output, written),
+                    "application/sql", "MigrationGenerationService");
             LOGGER.info("[{}] Flyway migration generated: {}",
                     platform.name(), output.relativize(written));
         }
@@ -1043,9 +1196,17 @@ public class SchemaForgeApiService {
             Path output,
             String timestamp,
             DatabasePlatform platform,
-            Dialect dialect) throws IOException {
+            Dialect dialect,
+            ArtifactGenerationContext context) throws IOException {
 
-        if (!repository.available()) return;
+        if (!repository.available()) {
+            for (Table table : schema.tables()) {
+                context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                        "SchemaCompareExcelWriter");
+            }
+            return;
+        }
 
         for (Table documentTable : schema.tables()) {
             String schemaName = documentTable.qualifiedName().schemaName()
@@ -1066,6 +1227,8 @@ public class SchemaForgeApiService {
             if (databaseTable.isEmpty()) {
                 LOGGER.warn("[{}] Comparison workbook skipped; table not found. requestedSchema={}, requestedTable={}",
                         platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                        schemaName + "." + tableName, "SchemaCompareExcelWriter");
                 continue;
             }
             LOGGER.info("[{}] Comparison table resolved. requested={}.{}, actual={}",
@@ -1079,11 +1242,15 @@ public class SchemaForgeApiService {
 
             byte[] workbook = compareExcelWriter.write(
                     documentTable, databaseTable.get(), usageCounts, platform.name(), dialect);
-            String fileName = schemaName + "." + tableName
-                    + "_compare_" + timestamp
-                    + "." + platform.commandLineName() + ".xlsx";
-            Path workbookPath = output.resolve(fileName);
+            String logicalName = schemaName + "." + tableName;
+            Path workbookPath = output.resolve(
+                    artifactNamingPolicy.comparisonRelativePath(logicalName, platform, timestamp));
+            Files.createDirectories(workbookPath.getParent());
             Files.write(workbookPath, workbook);
+            context.ledger().generated(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                    schemaName + "." + tableName, ArtifactPaths.relative(output, workbookPath),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "SchemaCompareExcelWriter");
             LOGGER.info("[{}] Comparison workbook generated: {}", platform.name(), workbookPath.getFileName());
         }
     }
@@ -1105,60 +1272,50 @@ public class SchemaForgeApiService {
         }
     }
 
-    private static void moveGeneratedFiles(Path source, Path destination) throws IOException {
+    private static Map<String, String> moveGeneratedFiles(
+            Path source,
+            Path destination,
+            CollisionSafeArtifactTargetAllocator allocator,
+            String sourceIdentity) throws IOException {
+        Map<String, String> remapped = new LinkedHashMap<>();
         try (var files = Files.walk(source)) {
             for (Path file : files.filter(Files::isRegularFile).toList()) {
-                Path target = packagedBatchTarget(source, file, destination);
+                Path requestedRelative = source.relativize(file);
+                Path resolvedRelative = allocator.reserve(
+                        requestedRelative, sourceIdentity + "::" + normalizePath(requestedRelative));
+                Path target = destination.resolve(resolvedRelative);
                 Files.createDirectories(target.getParent());
-                Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(file, target);
+                remapped.put(normalizePath(requestedRelative), normalizePath(resolvedRelative));
             }
         }
+        return remapped;
     }
 
-    /**
-     * Maps the flat per-document staging output into the stable batch archive layout.
-     * Generation itself remains unchanged; this method only decides where already-generated
-     * artifacts are placed in the ZIP returned by {@link #generateFromZip(MultipartFile)}.
-     */
-    private static Path packagedBatchTarget(Path source, Path file, Path destination) {
-        Path relative = source.relativize(file);
-        if (relative.getNameCount() > 1) {
-            String first = relative.getName(0).toString().toLowerCase(Locale.ROOT);
-            for (DatabasePlatform platform : DatabasePlatform.values()) {
-                if (platform.commandLineName().equals(first)) {
-                    return destination.resolve(relative);
-                }
+    private static void mergeBatchArtifacts(
+            ArtifactGenerationContext documentContext,
+            ArtifactGenerationContext batchContext,
+            Map<String, String> remappedPaths) {
+        for (ArtifactDescriptor descriptor : documentContext.ledger().snapshot()) {
+            if (descriptor.status() != com.behsazan.schemaforge.artifact.ArtifactStatus.GENERATED) {
+                batchContext.ledger().add(descriptor);
+                continue;
             }
-        }
-
-        String fileName = file.getFileName().toString();
-        String lower = fileName.toLowerCase(Locale.ROOT);
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
-            String suffix = "." + platform.commandLineName() + ".sql";
-            if (lower.endsWith(suffix)) {
-                return destination.resolve(platform.commandLineName()).resolve(fileName);
+            String remapped = remappedPaths.get(descriptor.relativePath());
+            if (remapped == null) {
+                throw new IllegalStateException(
+                        "Generated artifact was not moved into the batch package: " + descriptor.relativePath());
             }
+            batchContext.ledger().add(new ArtifactDescriptor(
+                    descriptor.type(),
+                    descriptor.platform(),
+                    descriptor.logicalName(),
+                    remapped,
+                    descriptor.mediaType(),
+                    descriptor.generationId(),
+                    descriptor.status(),
+                    descriptor.provenance()));
         }
-        if (lower.endsWith(".xlsx")) {
-            return destination.resolve("excel").resolve(fileName);
-        }
-        if (lower.endsWith(".json")) {
-            return destination.resolve("json").resolve(fileName);
-        }
-        if (lower.endsWith(".mermaid.mmd")) {
-            return destination.resolve(MERMAID_DIRECTORY)
-                    .resolve(MERMAID_TABLES_DIRECTORY)
-                    .resolve(fileName);
-        }
-        if (lower.endsWith(".graphviz.dot")) {
-            return destination.resolve(GRAPHVIZ_DIRECTORY)
-                    .resolve(GRAPHVIZ_TABLES_DIRECTORY)
-                    .resolve(fileName);
-        }
-        if (lower.endsWith(".metadata-crud-summary.csv")) {
-            return destination.resolve(REPORTS_DIRECTORY).resolve(fileName);
-        }
-        return destination.resolve(relative);
     }
 
     private static String normalizePath(Path path) {
@@ -1258,4 +1415,16 @@ public class SchemaForgeApiService {
             paths.sorted(Comparator.reverseOrder()).forEach(path -> { try { Files.deleteIfExists(path); } catch (IOException ignored) { } });
         } catch (IOException ignored) { }
     }
+    record GenerationArchive(byte[] content, List<ArtifactDescriptor> artifacts) {
+        GenerationArchive {
+            content = content.clone();
+            artifacts = List.copyOf(artifacts);
+        }
+
+        @Override
+        public byte[] content() {
+            return content.clone();
+        }
+    }
+
 }

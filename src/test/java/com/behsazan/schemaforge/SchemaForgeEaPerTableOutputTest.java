@@ -70,16 +70,16 @@ class SchemaForgeEaPerTableOutputTest {
 
         assertEquals(22, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
-        assertTrue(entries.containsKey("model.json"));
+        String modelName = entryName(entries, "model/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.schema\\.json");
         assertTrue(entries.containsKey("manifest.json"));
-        String mermaidName = entryName(entries, "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.mermaid\\.mmd");
-        String graphvizName = entryName(entries, "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.graphviz\\.dot");
+        String mermaidName = entryName(entries, "diagram/mermaid/tables/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.er\\.mmd");
+        String graphvizName = entryName(entries, "diagram/graphviz/tables/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.er\\.dot");
         assertTrue(new String(entries.get(mermaidName), StandardCharsets.UTF_8).contains("erDiagram"));
         assertTrue(new String(entries.get(graphvizName), StandardCharsets.UTF_8).contains("digraph"));
         String conceptualMermaidName = entryName(entries,
-                "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.conceptual-erd\\.mermaid\\.mmd");
+                "diagram/mermaid/tables/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.conceptual-erd\\.mmd");
         String conceptualGraphvizName = entryName(entries,
-                "ea-sample_\\d{8}_\\d{6}_\\d{3}\\.conceptual-erd\\.graphviz\\.dot");
+                "diagram/graphviz/tables/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.conceptual-erd\\.dot");
         String conceptualMermaid = new String(entries.get(conceptualMermaidName), StandardCharsets.UTF_8);
         String conceptualGraphviz = new String(entries.get(conceptualGraphvizName), StandardCharsets.UTF_8);
         assertTrue(conceptualMermaid.startsWith("erDiagram"), conceptualMermaid);
@@ -87,30 +87,30 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(conceptualGraphviz.startsWith("digraph SchemaForge_Conceptual_ERD"), conceptualGraphviz);
         assertFalse(conceptualGraphviz.contains("REGULATORY_RULE_ID"), conceptualGraphviz);
         String timestamp = timestampFrom(entryName(entries,
-                "oracle/FEE\\.FEE_VERSION_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
-        assertTrue(entries.containsKey("oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.sql"));
-        assertTrue(entries.containsKey("oracle/FEE.FEE_VERSION_" + timestamp + ".oracle.sql"));
-        assertTrue(entries.containsKey("postgresql/fee.regulatory_rule_" + timestamp + ".postgresql.sql"));
-        assertTrue(entries.containsKey("postgresql/fee.fee_version_" + timestamp + ".postgresql.sql"));
-        assertTrue(entries.containsKey("db2zos/FEE.REGULATORY_RULE_" + timestamp + ".db2zos.sql"));
-        assertTrue(entries.containsKey("db2zos/FEE.FEE_VERSION_" + timestamp + ".db2zos.sql"));
-        assertTrue(entries.containsKey("sqlserver/FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
-        assertTrue(entries.containsKey("sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
-        assertTrue(entries.containsKey("mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
-        assertTrue(entries.containsKey("mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.sql"));
+                "ddl/oracle/FEE\\.FEE_VERSION_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
+        assertTrue(entries.containsKey("ddl/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.sql"));
+        assertTrue(entries.containsKey("ddl/oracle/FEE.FEE_VERSION_" + timestamp + ".oracle.sql"));
+        assertTrue(entries.containsKey("ddl/postgresql/fee.regulatory_rule_" + timestamp + ".postgresql.sql"));
+        assertTrue(entries.containsKey("ddl/postgresql/fee.fee_version_" + timestamp + ".postgresql.sql"));
+        assertTrue(entries.containsKey("ddl/db2zos/FEE.REGULATORY_RULE_" + timestamp + ".db2zos.sql"));
+        assertTrue(entries.containsKey("ddl/db2zos/FEE.FEE_VERSION_" + timestamp + ".db2zos.sql"));
+        assertTrue(entries.containsKey("ddl/sqlserver/FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
+        assertTrue(entries.containsKey("ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
+        assertTrue(entries.containsKey("ddl/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
+        assertTrue(entries.containsKey("ddl/mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.sql"));
 
-        String oracleRunAllName = "oracle/ea-sample_" + timestamp + ".oracle.run-all.sql";
-        String postgresqlRunAllName = "postgresql/ea-sample_" + timestamp + ".postgresql.run-all.sql";
-        String db2ZosRunAllName = "db2zos/ea-sample_" + timestamp + ".db2zos.run-all.sql";
-        String sqlServerRunAllName = "sqlserver/ea-sample_" + timestamp + ".sqlserver.run-all.sql";
-        String mysqlRunAllName = "mysql/ea-sample_" + timestamp + ".mysql.run-all.sql";
+        String oracleRunAllName = "scripts/oracle/ea-sample_" + timestamp + ".oracle.run-all.sql";
+        String postgresqlRunAllName = "scripts/postgresql/ea-sample_" + timestamp + ".postgresql.run-all.sql";
+        String db2ZosRunAllName = "scripts/db2zos/ea-sample_" + timestamp + ".db2zos.run-all.sql";
+        String sqlServerRunAllName = "scripts/sqlserver/ea-sample_" + timestamp + ".sqlserver.run-all.sql";
+        String mysqlRunAllName = "scripts/mysql/ea-sample_" + timestamp + ".mysql.run-all.sql";
         assertTrue(entries.containsKey(oracleRunAllName));
         assertTrue(entries.containsKey(postgresqlRunAllName));
         assertTrue(entries.containsKey(db2ZosRunAllName));
         assertTrue(entries.containsKey(sqlServerRunAllName));
         assertTrue(entries.containsKey(mysqlRunAllName));
-        assertFalse(entries.containsKey("oracle/FEE.REGULATORY_RULE.oracle.sql"));
-        assertFalse(entries.containsKey("oracle/run_all.sql"));
+        assertFalse(entries.containsKey("ddl/oracle/FEE.REGULATORY_RULE.oracle.sql"));
+        assertFalse(entries.containsKey("scripts/oracle/run_all.sql"));
 
         String oracleRunAll = new String(entries.get(oracleRunAllName), StandardCharsets.UTF_8);
         assertTrue(oracleRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".oracle.sql")
@@ -120,7 +120,7 @@ class SchemaForgeEaPerTableOutputTest {
                 < db2ZosRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".db2zos.sql"));
         String sqlServerRunAll = new String(entries.get(sqlServerRunAllName), StandardCharsets.UTF_8);
         assertTrue(sqlServerRunAll.contains(
-                ":r FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
+                ":r ../../ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
         assertTrue(sqlServerRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql")
                 < sqlServerRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
         String mysqlRunAll = new String(entries.get(mysqlRunAllName), StandardCharsets.UTF_8);
@@ -177,18 +177,19 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
         assertEquals(42, entries.size());
-        assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE.oracle.xlsx"));
-        assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION.oracle.xlsx"));
-        assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule.postgresql.xlsx"));
-        assertTrue(entries.containsKey("comparison/postgresql/fee.fee_version.postgresql.xlsx"));
-        assertTrue(entries.containsKey("comparison/db2zos/FEE.REGULATORY_RULE.db2zos.xlsx"));
-        assertTrue(entries.containsKey("comparison/db2zos/FEE.FEE_VERSION.db2zos.xlsx"));
-        assertTrue(entries.containsKey("comparison/sqlserver/FEE.REGULATORY_RULE.sqlserver.xlsx"));
-        assertTrue(entries.containsKey("comparison/sqlserver/FEE.FEE_VERSION.sqlserver.xlsx"));
-        assertTrue(entries.containsKey("comparison/mysql/FEE.REGULATORY_RULE.mysql.xlsx"));
-        assertTrue(entries.containsKey("comparison/mysql/FEE.FEE_VERSION.mysql.xlsx"));
+        String timestamp = timestampFrom(entryName(entries, "ddl/oracle/FEE\\.REGULATORY_RULE_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
+        assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION_" + timestamp + ".oracle.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/postgresql/fee.regulatory_rule_" + timestamp + ".postgresql.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/postgresql/fee.fee_version_" + timestamp + ".postgresql.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/db2zos/FEE.REGULATORY_RULE_" + timestamp + ".db2zos.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/db2zos/FEE.FEE_VERSION_" + timestamp + ".db2zos.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/sqlserver/FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.compare.xlsx"));
         for (DatabasePlatform platform : DatabasePlatform.values()) {
-            String prefix = platform.commandLineName() + "/migrations/";
+            String prefix = "migration/" + platform.commandLineName() + "/";
             assertTrue(entries.keySet().stream().anyMatch(name ->
                     name.startsWith(prefix) && name.endsWith("__FEE_REGULATORY_RULE_ALTER.sql")));
             assertTrue(entries.keySet().stream().anyMatch(name ->
@@ -240,10 +241,10 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
         assertTrue(entries.keySet().stream().anyMatch(name ->
-                name.startsWith("oracle/crud/FEE.REGULATORY_RULE_")
+                name.startsWith("crud/oracle/FEE.REGULATORY_RULE_")
                         && name.endsWith(".oracle.crud-package.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name ->
-                name.startsWith("sqlserver/crud/FEE.REGULATORY_RULE_")
+                name.startsWith("crud/sqlserver/FEE.REGULATORY_RULE_")
                         && name.endsWith(".sqlserver.crud-procedures.sql")));
         assertFalse(entries.keySet().stream().anyMatch(name ->
                 !name.contains("/") && (name.endsWith(".oracle.crud-package.sql")
@@ -252,8 +253,8 @@ class SchemaForgeEaPerTableOutputTest {
                 .filter(name -> name.endsWith(".metadata-crud-summary.csv"))
                 .findFirst().orElseThrow();
         String summary = new String(entries.get(summaryName), StandardCharsets.UTF_8);
-        assertTrue(summary.contains("oracle/crud/"));
-        assertTrue(summary.contains("sqlserver/crud/"));
+        assertTrue(summary.contains("crud/oracle/"));
+        assertTrue(summary.contains("crud/sqlserver/"));
     }
 
     @Test
@@ -278,13 +279,13 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.startsWith("oracle/FEE.REGULATORY_RULE_")
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.startsWith("ddl/oracle/FEE.REGULATORY_RULE_")
                 && name.endsWith(".oracle.sql")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".graphviz.dot")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mermaid.mmd")));
-        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.graphviz.dot")));
-        assertFalse(entries.keySet().stream().anyMatch(name -> name.contains("/crud/")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mmd")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.dot")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("crud/")));
 
         String summaryName = entries.keySet().stream()
                 .filter(name -> name.endsWith(".metadata-crud-summary.csv"))
@@ -318,12 +319,12 @@ class SchemaForgeEaPerTableOutputTest {
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file, "API_SCHEMA"));
 
         String timestamp = timestampFrom(entryName(entries,
-                "oracle/API_SCHEMA\\.REGULATORY_RULE_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
+                "ddl/oracle/API_SCHEMA\\.REGULATORY_RULE_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
         String oracleRegulatoryRule =
-                "oracle/API_SCHEMA.REGULATORY_RULE_" + timestamp + ".oracle.sql";
+                "ddl/oracle/API_SCHEMA.REGULATORY_RULE_" + timestamp + ".oracle.sql";
         assertTrue(entries.containsKey(oracleRegulatoryRule));
         assertTrue(entries.containsKey(
-                "oracle/API_SCHEMA.FEE_VERSION_" + timestamp + ".oracle.sql"));
+                "ddl/oracle/API_SCHEMA.FEE_VERSION_" + timestamp + ".oracle.sql"));
         String oracleSql = new String(entries.get(oracleRegulatoryRule), StandardCharsets.UTF_8);
         assertTrue(oracleSql.contains(
                 "CREATE SEQUENCE API_SCHEMA.SEQ_REGULATORY_RULE START WITH 1 INCREMENT BY 1"));
@@ -333,13 +334,14 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(oracleSql.contains(
                 "REGULATORY_RULE_ID NUMBER(3,0) DEFAULT API_SCHEMA.SEQ_REGULATORY_RULE.NEXTVAL NOT NULL"));
         String sqlServerSql = new String(
-                entries.get("sqlserver/API_SCHEMA.REGULATORY_RULE_"
+                entries.get("ddl/sqlserver/API_SCHEMA.REGULATORY_RULE_"
                         + timestamp + ".sqlserver.sql"),
                 StandardCharsets.UTF_8);
         assertTrue(sqlServerSql.contains(
                 "REGULATORY_RULE_ID DECIMAL(3,0) IDENTITY(1,1) NOT NULL"));
 
-        JsonNode model = objectMapper.readTree(entries.get("model.json"));
+        JsonNode model = objectMapper.readTree(entries.get(entryName(entries,
+                "model/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.schema\\.json")));
         assertEquals("API_SCHEMA", model.path("schema").path("name").asText());
         boolean identityFound = false;
         for (JsonNode table : model.path("schema").path("tables")) {

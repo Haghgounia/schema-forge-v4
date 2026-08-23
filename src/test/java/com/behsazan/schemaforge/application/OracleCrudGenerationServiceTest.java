@@ -1,5 +1,7 @@
 package com.behsazan.schemaforge.application;
 
+import com.behsazan.schemaforge.artifact.ArtifactStatus;
+import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
@@ -51,6 +53,10 @@ class OracleCrudGenerationServiceTest {
 
         assertEquals("BIM.PROVINCES_20260802_101112_345.oracle.crud-package.sql", result.fileName());
         assertTrue(result.sql().contains("CREATE OR REPLACE PACKAGE BIM.PKG_PROVINCES"));
+        assertEquals(ArtifactType.CRUD, result.artifact().type());
+        assertEquals(DatabasePlatform.ORACLE, result.artifact().platform());
+        assertEquals(ArtifactStatus.GENERATED, result.artifact().status());
+        assertEquals(result.fileName(), result.artifact().relativePath());
     }
 
     @Test

@@ -1,3 +1,20 @@
+## 2026-08-23 - C5.3 Artifact Naming/Layout implementation candidate
+
+- Centralized non-Flyway artifact names and package-relative paths in `ArtifactNamingPolicy`.
+- Standardized Word, Legacy Word, ZIP Batch, EA, and offline generation on the artifact-first layout (`ddl`, `migration`, `crud`, `model`, `comparison`, `diagram`, `scripts`, `reports`).
+- Added one shared generation timestamp per top-level request and deterministic final-path collision handling.
+- Preserved SQL generation semantics, Flyway filename grammar, CRUD semantic suffixes, REST endpoints, and standalone Mermaid selector filenames.
+- Added naming/layout/collision regression coverage; full Maven regression remains pending user verification before C5 promotion.
+
+## 2026-08-22 - Artifact Contract V1 C4.3 official freeze
+
+- Completed C4.3 production-path mapping to Artifact Contract V1 for Word, Legacy Word, ZIP Batch, EA, Oracle CRUD, SQL Server CRUD, and canonical-JSON Mermaid paths.
+- User-verified targeted regression: 23 tests, 0 failures, 0 errors, 0 skips; `BUILD SUCCESS`.
+- User-verified full clean regression: 482 tests, 0 failures, 0 errors, 4 environment-gated skips; `BUILD SUCCESS`, finished 2026-08-22T22:53:13-07:00.
+- Frozen source fingerprint: `2d75fbbc67e0d1006282d3485bbb25055da120265dd05655324f6c79e8129423`; source inventory 251 main Java / 170 test Java.
+- Artifact Contract V1 is complete; C5 Artifact Naming and Layout Consolidation is the next controlled stage.
+- Freeze update after the verified run is documentation-only.
+
 ## 2026-08-22 - V4 consolidation C1 official baseline freeze
 
 - Promoted `SCHEMAFORGE-V4-CONSOLIDATION-CANDIDATE-20260822-C1` to official frozen baseline `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C1`.

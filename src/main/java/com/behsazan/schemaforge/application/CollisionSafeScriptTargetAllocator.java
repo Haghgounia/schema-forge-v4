@@ -1,28 +1,25 @@
 package com.behsazan.schemaforge.application;
 
-import java.nio.charset.StandardCharsets;
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
+import com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocator;
+
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 
 /**
- * Allocates unique SQL output targets within one generation run without changing normal file names.
+ * Backward-compatible DDL target adapter over the central C5 artifact naming/collision policy.
  *
- * <p>The first request keeps the standard {@link OutputFileNamer} result. If another source resolves
- * to the same path, a deterministic {@code __sf_<hash>} suffix is added to the logical name. This
- * preserves the one-source-document/one-SQL-file contract even when legacy source names differ only
- * by whitespace that the normal naming policy trims.</p>
+ * <p>The first request keeps the standard DDL filename. A collision is resolved by the same
+ * deterministic {@code __sf_<hash>} convention used by packaged artifacts.</p>
  */
 public final class CollisionSafeScriptTargetAllocator {
-    private final OutputFileNamer outputFileNamer;
-    private final Set<Path> reservedTargets = new LinkedHashSet<>();
+    private final ArtifactNamingPolicy artifactNamingPolicy;
+    private final CollisionSafeArtifactTargetAllocator targetAllocator =
+            new CollisionSafeArtifactTargetAllocator();
 
     public CollisionSafeScriptTargetAllocator(OutputFileNamer outputFileNamer) {
-        this.outputFileNamer = Objects.requireNonNull(outputFileNamer, "outputFileNamer must not be null");
+        this.artifactNamingPolicy = new ArtifactNamingPolicy(
+                Objects.requireNonNull(outputFileNamer, "outputFileNamer must not be null"));
     }
 
     /** Reserves a unique DDL target for one logical source identity. */
@@ -39,52 +36,16 @@ public final class CollisionSafeScriptTargetAllocator {
         Objects.requireNonNull(timestamp, "timestamp must not be null");
         Objects.requireNonNull(sourceIdentity, "sourceIdentity must not be null");
 
-        String requestedFileName = outputFileNamer.scriptFileName(
-                logicalName, platform, OutputFileNamer.ScriptKind.DDL, timestamp);
-        Path requested = targetDirectory.resolve(requestedFileName);
-        if (reserve(requested)) {
-            return new Allocation(requested, requested, false);
-        }
-
-        String normalizedLogicalName = logicalName.strip();
-        if (normalizedLogicalName.isEmpty()) {
-            normalizedLogicalName = "schemaforge";
-        }
-        String suffix = stableSuffix(sourceIdentity);
-        int attempt = 0;
-        while (true) {
-            String disambiguatedLogicalName = normalizedLogicalName + "__sf_" + suffix
-                    + (attempt == 0 ? "" : "_" + attempt);
-            String resolvedFileName = outputFileNamer.scriptFileName(
-                    disambiguatedLogicalName, platform, OutputFileNamer.ScriptKind.DDL, timestamp);
-            Path resolved = targetDirectory.resolve(resolvedFileName);
-            if (reserve(resolved)) {
-                return new Allocation(requested, resolved, true);
-            }
-            attempt++;
-        }
+        String fileName = artifactNamingPolicy.ddlFileName(logicalName, platform, timestamp);
+        Path requestedRelative = Path.of(fileName);
+        Path resolvedRelative = targetAllocator.reserve(requestedRelative, sourceIdentity);
+        Path requested = targetDirectory.resolve(requestedRelative);
+        Path resolved = targetDirectory.resolve(resolvedRelative);
+        return new Allocation(requested, resolved, !requestedRelative.equals(resolvedRelative));
     }
 
     public int reservationCount() {
-        return reservedTargets.size();
-    }
-
-    private boolean reserve(Path target) {
-        return reservedTargets.add(target.toAbsolutePath().normalize());
-    }
-
-    private static String stableSuffix(String identity) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(identity.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder(10);
-            for (int i = 0; i < 5; i++) {
-                hex.append(String.format(Locale.ROOT, "%02x", digest[i]));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is not available", impossible);
-        }
+        return targetAllocator.reservationCount();
     }
 
     /** Requested standard path and the actual unique path reserved for the source. */
