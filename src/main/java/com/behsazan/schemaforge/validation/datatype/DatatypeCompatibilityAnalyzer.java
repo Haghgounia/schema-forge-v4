@@ -38,8 +38,9 @@ public final class DatatypeCompatibilityAnalyzer {
             "CHAR", "NCHAR", "CHARACTER");
     private static final Set<String> MYSQL_BINARY = Set.of("RAW", "VARBINARY");
     private static final Set<String> MYSQL_TEMPORAL = Set.of("TIMESTAMP", "DATETIME", "TIME");
-    private static final Set<String> MYSQL_TIMEZONE_TEMPORAL = Set.of(
-            "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
+    private static final Set<String> MYSQL_TIMESTAMP_WITH_TIME_ZONE = Set.of(
+            "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE");
+    private static final Set<String> MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE = Set.of(
             "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE");
     private static final Set<String> MYSQL_UNSUPPORTED_ROWID = Set.of("ROWID", "UROWID");
     private static final Set<String> MYSQL_SUPPORTED_SIMPLE = Set.of(
@@ -200,10 +201,19 @@ public final class DatatypeCompatibilityAnalyzer {
                             + "; no target precision is invented or clamped.");
             return;
         }
-        if (MYSQL_TIMEZONE_TEMPORAL.contains(sourceName)) {
-            error(issues, "MYSQL_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
+        if (MYSQL_TIMESTAMP_WITH_TIME_ZONE.contains(sourceName)) {
+            warning(issues, "MYSQL_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION", path,
                     "Canonical " + sourceName
-                            + " has timezone semantics for which the current MySQL logical dialect has no lossless mapping.");
+                            + " has no lossless native MySQL temporal mapping; generated MySQL DDL uses "
+                            + "the explicit MYSQL-TSTZ-TEXT-001 VARCHAR(128) portability envelope. "
+                            + "Migration/application values must preserve an explicit offset or region.");
+            return;
+        }
+        if (MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE.contains(sourceName)) {
+            error(issues, "MYSQL_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
+                    "Canonical " + sourceName
+                            + " has session-local timezone semantics for which the current MySQL logical dialect "
+                            + "has no safe portability adaptation.");
             return;
         }
         if (MYSQL_UNSUPPORTED_ROWID.contains(sourceName)) {

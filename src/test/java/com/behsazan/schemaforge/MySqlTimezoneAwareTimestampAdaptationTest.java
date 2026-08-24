@@ -31,6 +31,8 @@ class MySqlTimezoneAwareTimestampAdaptationTest {
 
         assertTrue(sql.contains("`GRANTED_AT` VARCHAR(128) NOT NULL"));
         assertTrue(sql.contains("[MYSQL-TSTZ-TEXT-001]"));
+        assertTrue(sql.contains("[WARNING] MYSQL_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION"));
+        assertTrue(!sql.contains("[ERROR] MYSQL_TIMEZONE_TIMESTAMP_UNSUPPORTED"));
         assertTrue(sql.contains("canonical datatype remains timezone-aware"));
     }
 

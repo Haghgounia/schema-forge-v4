@@ -38,6 +38,36 @@ class MySqlDatatypeCompatibilityAnalyzerTest {
     }
 
     @Test
+    void reportsTimestampWithTimeZoneAsNonBlockingTextAdaptation() {
+        Table table = Table.builder("TSTSHMA", "EVENTS")
+                .addColumn(Column.required("OCCURRED_AT", DataType.simple("TIMESTAMP_WITH_TIME_ZONE")))
+                .build();
+
+        DatatypeCompatibilityAssessment result = analyzer.analyze(
+                DatabaseSchema.builder("TSTSHMA").addTable(table).build(), new MySqlDialect());
+
+        assertTrue(!result.blocking());
+        assertEquals(1, result.issues().size());
+        assertEquals("WARNING", result.issues().get(0).severity());
+        assertEquals("MYSQL_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION", result.issues().get(0).code());
+    }
+
+    @Test
+    void keepsTimestampWithLocalTimeZoneBlocking() {
+        Table table = Table.builder("TSTSHMA", "EVENTS")
+                .addColumn(Column.required("LOCAL_OCCURRED_AT", DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")))
+                .build();
+
+        DatatypeCompatibilityAssessment result = analyzer.analyze(
+                DatabaseSchema.builder("TSTSHMA").addTable(table).build(), new MySqlDialect());
+
+        assertTrue(result.blocking());
+        assertEquals(1, result.issues().size());
+        assertEquals("ERROR", result.issues().get(0).severity());
+        assertEquals("MYSQL_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED", result.issues().get(0).code());
+    }
+
+    @Test
     void acceptsCoveredMySqlFoundationTypes() {
         Table table = Table.builder("TSTSHMA", "COVERED_TYPES")
                 .addColumn(Column.required("ID", DataType.numeric("NUMBER", 18, 0)))
