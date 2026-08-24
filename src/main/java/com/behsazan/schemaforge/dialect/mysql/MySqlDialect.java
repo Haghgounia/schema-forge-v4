@@ -37,6 +37,7 @@ public final class MySqlDialect implements Dialect {
     private static final int MYSQL_MEDIUMTEXT_MAX_BYTES = 16_777_215;
     private static final int OFF_ROW_POINTER_BUDGET_BYTES = 12;
     private static final int VARCHAR_LENGTH_PREFIX_BYTES = 2;
+    private static final int MYSQL_TSTZ_TEXT_LENGTH = 128;
     private static final int MAX_UTF8MB4_VARCHAR_CHARACTERS =
             (MYSQL_MAX_LOGICAL_ROW_BYTES - VARCHAR_LENGTH_PREFIX_BYTES) / UTF8MB4_MAX_BYTES_PER_CHARACTER;
 
@@ -65,7 +66,9 @@ public final class MySqlDialect implements Dialect {
     @Override
     public String sqlType(Column column) {
         Objects.requireNonNull(column, "column must not be null");
-        String mapped = typeMapper.map(column.dataType());
+        String mapped = isTimestampWithTimeZone(column.dataType())
+                ? "VARCHAR(" + MYSQL_TSTZ_TEXT_LENGTH + ")"
+                : typeMapper.map(column.dataType());
         if (!column.identity()) {
             return mapped;
         }
@@ -109,15 +112,26 @@ public final class MySqlDialect implements Dialect {
     public String inlineColumnConstraintClause(Table table, Column column) {
         Objects.requireNonNull(table, "table must not be null");
         Objects.requireNonNull(column, "column must not be null");
-        if (!textStoragePromotions(table).contains(column.name().normalized())) {
-            return "";
+        StringBuilder clause = new StringBuilder();
+        if (textStoragePromotions(table).contains(column.name().normalized())) {
+            int logicalLength = Objects.requireNonNull(column.dataType().length());
+            String source = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
+            String target = promotedTextType(column);
+            clause.append(" CHECK (CHAR_LENGTH(").append(quote(column.name())).append(") <= ")
+                    .append(logicalLength).append(")")
+                    .append(" /* SchemaForge MySQL storage adaptation: ").append(source)
+                    .append("(").append(logicalLength).append(") -> ").append(target)
+                    .append("; logical max length preserved */");
         }
-        int logicalLength = Objects.requireNonNull(column.dataType().length());
-        String source = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
-        String target = promotedTextType(column);
-        return " CHECK (CHAR_LENGTH(" + quote(column.name()) + ") <= " + logicalLength + ")"
-                + " /* SchemaForge MySQL storage adaptation: " + source + "(" + logicalLength
-                + ") -> " + target + "; logical max length preserved */";
+        if (isTimestampWithTimeZone(column.dataType())) {
+            clause.append(" /* SchemaForge MySQL portability adaptation [MYSQL-TSTZ-TEXT-001]: ")
+                    .append("TIMESTAMP WITH TIME ZONE -> VARCHAR(").append(MYSQL_TSTZ_TEXT_LENGTH)
+                    .append("); MySQL TIMESTAMP normalizes through the session time zone and does not ")
+                    .append("preserve the source zone/offset. Serialize migrated/application values with ")
+                    .append("an explicit offset or region (for example ISO-8601); temporal ordering/functions ")
+                    .append("require explicit conversion; canonical datatype remains timezone-aware */");
+        }
+        return clause.toString();
     }
 
     @Override
@@ -559,6 +573,12 @@ public final class MySqlDialect implements Dialect {
                 .replace("`", "")
                 .replace("\"", "")
                 .replaceAll("\\s+", "");
+    }
+
+    private boolean isTimestampWithTimeZone(DataType type) {
+        String source = type.name().normalized().toUpperCase(Locale.ROOT);
+        return source.equals("TIMESTAMP WITH TIME ZONE")
+                || source.equals("TIMESTAMP_WITH_TIME_ZONE");
     }
 
     private String escapeLiteral(String value) {

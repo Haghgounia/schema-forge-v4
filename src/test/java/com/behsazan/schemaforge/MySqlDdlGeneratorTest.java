@@ -223,7 +223,7 @@ class MySqlDdlGeneratorTest {
     }
 
     @Test
-    void shouldRejectAutoIncrementWithoutLeftmostIndexEvidence() {
+    void shouldCreateSupportingIndexWhenAutoIncrementLacksLeftmostIndexEvidence() {
         Column id = new Column(Identifier.of("ID"), DataType.simple("BIGINT"),
                 false, null, Description.empty(), true, 1);
         Column code = new Column(Identifier.of("CODE"), DataType.varchar("VARCHAR2", 20),
@@ -234,9 +234,13 @@ class MySqlDdlGeneratorTest {
                 .primaryKey(new PrimaryKey(Identifier.of("PK_T"), List.of(Identifier.of("CODE"))))
                 .build();
 
-        assertThrows(IllegalArgumentException.class,
-                () -> new DdlGenerator(new MySqlDialect()).generate(
-                        DatabaseSchema.builder("APP").addTable(table).build()));
+        String sql = new DdlGenerator(new MySqlDialect()).generate(
+                DatabaseSchema.builder("APP").addTable(table).build());
+
+        assertTrue(sql.contains("`ID` BIGINT AUTO_INCREMENT NOT NULL"));
+        assertTrue(sql.contains("CONSTRAINT `PK_T` PRIMARY KEY (`CODE`)"));
+        assertTrue(sql.contains("KEY `SF_AI_ID` (`ID`)"));
+        assertTrue(sql.contains("[MYSQL-AUTO-INDEX-001]"));
     }
     @Test
     void shouldPromoteOversizedUtf8mb4VarcharToMediumTextAndPreserveLogicalLength() {
