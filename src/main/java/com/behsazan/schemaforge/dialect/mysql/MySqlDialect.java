@@ -150,14 +150,29 @@ public final class MySqlDialect implements Dialect {
         if (identities.isEmpty()) {
             return;
         }
-        Column identity = identities.get(0);
-        // Forces the lossless type check before any SQL is rendered.
-        sqlType(identity);
-        if (!isLeftmostIndexed(table, identity.name())) {
-            throw new IllegalArgumentException(
-                    "MySQL AUTO_INCREMENT column must be the first or only column of an index: "
-                            + table.qualifiedName() + "." + identity.name().value());
+        // Forces the lossless type check before any SQL is rendered. CREATE-time index
+        // compatibility is handled by supplementalCreateTableDefinitions().
+        sqlType(identities.get(0));
+    }
+
+    @Override
+    public List<String> supplementalCreateTableDefinitions(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        List<Column> identities = table.columns().stream().filter(Column::identity).toList();
+        if (identities.size() != 1) {
+            return List.of();
         }
+        Column identity = identities.get(0);
+        if (isLeftmostPrimaryKey(table, identity.name())) {
+            return List.of();
+        }
+        String indexName = autoIncrementSupportIndexName(table, identity.name());
+        return List.of(
+                "  KEY " + quote(Identifier.of(indexName)) + " (" + quote(identity.name()) + ")"
+                        + " /* SchemaForge MySQL portability adaptation [MYSQL-AUTO-INDEX-001]: "
+                        + "supporting non-unique index required because AUTO_INCREMENT must be "
+                        + "the leading column of an index at CREATE TABLE time; canonical key "
+                        + "semantics unchanged */");
     }
 
     @Override
@@ -488,28 +503,44 @@ public final class MySqlDialect implements Dialect {
                 .orElse(null);
     }
 
-    private boolean isLeftmostIndexed(Table table, Identifier column) {
-        if (table.primaryKey().isPresent()
-                && first(table.primaryKey().get().columns(), column)) {
-            return true;
-        }
-        if (table.uniqueKeys().stream().anyMatch(key -> first(key.columns(), column))) {
-            return true;
-        }
-        for (Index index : table.indexes()) {
-            if (index.columns().isEmpty()) {
-                continue;
-            }
-            IndexColumn first = index.columns().get(0);
-            if (!first.expressionBased() && first.column().normalized().equals(column.normalized())) {
-                return true;
-            }
-        }
-        return false;
+    private boolean isLeftmostPrimaryKey(Table table, Identifier column) {
+        return table.primaryKey().isPresent()
+                && first(table.primaryKey().get().columns(), column);
     }
 
     private boolean first(List<Identifier> columns, Identifier expected) {
         return !columns.isEmpty() && columns.get(0).normalized().equals(expected.normalized());
+    }
+
+    private String autoIncrementSupportIndexName(Table table, Identifier column) {
+        Set<String> occupied = new HashSet<>();
+        table.primaryKey().map(key -> key.name()).ifPresent(name -> occupied.add(name.normalized()));
+        table.uniqueKeys().stream()
+                .map(key -> key.name())
+                .filter(Objects::nonNull)
+                .map(Identifier::normalized)
+                .forEach(occupied::add);
+        table.indexes().stream()
+                .map(Index::name)
+                .filter(Objects::nonNull)
+                .map(Identifier::normalized)
+                .forEach(occupied::add);
+
+        String base = "SF_AI_" + column.normalized();
+        String candidate = truncateMySqlIdentifier(base, "");
+        int suffix = 2;
+        while (occupied.contains(candidate.toUpperCase(Locale.ROOT))) {
+            String suffixText = "_" + suffix++;
+            candidate = truncateMySqlIdentifier(base, suffixText);
+        }
+        return candidate;
+    }
+
+    private String truncateMySqlIdentifier(String base, String suffix) {
+        int maximum = 64;
+        int prefixLength = Math.max(1, maximum - suffix.length());
+        String prefix = base.length() <= prefixLength ? base : base.substring(0, prefixLength);
+        return prefix + suffix;
     }
 
     private boolean referencesSequence(String expression, Sequence sequence) {

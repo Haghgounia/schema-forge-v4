@@ -302,13 +302,6 @@ public final class EnterpriseArchitectXmlParser {
                 targetOperation = sanitizeIdentifier(matcher.group(2), "");
             }
 
-            // Some XMI 1.1 exporters do not emit EA's styleex/FKINFO metadata.
-            // They expose the FK constraint name directly on the association instead.
-            if (sourceOperation.isBlank()) {
-                sourceOperation = sanitizeIdentifier(firstNonBlank(
-                        tag(tags, "constraint"), attribute(association, "name")), "");
-            }
-
             String sourceId = "";
             String targetId = "";
             for (Element end : directDescendants(association, "AssociationEnd")) {
@@ -333,6 +326,16 @@ public final class EnterpriseArchitectXmlParser {
                         targetOperation = sanitizeIdentifier(attribute(end, "name"), "");
                     }
                 }
+            }
+
+            // Portable XMI can omit EA's styleex/FKINFO and expose the FK name
+            // directly on the association. Apply this fallback only after the
+            // native ea_end=source path had a chance to recover the operation
+            // name from the source AssociationEnd; otherwise legacy EA exports
+            // can be shadowed by generic association metadata.
+            if (sourceOperation.isBlank()) {
+                sourceOperation = sanitizeIdentifier(firstNonBlank(
+                        tag(tags, "constraint"), attribute(association, "name")), "");
             }
 
             List<ColumnPair> pairs = new ArrayList<>();
@@ -399,7 +402,8 @@ public final class EnterpriseArchitectXmlParser {
                 .description(eaTable.description());
         for (EaColumn column : eaTable.columns()) {
             boolean inferredIdentity = primaryKeyAsIdentity
-                    && primaryKeyColumns.contains(column.name().toUpperCase(Locale.ROOT));
+                    && primaryKeyColumns.contains(column.name().toUpperCase(Locale.ROOT))
+                    && identityInferenceCompatible(column.dataType());
             builder.addColumn(new Column(
                     Identifier.of(column.name()),
                     column.dataType(),
@@ -901,6 +905,16 @@ public final class EnterpriseArchitectXmlParser {
             normalized = normalized.substring(0, normalized.length() - 1).trim();
         }
         return normalized;
+    }
+
+    private static boolean identityInferenceCompatible(DataType dataType) {
+        String type = dataType.name().normalized().toUpperCase(Locale.ROOT);
+        return switch (type) {
+            case "INTEGER", "INT", "SMALLINT", "BIGINT", "TINYINT" -> true;
+            case "NUMBER", "NUMERIC", "DECIMAL", "DEC" ->
+                    dataType.scale() != null && dataType.scale() == 0;
+            default -> false;
+        };
     }
 
     private static String emptyToNull(String value) {

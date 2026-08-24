@@ -336,24 +336,36 @@ public final class DdlGenerator {
             SqlIssueCatalog issueCatalog,
             MetadataComparisonResult metadata) {
         dialect.validateTable(table);
+        List<String> supplementalDefinitions = dialect.supplementalCreateTableDefinitions(table);
         List<Column> columns = new ArrayList<>(table.columns());
         columns.sort(Comparator.comparing(Column::ordinalPosition, Comparator.nullsLast(Comparator.naturalOrder())));
 
         List<String> definitions = new ArrayList<>();
         boolean hasPrimaryKey = table.primaryKey().isPresent();
+        boolean hasSupplementalDefinitions = !supplementalDefinitions.isEmpty();
         for (int index = 0; index < columns.size(); index++) {
             Column column = columns.get(index);
             String path = MetadataComparisonValidator.path(table, column);
             String definition = columnDefinition(
                     schemaContext, table, column, metadata.frequency(path), metadata.metadataAvailable());
-            if (index < columns.size() - 1 || hasPrimaryKey) {
+            if (index < columns.size() - 1 || hasPrimaryKey || hasSupplementalDefinitions) {
                 definition += ",";
             }
             definition += inlineIssueRenderer.render(
                     issueCatalog.forColumn(table, column.name().value()));
             definitions.add(definition);
         }
-        table.primaryKey().map(primaryKey -> primaryKeyDefinition(table, primaryKey)).ifPresent(definitions::add);
+        table.primaryKey().map(primaryKey -> {
+            String definition = primaryKeyDefinition(table, primaryKey);
+            return hasSupplementalDefinitions ? definition + "," : definition;
+        }).ifPresent(definitions::add);
+        for (int index = 0; index < supplementalDefinitions.size(); index++) {
+            String definition = supplementalDefinitions.get(index);
+            if (index < supplementalDefinitions.size() - 1) {
+                definition += ",";
+            }
+            definitions.add(definition);
+        }
 
         StringBuilder sql = new StringBuilder();
         if (!table.persianName().isEmpty()) {

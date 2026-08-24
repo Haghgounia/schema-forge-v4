@@ -264,4 +264,48 @@ class EnterpriseArchitectXmlParserTest {
         assertFalse(schema.metadata().containsKey("recovery.warningCount"));
     }
 
+    @Test
+    void shouldNotInferIdentityForCharacterPrimaryKeyWhenEnabled() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="REF_STATUS" xmi.id="TABLE_STATUS">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="STATUS_CODE">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="VARCHAR2"/>
+                                <UML:TaggedValue tag="length" value="50"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_REF_STATUS">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype>
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="STATUS_CODE" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("REF", true).parse(
+                "reference.xml", new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var statusCode = schema.findTable("REF_STATUS").orElseThrow()
+                .findColumn("STATUS_CODE").orElseThrow();
+        assertFalse(statusCode.identity());
+        assertEquals("VARCHAR2", statusCode.dataType().name().normalized());
+        assertEquals(50, statusCode.dataType().length());
+    }
+
 }

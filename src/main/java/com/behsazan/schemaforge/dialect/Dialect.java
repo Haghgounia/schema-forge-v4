@@ -9,6 +9,7 @@ import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -82,6 +83,15 @@ public interface Dialect {
      */
     default void validateTable(Table table) {
         Objects.requireNonNull(table, "table must not be null");
+    }
+
+    /**
+     * Additional definitions that must be present inside CREATE TABLE for a target dialect.
+     * These are target-only compatibility definitions and do not mutate the canonical model.
+     */
+    default List<String> supplementalCreateTableDefinitions(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        return List.of();
     }
 
     /**
