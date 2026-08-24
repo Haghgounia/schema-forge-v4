@@ -97,6 +97,8 @@ class ArtifactNamingPolicyTest {
         assertEquals(TS, isolated.generationTimestamp());
         assertEquals(request.generationId(), child.generationId());
         assertEquals(request.generationId(), isolated.generationId());
+        assertEquals(request.generatedAt(), child.generatedAt());
+        assertEquals(request.generatedAt(), isolated.generatedAt());
     }
 
     @Test

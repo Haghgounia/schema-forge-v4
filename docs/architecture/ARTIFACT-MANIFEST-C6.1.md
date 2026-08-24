@@ -1,8 +1,8 @@
 # SchemaForge V4 - C6.1 Standard Artifact Manifest V1 Design
 
-Status: **C6.1 DESIGN COMPLETE / DOCUMENTATION ONLY**
-Production implementation: **NOT STARTED - waits for C5.3-R2 regression gate**
-Current official baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3`
+Status: **C6.1 DESIGN COMPLETE / HISTORICAL DESIGN RECORD**
+Production implementation: **C6.2 DONE / USER-VERIFIED**
+Implementation input baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C5.3-R2`
 
 ## 1. Objective
 
@@ -312,7 +312,7 @@ No parallel legacy EA manifest is retained. Consumers can identify the new contr
 
 ## 12. C6.2 planned implementation components
 
-After the R2 regression gate is green, C6.2 may add a small dedicated package such as:
+C6.2 implements the design with a dedicated package containing:
 
 ```text
 ArtifactManifest
@@ -373,6 +373,4 @@ After targeted tests, the normal full `mvnw.cmd clean test` remains the promotio
 
 ## 16. C6.1 exit decision
 
-C6.1 design is complete. No C6 production source is changed by this design step.
-
-C6.2 implementation is allowed only after the pending C5.3-R2 MySQL repair passes its regression gate.
+C6.1 design is complete and remains a documentation-only historical design record. The R2 gate subsequently passed (`38/38` targeted; `496/0/0/4` full), and C6.2 implementation is now present as a regression-pending candidate. C6.2 subsequently passed targeted `46/46` and full `504 / 0 / 0 / 4` regression and is frozen. The current implementation contract is documented in `ARTIFACT-MANIFEST.md`.

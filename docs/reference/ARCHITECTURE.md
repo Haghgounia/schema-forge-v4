@@ -2,12 +2,13 @@
 
 ## 1. Purpose
 
-SchemaForge converts heterogeneous schema specifications into a DBMS-neutral canonical schema, validates and enriches that schema, and renders database-specific DDL for four supported platforms:
+SchemaForge converts heterogeneous schema specifications into a DBMS-neutral canonical schema, validates and enriches that schema, and renders database-specific DDL for five supported logical-DDL platforms:
 
 - Oracle
 - PostgreSQL
 - Db2 for z/OS
 - Microsoft SQL Server
+- MySQL
 
 The same canonical model also drives JSON snapshots, diagrams, metadata validation, and Excel document-to-database comparison.
 
@@ -109,6 +110,7 @@ All SQL dialects receive the same prepared canonical schema.
 - `PostgreSqlDialect`
 - `Db2ZosDialect`
 - `SqlServerDialect`
+- `MySqlDialect`
 
 The generator must not contain vendor-specific branches that leak one DBMS syntax into another dialect.
 
@@ -147,4 +149,6 @@ At the current baseline:
 - actual database state never becomes design intent;
 - `Index.buildOptions` remains independent from persistent `physicalOptions`;
 - unsupported LOB/partition/recovery semantics are not flattened into generic maps;
+- C8 application-service decomposition is complete;
+- C9 test/live-evidence governance is complete;
 - documentation finalization changes no Java source.

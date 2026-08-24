@@ -1,7 +1,7 @@
 # SchemaForge V4 - Artifact Contract V1 (C4 Complete)
 
 **C4 frozen checkpoint:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C4.3`  
-**Current project baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3`  
+**Current official project baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C6.2`  
 **Stage:** `C4 - Artifact Contract V1 (C4.1 inventory + C4.2 core model + C4.3 production-path mapping)`  
 **Contract version:** `1`  
 **Frozen C4.3 source fingerprint:** `2d75fbbc67e0d1006282d3485bbb25055da120265dd05655324f6c79e8129423`  
@@ -84,7 +84,7 @@ Contract V1 normalizes the C4.1 source inventory into these top-level semantic t
 | `COMPARISON_WORKBOOK` | Logical/physical metadata comparison XLSX |
 | `MERMAID_DIAGRAM` | Normal, conceptual, dependency and batch Mermaid diagrams |
 | `GRAPHVIZ_DIAGRAM` | Normal, conceptual, dependency, clustered, compact and overview DOT diagrams |
-| `MANIFEST` | EA manifest today; shared manifest in later C6 |
+| `MANIFEST` | Standard Manifest V1 self-entry for Word/Legacy/ZIP/EA |
 | `RUN_SCRIPT` | EA platform run-all SQL |
 | `SUMMARY_REPORT` | CRUD summary, batch generation summary, diagram summary |
 | `ERROR_REPORT` | Batch generation error log |

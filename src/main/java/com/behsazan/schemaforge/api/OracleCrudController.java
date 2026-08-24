@@ -7,23 +7,20 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 /**
  * REST adapter for generating an Oracle CRUD package from live database metadata.
  *
  * <p>The controller validates the request envelope, delegates table discovery and SQL
  * generation to {@link OracleCrudGenerationService}, and returns the generated script as
- * a UTF-8 attachment. Domain-validation failures are mapped to HTTP 400, while unavailable
- * metadata infrastructure is mapped to HTTP 503. The controller does not query Oracle or
- * generate SQL directly.</p>
+ * a UTF-8 attachment. HTTP failures are mapped centrally by the C7 REST error contract.
+ * The controller does not query Oracle or generate SQL directly.</p>
  */
 @RestController
 @RequestMapping("/api/v1/generate/oracle")
@@ -56,15 +53,4 @@ public class OracleCrudController {
         return ResponseEntity.ok().headers(headers).body(content);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
-        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("error", exception.getMessage()));
-    }
-
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, String>> unavailable(IllegalStateException exception) {
-        return ResponseEntity.status(503).contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("error", exception.getMessage()));
-    }
 }

@@ -2,17 +2,17 @@
 
 This directory is the authoritative documentation entry point for the current SchemaForge V4 baseline.
 
-Current source baseline: **SchemaForge V4 Consolidated Baseline 2026-08-22 (C5.3)**. The exact C5.3-R1 source is frozen after targeted, repair, and full regression verification. A later C5.3-R2 MySQL compatibility repair is pending Maven regression; it is not yet part of the official baseline.
+Current official source baseline: **SchemaForge V4 Consolidated Checkpoint 2026-08-23 (C8.10)**, verified at `554/0/0/4` with targeted `43/0/0/0` and fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C8 Service Decomposition, C9 Test Matrix / Live-Validation Classification, and C10 Documentation Consolidation are complete. The authoritative test matrix is [`../testing/TEST-MATRIX-C9.md`](../testing/TEST-MATRIX-C9.md). C11 Final Consolidation Regression / Baseline Freeze is now the active source-unchanged verification candidate.
 
 The exact frozen source passed the user-verified clean full regression:
 
 ```text
-Tests run: 492
+Tests run: 554
 Failures: 0
 Errors: 0
 Skipped: 4
 BUILD SUCCESS
-Finished: 2026-08-22T23:33:56-07:00
+Finished: 2026-08-23T06:22:23-07:00
 ```
 
 The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are separate from the standard Surefire freeze result.
@@ -23,18 +23,24 @@ The four skips are configuration-gated directory execution tests. Opt-in live da
 2. [Canonical domain model](CANONICAL-DOMAIN-MODEL.md)
 3. [Inputs, outputs, and processing pipeline](INPUTS-OUTPUTS-PIPELINE.md)
 4. [Database support matrix](DATABASE-SUPPORT-MATRIX.md)
-5. [Physical DDL reference](PHYSICAL-DDL-REFERENCE.md)
-6. [Physical metadata comparison](PHYSICAL-METADATA-COMPARISON.md)
-7. [Excel comparison workbook reference](EXCEL-COMPARISON-REFERENCE.md)
-8. [Evidence and no-guess policy](EVIDENCE-AND-NO-GUESS-POLICY.md)
-9. [Known limitations and deferred scope](KNOWN-LIMITATIONS.md)
-10. [Developer guide](DEVELOPER-GUIDE.md)
-11. [Testing and regression baseline](TESTING-AND-BASELINE.md)
-12. [Current release baseline](CURRENT-RELEASE-BASELINE.md)
-13. [V4 consolidation execution plan](../roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md)
-14. [Consolidation candidate/repair/version history](../roadmap/CONSOLIDATION-VERSION-HISTORY.md)
-15. [C6.1 Standard Artifact Manifest V1 design](../architecture/ARTIFACT-MANIFEST-C6.1.md)
-16. [C5.3-R2 MySQL NUMBER(19) AutoNum repair](../maintenance/2026-08-23-MYSQL-NUMBER19-AUTOINCREMENT-R2.md)
+5. [Artifact Contract V1](../architecture/ARTIFACT-CONTRACT.md)
+6. [Artifact Naming/Layout contract](../architecture/ARTIFACT-NAMING-LAYOUT.md)
+7. [Standard Artifact Manifest V1](../architecture/ARTIFACT-MANIFEST.md)
+8. [REST Response/Error Contract](../architecture/REST-CONTRACT-C7.1.md)
+9. [C8 service decomposition](../architecture/SERVICE-DECOMPOSITION-C8.md)
+10. [C9 test matrix and live-validation classification](../testing/TEST-MATRIX-C9.md)
+11. [C11 final consolidation verification](../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md)
+12. [Physical DDL reference](PHYSICAL-DDL-REFERENCE.md)
+13. [Physical metadata comparison](PHYSICAL-METADATA-COMPARISON.md)
+14. [Excel comparison workbook reference](EXCEL-COMPARISON-REFERENCE.md)
+15. [Evidence and no-guess policy](EVIDENCE-AND-NO-GUESS-POLICY.md)
+16. [Known limitations and deferred scope](KNOWN-LIMITATIONS.md)
+17. [Developer guide](DEVELOPER-GUIDE.md)
+18. [Testing and regression baseline](TESTING-AND-BASELINE.md)
+19. [Current release baseline](CURRENT-RELEASE-BASELINE.md)
+19. [V4 consolidation execution plan](../roadmap/SCHEMAFORGE-V4-CONSOLIDATION-EXECUTION-PLAN.md)
+21. [Consolidation candidate/repair/version history](../roadmap/CONSOLIDATION-VERSION-HISTORY.md)
+21. [C10 documentation consolidation record](DOCUMENTATION-CONSOLIDATION-C10.md)
 
 ## Documentation authority
 

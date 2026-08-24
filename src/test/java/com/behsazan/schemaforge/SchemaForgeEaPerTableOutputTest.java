@@ -128,12 +128,18 @@ class SchemaForgeEaPerTableOutputTest {
                 < mysqlRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
-        assertEquals(2, manifest.path("tableCount").asInt());
-        assertEquals(mermaidName, manifest.path("mermaid").asText());
-        assertEquals(graphvizName, manifest.path("graphviz").asText());
-        assertEquals(conceptualMermaidName, manifest.path("conceptualErdMermaid").asText());
-        assertEquals(conceptualGraphvizName, manifest.path("conceptualErdGraphviz").asText());
-        assertEquals(2, manifest.path("tables").size());
+        assertEquals("schemaforge-manifest/v1", manifest.path("manifestContract").asText());
+        assertEquals("1", manifest.path("artifactContractVersion").asText());
+        assertEquals("ENTERPRISE_ARCHITECT", manifest.path("source").path("origin").asText());
+        assertEquals(source.getFileName().toString(), manifest.path("source").path("name").asText());
+        assertEquals(1, manifest.path("models").size());
+        assertEquals(2, manifest.path("models").get(0).path("tables").size());
+        assertEquals(2, manifest.path("extensions").path("enterpriseArchitect")
+                .path("dependencyOrder").size());
+        assertTrue(manifest.path("artifacts").findValuesAsText("path").contains(mermaidName));
+        assertTrue(manifest.path("artifacts").findValuesAsText("path").contains(graphvizName));
+        assertTrue(manifest.path("artifacts").findValuesAsText("path").contains(conceptualMermaidName));
+        assertTrue(manifest.path("artifacts").findValuesAsText("path").contains(conceptualGraphvizName));
     }
 
 

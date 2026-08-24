@@ -63,7 +63,7 @@ public class SqlServerCrudGenerationService {
         String table = normalizeRequired(tableName, "table");
         MetadataRepository repository = repositoryResolver.resolve(DatabasePlatform.SQLSERVER);
         if (!repository.available()) {
-            throw new IllegalStateException(
+            throw new ServiceUnavailableException(
                     "SQL Server metadata repository is not enabled; configure schemaforge.metadata.sqlserver");
         }
         Table metadata = repository.findTable(schema, table)

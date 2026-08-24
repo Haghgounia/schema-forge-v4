@@ -11,7 +11,6 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,7 +23,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /** Production REST endpoint for Mermaid export from canonical JSON snapshots. */
 @RestController
@@ -152,9 +150,4 @@ public class MermaidDiagramController {
         return value.trim();
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, IOException.class})
-    public ResponseEntity<Map<String, String>> badRequest(Exception exception) {
-        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("error", exception.getMessage()));
-    }
 }

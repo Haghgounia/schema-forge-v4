@@ -69,8 +69,8 @@ class OracleCrudGenerationServiceTest {
                 new OracleCrudPackageGenerator(),
                 OracleCrudGenerationOptions.defaults());
 
-        IllegalStateException error = assertThrows(
-                IllegalStateException.class,
+        ServiceUnavailableException error = assertThrows(
+                ServiceUnavailableException.class,
                 () -> service.generate("BIM", "PROVINCES"));
 
         assertTrue(error.getMessage().contains("not enabled"));

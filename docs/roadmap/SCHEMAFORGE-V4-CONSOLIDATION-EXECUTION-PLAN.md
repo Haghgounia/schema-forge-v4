@@ -132,7 +132,7 @@ Key risk: changing consumer-visible ZIP paths. Compatibility must therefore be e
 
 ### C6 - Standard Artifact Manifest
 
-**Status:** C6.1 DESIGN DONE / C6.2 IMPLEMENTATION WAITS FOR C5.3-R2 REGRESSION
+**Status:** DONE / USER-VERIFIED - C6.1 DESIGN + C6.2 IMPLEMENTATION
 **Primary objective:** Give every generated package an authoritative machine-readable inventory.
 
 Planned work:
@@ -144,10 +144,9 @@ Planned work:
 5. make Word, Legacy Word, ZIP batch and EA use the same manifest contract.
 
 C6.1 fixed design decisions are documented in
-`docs/architecture/ARTIFACT-MANIFEST-C6.1.md`. They include the
-`schemaforge-manifest/v1` JSON shape, request timestamps, source/model identity, validation counts,
-Artifact Contract outcome serialization, SHA-256/size integrity, manifest self-entry behavior,
-deterministic ordering, EA legacy-manifest migration, and the C6.2 test plan.
+`docs/architecture/ARTIFACT-MANIFEST-C6.1.md`. C6.2 implements those decisions through the
+`com.behsazan.schemaforge.artifact.manifest` package and wires the common manifest into Word,
+Legacy Word, ZIP Batch, and EA package finalization. The implementation passed targeted `46/46` and full `504 / 0 / 0 / 4` Maven regression and is frozen.
 
 Expected change type: `NEW / CHANGE / TEST / DOC`.
 
@@ -157,7 +156,7 @@ Exit criterion: a consumer can determine exactly what was generated without infe
 
 ### C7 - REST Response and Error Contract
 
-**Status:** PENDING / DEPENDS ON C4-C6
+**Status:** DONE / USER-VERIFIED - C7.1 DESIGN + C7.2 IMPLEMENTATION
 **Primary objective:** Make HTTP-level behavior consistent while preserving generation semantics.
 
 Planned work:
@@ -176,7 +175,7 @@ Explicit non-goal: redesigning the business behavior of DDL/CRUD/migration gener
 
 ### C8 - API/Application Service Decomposition
 
-**Status:** PENDING / DEPENDS ON C4-C7
+**Status:** DONE / USER-VERIFIED - C8.10 FROZEN
 **Primary objective:** Decompose the current large API service after contracts are stable.
 
 Candidate decomposition:
@@ -192,6 +191,7 @@ ComparisonArtifactProducer
 MigrationArtifactProducer
 DiagramArtifactProducer
 CrudArtifactProducer
+BatchArchiveSupport
 ```
 
 Planned work:
@@ -210,7 +210,7 @@ Key rule: do not refactor mature parser/recovery internals merely because they a
 
 ### C9 - Test Matrix and Live-Validation Classification
 
-**Status:** PENDING
+**Status:** DONE / SOURCE UNCHANGED / MATRIX AUDITED
 **Primary objective:** Separate source coverage, standard regression, opt-in integration tests, and actual live DB evidence.
 
 Planned work:
@@ -221,19 +221,29 @@ Planned work:
 4. record DBMS/environment prerequisites;
 5. define which test sets are required for normal changes, DBMS-specific changes, and release freeze.
 
+Completion evidence:
+
+- authoritative `docs/testing/TEST-MATRIX-C9.md` and CSV cover all `189` test-source Java files;
+- `149` default `*Test`, `34` opt-in `*IT`, and `6` support files are separated;
+- the `34` IT classes split into `25` offline/corpus IT and `9` live-DB IT;
+- the four normal-suite directory execution tests remain explicitly `SKIPPED_BY_CONFIGURATION` in C8.10;
+- gate policy for normal, DBMS-specific, migration/CRUD, corpus/parser and C11 release-freeze changes is defined;
+- no source/test file changed and the C8.10 fingerprint remains `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+
 Expected change type: `TEST / DOC`.
 
 Current checkpoint evidence:
 
 ```text
-Current official baseline: SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3
-Current standard clean regression: 492 tests
+Current official baseline: SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10
+Current standard clean regression: 554 tests
 Failures: 0
 Errors: 0
 Skipped: 4 configuration-gated directory tests
-Current C5.3-R1 verification: 2026-08-22T23:33:56-07:00
-Targeted C5.3 regression: 50 tests at 2026-08-22T23:19:22-07:00
-C5.3-R1 repair verification: 1 test at 2026-08-22T23:31:05-07:00
+Current C8.10 verification: 2026-08-23T06:22:23-07:00
+Targeted C8.10-R1 regression: 43 tests at 2026-08-23T06:15:32-07:00
+Previous C5.3-R2 full verification: 496 tests at 2026-08-23T00:18:45-07:00
+Previous C5.3-R1 full verification: 492 tests at 2026-08-22T23:33:56-07:00
 Previous C4.3 verification: 482 tests at 2026-08-22T22:53:13-07:00
 Previous C4.2 verification: 475 tests at 2026-08-22T21:39:20-07:00
 Result: BUILD SUCCESS
@@ -245,7 +255,7 @@ Candidate, repair, and freeze-level traceability is maintained in `CONSOLIDATION
 
 ### C10 - Documentation Consolidation
 
-**Status:** PARTIALLY DONE / FINAL PASS PENDING
+**Status:** DONE / SOURCE UNCHANGED / CURRENT REFERENCE ALIGNED
 **Primary objective:** Keep one current reference set and preserve older phase documents strictly as historical evidence.
 
 Planned work:
@@ -256,14 +266,26 @@ Planned work:
 4. link the roadmap, test matrix, artifact contract, and current baseline from authoritative entry points;
 5. avoid rewriting historical phase/freeze evidence unless it is factually corrupt.
 
+Completion evidence:
+
+- authoritative `docs/reference` set audited after C8/C9 completion;
+- stale C8.2 regression count in the reference entry point corrected to C8.10 `554 / 0 / 0 / 4`;
+- Architecture aligned to five logical-DDL DBMS and `MySqlDialect`;
+- four-DBMS language retained only for intentionally four-DBMS physical contracts;
+- Artifact Contract, Naming/Layout, Manifest, REST Contract, C8, C9, current baseline and roadmap linked from the reference entry point;
+- local reference/index links audited with zero broken links;
+- no source/test changes; fingerprint remains `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+
 Expected change type: `DOC`.
 
 ---
 
 ### C11 - Final Consolidation Regression and Baseline Freeze
 
-**Status:** PENDING / FINAL STAGE
+**Status:** IN PROGRESS / VERIFICATION CANDIDATE
 **Primary objective:** Freeze a new post-contract SchemaForge V4 baseline.
+
+Verification command set and exit criteria are recorded in [`C11-FINAL-CONSOLIDATION-VERIFICATION.md`](C11-FINAL-CONSOLIDATION-VERIFICATION.md).
 
 Planned work:
 
@@ -312,12 +334,12 @@ When a stage is completed, this roadmap must be updated before the next stage is
 
 ## 8. Current next action
 
-The next controlled roadmap stage is:
+The active controlled roadmap stage is:
 
 ```text
-C6 - Standard Artifact Manifest
+C8 - API/Application Service Decomposition
 ```
 
-C5 is complete and user-verified. Targeted naming/layout regression passed `50/50`; the R1 repair verification passed `1/1`; and the exact repaired source passed full `mvnw.cmd clean test` with `492` tests, `0` failures, `0` errors, and `4` environment-gated skips at `2026-08-22T23:33:56-07:00`. The current official frozen source inventory remains `253` main Java files / `172` test Java files with fingerprint `8566f2218d2737b0c571452e465760908a8c527c05fa0b2bc0b6d8f1a04bad37`.
+C8.1 is DONE / USER-VERIFIED. It passed targeted `55/55` and full `527 / 0 / 0 / 4` Maven regression and is frozen as `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.1`.
 
-A post-freeze repair candidate `C5.3-R2` now addresses the real-EA MySQL `NUMBER(19,0)` AutoNum compatibility gap. Its candidate source inventory is `253` main Java files / `173` test Java files with fingerprint `de0eaac67c9488f71d8a57fe36a55459b6b558dcc61161976def3b25aa29a42c`. C6.1 manifest-schema design may proceed, but C6 production-source implementation must wait until R2 passes its targeted and full regression gate. C6 must still be explained with its exact manifest schema, producer/writer changes, compatibility impact, and test plan before implementation starts.
+C8 is DONE. C8.10 `ArtifactGenerationService` is frozen after C8.10-R1 repaired only the missing `PreparedSchema` import. User-side targeted regression passed `43/43` at 2026-08-23T06:15:32-07:00 and full clean regression passed `554 / 0 / 0 / 4` at 2026-08-23T06:22:23-07:00. Official identity is `276` main Java / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidation are DONE with source unchanged; C11 Final Consolidation Regression / Baseline Freeze is now IN PROGRESS as a source-unchanged verification candidate.

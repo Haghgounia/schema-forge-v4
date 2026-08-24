@@ -1,7 +1,7 @@
 # SchemaForge V4 - C5.3-R2 MySQL NUMBER(19) AUTO_INCREMENT compatibility repair
 
-Status: **REPAIR CANDIDATE / PENDING MAVEN REGRESSION**
-Official baseline remains: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3`
+Status: **REPAIR COMPLETE / USER-VERIFIED / OFFICIAL CHECKPOINT**
+Official corrective baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C5.3-R2`
 
 ## 1. Trigger
 
@@ -91,15 +91,37 @@ dialect deliberately has no lossless mapping. That limitation is recorded in
 `docs/reference/KNOWN-LIMITATIONS.md` and is not folded into R2 because it has different semantics
 and the REST path is not currently urgent.
 
-## 7. Regression gate
+## 7. User-verified regression and promotion
 
-Targeted Maven regression must pass before R2 can be promoted. A full clean regression is then
-required before any C6 production-source implementation is layered on top of this repair.
+Targeted repair regression:
 
-Expected source inventory for the R2 candidate:
+```text
+Tests run: 38
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+Finished: 2026-08-23T00:16:16-07:00
+```
+
+Full clean regression:
+
+```text
+Tests run: 496
+Failures: 0
+Errors: 0
+Skipped: 4
+BUILD SUCCESS
+Finished: 2026-08-23T00:18:45-07:00
+```
+
+Promoted R2 source inventory:
 
 ```text
 Main Java files : 253
 Test Java files : 173
-Expected full Surefire tests : 496
+Source fingerprint : de0eaac67c9488f71d8a57fe36a55459b6b558dcc61161976def3b25aa29a42c
 ```
+
+The four skipped tests remain the normal environment-gated database directory execution tests.
+C6.2 production implementation is permitted only on this verified R2 source state.

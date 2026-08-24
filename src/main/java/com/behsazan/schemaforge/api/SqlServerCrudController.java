@@ -7,23 +7,20 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 /**
  * REST adapter for generating SQL Server CRUD procedures from live database metadata.
  *
  * <p>The controller validates the request envelope, delegates metadata resolution and SQL
  * generation to {@link SqlServerCrudGenerationService}, and returns the generated script as
- * a UTF-8 attachment. Invalid requests are mapped to HTTP 400 and unavailable metadata
- * infrastructure is mapped to HTTP 503. No database access or procedure rendering is
- * performed in the web layer.</p>
+ * a UTF-8 attachment. HTTP failures are mapped centrally by the C7 REST error contract.
+ * No database access or procedure rendering is performed in the web layer.</p>
  */
 @RestController
 @RequestMapping("/api/v1/generate/sqlserver")
@@ -56,15 +53,4 @@ public class SqlServerCrudController {
         return ResponseEntity.ok().headers(headers).body(content);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
-        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("error", exception.getMessage()));
-    }
-
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, String>> unavailable(IllegalStateException exception) {
-        return ResponseEntity.status(503).contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("error", exception.getMessage()));
-    }
 }

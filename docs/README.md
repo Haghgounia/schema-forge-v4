@@ -22,10 +22,16 @@ For the current SchemaForge V4 baseline, start here:
 - [Artifact inventory (C4.1)](architecture/SCHEMAFORGE-ARTIFACT-INVENTORY.md)
 - [Artifact Contract V1 (C4)](architecture/ARTIFACT-CONTRACT.md)
 - [Artifact Naming/Layout contract (C5)](architecture/ARTIFACT-NAMING-LAYOUT.md)
-- [Artifact Manifest V1 design (C6.1)](architecture/ARTIFACT-MANIFEST-C6.1.md)
+- [Artifact Manifest V1 current contract (C6.2)](architecture/ARTIFACT-MANIFEST.md)
+- [Artifact Manifest V1 design record (C6.1)](architecture/ARTIFACT-MANIFEST-C6.1.md)
 - [C5.3-R2 MySQL NUMBER(19) AutoNum repair](maintenance/2026-08-23-MYSQL-NUMBER19-AUTOINCREMENT-R2.md)
+- [C7.1 REST Response/Error Contract design](architecture/REST-CONTRACT-C7.1.md)
+- [C8 service decomposition](architecture/SERVICE-DECOMPOSITION-C8.md)
+- [C9 Test Matrix / Live-Validation Classification](testing/TEST-MATRIX-C9.md)
+- [C10 Documentation Consolidation](reference/DOCUMENTATION-CONSOLIDATION-C10.md)
+- [C8.8-R1 batch diagnostic provenance test repair](architecture/C8.8-R1-BATCH-DIAGNOSTIC-PROVENANCE-TEST-REPAIR.md)
 
-Last frozen source state: **official 2026-08-22 V4 consolidated baseline C5.3**. The exact C5.3-R1 source is user-verified at **492 tests, 0 failures, 0 errors, 4 configuration-based skips, BUILD SUCCESS**; verification finished 2026-08-22T23:33:56-07:00. A post-freeze C5.3-R2 MySQL compatibility repair is pending Maven regression. C6.1 Manifest V1 design is complete/documentation-only; C6.2 production implementation waits for the R2 regression gate.
+Last frozen source state: **official 2026-08-23 C8.10 checkpoint** at **554 tests, 0 failures, 0 errors, 4 configuration-based skips, BUILD SUCCESS**. C8 Service Decomposition, C9 Test Matrix / Live-Validation Classification, and C10 Documentation Consolidation are complete. See [`testing/TEST-MATRIX-C9.md`](testing/TEST-MATRIX-C9.md) for the test/live evidence policy. Frozen source fingerprint remains `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C11 Final Consolidation Regression / Baseline Freeze is next.
 
 ## Physical phase evidence
 

@@ -1,6 +1,6 @@
 # Database Support Matrix
 
-This matrix describes the current SchemaForge V4 source candidate. `Implemented` means a code path exists and is regression-targeted; `Live pilot available` means an opt-in live integration harness exists and does not by itself certify the latest source revision.
+This matrix describes the current frozen SchemaForge V4 source baseline. `Implemented` means a code path exists and is regression-targeted; `Live pilot available` means an opt-in live integration harness exists and does not by itself certify the latest source revision.
 
 ## 1. Platform-level support
 

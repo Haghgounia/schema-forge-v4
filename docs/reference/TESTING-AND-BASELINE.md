@@ -5,27 +5,33 @@
 The current official source baseline is:
 
 ```text
-SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260822-C5.3
+SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10
 ```
 
-It is the exact C5.3-R1 source described in `CURRENT-RELEASE-BASELINE.md`. C5.3-R1 repaired one stale test-only path assumption discovered by the first C5 full regression; production source was unchanged by that repair.
+It is the exact user-verified C8.10 source described in `CURRENT-RELEASE-BASELINE.md`. It includes the prior R2 MySQL repair, C6 Standard Artifact Manifest V1, C7 REST contract, and the complete C8 service-decomposition sequence.
 
 ## 2. User-verified clean full regression
 
 ```text
-Tests run: 492
+Tests run: 554
 Failures: 0
 Errors: 0
 Skipped: 4
 BUILD SUCCESS
-Total time: 02:13 min
-Finished: 2026-08-22T23:33:56-07:00
+Total time: 02:30 min
+Finished: 2026-08-23T06:22:23-07:00
 ```
 
-Command:
+Targeted C8.10-R1 gate:
 
-```bash
-mvn clean test
+```text
+Tests run: 43
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+Total time: 01:46 min
+Finished: 2026-08-23T06:15:32-07:00
 ```
 
 The four skipped normal-suite tests are:
@@ -37,9 +43,12 @@ The four skipped normal-suite tests are:
 
 Each is guarded by required SQL-root/JDBC properties and is intentionally inactive in an ordinary build without that environment.
 
-The same full build kept Standard Word regression green: 9 documents, 9 passed, 0 failed, 9 tables, 117 columns.
 
-## 3. C5 verification sequence
+## 3. C11 final consolidation verification candidate
+
+C11 is source-unchanged. The exact C8.10 source remains `276` main / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. The final verification plan is [`../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md`](../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md). It requires a 95-test targeted consolidation gate followed by `mvnw.cmd clean test`; the official baseline remains C8.10 until both gates pass.
+
+## 4. C5 verification sequence and R2 corrective verification
 
 Targeted C5.3 naming/layout regression:
 
@@ -65,35 +74,42 @@ BUILD SUCCESS
 Finished: 2026-08-22T23:31:05-07:00
 ```
 
-The subsequent clean full regression is the authoritative current result shown in section 2.
-
-## 4. Frozen source fingerprint
+The subsequent C5.3-R1 clean regression passed `492 / 0 / 0 / 4`. A later real-EA MySQL compatibility repair C5.3-R2 was then verified:
 
 ```text
-8566f2218d2737b0c571452e465760908a8c527c05fa0b2bc0b6d8f1a04bad37
+Targeted R2: 38 tests, 0 failures, 0 errors, 0 skips
+Full R2    : 496 tests, 0 failures, 0 errors, 4 skips
+BUILD SUCCESS
+Finished full run: 2026-08-23T00:18:45-07:00
 ```
 
-This is the SHA-256 of the sorted per-file SHA-256 manifest for the complete frozen `src` tree after C5.3-R1. Any subsequent source/test change requires a new candidate fingerprint and regression evidence before promotion.
+The R2, C6.2, C7.2, and C8.1 through C8.9 results remain historical evidence; C8.10 is the authoritative current official regression shown in section 2.
 
-## Pending corrective candidate: C5.3-R2
-
-The official C5.3 baseline above is unchanged. A later repair candidate addresses MySQL
-`NUMBER(19,0)` AutoNum compatibility for real EA input.
+## 5. Frozen source fingerprint
 
 ```text
-Candidate source fingerprint : de0eaac67c9488f71d8a57fe36a55459b6b558dcc61161976def3b25aa29a42c
-Main Java files             : 253
-Test Java files             : 173
-Expected full test count    : 496
-Local Java 21 core compile  : PASS
-Real EA compatibility probe : PASS
-Maven regression            : PENDING
+03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba
 ```
 
-The exact repair scope and separate MySQL timezone-aware timestamp limitation are documented in
-`docs/maintenance/2026-08-23-MYSQL-NUMBER19-AUTOINCREMENT-R2.md`.
+This is the SHA-256 of the sorted per-file SHA-256 manifest for the complete frozen C8.10 `src` tree. Any subsequent source/test change requires a new candidate fingerprint and regression evidence before promotion.
 
-## 5. Consolidation regression history
+## Current C8 state
+
+C8 is complete. C8.10 is official and frozen after the repaired user-verified targeted `43/43` and full `554 / 0 / 0 / 4` regression.
+
+```text
+Official source fingerprint : 03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba
+Main Java files             : 276
+Test Java files             : 189
+Full Surefire tests         : 554
+```
+
+The initial C8.10 candidate failed before Surefire because the still-used `PreparedSchema` import had been removed. C8.10-R1 restored only that import. No method body or test source changed in R1. See `../architecture/SERVICE-DECOMPOSITION-C8.md`.
+
+C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidation are complete with source unchanged; C11 Final Consolidation Regression / Baseline Freeze is next.
+
+
+## 6. Consolidation regression history
 
 | Checkpoint | Tests | Failures | Errors | Skipped | Result | Fingerprint |
 |---|---:|---:|---:|---:|---|---|
@@ -102,10 +118,26 @@ The exact repair scope and separate MySQL timezone-aware timestamp limitation ar
 | C4.3 | 482 | 0 | 0 | 4 | SUCCESS | `2d75fbbc...129423` |
 | C5.3 first full run | 492 | 1 | 0 | 4 | FAILURE - stale test path assumption | `5b600c90...21c1a6` |
 | C5.3-R1 official | 492 | 0 | 0 | 4 | SUCCESS | `8566f221...bad37` |
+| C5.3-R2 official corrective checkpoint | 496 | 0 | 0 | 4 | SUCCESS | `de0eaac6...29a42c` |
+| C6.2 official | 504 | 0 | 0 | 4 | SUCCESS | `b9fa369b...af8969f` |
+| C7.2 official | 525 | 0 | 0 | 4 | SUCCESS | `763dcea0...daa0a26` |
+| C8.1 official | 527 | 0 | 0 | 4 | SUCCESS | `12890096...1cba8e` |
+| C8.2 first targeted run | 45 | 0 | 3 | 0 | FAILURE - invalid new test fixture timestamp | `7b9b012c...31f79` |
+| C8.2-R1 official | 530 | 0 | 0 | 4 | SUCCESS | `aa77b6bf...6f1e14` |
+| C8.3 official | 533 | 0 | 0 | 4 | SUCCESS | `90b8fcb7...927cab` |
+| C8.4 official | 536 | 0 | 0 | 4 | SUCCESS | `8f134a74...2e8c57` |
+| C8.5 official | 539 | 0 | 0 | 4 | SUCCESS | `49eaad17...80ae0f` |
+| C8.6 official | 542 | 0 | 0 | 4 | SUCCESS | `a5f01c4c...8e8afb` |
+| C8.7 official | 545 | 0 | 0 | 4 | SUCCESS | `a8e0f2d9...add57d` |
+| C8.8 first targeted run | 39 | 1 | 0 | 0 | FAILURE - new provenance assertion over-selected non-batch summary descriptors | `779e3751...a6dc31` |
+| C8.8 official | 548 | 0 | 0 | 4 | SUCCESS; targeted `39/0/0/0` | `b8fb0a32...79b396` |
+| C8.9 official | 551 | 0 | 0 | 4 | SUCCESS; targeted `42/0/0/0` | `9ef7e131...db6898` |
+| C8.10 first targeted run | 0 | 0 | 0 | 0 | COMPILE FAILURE before Surefire - missing `PreparedSchema` import | `dfe57506...52db40` |
+| C8.10-R1 official / C8 complete | 554 | 0 | 0 | 4 | SUCCESS; targeted `43/0/0/0` | `03d01cfd...d5102ba` |
 
 Full candidate/repair/freeze details are recorded in `../roadmap/CONSOLIDATION-VERSION-HISTORY.md`.
 
-## 6. Earlier physical milestone history
+## 7. Earlier physical milestone history
 
 | Milestone | Tests | Failures | Errors | Skipped | Result |
 |---|---:|---:|---:|---:|---|
@@ -123,7 +155,7 @@ Full candidate/repair/freeze details are recorded in `../roadmap/CONSOLIDATION-V
 
 These counts are historical evidence, not the current expected test count.
 
-## 7. Current opt-in live-test inventory
+## 8. Current opt-in live-test inventory
 
 The current source contains database-dependent live or directory execution paths beyond the standard Surefire freeze. M2 live pilot harnesses exist for Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL.
 
@@ -140,7 +172,26 @@ FAILED
 
 Db2 for z/OS additionally depends on the external IBM JCC environment and explicit destructive acknowledgement.
 
-## 8. Future repair and freeze rule
+
+## 9. C9 authoritative test matrix and live classification
+
+C9 is complete and source-unchanged. The authoritative matrix is [`../testing/TEST-MATRIX-C9.md`](../testing/TEST-MATRIX-C9.md), with one CSV row for every Java file under `src/test/java`.
+
+```text
+Standard unit / contract      : 107
+Standard offline integration  : 38
+Directory execution           : 4
+Opt-in offline *IT            : 25
+Live DB *IT                   : 9
+Test support/helper           : 6
+Total                         : 189
+```
+
+The 34 `*IT` classes are not part of ordinary Surefire. The four normal-suite directory execution tests are discovered by Surefire and currently classify as `SKIPPED_BY_CONFIGURATION`. A live test existing in source is only `LIVE_TEST_AVAILABLE`; it becomes `LIVE_TEST_EXECUTED_AND_PASSED` only when exact command/date/environment evidence is recorded.
+
+C9 also defines which focused, full-regression, corpus and live gates are required for ordinary changes, DBMS-specific changes, migration changes and C11 release freeze.
+
+## 10. Future repair and freeze rule
 
 For every later candidate or corrective version:
 

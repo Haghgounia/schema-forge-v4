@@ -81,7 +81,7 @@ The CLI does not require JDBC connectivity.
 
 REST/ZIP workflows can generate the registered database outputs from one prepared canonical schema without reparsing the source for every dialect.
 
-Where target metadata is enabled and the table exists, the response may additionally contain a database comparison workbook. C5 standardizes package roots across Word, Legacy Word, ZIP Batch, and EA as `ddl/`, `migration/`, `crud/`, `model/`, `comparison/`, `diagram/`, `scripts/`, and `reports/`. See `../architecture/ARTIFACT-NAMING-LAYOUT.md`.
+Where target metadata is enabled and the table exists, the response may additionally contain a database comparison workbook. C5 standardizes package roots across Word, Legacy Word, ZIP Batch, and EA as `ddl/`, `migration/`, `crud/`, `model/`, `comparison/`, `diagram/`, `scripts/`, and `reports/`. Every ZIP-producing path also writes one root `manifest.json` using `schemaforge-manifest/v1`, with Artifact Contract outcomes and SHA-256/byte-size integrity for generated files. See `../architecture/ARTIFACT-NAMING-LAYOUT.md` and `../architecture/ARTIFACT-MANIFEST.md`.
 
 ## 5. SQL artifact contract
 

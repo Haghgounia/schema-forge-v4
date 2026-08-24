@@ -54,7 +54,7 @@ Content-Type: multipart/form-data
 
 Multipart field: `file`. The `schema` query parameter is required for the legacy parser path.
 
-Both paths prepare one canonical schema and generate five-dialect DDL plus the additional enabled artifacts such as comparison workbooks, migration output, metadata-based CRUD, canonical JSON, Mermaid and Graphviz outputs.
+Both paths prepare one canonical schema and generate five-dialect DDL plus the additional enabled artifacts such as comparison workbooks, migration output, metadata-based CRUD, canonical JSON, Mermaid and Graphviz outputs. Each returned ZIP also contains one root `manifest.json` using `schemaforge-manifest/v1`.
 
 ## ZIP batch
 
@@ -67,8 +67,9 @@ The ZIP batch path processes standard `.docx` specifications. Legacy `.doc` file
 
 Each Word document is isolated. Temporary Office files such as `~$*.docx`, hidden dot files, AppleDouble files, and `__MACOSX` entries are ignored. A malformed or non-specification Word document does not abort the whole request; successful documents are generated and the returned archive includes:
 
-- `batch-generation-summary.csv` — one row per processable Word document with `SUCCESS` or `FAILED` status;
-- `batch-generation-errors.log` — full stack traces for failed documents.
+- `reports/batch-generation-summary.csv` — one row per processable Word document with `SUCCESS` or `FAILED` status;
+- `reports/batch-generation-errors.log` — full stack traces for failed documents;
+- `manifest.json` — one package-level Standard Manifest V1 covering final collision-resolved artifact paths. Child documents do not receive nested manifests.
 
 A ZIP with no processable `.docx` file returns HTTP 400.
 
@@ -93,7 +94,7 @@ The value may also be supplied with `SCHEMAFORGE_EA_DEFAULT_SCHEMA`. An explicit
 
 The EA importer reads table classes, ordered columns, datatype/length/precision/scale, nullability, descriptions, primary keys, foreign keys and standalone indexes. Imported objects enter the same canonical model used by Word input.
 
-EA output follows the C5 common artifact-first layout: per-table DDL under `ddl/<platform>/`, a timestamped canonical snapshot under `model/*.schema.json`, dialect run-all scripts under `scripts/<platform>/`, comparison workbooks under `comparison/<platform>/` when metadata is available, and the current EA `manifest.json`. The common manifest contract for Word/Legacy/ZIP/EA is C6 scope.
+EA output follows the C5 common artifact-first layout: per-table DDL under `ddl/<platform>/`, a timestamped canonical snapshot under `model/*.schema.json`, dialect run-all scripts under `scripts/<platform>/`, comparison workbooks under `comparison/<platform>/` when metadata is available, and root `manifest.json`. The root manifest uses the same `schemaforge-manifest/v1` contract as Word, Legacy Word, and ZIP Batch; endpoint URLs remain unchanged.
 
 ## Oracle metadata CRUD package
 
@@ -165,6 +166,23 @@ Supported request parameters currently include:
 
 The endpoint accepts one canonical snapshot or a ZIP of canonical snapshots according to the Mermaid service contract and returns a downloadable Mermaid text artifact.
 
-## Current REST contract boundary
+## REST error contract (C7.2 official)
 
-The endpoints are functional but do not yet share one universal artifact package layout, manifest, naming contract, or centralized error envelope. EA already has a manifest, ZIP batch has batch summary/error artifacts, and standalone CRUD/Mermaid return direct files. Unification of these contracts is a separate V4 consolidation stage and is intentionally not implied by this API document.
+Successful payloads remain endpoint-specific (`application/zip`, `application/sql`, or Mermaid text). C7.2 adds the response header `X-SchemaForge-Request-Id` at the web layer and replaces controller-local `{ "error": "..." }` bodies with one versioned JSON error contract:
+
+```json
+{
+  "contract": "schemaforge-rest-error/v1",
+  "code": "INVALID_REQUEST",
+  "status": 400,
+  "message": "...",
+  "path": "/api/v1/...",
+  "requestId": "...",
+  "timestamp": "...Z",
+  "details": {}
+}
+```
+
+Stable codes include `INVALID_REQUEST`, `INPUT_IO_ERROR`, `MISSING_PART`, `MISSING_PARAMETER`, `MALFORMED_REQUEST`, `INVALID_PARAMETER`, `UNSUPPORTED_MEDIA_TYPE`, `NOT_ACCEPTABLE`, `METHOD_NOT_ALLOWED`, `NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `SERVICE_UNAVAILABLE`, and `INTERNAL_ERROR`. Unexpected failures return a generic public message while server logs retain the correlated exception. C7.2 is user-verified and frozen in the official baseline.
+
+The package layout, Standard Manifest V1, and artifact naming contracts are already official from C5/C6; C7 does not redesign those contracts.

@@ -1,3 +1,240 @@
+## 2026-08-23 - C11 final consolidation verification candidate
+
+- Started only after C8.10-R1 passed targeted `43/43` and full `554 / 0 / 0 / 4`, and after source-unchanged C9/C10 completion.
+- C11 introduces no source/test/runtime behavior change; exact source remains `276` main / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+- Defined a 95-test targeted consolidation gate spanning C4-C8 contracts, REST, producers/orchestrators and Word/Legacy/ZIP/EA regression paths, followed by exact-source `mvnw.cmd clean test`.
+- Live-validation states remain governed by C9; test availability is not reported as a live pass.
+- C11 is `VERIFICATION CANDIDATE / PENDING USER REGRESSION`; C8.10 remains the official source baseline until both C11 gates pass.
+
+## 2026-08-23 - C10 Documentation Consolidation complete
+
+- Audited the authoritative current reference/index set after C8 and C9.
+- Corrected the reference entry point from stale C8.2 `530` regression evidence to the official C8.10 `554 / 0 / 0 / 4` result.
+- Updated Architecture from four to five logical-DDL platforms and added `MySqlDialect`; intentionally four-DBMS physical-contract wording remains unchanged where MySQL physical design is deferred.
+- Linked Artifact Contract V1, Naming/Layout, Standard Manifest, REST Contract, C8 decomposition, C9 test matrix, current baseline, roadmap and C10 record from the authoritative reference entry point.
+- No `src/main`, `src/test`, POM, SQL or runtime behavior changed; C8.10 source fingerprint remains `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+- C11 Final Consolidation Regression / Baseline Freeze is the only remaining consolidation stage.
+
+## 2026-08-23 - C9 Test Matrix / Live-Validation Classification complete
+
+- Added authoritative `docs/testing/TEST-MATRIX-C9.md` plus row-level `TEST-MATRIX-C9.csv` covering all `189` Java files under `src/test/java`.
+- Classified `107` standard unit/contract, `38` standard offline-integration, `4` configuration-gated directory execution, `25` opt-in offline `*IT`, `9` live DB `*IT`, and `6` support/helper files.
+- Formalized evidence states so `LIVE_TEST_AVAILABLE` never implies `LIVE_TEST_EXECUTED_AND_PASSED`.
+- Defined normal-change, DBMS-specific, migration, CRUD, corpus/parser, Db2/zOS and C11 release-freeze gate policy.
+- C9 is documentation/test-governance only: no file under `src/main` or `src/test` changed; C8.10 remains the official source baseline with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+- C10 Documentation Consolidation is now the next roadmap stage.
+
+## 2026-08-23 - C8.10 official / C8 service decomposition complete
+
+- C8.10-R1 user-side targeted regression passed `43 / 0 / 0 / 0` with `BUILD SUCCESS` at `2026-08-23T06:15:32-07:00`.
+- Full clean regression passed `554 / 0 / 0 / 4` with `BUILD SUCCESS` at `2026-08-23T06:22:23-07:00`.
+- Exact verified inventory: `276` main Java / `189` test Java.
+- C8.10 `ArtifactGenerationService` is DONE / USER-VERIFIED / FROZEN; the initial compile-failed C8.10 candidate and one-import R1 repair remain preserved as history.
+- Official baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10`.
+- Frozen source fingerprint: `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+- C8 API/Application Service Decomposition is complete. C9 Test Matrix / Live-Validation Classification is the next roadmap stage.
+
+## 2026-08-23 - C8.10-R1 PreparedSchema import compile repair
+
+- First C8.10 targeted attempt stopped during main compilation before Surefire: `cannot find symbol: class PreparedSchema` in `SchemaForgeApiService` line 159; Maven finished `BUILD FAILURE` at `2026-08-23T06:03:25-07:00`.
+- Root cause: C8.10 moved Standard/Legacy single-document packaging out of the facade and removed the `PreparedSchema` import even though the EA facade path still declares `PreparedSchema prepared = eaGenerationOrchestrator.prepare(...)`.
+- R1 restores only `import com.behsazan.schemaforge.application.PreparedSchema;` in `SchemaForgeApiService`; no method body, test source, parser, DBMS, DDL, manifest, naming, producer, REST, or archive behavior changes.
+- Inventory remains `276` main Java / `189` test Java; expected targeted `43`; expected full `554 / 0 / 0 / 4`.
+- R1 source fingerprint: `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+- C8.10-R1 is `REPAIR CANDIDATE / PENDING USER RE-RUN`; C8.9 remains the official baseline and C9 remains blocked.
+
+## 2026-08-23 - C8.10 ArtifactGenerationService extraction candidate
+
+- Started only after C8.9 passed targeted `42/42` and full `551 / 0 / 0 / 4` and was frozen as the official C8.9 checkpoint.
+- Extracted the shared Standard Word/Legacy Word workspace, upload-transfer, manifest, package and cleanup workflow from `SchemaForgeApiService` into `ArtifactGenerationService`.
+- Preserved request validation/source normalization/context creation in the facade and preserved the existing `DocumentGenerationOrchestrator`, C5 paths, C6 manifest contract, Ledger semantics and ZIP packaging behavior.
+- `SchemaForgeApiService` reduced from `244` to `210` lines; new `ArtifactGenerationService` is `110` lines.
+- Added `ArtifactGenerationServiceTest` with 3 focused tests for Standard Word manifest/package cleanup, Legacy schema delegation and cleanup on generation failure.
+- Candidate inventory: `276` main Java / `189` test Java; expected targeted `43`; expected full Surefire count `554`; source fingerprint `dfe575066ace7ac8de555e9f1a561c00f1a0b217d54b6c8147680d1aa552db40`.
+- The first user-side C8.10 targeted attempt failed during main compilation before tests because the facade still referenced `PreparedSchema` after its import was removed. This candidate is superseded by C8.10-R1; C8.9 remains official.
+
+## 2026-08-23 - C8.9 EaGenerationOrchestrator official verification
+
+- User-verified targeted C8.9 regression: `42/42`, no failures/errors/skips, `BUILD SUCCESS` at `2026-08-23T05:39:34-07:00`.
+- User-verified full clean regression: `551 / 0 / 0 / 4`, `BUILD SUCCESS` at `2026-08-23T05:43:05-07:00`.
+- Full build compiled `275` main Java and `188` test Java source files, confirming the intended C8.9 source was exercised.
+- Promoted exact candidate source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.9`.
+- Official source fingerprint: `9ef7e1315e82b86817864d94431b20ce02a367ca1777c622dd5a5f7102db6898`.
+- C8.9 is DONE / USER-VERIFIED. Roadmap inventory leaves the named `ArtifactGenerationService` boundary for C8.10 before C8 can close and C9 can start.
+
+## 2026-08-23 - C8.9 EaGenerationOrchestrator extraction candidate
+
+- Started only after C8.8-R1 passed repaired targeted `39/39` and full `548 / 0 / 0 / 4` and C8.8 was frozen.
+- Extracted Enterprise Architect XML/XMI preparation and multi-table artifact orchestration from `SchemaForgeApiService` into `EaGenerationOrchestrator`.
+- Preserved EA parser/schema override semantics, preparation, per-table DDL across all five DBMS, PostgreSQL lowercase EA artifact names, metadata comparison, migration, CRUD, diagrams, canonical JSON, dependency ordering/run-all, EA manifest extension and Ledger producer identities.
+- `SchemaForgeApiService` reduced from `565` to `244` lines; new `EaGenerationOrchestrator` is `418` lines.
+- Added `EaGenerationOrchestratorTest` with 3 focused tests for dependency-order/run-all+manifest, schema override/PostgreSQL naming, and legacy run-script Ledger producer identity across all five DBMS.
+- Candidate inventory: `275` main Java / `188` test Java; expected full Surefire count `551`; source fingerprint `9ef7e1315e82b86817864d94431b20ce02a367ca1777c622dd5a5f7102db6898`.
+- C8.9 is `PENDING REGRESSION`; C8.8 remains official.
+
+## 2026-08-23 - C8.8 BatchGenerationOrchestrator official verification
+
+- User-verified repaired targeted C8.8-R1 regression: `39/39`, no failures/errors/skips, `BUILD SUCCESS` at `2026-08-23T05:21:18-07:00`.
+- User-verified full clean regression: `548 / 0 / 0 / 4`, `BUILD SUCCESS` at `2026-08-23T05:24:08-07:00`.
+- Full build compiled `274` main Java and `187` test Java source files, confirming the intended C8.8-R1 source was exercised.
+- Promoted exact R1 source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.8`.
+- Official source fingerprint: `b8fb0a328ef0ad382e963227a050e14f8f128cadc2a2ff38afd55eb05379b396`.
+- C8.8 is DONE / USER-VERIFIED; the next C8 extraction must be selected by source inventory before coding.
+
+## 2026-08-23 - C8.8-R1 BatchGenerationOrchestrator test assertion repair
+
+- First C8.8 targeted run compiled the expected `274` main / `187` test Java sources, then finished `39 / 1 / 0 / 0` with one failure in `BatchGenerationOrchestratorTest.batchGenerationPreservesFaultIsolationDiagnosticsManifestAndLedgerIdentity` at line 74.
+- Root cause is test-only: the assertion filtered every `SUMMARY_REPORT`/`ERROR_REPORT` in the merged batch Ledger and incorrectly required producer `SchemaForgeApiService`; valid batch Mermaid/Graphviz and per-document CRUD summary descriptors intentionally use their own producers.
+- R1 narrows that assertion to descriptors whose logical name is exactly `batch-generation`, asserts exactly two batch diagnostic descriptors, and preserves the legacy producer assertion for those two records.
+- `src/main` is byte-for-byte unchanged from the C8.8 extraction candidate; only `BatchGenerationOrchestratorTest.java` changes under `src`.
+- R1 inventory remains `274` main Java / `187` test Java with expected full Surefire count `548`.
+- R1 source fingerprint: `b8fb0a328ef0ad382e963227a050e14f8f128cadc2a2ff38afd55eb05379b396`.
+- C8.8-R1 is `PENDING USER RE-RUN`; C8.7 remains the official baseline.
+
+## 2026-08-23 - C8.8 BatchGenerationOrchestrator extraction candidate
+
+- Started only after C8.7 passed targeted `35/35` and full `545 / 0 / 0 / 4` and was frozen.
+- Moved only ZIP-batch orchestration from `SchemaForgeApiService` to `BatchGenerationOrchestrator`; request validation remains in the facade.
+- Preserved `BatchArchiveSupport`, `ArtifactPackageBuilder`, `DocumentGenerationOrchestrator`, collision remap, diagnostics, aggregate diagrams, Standard Manifest V1, archive paths, generationId/timestamp and Ledger producer semantics.
+- Added `BatchGenerationOrchestratorTest` with 3 focused tests.
+- `SchemaForgeApiService` reduced from 648 to 565 lines.
+- Candidate inventory: `274` main Java / `187` test Java; source fingerprint `779e3751ccb29e90885027b3dce3b94e62a422e7c67003d25a38bcda63a6dc31`; expected full Surefire count `548`.
+- C8.8 is PENDING REGRESSION; C8.7 remains official.
+
+## 2026-08-23 - C8.7 DocumentGenerationOrchestrator official verification
+
+- User-verified targeted C8.7 regression: `35/35`, no failures/errors/skips, `BUILD SUCCESS` at `2026-08-23T04:52:16-07:00`.
+- User-verified full clean regression: `545 / 0 / 0 / 4`, `BUILD SUCCESS` at `2026-08-23T04:54:29-07:00`.
+- Full build compiled `273` main Java and `186` test Java source files, confirming the intended C8.7 candidate was exercised.
+- Promoted exact C8.7 source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.7`.
+- Source fingerprint: `a8e0f2d94895ab2142ac8bc88aefa7f5b8d4029df2bf3ea297b883f076add57d`.
+- C8.7 is DONE / USER-VERIFIED; C8.8 `BatchGenerationOrchestrator` is NEXT.
+
+## 2026-08-23 - C8.7 DocumentGenerationOrchestrator extraction candidate
+
+- Started only after C8.6 passed targeted `34/34` and full `542 / 0 / 0 / 4` and was frozen.
+- Extracted shared Standard Word/Legacy Word orchestration into `DocumentGenerationOrchestrator`; parser/recovery implementations remain unchanged.
+- Preserved the existing canonical preparation pipeline, five-DBMS DDL/metadata loop, Migration/Comparison/CRUD/Diagram producer dispatch, canonical JSON aggregation, C5 paths, Ledger semantics, C6 manifest and C7 REST behavior.
+- `SchemaForgeApiService` reduced from `733` to `648` lines; `DocumentGenerationOrchestrator` is `198` lines.
+- Added `DocumentGenerationOrchestratorTest` with 3 focused tests for five-DBMS CREATE+JSON output, metadata-unavailable producer skips, and Legacy schema preservation.
+- Candidate inventory: `273` main Java / `186` test Java; source fingerprint `a8e0f2d94895ab2142ac8bc88aefa7f5b8d4029df2bf3ea297b883f076add57d`; expected full Surefire count `545`.
+- C8.7 is PENDING REGRESSION; C8.6 remains official.
+
+## 2026-08-23 - C8.6 ArtifactPackageBuilder official verification
+
+- User-verified targeted C8.6 regression: `34/34`, no failures/errors/skips, `BUILD SUCCESS` at `2026-08-23T04:22:40-07:00`.
+- User-verified full clean regression: `542 / 0 / 0 / 4`, `BUILD SUCCESS` at `2026-08-23T04:24:52-07:00`.
+- Full build compiled `272` main Java and `185` test Java source files, confirming the intended C8.6 candidate was exercised.
+- Promoted exact C8.6 source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.6`.
+- Source fingerprint: `a5f01c4c0fa180632743ae6be7a4d7cd0b49f618c1eb087a09bd0375658e8afb`.
+- C8.6 is DONE / USER-VERIFIED; C8.7 `DocumentGenerationOrchestrator` is NEXT.
+
+## 2026-08-23 - C8.6 ArtifactPackageBuilder extraction candidate
+
+- Started only after C8.5 passed targeted `39/39` and full `539 / 0 / 0 / 4` and was frozen.
+- Extracted only common directory ZIP packaging, path normalization, and best-effort recursive cleanup from `SchemaForgeApiService` into `ArtifactPackageBuilder`.
+- Preserved ZIP entry relative paths/content, Word/Legacy/ZIP/EA orchestration, C5 naming, C6 manifest behavior, and all producer semantics.
+- `SchemaForgeApiService` reduced from `756` to `733` lines; `ArtifactPackageBuilder` is `49` lines.
+- Added `ArtifactPackageBuilderTest` with 3 focused tests for ZIP path/content, forward-slash normalization, and idempotent recursive cleanup.
+- Candidate inventory: `272` main Java / `185` test Java; source fingerprint `a5f01c4c0fa180632743ae6be7a4d7cd0b49f618c1eb087a09bd0375658e8afb`; expected full Surefire count `542`.
+- C8.6 is PENDING REGRESSION; C8.5 remains official.
+
+## 2026-08-23 - C8.5 BatchArchiveSupport official verification
+
+- User-verified targeted C8.5 regression: `39/39`, no failures/errors/skips, `BUILD SUCCESS` at `2026-08-23T04:05:20-07:00`.
+- User-verified full clean regression: `539 / 0 / 0 / 4`, `BUILD SUCCESS` at `2026-08-23T04:08:54-07:00`.
+- Full build compiled `271` main Java and `184` test Java source files, confirming the intended C8.5 candidate was exercised.
+- Promoted exact C8.5 source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.5`.
+- Source fingerprint: `49eaad1760cd693a32fb0f9571b404cd395d679a1b45d084cc30ee33eb80ae0f`.
+- C8.5 is DONE / USER-VERIFIED; C8.6 `ArtifactPackageBuilder` is NEXT.
+
+## 2026-08-23 - C8.5 BatchArchiveSupport extraction candidate
+
+- Started only after C8.4 passed targeted `44/44` and full `536 / 0 / 0 / 4` and was frozen.
+- Extracted only ZIP-batch filesystem/ledger helper mechanics into `BatchArchiveSupport`; `generateFromZipTracked(...)` remains in `SchemaForgeApiService`.
+- Preserved zip-slip rejection, DOCX filtering/order, collision-safe C5 path remapping, generationId/provenance, batch CSV/error content, manifest behavior, and archive semantics.
+- `SchemaForgeApiService` reduced from `872` to `756` lines.
+- Added `BatchArchiveSupportTest` with 3 focused tests.
+- Candidate inventory: `271` main Java / `184` test Java; source fingerprint `49eaad1760cd693a32fb0f9571b404cd395d679a1b45d084cc30ee33eb80ae0f`; expected full Surefire count `539`.
+- C8.5 is PENDING REGRESSION; C8.4 remains official.
+
+## 2026-08-23 - C8.4 CrudArtifactProducer extraction official
+
+- Started only after C8.3 passed targeted `52/52` and full `533 / 0 / 0 / 4` regression and was frozen.
+- Extracted metadata-based Oracle/SQL Server CRUD artifact orchestration from `SchemaForgeApiService` into `CrudArtifactProducer`.
+- Preserved Oracle/SQL Server CRUD generators, grant-derived options, metadata lookup/fallback, summary CSV values, C5 paths, media types, and Artifact Ledger producer identity.
+- `SchemaForgeApiService` reduced from `1024` to `872` lines.
+- Added `CrudArtifactProducerTest` with three focused cases: no-PK skip/summary, successful Oracle+SQL Server generation including configured grants, and generator-failure capture without aborting the summary.
+- Official inventory: `270` main Java / `183` test Java; source fingerprint `8f134a74c2967a3c005b0250280d09cb75854d0c185f9485de947a749b2e8c57`; targeted `44/44`; full `536 / 0 / 0 / 4`.
+- User verification passed: targeted `44 / 0 / 0 / 0`; full `536 / 0 / 0 / 4`, BUILD SUCCESS. C8.4 is frozen and C8.5 is next.
+
+## 2026-08-23 - C8.3 ComparisonArtifactProducer official verification
+
+- User-verified targeted C8.3 regression: `52/52`, no failures/errors/skips, `BUILD SUCCESS` at `2026-08-23T03:33:02-07:00`.
+- User-verified full clean regression: `533 / 0 / 0 / 4`, `BUILD SUCCESS` at `2026-08-23T03:35:39-07:00`.
+- Full build compiled `269` main Java and `182` test Java source files, confirming the intended C8.3 candidate was exercised.
+- Promoted exact C8.3 source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.3`.
+- Source fingerprint: `90b8fcb7c8a2998b0aa878e01b59bb1d77f6916560514ce4e65dc2afdc927cab`.
+- C8.3 is DONE / USER-VERIFIED; C8.4 CRUD artifact extraction is NEXT.
+
+## 2026-08-23 - C8.3 ComparisonArtifactProducer extraction candidate
+
+- Started C8.3 only after C8.2-R1 was user-verified and frozen as the official C8.2 baseline.
+- Extracted Word/Legacy and EA comparison-workbook artifact orchestration from `SchemaForgeApiService` into `ComparisonArtifactProducer`.
+- Preserved metadata table lookup/fallback semantics, `SchemaCompareExcelWriter`, logical/physical comparison behavior, workbook media type, C5 comparison paths, ledger producer identity, and PostgreSQL EA lowercase naming.
+- Reduced `SchemaForgeApiService` from 1149 to 1024 lines.
+- Added 3 focused tests: unavailable repository skip, canonical document-flow workbook/ledger, and EA PostgreSQL lowercase path with case-insensitive schema fallback.
+- Candidate source inventory: 269 main Java / 182 test Java; fingerprint `90b8fcb7c8a2998b0aa878e01b59bb1d77f6916560514ce4e65dc2afdc927cab`.
+- Expected full regression: 533 tests (C8.2 official 530 + 3 new tests).
+- C8.3 passed targeted and full regression and is now official; C8.4 CRUD extraction is NEXT.
+
+## 2026-08-23 - C8.2 MigrationArtifactProducer official verification
+
+- User-verified C8.2-R1 targeted regression: 45 tests, 0 failures, 0 errors, 0 skips; `BUILD SUCCESS` at `2026-08-23T03:12:56-07:00`.
+- User-verified full clean regression: 530 tests, 0 failures, 0 errors, 4 configuration-gated skips; `BUILD SUCCESS` at `2026-08-23T03:16:46-07:00`.
+- Promoted the exact R1 source to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.3`.
+- Frozen source inventory: 268 main Java / 181 test Java; fingerprint `aa77b6bfe9248ebe7b061b2cd39a75ece5e34e765fd121a0ea62d1701a6f1e14`.
+- C8.2 is DONE / USER-VERIFIED; C8.3 `ComparisonArtifactProducer` is NEXT.
+- Freeze changes after the verified run are documentation-only; no Java source/test changed.
+
+## 2026-08-23 - C8.2-R1 test-only regression repair
+
+- Corrected the fixed `ArtifactGenerationContext` timestamp in `MigrationArtifactProducerTest` from `20260823020000000` to the C5 contract form `20260823_020000_000`.
+- The user C8.2 targeted run reached `45` tests with `3` errors, all in this new test fixture; production source is unchanged.
+- C8.2-R1 remains pending targeted and full user rerun.
+
+## 2026-08-23 - C8.2 Migration artifact producer extraction candidate
+
+- Moved migration artifact orchestration out of `SchemaForgeApiService` into `MigrationArtifactProducer`.
+- Preserved migration diff/rendering, SAFE options, Flyway naming, metadata lookup behavior, artifact paths, and ledger producer identity.
+- Reduced `SchemaForgeApiService` from 1214 to 1149 lines.
+- Added 3 focused producer tests covering unavailable metadata, no-diff skip, and generated Flyway artifact/ledger path.
+- Candidate source inventory: 268 main Java / 181 test Java; expected full regression 530 tests.
+- Candidate source fingerprint: `7b9b012c74d53524acbb83cb09d1304f4a4bb19d4fbf742381a85fbafeb31f79`.
+
+## 2026-08-23 - C8.1 Diagram producer extraction official freeze
+
+- User-verified targeted regression: 55 tests, 0 failures, 0 errors, 0 skips; `BUILD SUCCESS` at `2026-08-23T01:56:10-07:00`.
+- User-verified full clean regression: 527 tests, 0 failures, 0 errors, 4 configuration-gated skips; `BUILD SUCCESS` at `2026-08-23T01:58:11-07:00`.
+- Frozen baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.1`.
+- Frozen source fingerprint: `128900965948b2686b4d1fa7d5b8b78278756b3be8e4926d48db320f271cba8e`; inventory 267 main Java / 180 test Java.
+- C8.1 is DONE / USER-VERIFIED; C8.2 `MigrationArtifactProducer` is next.
+
+## 2026-08-23 - C8.1 Diagram producer extraction candidate
+
+- Moved diagram artifact production out of `SchemaForgeApiService` into `DiagramArtifactProducer`.
+- Preserved naming/layout, ledger descriptors, diagram content, manifests, REST behavior, and SQL semantics.
+- Added 2 focused producer tests; candidate full regression target is 527 tests.
+- Candidate source fingerprint: `128900965948b2686b4d1fa7d5b8b78278756b3be8e4926d48db320f271cba8e`.
+
+## 2026-08-23 - C7.2 REST Response/Error Contract official freeze
+
+- User-verified targeted regression: 31 tests, 0 failures, 0 errors, 0 skips; `BUILD SUCCESS`.
+- User-verified full clean regression: 525 tests, 0 failures, 0 errors, 4 configuration-gated skips; `BUILD SUCCESS`.
+- Frozen baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C7.2`.
+- Frozen source fingerprint: `763dcea0451ee0420c1886a11858452288c34e02a721a1aab166de673daa0a26`; inventory 266 main Java / 179 test Java.
+- C7 standardizes REST errors/correlation while preserving successful endpoint payloads; C8 service decomposition is next.
+
 ## 2026-08-23 - C5.3 Artifact Naming/Layout implementation candidate
 
 - Centralized non-Flyway artifact names and package-relative paths in `ArtifactNamingPolicy`.

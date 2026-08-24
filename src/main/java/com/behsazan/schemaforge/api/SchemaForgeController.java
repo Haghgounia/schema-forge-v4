@@ -6,7 +6,6 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -18,7 +17,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Exposes REST endpoints for schema forge operations.
@@ -78,9 +76,4 @@ public class SchemaForgeController {
         return ResponseEntity.ok().headers(headers).body(content);
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, IOException.class})
-    public ResponseEntity<Map<String, String>> badRequest(Exception exception) {
-        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("error", exception.getMessage()));
-    }
 }

@@ -7,6 +7,8 @@ import com.behsazan.schemaforge.diagram.DiagramScope;
 
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -19,6 +21,8 @@ import java.util.regex.Pattern;
  */
 public final class ArtifactNamingPolicy {
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile("\\d{8}_\\d{6}_\\d{3}");
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss_SSS", Locale.ROOT);
 
     private final OutputFileNamer sqlNamer;
 
@@ -36,6 +40,13 @@ public final class ArtifactNamingPolicy {
 
     public String timestamp() {
         return sqlNamer.timestamp();
+    }
+
+    /** Formats one captured request time with the authoritative C5 timestamp grammar. */
+    public static String timestamp(OffsetDateTime generatedAt) {
+        return Objects.requireNonNull(generatedAt, "generatedAt must not be null")
+                .toLocalDateTime()
+                .format(TIMESTAMP_FORMATTER);
     }
 
     public static void validateTimestamp(String timestamp) {

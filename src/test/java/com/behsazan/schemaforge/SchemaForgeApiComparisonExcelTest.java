@@ -99,7 +99,7 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(23, entries.size());
+        assertEquals(24, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "crud/oracle/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(

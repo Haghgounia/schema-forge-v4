@@ -63,7 +63,7 @@ public class OracleCrudGenerationService {
         String table = normalizeRequired(tableName, "table");
         MetadataRepository repository = repositoryResolver.resolve(DatabasePlatform.ORACLE);
         if (!repository.available()) {
-            throw new IllegalStateException(
+            throw new ServiceUnavailableException(
                     "Oracle metadata repository is not enabled; configure schemaforge.metadata.oracle");
         }
         Table metadata = repository.findTable(schema, table)

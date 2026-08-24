@@ -106,19 +106,19 @@ A new platform is not complete merely because `CREATE TABLE` renders.
 
 ## 9. Regression discipline
 
-Current official consolidated baseline (2026-08-22 C5.3, exact C5.3-R1 source):
+Current official baseline (2026-08-23 C8.10):
 
 ```text
-492 tests
+554 tests
 0 failures
 0 errors
 4 skipped
 BUILD SUCCESS
 ```
 
-The current frozen `src` fingerprint is `8566f2218d2737b0c571452e465760908a8c527c05fa0b2bc0b6d8f1a04bad37`. Candidate and corrective versions must also be recorded in `docs/roadmap/CONSOLIDATION-VERSION-HISTORY.md`.
+The current frozen `src` fingerprint is `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. Candidate and corrective versions must also be recorded in `docs/roadmap/CONSOLIDATION-VERSION-HISTORY.md`. C8.10 `ArtifactGenerationService` is user-verified and frozen after C8.10-R1 restored only the missing `PreparedSchema` import; inventory is `276` main / `189` test Java, targeted `43/43`, full `554 / 0 / 0 / 4`. C8 Service Decomposition and C9 Test Matrix / Live-Validation Classification are complete. C10 current-reference consolidation is also complete; C11 final regression/freeze is now the active source-unchanged verification candidate.
 
-The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are tracked separately and are not implied by the standard-suite result.
+The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are tracked separately and are not implied by the standard-suite result. C9 formalizes this in [`../testing/TEST-MATRIX-C9.md`](../testing/TEST-MATRIX-C9.md): 149 default `*Test` classes, 34 opt-in `*IT` classes, and 6 test-support files. Never describe a live test as passed unless an exact live execution result exists; `LIVE_TEST_AVAILABLE` is only an availability statement.
 
 For source changes:
 

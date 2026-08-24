@@ -1,0 +1,122 @@
+package com.behsazan.schemaforge.application;
+
+import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
+import com.behsazan.schemaforge.artifact.ArtifactPaths;
+import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
+import com.behsazan.schemaforge.migration.MigrationArtifact;
+import com.behsazan.schemaforge.migration.MigrationFileWriter;
+import com.behsazan.schemaforge.migration.MigrationGenerationService;
+import com.behsazan.schemaforge.migration.MigrationRenderOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Objects;
+
+/**
+ * Produces Flyway-compatible migration artifacts from a prepared desired schema and live metadata.
+ *
+ * <p>This class owns migration artifact orchestration only. It does not change diff rules, SQL
+ * rendering, Flyway naming, metadata lookup semantics, or migration safety options.</p>
+ */
+public final class MigrationArtifactProducer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MigrationArtifactProducer.class);
+
+    private final ArtifactNamingPolicy artifactNamingPolicy;
+    private final MigrationGenerationService migrationGenerationService;
+    private final MigrationFileWriter migrationFileWriter;
+
+    public MigrationArtifactProducer(ArtifactNamingPolicy artifactNamingPolicy) {
+        this(artifactNamingPolicy, new MigrationGenerationService(), new MigrationFileWriter());
+    }
+
+    public MigrationArtifactProducer(
+            ArtifactNamingPolicy artifactNamingPolicy,
+            MigrationGenerationService migrationGenerationService,
+            MigrationFileWriter migrationFileWriter) {
+        this.artifactNamingPolicy = Objects.requireNonNull(
+                artifactNamingPolicy, "artifactNamingPolicy must not be null");
+        this.migrationGenerationService = Objects.requireNonNull(
+                migrationGenerationService, "migrationGenerationService must not be null");
+        this.migrationFileWriter = Objects.requireNonNull(
+                migrationFileWriter, "migrationFileWriter must not be null");
+    }
+
+    /**
+     * Writes additional Flyway-compatible ALTER scripts for desired tables that already exist.
+     *
+     * <p>This remains deliberately additive: normal CREATE DDL is generated independently before
+     * this method is called. A missing live table, an unavailable metadata repository, or an empty
+     * diff never suppresses the normal CREATE artifact.</p>
+     */
+    public void writeMigrationArtifacts(
+            DatabaseSchema schema,
+            MetadataRepository repository,
+            Path output,
+            DatabasePlatform platform,
+            ArtifactGenerationContext context) throws IOException {
+        Objects.requireNonNull(schema, "schema must not be null");
+        Objects.requireNonNull(repository, "repository must not be null");
+        Objects.requireNonNull(output, "output must not be null");
+        Objects.requireNonNull(platform, "platform must not be null");
+        Objects.requireNonNull(context, "context must not be null");
+
+        if (!repository.available()) {
+            for (Table table : schema.tables()) {
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                        "MigrationGenerationService");
+            }
+            return;
+        }
+
+        Path migrationDirectory = output.resolve(artifactNamingPolicy.migrationDirectory(platform));
+
+        for (Table desiredTable : schema.tables()) {
+            String schemaName = desiredTable.qualifiedName().schemaName()
+                    .map(identifier -> identifier.value())
+                    .orElse(schema.name().value());
+            String tableName = desiredTable.qualifiedName().name().value();
+
+            var liveTable = repository.findTable(schemaName, tableName);
+            if (liveTable.isEmpty()) {
+                LOGGER.debug("[{}] Migration skipped; live table not found: {}.{}",
+                        platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        schemaName + "." + tableName, "MigrationGenerationService");
+                continue;
+            }
+
+            MigrationArtifact artifact = migrationGenerationService.generate(
+                    platform,
+                    liveTable.get(),
+                    desiredTable,
+                    MigrationRenderOptions.safeDefaults());
+            if (artifact.plan().empty()) {
+                LOGGER.info("[{}] Migration not required; live table already matches desired columns: {}.{}",
+                        platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        schemaName + "." + tableName, "MigrationGenerationService");
+                continue;
+            }
+
+            Path written = migrationFileWriter.write(migrationDirectory, artifact);
+            context.ledger().generated(context, ArtifactType.MIGRATION, platform,
+                    schemaName + "." + tableName, ArtifactPaths.relative(output, written),
+                    "application/sql", "MigrationGenerationService");
+            LOGGER.info("[{}] Flyway migration generated: {}",
+                    platform.name(), output.relativize(written));
+        }
+    }
+
+    private static String tableSchema(DatabaseSchema schema, Table table) {
+        return table.qualifiedName().schemaName()
+                .map(identifier -> identifier.value())
+                .orElse(schema.name().value());
+    }
+}
