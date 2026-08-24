@@ -1,7 +1,7 @@
 # SchemaForge V4 - Consolidation Version and Repair History
 
 **Purpose:** authoritative traceability for consolidation candidates, repairs, verification runs, and official freezes.  
-**Current official baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10`  
+**Current official baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11`  
 **Current frozen source fingerprint:** `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`
 
 ## 1. Documentation rule for corrective versions
@@ -53,7 +53,7 @@ Historical stage-input statements are not rewritten merely because a later basel
 | C8.10-R1 / C8.10 official | OFFICIAL / FROZEN | Restored only the still-required `PreparedSchema` import in `SchemaForgeApiService`; no method-body or test changes; C8 service decomposition complete | Targeted `43 / 0 / 0 / 0` at 2026-08-23T06:15:32-07:00; full `554 / 0 / 0 / 4` at 2026-08-23T06:22:23-07:00; BUILD SUCCESS | `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba` | `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10` |
 | C9 test matrix / live-validation classification | DOC / TEST-GOVERNANCE CHECKPOINT | Added authoritative 189-file test matrix, live-evidence vocabulary, DBMS prerequisites and gate policy; no source/test changes | Inherits exact C8.10 green source: targeted `43/43`, full `554 / 0 / 0 / 4`; matrix audit `189/189` unique rows | `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba` | SOURCE BASELINE UNCHANGED; C10 DONE |
 | C10 documentation consolidation | DOC CHECKPOINT | Aligned current reference/index documents to C8.10+C9, corrected stale test count/five-DBMS architecture wording, preserved intentional four-DBMS physical scope, audited local links | Source unchanged; reference/index link audit 0 broken; inherits C8.10 targeted `43/43` and full `554 / 0 / 0 / 4` | `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba` | SOURCE BASELINE UNCHANGED; C11 NEXT |
-| C11 final consolidation verification | TEST / DOC / BASELINE CANDIDATE | No source change; 95-test consolidation gate + exact-source full regression; final freeze pending | Pending user targeted/full regression | `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba` | VERIFICATION CANDIDATE |
+| C11 final consolidation verification | OFFICIAL / FROZEN | No source change; 95-test consolidation gate + exact-source full regression; current references finalized; Git-based package integrity required | Targeted `95 / 0 / 0 / 0` at 2026-08-24T10:54:16+03:30; full `554 / 0 / 0 / 4` at 2026-08-24T10:16:01+03:30; BUILD SUCCESS | `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba` | `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11` |
 
 Counts are reported as `tests / failures / errors / skipped` where four values are shown.
 
@@ -79,4 +79,4 @@ Finished            : 2026-08-22T23:33:56-07:00
 
 ## 4. Current stage boundary
 
-C8.10 is the current official source checkpoint after repaired targeted `43/43` and full `554 / 0 / 0 / 4` user-verified regression. The initial C8.10 candidate failed during main compilation because the facade was missing the `PreparedSchema` import; C8.10-R1 restored only that import. Official inventory is `276` main Java / `189` test Java and fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C8 is complete. C9 test/live-evidence governance and C10 documentation consolidation are also complete with no source changes. C11 final consolidation regression/baseline freeze is next.
+C11 is the current official consolidated V4 baseline. Its exact source remains the C8.10-R1 source: `276` main Java / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C11 passed the targeted `95 / 0 / 0 / 0` gate and full `554 / 0 / 0 / 4` clean regression on 2026-08-24. C8, C9, C10 and C11 are complete. The C4-C11 consolidation track is closed; any deferred feature must be explicitly promoted into a new stage before source changes begin.

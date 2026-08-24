@@ -1,22 +1,22 @@
 # SchemaForge V4 - Official Consolidated Baseline
 
-**Baseline ID:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10`  
+**Baseline ID:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11`  
 **Project version:** `4.0.0-SNAPSHOT`  
-**Freeze date:** 2026-08-23  
-**Previous official baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.9`  
-**Status:** OFFICIAL / FROZEN C8.10 CHECKPOINT / C8 COMPLETE / CLEAN REGRESSION VERIFIED
+**Freeze date:** 2026-08-24  
+**Previous official baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10`  
+**Status:** OFFICIAL / FROZEN C11 CONSOLIDATED BASELINE / CLEAN REGRESSION VERIFIED
 
 ## 1. Baseline purpose
 
-This is the current official SchemaForge V4 source checkpoint. It contains the completed C4 Artifact
+This is the current official SchemaForge V4 consolidated baseline. It contains the completed C4 Artifact
 Contract V1, completed C5 Artifact Naming/Layout consolidation, the user-verified C5.3-R2 MySQL
 `NUMBER(19,0)` AutoNum/FK compatibility repair, the completed C6 Standard Artifact Manifest V1, the completed C7 REST Response/Error Contract, and the complete C8 service-decomposition set (`DiagramArtifactProducer`, `MigrationArtifactProducer`, `ComparisonArtifactProducer`, `CrudArtifactProducer`, `BatchArchiveSupport`, `ArtifactPackageBuilder`, `DocumentGenerationOrchestrator`, `BatchGenerationOrchestrator`, `EaGenerationOrchestrator`, and `ArtifactGenerationService`).
 
-C8.10-R1 passed its targeted and full Maven gates and the exact source is now the official frozen C8.10 baseline. C8 API/Application Service Decomposition is complete. C9 and C10 are source-unchanged completed checkpoints. C11 verification is now active on this exact source; C8.10 remains the official baseline until the C11 targeted and full gates pass.
+C8.10-R1 supplied the final source used by C11. C8 API/Application Service Decomposition, C9 Test Matrix / Live-Validation Classification, C10 Documentation Consolidation, and C11 Final Consolidation Regression / Baseline Freeze are complete. C11 passed targeted `95 / 0 / 0 / 0` and full `554 / 0 / 0 / 4` verification with no source change; `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11` is the current official baseline.
 
 ## 2. Current functional state
 
-| Area | Official C8.10 state |
+| Area | Official C11 state |
 |---|---|
 | Canonical model | Active shared DBMS-neutral model |
 | Standard Word parsing | Implemented and regression-covered |
@@ -40,7 +40,29 @@ C8.10-R1 passed its targeted and full Maven gates and the exact source is now th
 
 ## 3. User-verified regression for this baseline
 
-Targeted C8.10-R1 verification:
+Targeted C11 consolidation verification:
+
+```text
+Tests run: 95
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+Finished: 2026-08-24T10:54:16+03:30
+```
+
+Full clean C11 regression:
+
+```text
+Tests run: 554
+Failures: 0
+Errors: 0
+Skipped: 4
+BUILD SUCCESS
+Finished: 2026-08-24T10:16:01+03:30
+```
+
+Historical targeted C8.10-R1 verification:
 
 ```text
 Tests run: 43
@@ -52,7 +74,7 @@ Total time: 01:46 min
 Finished: 2026-08-23T06:15:32-07:00
 ```
 
-Full clean C8.10 regression:
+Historical full clean C8.10 regression:
 
 ```text
 Tests run: 554
@@ -73,7 +95,7 @@ The four normal-suite skips remain the environment-gated directory execution tes
 
 The standard Word regression remained green within the full build.
 
-Official C8.10 source inventory:
+Official C11 source inventory:
 
 ```text
 src/main/java .java files : 276
@@ -87,8 +109,7 @@ Surefire tests executed    : 554
 03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba
 ```
 
-This is the SHA-256 of the sorted per-file SHA-256 manifest for the complete official C8.10 `src` tree.
-Any later source/test change is a candidate until it receives its own regression evidence and freeze.
+This is the SHA-256 of the sorted per-file SHA-256 manifest for the complete official C11 `src` tree. It is unchanged from C8.10 because C9-C11 do not change `src`. Any later source/test change is a candidate until it receives its own regression evidence and freeze.
 
 ## 5. R2 corrective scope
 
@@ -176,7 +197,7 @@ C7.1 design and C7.2 implementation are complete and user-verified. The frozen c
 - uses dedicated `ServiceUnavailableException` for genuine required-service outages;
 - returns generic public text for unexpected 500 errors while logging the correlated exception.
 
-C8 API/Application Service Decomposition is complete. C8.1 through C8.10 are user-verified and frozen, with C8.10 `ArtifactGenerationService` completing the final named boundary. C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidation are complete as source-unchanged documentation checkpoints. C11 Final Consolidation Regression / Baseline Freeze is the next roadmap stage.
+C8 API/Application Service Decomposition is complete. C8.1 through C8.10 are user-verified and frozen, with C8.10 `ArtifactGenerationService` completing the final named boundary. C9 Test Matrix / Live-Validation Classification, C10 Documentation Consolidation, and C11 Final Consolidation Regression / Baseline Freeze are complete. The C4-C11 consolidation track is closed.
 
 Candidate/repair/freeze traceability is maintained in
 `../roadmap/CONSOLIDATION-VERSION-HISTORY.md` and every corrective version must be documented there
@@ -196,7 +217,7 @@ Targeted C8.10-R1 tests    : 43
 Source fingerprint         : 03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba
 ```
 
-C8 has no remaining named decomposition boundary. C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidation are complete and did not alter source; C11 Final Consolidation Regression / Baseline Freeze is next in the authoritative roadmap.
+C8 has no remaining named decomposition boundary. C9, C10 and C11 are complete and did not alter source. The C4-C11 consolidation track is frozen; any deferred feature requires an explicitly promoted new stage.
 
 ## 12. C8.10 completion evidence
 
@@ -240,5 +261,5 @@ C10 audited the authoritative current-reference set after C8/C9. It corrected st
 - four-DBMS wording is retained only where the frozen physical-DDL/physical-comparison scope intentionally excludes MySQL;
 - current-stage wording now points to C11 as the only remaining consolidation stage.
 
-C10 is documentation-only. The official source baseline remains C8.10 with the same Java inventory, regression evidence and fingerprint.
+C10 is documentation-only. C11 subsequently verified and froze the same source as `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11` with targeted `95 / 0 / 0 / 0` and full `554 / 0 / 0 / 4` evidence.
 

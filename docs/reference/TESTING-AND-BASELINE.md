@@ -5,12 +5,14 @@
 The current official source baseline is:
 
 ```text
-SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10
+SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11
 ```
 
-It is the exact user-verified C8.10 source described in `CURRENT-RELEASE-BASELINE.md`. It includes the prior R2 MySQL repair, C6 Standard Artifact Manifest V1, C7 REST contract, and the complete C8 service-decomposition sequence.
+It is the exact source described in `CURRENT-RELEASE-BASELINE.md`. The C11 freeze retains the C8.10-R1 source unchanged and completes C9 test governance, C10 documentation consolidation, and C11 final verification/baseline freeze.
 
-## 2. User-verified clean full regression
+## 2. User-verified C11 regression
+
+Full clean C11 gate:
 
 ```text
 Tests run: 554
@@ -18,20 +20,18 @@ Failures: 0
 Errors: 0
 Skipped: 4
 BUILD SUCCESS
-Total time: 02:30 min
-Finished: 2026-08-23T06:22:23-07:00
+Finished: 2026-08-24T10:16:01+03:30
 ```
 
-Targeted C8.10-R1 gate:
+Targeted C11 consolidation gate:
 
 ```text
-Tests run: 43
+Tests run: 95
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
-Total time: 01:46 min
-Finished: 2026-08-23T06:15:32-07:00
+Finished: 2026-08-24T10:54:16+03:30
 ```
 
 The four skipped normal-suite tests are:
@@ -44,9 +44,9 @@ The four skipped normal-suite tests are:
 Each is guarded by required SQL-root/JDBC properties and is intentionally inactive in an ordinary build without that environment.
 
 
-## 3. C11 final consolidation verification candidate
+## 3. C11 final consolidation verification
 
-C11 is source-unchanged. The exact C8.10 source remains `276` main / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. The final verification plan is [`../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md`](../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md). It requires a 95-test targeted consolidation gate followed by `mvnw.cmd clean test`; the official baseline remains C8.10 until both gates pass.
+C11 is source-unchanged and DONE. The exact source remains `276` main / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. The targeted 95-test gate and full clean regression both passed. The final verification record is [`../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md`](../roadmap/C11-FINAL-CONSOLIDATION-VERIFICATION.md). The official baseline is `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11`.
 
 ## 4. C5 verification sequence and R2 corrective verification
 
@@ -91,7 +91,7 @@ The R2, C6.2, C7.2, and C8.1 through C8.9 results remain historical evidence; C8
 03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba
 ```
 
-This is the SHA-256 of the sorted per-file SHA-256 manifest for the complete frozen C8.10 `src` tree. Any subsequent source/test change requires a new candidate fingerprint and regression evidence before promotion.
+This is the SHA-256 of the sorted per-file SHA-256 manifest for the complete frozen C11 `src` tree. It is unchanged from C8.10 because C9-C11 are source-unchanged. Any subsequent source/test change requires a new candidate fingerprint and regression evidence before promotion.
 
 ## Current C8 state
 
@@ -106,7 +106,7 @@ Full Surefire tests         : 554
 
 The initial C8.10 candidate failed before Surefire because the still-used `PreparedSchema` import had been removed. C8.10-R1 restored only that import. No method body or test source changed in R1. See `../architecture/SERVICE-DECOMPOSITION-C8.md`.
 
-C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidation are complete with source unchanged; C11 Final Consolidation Regression / Baseline Freeze is next.
+C9 Test Matrix / Live-Validation Classification, C10 Documentation Consolidation, and C11 Final Consolidation Regression / Baseline Freeze are complete with source unchanged. The C4-C11 consolidation track is closed.
 
 
 ## 6. Consolidation regression history
@@ -134,6 +134,7 @@ C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidat
 | C8.9 official | 551 | 0 | 0 | 4 | SUCCESS; targeted `42/0/0/0` | `9ef7e131...db6898` |
 | C8.10 first targeted run | 0 | 0 | 0 | 0 | COMPILE FAILURE before Surefire - missing `PreparedSchema` import | `dfe57506...52db40` |
 | C8.10-R1 official / C8 complete | 554 | 0 | 0 | 4 | SUCCESS; targeted `43/0/0/0` | `03d01cfd...d5102ba` |
+| C11 official / consolidation complete | 554 | 0 | 0 | 4 | SUCCESS; targeted `95/0/0/0` | `03d01cfd...d5102ba` |
 
 Full candidate/repair/freeze details are recorded in `../roadmap/CONSOLIDATION-VERSION-HISTORY.md`.
 

@@ -2,7 +2,7 @@
 
 This directory is the authoritative documentation entry point for the current SchemaForge V4 baseline.
 
-Current official source baseline: **SchemaForge V4 Consolidated Checkpoint 2026-08-23 (C8.10)**, verified at `554/0/0/4` with targeted `43/0/0/0` and fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C8 Service Decomposition, C9 Test Matrix / Live-Validation Classification, and C10 Documentation Consolidation are complete. The authoritative test matrix is [`../testing/TEST-MATRIX-C9.md`](../testing/TEST-MATRIX-C9.md). C11 Final Consolidation Regression / Baseline Freeze is now the active source-unchanged verification candidate.
+Current official baseline: **SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11**, verified at full `554/0/0/4` with targeted C11 `95/0/0/0` and fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C8 Service Decomposition, C9 Test Matrix / Live-Validation Classification, C10 Documentation Consolidation, and C11 Final Consolidation Regression / Baseline Freeze are complete. The authoritative test matrix is [`../testing/TEST-MATRIX-C9.md`](../testing/TEST-MATRIX-C9.md). The C4-C11 consolidation track is closed; no deferred feature is active until explicitly promoted.
 
 The exact frozen source passed the user-verified clean full regression:
 
@@ -12,7 +12,7 @@ Failures: 0
 Errors: 0
 Skipped: 4
 BUILD SUCCESS
-Finished: 2026-08-23T06:22:23-07:00
+Finished: 2026-08-24T10:16:01+03:30
 ```
 
 The four skips are configuration-gated directory execution tests. Opt-in live database `*IT` pilots are separate from the standard Surefire freeze result.

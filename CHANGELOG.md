@@ -1,3 +1,13 @@
+## 2026-08-24 - C11 final consolidation baseline official
+
+- User-verified targeted consolidation gate passed `95 / 0 / 0 / 0`, `BUILD SUCCESS`, finished `2026-08-24T10:54:16+03:30`.
+- User-verified full clean regression passed `554 / 0 / 0 / 4`, `BUILD SUCCESS`, finished `2026-08-24T10:16:01+03:30`.
+- Standard Word regression remained `9/9` documents, `9` tables, `117` columns.
+- No `src` change occurred in C9, C10 or C11; frozen inventory remains `276` main / `189` test Java and fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`.
+- Promoted final consolidation baseline to `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11`.
+- Final distributable ZIP must be created from committed Git `HEAD` with `git archive`; retain the generated ZIP SHA-256 sidecar evidence.
+- C4-C11 consolidation is complete. Deferred features remain inactive until explicitly promoted into a new stage.
+
 ## 2026-08-23 - C11 final consolidation verification candidate
 
 - Started only after C8.10-R1 passed targeted `43/43` and full `554 / 0 / 0 / 4`, and after source-unchanged C9/C10 completion.

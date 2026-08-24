@@ -282,7 +282,7 @@ Expected change type: `DOC`.
 
 ### C11 - Final Consolidation Regression and Baseline Freeze
 
-**Status:** IN PROGRESS / VERIFICATION CANDIDATE
+**Status:** DONE / OFFICIAL / FROZEN
 **Primary objective:** Freeze a new post-contract SchemaForge V4 baseline.
 
 Verification command set and exit criteria are recorded in [`C11-FINAL-CONSOLIDATION-VERIFICATION.md`](C11-FINAL-CONSOLIDATION-VERIFICATION.md).
@@ -297,9 +297,17 @@ Planned work:
 6. package and freeze the new official V4 baseline;
 7. update current reference documentation and changelog.
 
+Completion evidence:
+
+- targeted consolidation gate: `95 / 0 / 0 / 0`, `BUILD SUCCESS`, 2026-08-24T10:54:16+03:30;
+- full clean regression: `554 / 0 / 0 / 4`, `BUILD SUCCESS`, 2026-08-24T10:16:01+03:30;
+- source inventory remains `276` main / `189` test Java;
+- source fingerprint remains `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`;
+- final baseline: `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11`.
+
 Expected change type: `TEST / DOC / BASELINE`.
 
-No new feature should be introduced during this stage.
+No new feature was introduced during this stage.
 
 ## 6. Deferred feature backlog outside this consolidation track
 
@@ -334,12 +342,21 @@ When a stage is completed, this roadmap must be updated before the next stage is
 
 ## 8. Current next action
 
-The active controlled roadmap stage is:
+The C4-C11 consolidation track is complete and frozen as:
 
 ```text
-C8 - API/Application Service Decomposition
+SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C11
 ```
 
-C8.1 is DONE / USER-VERIFIED. It passed targeted `55/55` and full `527 / 0 / 0 / 4` Maven regression and is frozen as `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.1`.
+Verification evidence:
 
-C8 is DONE. C8.10 `ArtifactGenerationService` is frozen after C8.10-R1 repaired only the missing `PreparedSchema` import. User-side targeted regression passed `43/43` at 2026-08-23T06:15:32-07:00 and full clean regression passed `554 / 0 / 0 / 4` at 2026-08-23T06:22:23-07:00. Official identity is `276` main Java / `189` test Java with fingerprint `03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba`. C9 Test Matrix / Live-Validation Classification and C10 Documentation Consolidation are DONE with source unchanged; C11 Final Consolidation Regression / Baseline Freeze is now IN PROGRESS as a source-unchanged verification candidate.
+```text
+Targeted: 95 / 0 / 0 / 0 - BUILD SUCCESS
+Full    : 554 / 0 / 0 / 4 - BUILD SUCCESS
+Source  : 276 main / 189 test Java
+Fingerprint: 03d01cfd60e6b04be02ecc8df9c0dd6c47d6f06dc07f77f6c60844a93d5102ba
+```
+
+There is no automatically active feature stage after C11. A deferred backlog item may enter the active roadmap only after explicit promotion and the mandatory stage-start explanation.
+
+Real Enterprise Architect XML/XMI acceptance may be executed against the frozen baseline as post-freeze evidence. If that acceptance exposes a source defect, the repair must be opened as an explicit corrective/new stage before implementation.
