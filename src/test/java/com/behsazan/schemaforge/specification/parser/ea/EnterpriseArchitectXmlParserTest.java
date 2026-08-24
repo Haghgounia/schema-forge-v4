@@ -148,4 +148,120 @@ class EnterpriseArchitectXmlParserTest {
         }
     }
 
+    @Test
+    void shouldRecoverForeignKeyFromPortableXmiParentChildAssociationTags() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Package name="FEE" xmi.id="PKG_1">
+                          <UML:Namespace.ownedElement>
+                            <UML:Class name="PARENT_TABLE" xmi.id="TABLE_PARENT">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                              <UML:Classifier.feature>
+                                <UML:Attribute name="PARENT_ID">
+                                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                                  <UML:ModelElement.taggedValue>
+                                    <UML:TaggedValue tag="type" value="NUMBER"/>
+                                    <UML:TaggedValue tag="precision" value="10"/>
+                                    <UML:TaggedValue tag="scale" value="0"/>
+                                    <UML:TaggedValue tag="position" value="0"/>
+                                    <UML:TaggedValue tag="lowerBound" value="1"/>
+                                  </UML:ModelElement.taggedValue>
+                                </UML:Attribute>
+                                <UML:Operation name="PK_PARENT_TABLE">
+                                  <UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype>
+                                  <UML:BehavioralFeature.parameter>
+                                    <UML:Parameter name="PARENT_ID" kind="in"/>
+                                  </UML:BehavioralFeature.parameter>
+                                </UML:Operation>
+                              </UML:Classifier.feature>
+                            </UML:Class>
+                            <UML:Class name="CHILD_TABLE" xmi.id="TABLE_CHILD">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                              <UML:Classifier.feature>
+                                <UML:Attribute name="CHILD_ID">
+                                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                                  <UML:ModelElement.taggedValue>
+                                    <UML:TaggedValue tag="type" value="NUMBER"/>
+                                    <UML:TaggedValue tag="precision" value="10"/>
+                                    <UML:TaggedValue tag="scale" value="0"/>
+                                    <UML:TaggedValue tag="position" value="0"/>
+                                    <UML:TaggedValue tag="lowerBound" value="1"/>
+                                  </UML:ModelElement.taggedValue>
+                                </UML:Attribute>
+                                <UML:Attribute name="PARENT_ID">
+                                  <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                                  <UML:ModelElement.taggedValue>
+                                    <UML:TaggedValue tag="type" value="NUMBER"/>
+                                    <UML:TaggedValue tag="precision" value="10"/>
+                                    <UML:TaggedValue tag="scale" value="0"/>
+                                    <UML:TaggedValue tag="position" value="1"/>
+                                    <UML:TaggedValue tag="lowerBound" value="1"/>
+                                  </UML:ModelElement.taggedValue>
+                                </UML:Attribute>
+                                <UML:Operation name="PK_CHILD_TABLE">
+                                  <UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype>
+                                  <UML:BehavioralFeature.parameter>
+                                    <UML:Parameter name="CHILD_ID" kind="in"/>
+                                  </UML:BehavioralFeature.parameter>
+                                </UML:Operation>
+                                <UML:Operation name="FK_CHILD_PARENT">
+                                  <UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype>
+                                  <UML:ModelElement.taggedValue>
+                                    <UML:TaggedValue tag="targetTable" value="PARENT_TABLE"/>
+                                    <UML:TaggedValue tag="targetColumns" value="PARENT_ID"/>
+                                  </UML:ModelElement.taggedValue>
+                                  <UML:BehavioralFeature.parameter>
+                                    <UML:Parameter name="PARENT_ID" kind="in"/>
+                                  </UML:BehavioralFeature.parameter>
+                                </UML:Operation>
+                              </UML:Classifier.feature>
+                            </UML:Class>
+                            <UML:Association name="FK_CHILD_PARENT" xmi.id="ASSOC_1">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="constraint" value="FK_CHILD_PARENT"/>
+                                <UML:TaggedValue tag="sourceTable" value="CHILD_TABLE"/>
+                                <UML:TaggedValue tag="sourceColumns" value="PARENT_ID"/>
+                                <UML:TaggedValue tag="targetTable" value="PARENT_TABLE"/>
+                                <UML:TaggedValue tag="targetColumns" value="PARENT_ID"/>
+                              </UML:ModelElement.taggedValue>
+                              <UML:Association.connection>
+                                <UML:AssociationEnd name="parent" type="TABLE_PARENT">
+                                  <UML:ModelElement.taggedValue>
+                                    <UML:TaggedValue tag="role" value="parent"/>
+                                  </UML:ModelElement.taggedValue>
+                                </UML:AssociationEnd>
+                                <UML:AssociationEnd name="child" type="TABLE_CHILD">
+                                  <UML:ModelElement.taggedValue>
+                                    <UML:TaggedValue tag="role" value="child"/>
+                                  </UML:ModelElement.taggedValue>
+                                </UML:AssociationEnd>
+                              </UML:Association.connection>
+                            </UML:Association>
+                          </UML:Namespace.ownedElement>
+                        </UML:Package>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("FEE").parse(
+                "portable-parent-child.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var child = schema.findTable("CHILD_TABLE").orElseThrow();
+        assertEquals(1, child.foreignKeys().size());
+        var foreignKey = child.foreignKeys().getFirst();
+        assertEquals("FK_CHILD_PARENT", foreignKey.name().value());
+        assertEquals("PARENT_ID", foreignKey.columns().getFirst().value());
+        assertEquals("FEE.PARENT_TABLE", foreignKey.referencedTable().toString());
+        assertEquals("PARENT_ID", foreignKey.referencedColumns().getFirst().value());
+        assertFalse(schema.metadata().containsKey("recovery.warningCount"));
+    }
+
 }

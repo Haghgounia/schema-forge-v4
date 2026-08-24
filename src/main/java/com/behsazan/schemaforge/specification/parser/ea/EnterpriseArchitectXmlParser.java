@@ -302,17 +302,36 @@ public final class EnterpriseArchitectXmlParser {
                 targetOperation = sanitizeIdentifier(matcher.group(2), "");
             }
 
+            // Some XMI 1.1 exporters do not emit EA's styleex/FKINFO metadata.
+            // They expose the FK constraint name directly on the association instead.
+            if (sourceOperation.isBlank()) {
+                sourceOperation = sanitizeIdentifier(firstNonBlank(
+                        tag(tags, "constraint"), attribute(association, "name")), "");
+            }
+
             String sourceId = "";
             String targetId = "";
             for (Element end : directDescendants(association, "AssociationEnd")) {
                 Map<String, String> endTags = taggedValues(end);
                 String side = tag(endTags, "ea_end");
-                if ("source".equalsIgnoreCase(side)) {
+                String role = tag(endTags, "role");
+                boolean explicitSource = "source".equalsIgnoreCase(side);
+                boolean explicitTarget = "target".equalsIgnoreCase(side);
+                boolean childSource = side.isBlank() && "child".equalsIgnoreCase(role);
+                boolean parentTarget = side.isBlank() && "parent".equalsIgnoreCase(role);
+
+                if (explicitSource || childSource) {
                     sourceId = attribute(end, "type");
-                    if (sourceOperation.isBlank()) sourceOperation = sanitizeIdentifier(attribute(end, "name"), "");
-                } else if ("target".equalsIgnoreCase(side)) {
+                    // In role-based exports the AssociationEnd name is a role/table name,
+                    // not the FK operation name. Only use it for native EA source ends.
+                    if (sourceOperation.isBlank() && explicitSource) {
+                        sourceOperation = sanitizeIdentifier(attribute(end, "name"), "");
+                    }
+                } else if (explicitTarget || parentTarget) {
                     targetId = attribute(end, "type");
-                    if (targetOperation.isBlank()) targetOperation = sanitizeIdentifier(attribute(end, "name"), "");
+                    if (targetOperation.isBlank() && explicitTarget) {
+                        targetOperation = sanitizeIdentifier(attribute(end, "name"), "");
+                    }
                 }
             }
 
@@ -324,17 +343,38 @@ public final class EnterpriseArchitectXmlParser {
                         sanitizeIdentifier(pairMatcher.group(1), ""),
                         sanitizeIdentifier(pairMatcher.group(2), "")));
             }
+
+            // Generated/portable XMI exports can carry the mapping as explicit
+            // sourceColumns/targetColumns tagged values instead of "A = B" text.
+            if (pairs.isEmpty()) {
+                List<String> sourceColumns = taggedColumnList(tag(tags, "sourceColumns"));
+                List<String> targetColumns = taggedColumnList(tag(tags, "targetColumns"));
+                if (sourceColumns.size() == targetColumns.size()) {
+                    for (int i = 0; i < sourceColumns.size(); i++) {
+                        pairs.add(new ColumnPair(sourceColumns.get(i), targetColumns.get(i)));
+                    }
+                }
+            }
+
             result.add(new EaAssociation(
                     sourceId,
                     targetId,
                     sourceOperation,
                     targetOperation,
-                    firstNonBlank(tag(tags, "ea_sourceName"), ""),
-                    firstNonBlank(tag(tags, "ea_targetName"), ""),
+                    firstNonBlank(tag(tags, "ea_sourceName"), tag(tags, "sourceTable"), ""),
+                    firstNonBlank(tag(tags, "ea_targetName"), tag(tags, "targetTable"), ""),
                     List.copyOf(pairs),
                     tags));
         }
         return List.copyOf(result);
+    }
+
+    private static List<String> taggedColumnList(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        return java.util.Arrays.stream(value.split("[,;]"))
+                .map(column -> sanitizeIdentifier(column, ""))
+                .filter(column -> !column.isBlank())
+                .toList();
     }
 
     private static Table buildTable(
