@@ -55,6 +55,9 @@ class MySqlFinalRecoveryGenerationIT {
     private static final String CLEAN_OUTPUT = "schemaforge.mysql.final.cleanOutput";
     private static final String MIN_EVIDENCE = "schemaforge.mysql.final.minEvidence";
     private static final String FAIL_ON_GENERATION_ERRORS = "schemaforge.mysql.final.failOnGenerationErrors";
+    private static final String FAIL_ON_SNAPSHOT_READ_ERRORS = "schemaforge.mysql.final.failOnSnapshotReadErrors";
+    private static final String EXPECTED_MIN_SNAPSHOTS = "schemaforge.mysql.final.expectedMinSnapshots";
+    private static final String EXPECTED_MIN_GENERATED = "schemaforge.mysql.final.expectedMinGenerated";
 
     private static final Set<String> CANONICAL_EXACT_NUMERIC = Set.of("NUMBER", "NUMERIC", "DECIMAL", "DEC");
     private static final Set<String> METADATA_EXACT_NUMERIC = Set.of(
@@ -78,7 +81,10 @@ class MySqlFinalRecoveryGenerationIT {
         Path outputRoot = outputDirectory(snapshotRoot);
         boolean cleanOutput = Boolean.parseBoolean(System.getProperty(CLEAN_OUTPUT, "true"));
         boolean failOnGenerationErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_GENERATION_ERRORS, "false"));
+        boolean failOnSnapshotReadErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_SNAPSHOT_READ_ERRORS, "true"));
         int minEvidence = positiveInt(System.getProperty(MIN_EVIDENCE, "1"), MIN_EVIDENCE);
+        int expectedMinSnapshots = positiveInt(System.getProperty(EXPECTED_MIN_SNAPSHOTS, "5321"), EXPECTED_MIN_SNAPSHOTS);
+        int expectedMinGenerated = positiveInt(System.getProperty(EXPECTED_MIN_GENERATED, "4702"), EXPECTED_MIN_GENERATED);
 
         Path p2r2Details = latestFile(p2r2Root, "mysql-metadata-recovery-details_", ".csv");
         Path p2r7Applied = latestFile(p2r7Root, "mysql-strong-table-reconciliation-applied_", ".csv");
@@ -86,7 +92,8 @@ class MySqlFinalRecoveryGenerationIT {
         Path p2r10Details = latestFile(p2r10Root, "mysql-historical-column-corroboration-details_", ".csv");
 
         Db2SysColumnsFileCatalog catalog = new Db2SysColumnsFileCatalog(metadataFile);
-        List<LoadedSnapshot> loaded = loadSnapshots(snapshotRoot);
+        SnapshotLoadResult loadResult = loadSnapshots(snapshotRoot);
+        List<LoadedSnapshot> loaded = loadResult.loaded();
         Map<String, HistoricalEvidence> historicalIndex = buildHistoricalEvidenceIndex(loaded);
         Map<String, String> sourceEvidence = readP2R2Evidence(p2r2Details);
         List<RecoveryDirective> directives = new ArrayList<>();
@@ -107,6 +114,11 @@ class MySqlFinalRecoveryGenerationIT {
         applied.add("snapshot,source,stage,schema,table,column,evidence_schema,evidence_table,evidence_column,canonical_type,recovered_type");
         List<String> remaining = new ArrayList<>();
         remaining.add("snapshot,source,severity,issue_code,path,message,hard_classification,p2r2_evidence_classification");
+        List<String> snapshotReadFailures = new ArrayList<>();
+        snapshotReadFailures.add("snapshot,error_type,message");
+        for (SnapshotReadFailure failure : loadResult.failures()) {
+            snapshotReadFailures.add(csvLine(failure.relative(), failure.errorType(), failure.message()));
+        }
 
         int baselineCompatible = 0;
         int baselineBlocked = 0;
@@ -203,11 +215,15 @@ class MySqlFinalRecoveryGenerationIT {
         Path detailsFile = outputRoot.resolve("mysql-final-recovery-details_" + timestamp + ".csv");
         Path appliedFile = outputRoot.resolve("mysql-final-recovery-applied_" + timestamp + ".csv");
         Path remainingFile = outputRoot.resolve("mysql-final-hard-blockers_" + timestamp + ".csv");
+        Path snapshotReadFailuresFile = outputRoot.resolve("mysql-final-snapshot-read-failures_" + timestamp + ".csv");
         Files.writeString(detailsFile, String.join(System.lineSeparator(), details) + System.lineSeparator(), StandardCharsets.UTF_8);
         Files.writeString(appliedFile, String.join(System.lineSeparator(), applied) + System.lineSeparator(), StandardCharsets.UTF_8);
         Files.writeString(remainingFile, String.join(System.lineSeparator(), remaining) + System.lineSeparator(), StandardCharsets.UTF_8);
+        Files.writeString(snapshotReadFailuresFile, String.join(System.lineSeparator(), snapshotReadFailures) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
 
-        double coverage = loaded.isEmpty() ? 0.0 : (100.0 * generated / loaded.size());
+        double loadedCoverage = loaded.isEmpty() ? 0.0 : (100.0 * generated / loaded.size());
+        double corpusCoverage = loadResult.discovered() == 0 ? 0.0 : (100.0 * generated / loadResult.discovered());
         List<String> summary = new ArrayList<>();
         summary.add("SchemaForge MySQL P2-FINAL evidence-backed recovery freeze");
         summary.add("=========================================================");
@@ -217,7 +233,10 @@ class MySqlFinalRecoveryGenerationIT {
         summary.add("P2-R7 applied                   : " + p2r7Applied);
         summary.add("P2-R8 applied                   : " + p2r8Applied);
         summary.add("P2-R10 details                  : " + p2r10Details);
+        summary.add("Snapshots discovered            : " + loadResult.discovered());
+        summary.add("Expected minimum snapshots      : " + expectedMinSnapshots);
         summary.add("Snapshots loaded                : " + loaded.size());
+        summary.add("Snapshot read failures          : " + loadResult.failures().size());
         summary.add("Baseline compatible             : " + baselineCompatible);
         summary.add("Baseline blocked                : " + baselineBlocked);
         summary.add("DB2 recovery occurrences        : " + db2RecoveryOccurrences);
@@ -228,7 +247,8 @@ class MySqlFinalRecoveryGenerationIT {
         summary.add("Final generated                 : " + generated);
         summary.add("Final hard-blocked snapshots    : " + hardBlockedSnapshots);
         summary.add("Generation failures             : " + generationFailures);
-        summary.add(String.format(Locale.ROOT, "Final generation coverage        : %.2f%%", coverage));
+        summary.add(String.format(Locale.ROOT, "Loaded generation coverage       : %.2f%%", loadedCoverage));
+        summary.add(String.format(Locale.ROOT, "Corpus generation coverage       : %.2f%%", corpusCoverage));
         summary.add("Remaining blocker occurrences   : " + remainingOccurrences);
         summary.add("");
         summary.add("Confirmed recovery occurrences by stage");
@@ -255,9 +275,13 @@ class MySqlFinalRecoveryGenerationIT {
         summary.add("Details      : " + detailsFile);
         summary.add("Applied      : " + appliedFile);
         summary.add("Hard blockers: " + remainingFile);
+        summary.add("Read failures : " + snapshotReadFailuresFile);
         Files.writeString(summaryFile, String.join(System.lineSeparator(), summary) + System.lineSeparator(), StandardCharsets.UTF_8);
 
+        System.out.println("Snapshots discovered            : " + loadResult.discovered());
+        System.out.println("Expected minimum snapshots      : " + expectedMinSnapshots);
         System.out.println("Snapshots loaded                : " + loaded.size());
+        System.out.println("Snapshot read failures          : " + loadResult.failures().size());
         System.out.println("Baseline compatible             : " + baselineCompatible);
         System.out.println("Baseline blocked                : " + baselineBlocked);
         System.out.println("Confirmed recovery occurrences  : " + confirmedRecoveryOccurrences);
@@ -266,16 +290,27 @@ class MySqlFinalRecoveryGenerationIT {
         System.out.println("Final generated                 : " + generated);
         System.out.println("Final hard-blocked snapshots    : " + hardBlockedSnapshots);
         System.out.println("Generation failures             : " + generationFailures);
-        System.out.printf(Locale.ROOT, "Final generation coverage        : %.2f%%%n", coverage);
+        System.out.printf(Locale.ROOT, "Loaded generation coverage       : %.2f%%%n", loadedCoverage);
+        System.out.printf(Locale.ROOT, "Corpus generation coverage       : %.2f%%%n", corpusCoverage);
         confirmedByStage.forEach((key, value) -> System.out.println(key + " : " + value));
         hardByClassification.forEach((key, value) -> System.out.println(
                 key + " : " + value + " / " + hardSnapshotsByClassification.getOrDefault(key, Set.of()).size()));
         System.out.println("Summary                         : " + summaryFile);
 
+        assertTrue(loadResult.discovered() >= expectedMinSnapshots,
+                "Legacy corpus is smaller than the configured acceptance minimum: discovered="
+                        + loadResult.discovered() + ", expectedMin=" + expectedMinSnapshots);
+        assertEquals(loadResult.discovered(), loaded.size() + loadResult.failures().size(),
+                "Every discovered canonical snapshot must be accounted for as loaded or read-failed");
         assertEquals(loaded.size(), generated + hardBlockedSnapshots + generationFailures,
                 "Every loaded snapshot must end in generated, hard-blocked, or generation-failed state");
+        if (failOnSnapshotReadErrors) {
+            assertEquals(0, loadResult.failures().size(),
+                    "Canonical snapshot read failures were found; see " + snapshotReadFailuresFile);
+        }
         if (failOnGenerationErrors) assertEquals(0, generationFailures, "Final MySQL generation failures were found");
-        assertTrue(generated >= 4702, "Final cumulative generation unexpectedly regressed below P2-R8 baseline");
+        assertTrue(generated >= expectedMinGenerated,
+                "Final cumulative generation unexpectedly regressed below configured minimum " + expectedMinGenerated);
     }
 
     private ConfirmedOverlay applyConfirmedDirectives(DatabaseSchema schema, String snapshot,
@@ -429,7 +464,7 @@ class MySqlFinalRecoveryGenerationIT {
         return Map.copyOf(result);
     }
 
-    private List<LoadedSnapshot> loadSnapshots(Path snapshotRoot) throws Exception {
+    private SnapshotLoadResult loadSnapshots(Path snapshotRoot) throws Exception {
         List<Path> paths;
         try (var stream = Files.walk(snapshotRoot)) {
             paths = stream.filter(Files::isRegularFile)
@@ -437,17 +472,20 @@ class MySqlFinalRecoveryGenerationIT {
                     .sorted(Comparator.comparing(path -> normalize(snapshotRoot.relativize(path))))
                     .toList();
         }
-        List<LoadedSnapshot> result = new ArrayList<>();
+        List<LoadedSnapshot> loaded = new ArrayList<>();
+        List<SnapshotReadFailure> failures = new ArrayList<>();
         for (Path path : paths) {
+            String relative = normalize(snapshotRoot.relativize(path));
             try {
                 CanonicalSchemaSnapshot snapshot = store.readSnapshot(path);
                 DatabaseSchema schema = mapper.toDomainPersistedSource(snapshot);
-                result.add(new LoadedSnapshot(path, normalize(snapshotRoot.relativize(path)), snapshot, schema));
-            } catch (RuntimeException ignored) {
-                // Earlier corpus audits own snapshot-read quality. Final recovery must not die on non-canonical artifacts.
+                loaded.add(new LoadedSnapshot(path, relative, snapshot, schema));
+            } catch (Exception exception) {
+                failures.add(new SnapshotReadFailure(relative, exception.getClass().getSimpleName(),
+                        safe(exception.getMessage())));
             }
         }
-        return List.copyOf(result);
+        return new SnapshotLoadResult(paths.size(), List.copyOf(loaded), List.copyOf(failures));
     }
 
     private static Map<String, String> readP2R2Evidence(Path file) throws Exception {
@@ -718,6 +756,8 @@ class MySqlFinalRecoveryGenerationIT {
     }
 
     private record LoadedSnapshot(Path path, String relative, CanonicalSchemaSnapshot snapshot, DatabaseSchema schema) { }
+    private record SnapshotReadFailure(String relative, String errorType, String message) { }
+    private record SnapshotLoadResult(int discovered, List<LoadedSnapshot> loaded, List<SnapshotReadFailure> failures) { }
     private record RecoveryAction(String schema, String table, String column) { }
     private record Overlay(DatabaseSchema schema, List<RecoveryAction> actions) { }
     private record HistoricalAction(String schema, String table, String column) { }

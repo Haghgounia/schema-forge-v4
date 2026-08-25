@@ -1,3 +1,14 @@
+## R7.1 — MySQL final recovery closure gate (2026-08-25)
+
+- Hardened `MySqlFinalRecoveryGenerationIT` so canonical snapshot read failures are no longer silently skipped.
+- Added discovered/loaded/read-failed corpus accounting and a dedicated `mysql-final-snapshot-read-failures_*.csv` report.
+- Added `schemaforge.mysql.final.expectedMinSnapshots` (default `5321`) to prevent a partial legacy corpus from producing a false green closure result.
+- Added `schemaforge.mysql.final.expectedMinGenerated` (default `4702`) to make the cumulative P2 recovery coverage floor explicit and configurable.
+- Added `schemaforge.mysql.final.failOnSnapshotReadErrors` (default `true`); R7.1 closure also requires `failOnGenerationErrors=true`.
+- Preserved the evidence-only recovery policy: canonical JSON is never mutated and residual unsupported/conflicting cases remain classified hard blockers rather than guessed.
+- Added `docs/R7.1-MYSQL-FINAL-RECOVERY-CLOSURE.md` with the full Windows closure command and retained-evidence contract.
+- Test-only recovery/acceptance hardening; no production parser, canonical model, datatype mapper, DDL renderer, REST, metadata repository, migration renderer, or live DB semantics changed.
+
 ## R6.8 — Legacy canonical corpus five-DBMS acceptance gate (2026-08-25)
 
 - Promoted existing `CanonicalJsonDirectoryToDdlIT` instead of creating a duplicate corpus runner.

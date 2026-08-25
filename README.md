@@ -466,6 +466,7 @@ See `docs/MYSQL-P2-R10-HISTORICAL-COLUMN-CORROBORATION-AUDIT.md`.
 
 
 MySQL P2 final recovery/freeze details: `docs/MYSQL-P2-FINAL-RECOVERY-FREEZE.md`.
+R7.1 acceptance hardening and the full closure command: `docs/R7.1-MYSQL-FINAL-RECOVERY-CLOSURE.md`.
 ### ALTER/Migration M2 real MySQL pilot
 
 `MySqlMigrationM2LivePilotIT` is an opt-in destructive integration test for the Flyway-compatible M2 path. It uses a dedicated `SCHEMAFORGE_*` database, verifies that CREATE generation remains unconditional for existing tables, executes a confirmed column + PK/FK/UK/CHECK/INDEX migration, and requires an empty post-migration live diff. See `docs/ALTER-MIGRATION-M2-LIVE-PILOT.md`.
