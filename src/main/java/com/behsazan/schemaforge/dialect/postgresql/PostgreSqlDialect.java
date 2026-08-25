@@ -323,6 +323,16 @@ public final class PostgreSqlDialect implements Dialect {
     }
 
     @Override
+    public String infrastructureProvisioningTemplate(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String nl = System.lineSeparator();
+        return "-- [INFRASTRUCTURE TEMPLATE][POSTGRESQL] Optional cluster-level tablespace; DBA review required." + nl
+                + "-- The LOCATION directory must already exist and be owned by the PostgreSQL OS account." + nl
+                + "-- CREATE TABLESPACE <TABLESPACE> OWNER CURRENT_USER LOCATION '<ABSOLUTE_DIRECTORY>';" + nl
+                + "-- Normal SchemaForge operation does not require a dedicated PostgreSQL tablespace.";
+    }
+
+    @Override
     public String schemaBootstrapStatement(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         return "CREATE SCHEMA IF NOT EXISTS " + quote(schemaName)

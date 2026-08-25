@@ -98,12 +98,23 @@ public final class DocumentGenerationOrchestrator {
     /** Parses, prepares and generates all artifacts for one Standard Word specification. */
     public PreparedSchema generateStandardWord(
             Path input, Path output, ArtifactGenerationContext context) throws IOException {
+        return generateStandardWord(input, output, context, null);
+    }
+
+    /** Parses, prepares and generates all artifacts using request-level audit options. */
+    public PreparedSchema generateStandardWord(
+            Path input,
+            Path output,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         DatabaseSchema parsed;
         try (InputStream stream = Files.newInputStream(input)) {
             parsed = new WordSpecificationParser().parse(
                     new SpecificationSource(input.getFileName().toString(), stream));
         }
-        PreparedSchema prepared = preparationService.prepare(parsed);
+        PreparedSchema prepared = auditOptions == null
+                ? preparationService.prepare(parsed)
+                : preparationService.prepare(parsed, auditOptions);
         ValidationReport combinedReport = writeAllDatabaseOutputs(
                 prepared, output, stripExtension(input.getFileName().toString()), context);
         return new PreparedSchema(prepared.schema(), combinedReport);
@@ -115,9 +126,21 @@ public final class DocumentGenerationOrchestrator {
             Path output,
             String schemaName,
             ArtifactGenerationContext context) throws IOException {
+        return generateLegacyWord(input, output, schemaName, context, null);
+    }
+
+    /** Parses, prepares and generates Legacy Word artifacts using request-level audit options. */
+    public PreparedSchema generateLegacyWord(
+            Path input,
+            Path output,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         DatabaseSchema parsed = legacyWordSpecificationParser.parse(
                 input.getParent(), input, schemaName);
-        PreparedSchema prepared = preparationService.prepare(parsed);
+        PreparedSchema prepared = auditOptions == null
+                ? preparationService.prepare(parsed)
+                : preparationService.prepare(parsed, auditOptions);
         ValidationReport combinedReport = writeAllDatabaseOutputs(
                 prepared, output, stripExtension(input.getFileName().toString()), context);
         return new PreparedSchema(prepared.schema(), combinedReport);

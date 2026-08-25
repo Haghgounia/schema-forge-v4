@@ -380,6 +380,19 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     }
 
     @Override
+    public String infrastructureProvisioningTemplate(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String nl = System.lineSeparator();
+        return "-- [INFRASTRUCTURE TEMPLATE][SQLSERVER] SQL Server uses FILEGROUP/FILES, not tablespaces." + nl
+                + "-- DBA review required; database/file paths and growth settings are environment specific." + nl
+                + "-- ALTER DATABASE [<DATABASE>] ADD FILEGROUP [<FILEGROUP>];" + nl
+                + "-- ALTER DATABASE [<DATABASE>] ADD FILE (" + nl
+                + "--   NAME = N'<LOGICAL_FILE_NAME>', FILENAME = N'<DATA_FILE_PATH>'," + nl
+                + "--   SIZE = <INITIAL_SIZE>, MAXSIZE = <MAX_SIZE>, FILEGROWTH = <FILE_GROWTH>" + nl
+                + "-- ) TO FILEGROUP [<FILEGROUP>];";
+    }
+
+    @Override
     public String schemaBootstrapStatement(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         String metadataSchemaName = escapeLiteral(metadataName(schemaName));

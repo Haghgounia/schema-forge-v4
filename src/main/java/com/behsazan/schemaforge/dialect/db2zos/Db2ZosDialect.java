@@ -243,6 +243,18 @@ public final class Db2ZosDialect implements Dialect {
     }
 
     @Override
+    public String infrastructureProvisioningTemplate(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String nl = System.lineSeparator();
+        return "-- [INFRASTRUCTURE TEMPLATE][DB2/ZOS] DBA/system-programmer review required." + nl
+                + "-- Storage hierarchy is Db2 for z/OS specific; SchemaForge never guesses VCAT, volumes or buffer pools." + nl
+                + "-- CREATE STOGROUP <STOGROUP> VOLUMES(<VOLUME>) VCAT <VCAT>;" + nl
+                + "-- CREATE DATABASE <DATABASE> STOGROUP <STOGROUP> BUFFERPOOL <BUFFERPOOL> INDEXBP <INDEX_BUFFERPOOL>;" + nl
+                + "-- CREATE TABLESPACE <TABLESPACE> IN <DATABASE> USING STOGROUP <STOGROUP> BUFFERPOOL <BUFFERPOOL>;" + nl
+                + "-- Select PBG/PBR and other universal-table-space options from the approved physical design.";
+    }
+
+    @Override
     public String schemaBootstrapStatement(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         String schema = quote(schemaName);

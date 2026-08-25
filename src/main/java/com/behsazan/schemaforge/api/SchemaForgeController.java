@@ -37,31 +37,48 @@ public class SchemaForgeController {
 
     @PostMapping(value = "/word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from one Word specification")
-    public ResponseEntity<byte[]> word(@RequestPart("file") MultipartFile file) throws IOException {
-        return zip(service.generateFromWord(file), archiveName("schemaforge-word-output"));
+    public ResponseEntity<byte[]> word(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
+            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            throws IOException {
+        return zip(service.generateFromWord(file, includeAuditFields, auditProfile),
+                archiveName("schemaforge-word-output"));
     }
 
     @PostMapping(value = "/legacy-word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from one legacy Word table specification")
     public ResponseEntity<byte[]> legacyWord(
             @RequestPart("file") MultipartFile file,
-            @RequestParam("schema") String schema) throws IOException {
-        return zip(service.generateFromLegacyWord(file, schema),
+            @RequestParam("schema") String schema,
+            @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
+            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            throws IOException {
+        return zip(service.generateFromLegacyWord(file, schema, includeAuditFields, auditProfile),
                 archiveName("schemaforge-legacy-word-output"));
     }
 
     @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from a ZIP containing Word specifications")
-    public ResponseEntity<byte[]> zip(@RequestPart("file") MultipartFile file) throws IOException {
-        return zip(service.generateFromZip(file), archiveName("schemaforge-batch-output"));
+    public ResponseEntity<byte[]> zip(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
+            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            throws IOException {
+        return zip(service.generateFromZip(file, includeAuditFields, auditProfile),
+                archiveName("schemaforge-batch-output"));
     }
 
     @PostMapping(value = "/ea-xml", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
     @Operation(summary = "Generate from Enterprise Architect XML/XMI")
     public ResponseEntity<byte[]> eaXml(
             @RequestPart("file") MultipartFile file,
-            @RequestParam(value = "schema", required = false) String schema) throws IOException {
-        return zip(service.generateFromEaXml(file, schema), archiveName("schemaforge-ea-output"));
+            @RequestParam(value = "schema", required = false) String schema,
+            @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
+            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            throws IOException {
+        return zip(service.generateFromEaXml(file, schema, includeAuditFields, auditProfile),
+                archiveName("schemaforge-ea-output"));
     }
 
     private static String archiveName(String baseName) {

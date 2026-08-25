@@ -103,6 +103,14 @@ public final class EaGenerationOrchestrator {
             MultipartFile file,
             String sourceName,
             String schemaName) throws IOException {
+        return prepare(file, sourceName, schemaName, null);
+    }
+
+    public PreparedSchema prepare(
+            MultipartFile file,
+            String sourceName,
+            String schemaName,
+            AuditGenerationOptions auditOptions) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         DatabaseSchema parsed;
@@ -111,7 +119,9 @@ public final class EaGenerationOrchestrator {
                     eaImportProperties.getDefaultSchema(), true)
                     .parse(sourceName, inputStream, schemaName);
         }
-        return preparationService.prepare(parsed);
+        return auditOptions == null
+                ? preparationService.prepare(parsed)
+                : preparationService.prepare(parsed, auditOptions);
     }
 
     /** Generates and packages all established EA artifacts for an already prepared schema. */
@@ -119,6 +129,14 @@ public final class EaGenerationOrchestrator {
             PreparedSchema prepared,
             String baseName,
             ArtifactGenerationContext context) throws IOException {
+        return generate(prepared, baseName, context, null);
+    }
+
+    public byte[] generate(
+            PreparedSchema prepared,
+            String baseName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         Objects.requireNonNull(prepared, "prepared must not be null");
         Objects.requireNonNull(baseName, "baseName must not be null");
         Objects.requireNonNull(context, "context must not be null");
@@ -126,7 +144,7 @@ public final class EaGenerationOrchestrator {
         Path work = Files.createTempDirectory("schemaforge-ea-");
         try {
             Path output = Files.createDirectories(work.resolve("output"));
-            writeEaPerTableOutputs(prepared, output, baseName, context);
+            writeEaPerTableOutputs(prepared, output, baseName, context, auditOptions);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
@@ -137,7 +155,8 @@ public final class EaGenerationOrchestrator {
             PreparedSchema prepared,
             Path output,
             String baseName,
-            ArtifactGenerationContext context) throws IOException {
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
@@ -206,11 +225,16 @@ public final class EaGenerationOrchestrator {
                                 .map(table -> table.qualifiedName().toString()).toList(),
                         dependencyOrder.cyclicTables().stream()
                                 .map(table -> table.qualifiedName().toString()).toList());
+        Map<String, Object> manifestExtensions = new LinkedHashMap<>();
+        manifestExtensions.put("enterpriseArchitect", eaExtension);
+        if (auditOptions != null) {
+            manifestExtensions.put("generationOptions", Map.of("audit", auditOptions.manifestValue()));
+        }
         artifactManifestWriter.write(
                 output, context, baseName,
                 List.of(new ArtifactManifestAssembler.ModelInput(
                         context.sourceName(), schema, jsonReport)),
-                Map.of("enterpriseArchitect", eaExtension));
+                manifestExtensions);
     }
 
     private void requireValidOracleDdl(DatabasePlatform platform, String sql, String source) {

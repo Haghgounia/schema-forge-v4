@@ -474,6 +474,16 @@ public interface Dialect {
      * non-executable provisioning template when schema creation is an
      * administrative/security operation rather than ordinary application DDL.
      */
+    /**
+     * Returns a non-executable DBA provisioning template for storage/infrastructure concepts
+     * that are specific to this DBMS. Environment-specific paths, sizes, volumes and storage
+     * names are deliberately represented by placeholders and are never guessed by SchemaForge.
+     */
+    default String infrastructureProvisioningTemplate(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        return "";
+    }
+
     default String schemaBootstrapStatement(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         return "";

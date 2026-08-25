@@ -42,11 +42,20 @@ public final class ArtifactGenerationService {
             MultipartFile file,
             String sourceName,
             ArtifactGenerationContext context) throws IOException {
+        return generateStandardWord(file, sourceName, context, null);
+    }
+
+    public byte[] generateStandardWord(
+            MultipartFile file,
+            String sourceName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(context, "context must not be null");
-        return generate(file, sourceName, "schemaforge-word-", context,
-                (input, output) -> documentGenerationOrchestrator.generateStandardWord(input, output, context));
+        return generate(file, sourceName, "schemaforge-word-", context, auditOptions,
+                (input, output) -> documentGenerationOrchestrator.generateStandardWord(
+                        input, output, context, auditOptions));
     }
 
     /** Generates and packages one Legacy Word specification using the required schema. */
@@ -55,13 +64,22 @@ public final class ArtifactGenerationService {
             String sourceName,
             String schemaName,
             ArtifactGenerationContext context) throws IOException {
+        return generateLegacyWord(file, sourceName, schemaName, context, null);
+    }
+
+    public byte[] generateLegacyWord(
+            MultipartFile file,
+            String sourceName,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         Objects.requireNonNull(context, "context must not be null");
-        return generate(file, sourceName, "schemaforge-legacy-word-", context,
+        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions,
                 (input, output) -> documentGenerationOrchestrator.generateLegacyWord(
-                        input, output, schemaName, context));
+                        input, output, schemaName, context, auditOptions));
     }
 
     private byte[] generate(
@@ -69,6 +87,7 @@ public final class ArtifactGenerationService {
             String sourceName,
             String workPrefix,
             ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
             DocumentGenerator generator) throws IOException {
         Path work = Files.createTempDirectory(workPrefix);
         try {
@@ -76,7 +95,7 @@ public final class ArtifactGenerationService {
             file.transferTo(input);
             Path output = Files.createDirectories(work.resolve("output"));
             PreparedSchema prepared = generator.generate(input, output);
-            writeStandardManifest(output, context, stripExtension(sourceName), sourceName, prepared);
+            writeStandardManifest(output, context, stripExtension(sourceName), sourceName, prepared, auditOptions);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
@@ -88,14 +107,17 @@ public final class ArtifactGenerationService {
             ArtifactGenerationContext context,
             String logicalName,
             String sourceName,
-            PreparedSchema prepared) throws IOException {
+            PreparedSchema prepared,
+            AuditGenerationOptions auditOptions) throws IOException {
         artifactManifestWriter.write(
                 output,
                 context,
                 logicalName,
                 List.of(new ArtifactManifestAssembler.ModelInput(
                         sourceName, prepared.schema(), prepared.validationReport())),
-                Map.of());
+                auditOptions == null
+                        ? Map.of()
+                        : Map.of("generationOptions", Map.of("audit", auditOptions.manifestValue())));
     }
 
     private static String stripExtension(String name) {

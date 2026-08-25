@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactOrigin;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
 import com.behsazan.schemaforge.application.ArtifactGenerationService;
+import com.behsazan.schemaforge.application.AuditGenerationOptions;
 import com.behsazan.schemaforge.application.ArtifactPackageBuilder;
 import com.behsazan.schemaforge.application.BatchGenerationOrchestrator;
 import com.behsazan.schemaforge.application.ComparisonArtifactProducer;
@@ -40,6 +41,7 @@ import java.util.Locale;
 @Service
 public class SchemaForgeApiService {
     private final SchemaPreparationService preparationService;
+    private final AuditProperties auditProperties;
     private final MetadataRepositoryResolver metadataRepositoryResolver;
     private final EaImportProperties eaImportProperties;
     private final ArtifactManifestWriter artifactManifestWriter;
@@ -76,6 +78,7 @@ public class SchemaForgeApiService {
             ObjectMapper objectMapper,
             MetadataRepositoryResolver metadataRepositoryResolver,
             EaImportProperties eaImportProperties) {
+        this.auditProperties = auditProperties;
         this.preparationService = new SchemaPreparationService(
                 auditProperties, grantProperties, spellCheckProperties, objectMapper);
         this.metadataRepositoryResolver = metadataRepositoryResolver;
@@ -99,23 +102,52 @@ public class SchemaForgeApiService {
     }
 
     public byte[] generateFromWord(MultipartFile file) throws IOException {
-        return generateFromWordTracked(file).content();
+        return generateFromWord(file, null, "AUTO");
+    }
+
+    public byte[] generateFromWord(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile) throws IOException {
+        return generateFromWordTracked(file, includeAuditFields, auditProfile).content();
     }
 
     GenerationArchive generateFromWordTracked(MultipartFile file) throws IOException {
+        return generateFromWordTracked(file, null, "AUTO");
+    }
+
+    GenerationArchive generateFromWordTracked(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile) throws IOException {
         requireExtension(file, ".docx");
         String sourceName = safeName(file.getOriginalFilename(), "input.docx");
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.STANDARD_WORD, sourceName);
-        byte[] content = artifactGenerationService.generateStandardWord(file, sourceName, context);
+        AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
+                auditProperties, includeAuditFields, auditProfile);
+        byte[] content = artifactGenerationService.generateStandardWord(
+                file, sourceName, context, auditOptions);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
     public byte[] generateFromLegacyWord(MultipartFile file, String schemaName) throws IOException {
-        return generateFromLegacyWordTracked(file, schemaName).content();
+        return generateFromLegacyWord(file, schemaName, null, "AUTO");
+    }
+
+    public byte[] generateFromLegacyWord(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile) throws IOException {
+        return generateFromLegacyWordTracked(file, schemaName, includeAuditFields, auditProfile).content();
     }
 
     GenerationArchive generateFromLegacyWordTracked(MultipartFile file, String schemaName) throws IOException {
+        return generateFromLegacyWordTracked(file, schemaName, null, "AUTO");
+    }
+
+    GenerationArchive generateFromLegacyWordTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile) throws IOException {
         requireWordExtension(file);
         String schema = requireText(schemaName, "Legacy Word schema parameter is required");
         String fallback = file.getOriginalFilename() != null
@@ -125,42 +157,77 @@ public class SchemaForgeApiService {
         String sourceName = safeName(file.getOriginalFilename(), fallback);
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.LEGACY_WORD, sourceName);
-        byte[] content = artifactGenerationService.generateLegacyWord(file, sourceName, schema, context);
+        AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
+                auditProperties, includeAuditFields, auditProfile);
+        byte[] content = artifactGenerationService.generateLegacyWord(
+                file, sourceName, schema, context, auditOptions);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
     public byte[] generateFromZip(MultipartFile file) throws IOException {
-        return generateFromZipTracked(file).content();
+        return generateFromZip(file, null, "AUTO");
+    }
+
+    public byte[] generateFromZip(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile) throws IOException {
+        return generateFromZipTracked(file, includeAuditFields, auditProfile).content();
     }
 
     GenerationArchive generateFromZipTracked(MultipartFile file) throws IOException {
+        return generateFromZipTracked(file, null, "AUTO");
+    }
+
+    GenerationArchive generateFromZipTracked(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile) throws IOException {
         requireExtension(file, ".zip");
         String sourceName = safeName(file.getOriginalFilename(), "input.zip");
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.ZIP_BATCH, sourceName);
+        AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
+                auditProperties, includeAuditFields, auditProfile);
         byte[] content = batchGenerationOrchestrator.generate(
-                file, stripExtension(sourceName), context);
+                file, stripExtension(sourceName), context, auditOptions);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
     public byte[] generateFromEaXml(MultipartFile file) throws IOException {
-        return generateFromEaXml(file, null);
+        return generateFromEaXml(file, null, null, "AUTO");
     }
 
     public byte[] generateFromEaXml(MultipartFile file, String schemaName) throws IOException {
-        return generateFromEaXmlTracked(file, schemaName).content();
+        return generateFromEaXml(file, schemaName, null, "AUTO");
+    }
+
+    public byte[] generateFromEaXml(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile) throws IOException {
+        return generateFromEaXmlTracked(file, schemaName, includeAuditFields, auditProfile).content();
     }
 
     GenerationArchive generateFromEaXmlTracked(MultipartFile file, String schemaName) throws IOException {
+        return generateFromEaXmlTracked(file, schemaName, null, "AUTO");
+    }
+
+    GenerationArchive generateFromEaXmlTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile) throws IOException {
         String name = safeName(file.getOriginalFilename(), "ea-model.xml");
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
             throw new IllegalArgumentException("EA file must be XML or XMI");
         }
-        PreparedSchema prepared = eaGenerationOrchestrator.prepare(file, name, schemaName);
+        AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
+                auditProperties, includeAuditFields, auditProfile);
+        PreparedSchema prepared = eaGenerationOrchestrator.prepare(
+                file, name, schemaName, auditOptions);
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.ENTERPRISE_ARCHITECT, name);
-        byte[] content = eaGenerationOrchestrator.generate(prepared, stripExtension(name), context);
+        byte[] content = eaGenerationOrchestrator.generate(
+                prepared, stripExtension(name), context, auditOptions);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 

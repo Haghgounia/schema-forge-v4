@@ -304,6 +304,24 @@ public final class OracleDialect implements Dialect {
     }
 
     @Override
+    public String infrastructureProvisioningTemplate(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String schema = quote(schemaName);
+        String nl = System.lineSeparator();
+        return "PROMPT [INFRASTRUCTURE TEMPLATE][ORACLE] DBA review required; values are placeholders." + nl
+                + "-- Optional permanent tablespace for application data:" + nl
+                + "-- CREATE TABLESPACE TS_" + schema + nl
+                + "--   DATAFILE '<DATAFILE_PATH>/ts_" + schema.toLowerCase(Locale.ROOT) + "_01.dbf'" + nl
+                + "--   SIZE <INITIAL_SIZE> AUTOEXTEND ON NEXT <NEXT_SIZE> MAXSIZE <MAX_SIZE>" + nl
+                + "--   EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;" + nl
+                + "-- Optional dedicated index tablespace:" + nl
+                + "-- CREATE TABLESPACE ITS_" + schema + nl
+                + "--   DATAFILE '<DATAFILE_PATH>/its_" + schema.toLowerCase(Locale.ROOT) + "_01.dbf'" + nl
+                + "--   SIZE <INITIAL_SIZE> AUTOEXTEND ON NEXT <NEXT_SIZE> MAXSIZE <MAX_SIZE>" + nl
+                + "--   EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;";
+    }
+
+    @Override
     public String schemaBootstrapStatement(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         String schema = quote(schemaName);

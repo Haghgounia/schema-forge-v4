@@ -306,6 +306,15 @@ public final class MySqlDialect implements Dialect {
     }
 
     @Override
+    public String infrastructureProvisioningTemplate(Identifier schemaName) {
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        String nl = System.lineSeparator();
+        return "-- [INFRASTRUCTURE TEMPLATE][MYSQL] Default policy: InnoDB file-per-table; no general tablespace is required." + nl
+                + "-- Optional DBA-controlled general tablespace only when the physical design explicitly requires it:" + nl
+                + "-- CREATE TABLESPACE `<GENERAL_TABLESPACE>` ADD DATAFILE '<DATAFILE>' ENGINE=InnoDB;";
+    }
+
+    @Override
     public String schemaBootstrapStatement(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         // In MySQL, SCHEMA is a synonym for DATABASE. Qualified table names therefore use

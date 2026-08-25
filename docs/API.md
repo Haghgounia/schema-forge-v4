@@ -14,10 +14,10 @@ OpenAPI JSON: `http://localhost:9090/v3/api-docs`
 
 | Method | Endpoint | Input | Response |
 |---|---|---|---|
-| POST | `/api/v1/generate/word` | multipart `file`, one standard `.docx` | `application/zip` |
-| POST | `/api/v1/generate/legacy-word` | multipart `file` plus required `schema` parameter | `application/zip` |
-| POST | `/api/v1/generate/zip` | multipart `file`, ZIP containing standard `.docx` files | `application/zip` |
-| POST | `/api/v1/generate/ea-xml` | multipart `file`, EA `.xml`/`.xmi`; optional `schema` | `application/zip` |
+| POST | `/api/v1/generate/word` | multipart `file`; optional audit parameters | `application/zip` |
+| POST | `/api/v1/generate/legacy-word` | multipart `file`, required `schema`; optional audit parameters | `application/zip` |
+| POST | `/api/v1/generate/zip` | multipart `file`, ZIP containing standard `.docx` files; optional audit parameters | `application/zip` |
+| POST | `/api/v1/generate/ea-xml` | multipart `file`, EA `.xml`/`.xmi`; optional `schema` and audit parameters | `application/zip` |
 | POST | `/api/v1/generate/oracle/crud` | JSON `schema` + `table` | `application/sql` |
 | POST | `/api/v1/generate/sqlserver/crud` | JSON `schema` + `table` | `application/sql` |
 | POST | `/api/v1/diagram/mermaid/canonical-json` | multipart canonical JSON or ZIP plus diagram options | `text/plain` Mermaid artifact |
@@ -33,6 +33,17 @@ The standard Word, Legacy Word, ZIP-batch and EA generation pipelines use the re
 - MySQL
 
 The same prepared canonical model is supplied to every registered dialect. CREATE DDL remains unconditional; when live metadata is enabled and an existing table differs, Flyway-compatible migration output is emitted as an additional artifact rather than replacing CREATE DDL.
+
+### Audit options shared by generation endpoints
+
+The `word`, `legacy-word`, `zip`, and `ea-xml` endpoints accept:
+
+- `includeAuditFields=true|false` — when omitted, the configured `schemaforge.standards.audit.enabled` value is used;
+- `auditProfile=AUTO|CREATED_UPDATED|CREATED_LAST_MODIFIED` — default `AUTO`.
+
+`CREATED_UPDATED` represents `CREATED_AT`, `CREATED_BY`, `UPDATED_AT`, `UPDATED_BY`. `CREATED_LAST_MODIFIED` represents `CREATED_DATE`, `CREATED_BY`, `LAST_MODIFIED_DATE`, `LAST_MODIFIED_BY`.
+
+When audit enrichment is enabled, existing source audit columns are preserved and only missing members of the effective family are appended. `AUTO` first detects the family already used by the table/source model. It never adds the other family merely because SchemaForge has a different configured default. A table containing evidence from both families returns HTTP 400 with `AUDIT_PROFILE_CONFLICT`. The requested audit options are recorded under `manifest.json -> extensions.generationOptions.audit`.
 
 ## Word and Legacy Word
 

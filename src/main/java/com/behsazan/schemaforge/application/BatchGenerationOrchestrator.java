@@ -63,6 +63,14 @@ public final class BatchGenerationOrchestrator {
             MultipartFile file,
             String logicalName,
             ArtifactGenerationContext context) throws IOException {
+        return generate(file, logicalName, context, null);
+    }
+
+    public byte[] generate(
+            MultipartFile file,
+            String logicalName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(context, "context must not be null");
 
@@ -95,7 +103,7 @@ public final class BatchGenerationOrchestrator {
                     ArtifactGenerationContext documentContext = context.isolatedChild(
                             ArtifactOrigin.ZIP_BATCH, relativeDocument);
                     PreparedSchema prepared = documentGenerationOrchestrator.generateStandardWord(
-                            document, documentOutput, documentContext);
+                            document, documentOutput, documentContext, auditOptions);
                     batchDiagramTables.addAll(prepared.schema().tables());
                     long generatedFiles = BatchArchiveSupport.countRegularFiles(documentOutput);
                     Map<String, String> remappedPaths = BatchArchiveSupport.moveGeneratedFiles(
@@ -143,7 +151,11 @@ public final class BatchGenerationOrchestrator {
                     "batch-generation", ArtifactPaths.relative(outputDir, errorPath),
                     "text/plain", LEGACY_PRODUCER);
 
-            artifactManifestWriter.write(outputDir, context, logicalName, manifestModels, Map.of());
+            artifactManifestWriter.write(
+                    outputDir, context, logicalName, manifestModels,
+                    auditOptions == null
+                            ? Map.of()
+                            : Map.of("generationOptions", Map.of("audit", auditOptions.manifestValue())));
             return artifactPackageBuilder.zipDirectory(outputDir);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);

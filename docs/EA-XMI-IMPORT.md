@@ -39,7 +39,9 @@ Operation input parameters define key/index column order. Composite keys and ind
 ```text
 POST /api/v1/generate/ea-xml
 multipart field: file
-optional multipart/query parameter: schema
+optional query parameter: schema
+optional query parameter: includeAuditFields=true|false
+optional query parameter: auditProfile=AUTO|CREATED_UPDATED|CREATED_LAST_MODIFIED
 accepted extensions: .xml, .xmi
 ```
 
@@ -58,7 +60,11 @@ manifest.json
 
 `run_all.sql` lists table scripts in internal foreign-key dependency order. If the EA model contains a dependency cycle, the run-all header identifies the affected tables so the foreign keys can be reviewed before execution. Comparison workbooks are emitted only for tables visible through the configured database metadata connections.
 
-EA imports performed through this REST endpoint treat every primary-key column as an identity column. The inferred identity replaces any default or generated expression on that primary-key column, and the column is emitted as `NOT NULL`.
+EA imports performed through this REST endpoint may infer identity only for integer-compatible primary-key columns. Character, date and other non-integer-compatible primary keys are never converted to identity solely because they are primary keys. An inferred identity replaces any default or generated expression on that primary-key column and is emitted `NOT NULL`.
+
+## Audit enrichment
+
+EA generation uses the same request-level audit contract as Word and ZIP generation. When `includeAuditFields=false`, the parsed source columns are not audit-enriched. When enabled, `AUTO` detects `CREATED_AT/CREATED_BY/UPDATED_AT/UPDATED_BY` or `CREATED_DATE/CREATED_BY/LAST_MODIFIED_DATE/LAST_MODIFIED_BY` and completes only the detected family. Existing audit columns are preserved exactly; they are not overwritten by configured defaults. Mixed families in one table are rejected as `AUDIT_PROFILE_CONFLICT`.
 
 ## Table name, Persian name and description
 

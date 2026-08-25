@@ -246,6 +246,10 @@ public final class DdlGenerator {
         List<String> grantStatements = new ArrayList<>();
         List<Sequence> emittedSequences = emittedSequences(schema);
         generatedObjectSchemas(schema).stream()
+                .map(dialect::infrastructureProvisioningTemplate)
+                .filter(statement -> statement != null && !statement.isBlank())
+                .forEach(statements::add);
+        generatedObjectSchemas(schema).stream()
                 .map(dialect::schemaBootstrapStatement)
                 .filter(statement -> statement != null && !statement.isBlank())
                 .forEach(statements::add);
