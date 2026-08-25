@@ -1,3 +1,16 @@
+## R6.8 — Legacy canonical corpus five-DBMS acceptance gate (2026-08-25)
+
+- Promoted existing `CanonicalJsonDirectoryToDdlIT` instead of creating a duplicate corpus runner.
+- Default corpus generation now covers all five registered DBMS, including MySQL.
+- Freezes one numeric mapping strategy per run and reports `SAFE`/`OPTIMIZED` in the corpus summary.
+- Added `schemaforge.snapshot.ddl.expectedMinSnapshots` to prevent an accidentally partial corpus directory from producing a false green acceptance result.
+- Added source-canonical aggregate statistics for tables, columns, PK, FK, UK, indexes, checks, sequences, identity columns and defaulted columns.
+- Canonical validation, datatype-mapping findings and offline SQL validation now retain explicit severity in the issue CSV.
+- `failOnErrors=true` fails only on canonical/mapping/static/generation errors; accepted warnings remain reportable and can be promoted to gate failures with `schemaforge.snapshot.ddl.failOnWarnings=true`.
+- Added lightweight MySQL corpus sanity checks for empty scripts, missing `CREATE TABLE`, and generated `[ERROR]` markers.
+- Updated bulk-corpus documentation to require two five-DBMS passes over the same legacy JSON corpus: `SAFE` and `OPTIMIZED`.
+- Test-only corpus tooling/documentation change; no production parser, canonical model, REST, DDL renderer, metadata repository, migration renderer or live database behavior changed.
+
 ## R6.7 — Configurable exact-numeric mapping policy (2026-08-25)
 
 - Kept `SAFE` as the default exact-numeric policy.

@@ -7,6 +7,7 @@ import com.behsazan.schemaforge.application.OutputFileNamer;
 import com.behsazan.schemaforge.application.PreparedSchema;
 import com.behsazan.schemaforge.application.SchemaPreparationService;
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.snapshot.CanonicalSchemaSnapshot;
@@ -40,18 +41,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>No Word document is opened by this runner. Each compatible snapshot is mapped back to the
  * canonical domain model, prepared once, and then rendered for the configured dialects. This is the
- * fast development path for repeated Oracle/PostgreSQL/SQL Server/Db2 for z/OS dialect corrections.</p>
+ * fast development and acceptance path for repeated five-DBMS dialect corrections without reopening Word.</p>
  */
 class CanonicalJsonDirectoryToDdlIT {
     private static final String INPUT_DIR = "schemaforge.snapshot.ddl.inputDir";
     private static final String OUTPUT_DIR = "schemaforge.snapshot.ddl.outputDir";
     private static final String PLATFORMS = "schemaforge.snapshot.ddl.platforms";
     private static final String FAIL_ON_ERRORS = "schemaforge.snapshot.ddl.failOnErrors";
+    private static final String FAIL_ON_WARNINGS = "schemaforge.snapshot.ddl.failOnWarnings";
     private static final String CLEAN_OUTPUT = "schemaforge.snapshot.ddl.cleanOutput";
+    private static final String EXPECTED_MIN_SNAPSHOTS = "schemaforge.snapshot.ddl.expectedMinSnapshots";
 
-    private static final List<DatabasePlatform> DEFAULT_PLATFORMS = List.of(
-            DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
-            DatabasePlatform.SQLSERVER, DatabasePlatform.DB2_ZOS);
+    private static final List<DatabasePlatform> DEFAULT_PLATFORMS =
+            List.copyOf(java.util.Arrays.asList(DatabasePlatform.values()));
 
     private final CanonicalSnapshotJsonStore store = new CanonicalSnapshotJsonStore();
     private final CanonicalSnapshotMapper mapper = new CanonicalSnapshotMapper();
@@ -68,7 +70,10 @@ class CanonicalJsonDirectoryToDdlIT {
         Path inputRoot = requiredDirectory(INPUT_DIR);
         Path outputRoot = outputDirectory(inputRoot);
         List<DatabasePlatform> platforms = configuredPlatforms();
+        NumericMappingStrategy numericMappingStrategy = DialectFactory.configuredNumericMappingStrategy();
         boolean failOnErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_ERRORS, "false"));
+        boolean failOnWarnings = Boolean.parseBoolean(System.getProperty(FAIL_ON_WARNINGS, "false"));
+        int expectedMinSnapshots = Integer.parseInt(System.getProperty(EXPECTED_MIN_SNAPSHOTS, "1"));
         boolean cleanOutput = Boolean.parseBoolean(System.getProperty(CLEAN_OUTPUT, "false"));
         Files.createDirectories(outputRoot);
         if (cleanOutput) {
@@ -84,6 +89,10 @@ class CanonicalJsonDirectoryToDdlIT {
                     .toList();
         }
 
+        assertTrue(snapshots.size() >= expectedMinSnapshots,
+                "Canonical corpus is smaller than expected: discovered=" + snapshots.size()
+                        + ", expectedMin=" + expectedMinSnapshots + ", input=" + inputRoot);
+
         SnapshotSelection snapshotSelection = selectSnapshots(inputRoot, snapshots);
         List<Path> selectedSnapshots = snapshotSelection.selected();
 
@@ -91,7 +100,7 @@ class CanonicalJsonDirectoryToDdlIT {
         List<String> summary = new ArrayList<>();
         summary.add("snapshot,source,platform,status,validation_issue_count,output_file,error");
         List<String> issues = new ArrayList<>();
-        issues.add("snapshot,source,platform,stage,location,code,message,fragment");
+        issues.add("snapshot,source,platform,severity,stage,location,code,message,fragment");
         List<String> outputCollisions = new ArrayList<>();
         outputCollisions.add("snapshot,source,platform,original_output,resolved_output,reason");
 
@@ -99,20 +108,22 @@ class CanonicalJsonDirectoryToDdlIT {
                 new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Set<Path>> writtenTargets = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> generated = new EnumMap<>(DatabasePlatform.class);
-        Map<DatabasePlatform, Integer> generatedWithIssues = new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Integer> generatedWithWarnings = new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Integer> generatedWithErrors = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> blockedByMapping = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> failed = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Dialect> dialects = new EnumMap<>(DatabasePlatform.class);
         platforms.forEach(platform -> {
             generated.put(platform, 0);
-            generatedWithIssues.put(platform, 0);
+            generatedWithWarnings.put(platform, 0);
+            generatedWithErrors.put(platform, 0);
             blockedByMapping.put(platform, 0);
             failed.put(platform, 0);
             targetAllocators.put(platform, new CollisionSafeScriptTargetAllocator(outputFileNamer));
             writtenTargets.put(platform, new LinkedHashSet<>());
             try {
                 Files.createDirectories(outputRoot.resolve(platform.commandLineName()));
-                Dialect dialect = DialectFactory.create(platform);
+                Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
                 verifyDialectInvariants(platform, dialect);
                 dialects.put(platform, dialect);
             } catch (Exception exception) {
@@ -122,6 +133,10 @@ class CanonicalJsonDirectoryToDdlIT {
 
         int snapshotFailures = 0;
         int staleParserSnapshots = 0;
+        int processedSnapshots = 0;
+        int canonicalWarnings = 0;
+        int canonicalErrors = 0;
+        CorpusStats corpusStats = CorpusStats.empty();
         for (Path snapshotPath : selectedSnapshots) {
             String relativeSnapshot = normalize(inputRoot.relativize(snapshotPath));
             CanonicalSchemaSnapshot snapshot;
@@ -135,6 +150,14 @@ class CanonicalJsonDirectoryToDdlIT {
                 }
                 DatabaseSchema schema = mapper.toDomainPersistedSource(snapshot);
                 prepared = preparationService.prepare(schema);
+                corpusStats = corpusStats.plus(CorpusStats.from(schema));
+                processedSnapshots++;
+                for (var issue : prepared.validationReport().issues()) {
+                    boolean error = "ERROR".equalsIgnoreCase(issue.severity());
+                    if (error) canonicalErrors++; else canonicalWarnings++;
+                    issues.add(csvLine(relativeSnapshot, source, "", issue.severity(),
+                            "CANONICAL_VALIDATION", issue.path(), issue.code(), issue.message(), ""));
+                }
             } catch (Exception exception) {
                 snapshotFailures++;
                 String message = exception.getClass().getSimpleName() + ": " + safeMessage(exception);
@@ -143,7 +166,7 @@ class CanonicalJsonDirectoryToDdlIT {
                     summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(),
                             "SNAPSHOT_FAILED", "0", "", message));
                     issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(),
-                            "SNAPSHOT", "", "SNAPSHOT_FAILED", message, ""));
+                            "ERROR", "SNAPSHOT", "", "SNAPSHOT_FAILED", message, ""));
                 }
                 continue;
             }
@@ -152,7 +175,7 @@ class CanonicalJsonDirectoryToDdlIT {
                 generate(inputRoot, outputRoot, snapshotPath, relativeSnapshot, snapshot, prepared, platform,
                         dialects.get(platform), timestamp, summary, issues, outputCollisions,
                         targetAllocators.get(platform), writtenTargets.get(platform),
-                        generated, generatedWithIssues, blockedByMapping, failed);
+                        generated, generatedWithWarnings, generatedWithErrors, blockedByMapping, failed);
             }
         }
 
@@ -178,11 +201,14 @@ class CanonicalJsonDirectoryToDdlIT {
                 StandardCharsets.UTF_8);
         Files.writeString(textFile, textSummary(inputRoot, outputRoot, snapshots.size(), selectedSnapshots.size(),
                 snapshotSelection.duplicates().size(), outputCollisions.size() - 1, snapshotFailures,
-                staleParserSnapshots, platforms, generated, generatedWithIssues, blockedByMapping, failed),
+                staleParserSnapshots, processedSnapshots, canonicalWarnings, canonicalErrors,
+                corpusStats, numericMappingStrategy,
+                platforms, generated, generatedWithWarnings, generatedWithErrors, blockedByMapping, failed),
                 StandardCharsets.UTF_8);
 
         for (DatabasePlatform platform : platforms) {
-            int successful = generated.get(platform) + generatedWithIssues.get(platform);
+            int successful = generated.get(platform) + generatedWithWarnings.get(platform)
+                    + generatedWithErrors.get(platform);
             if (writtenTargets.get(platform).size() != successful) {
                 throw new IllegalStateException("Generated SQL file count mismatch for " + platform.commandLineName()
                         + ": successful=" + successful + ", uniqueFiles=" + writtenTargets.get(platform).size());
@@ -190,7 +216,8 @@ class CanonicalJsonDirectoryToDdlIT {
         }
 
         int totalGenerated = generated.values().stream().mapToInt(Integer::intValue).sum()
-                + generatedWithIssues.values().stream().mapToInt(Integer::intValue).sum();
+                + generatedWithWarnings.values().stream().mapToInt(Integer::intValue).sum()
+                + generatedWithErrors.values().stream().mapToInt(Integer::intValue).sum();
         int totalFailed = failed.values().stream().mapToInt(Integer::intValue).sum();
 
         System.out.println("Snapshots discovered : " + snapshots.size());
@@ -199,9 +226,23 @@ class CanonicalJsonDirectoryToDdlIT {
         System.out.println("Output collisions    : " + (outputCollisions.size() - 1));
         System.out.println("Snapshot failures    : " + snapshotFailures);
         System.out.println("Stale parser sources : " + staleParserSnapshots);
+        System.out.println("Numeric mapping       : " + numericMappingStrategy);
+        System.out.println("Canonical warnings    : " + canonicalWarnings);
+        System.out.println("Canonical errors      : " + canonicalErrors);
+        System.out.println("Tables                : " + corpusStats.tables());
+        System.out.println("Columns               : " + corpusStats.columns());
+        System.out.println("Primary keys          : " + corpusStats.primaryKeys());
+        System.out.println("Foreign keys          : " + corpusStats.foreignKeys());
+        System.out.println("Unique keys           : " + corpusStats.uniqueKeys());
+        System.out.println("Indexes               : " + corpusStats.indexes());
+        System.out.println("Checks                : " + corpusStats.checks());
+        System.out.println("Sequences             : " + corpusStats.sequences());
+        System.out.println("Identity columns      : " + corpusStats.identityColumns());
+        System.out.println("Defaulted columns     : " + corpusStats.defaultedColumns());
         for (DatabasePlatform platform : platforms) {
             System.out.println(platform.commandLineName() + " generated       : " + generated.get(platform));
-            System.out.println(platform.commandLineName() + " with issues     : " + generatedWithIssues.get(platform));
+            System.out.println(platform.commandLineName() + " with warnings   : " + generatedWithWarnings.get(platform));
+            System.out.println(platform.commandLineName() + " with errors     : " + generatedWithErrors.get(platform));
             System.out.println(platform.commandLineName() + " blocked mapping : " + blockedByMapping.get(platform));
             System.out.println(platform.commandLineName() + " failed          : " + failed.get(platform));
         }
@@ -213,8 +254,23 @@ class CanonicalJsonDirectoryToDdlIT {
 
         assertTrue(totalGenerated > 0, "No SQL was generated from canonical JSON snapshots");
         if (failOnErrors) {
-            assertTrue(totalFailed == 0 && issues.size() == 1,
-                    "JSON-to-DDL generation produced failures or validation issues; see " + issueFile);
+            int blockingMappings = blockedByMapping.values().stream().mapToInt(Integer::intValue).sum();
+            int validationErrors = generatedWithErrors.values().stream().mapToInt(Integer::intValue).sum();
+            assertTrue(snapshotFailures == 0 && canonicalErrors == 0 && totalFailed == 0
+                            && blockingMappings == 0 && validationErrors == 0,
+                    "JSON-to-DDL corpus gate found blocking errors; see " + issueFile);
+            for (DatabasePlatform platform : platforms) {
+                int successful = generated.get(platform) + generatedWithWarnings.get(platform)
+                        + generatedWithErrors.get(platform);
+                assertTrue(successful == processedSnapshots,
+                        "Not every processed snapshot generated DDL for " + platform.commandLineName()
+                                + ": processed=" + processedSnapshots + ", generated=" + successful);
+            }
+        }
+        if (failOnWarnings) {
+            int warningScripts = generatedWithWarnings.values().stream().mapToInt(Integer::intValue).sum();
+            assertTrue(canonicalWarnings == 0 && warningScripts == 0,
+                    "JSON-to-DDL corpus gate found warning-bearing scripts; see " + issueFile);
         }
     }
 
@@ -234,7 +290,8 @@ class CanonicalJsonDirectoryToDdlIT {
             CollisionSafeScriptTargetAllocator targetAllocator,
             Set<Path> writtenTargets,
             Map<DatabasePlatform, Integer> generated,
-            Map<DatabasePlatform, Integer> generatedWithIssues,
+            Map<DatabasePlatform, Integer> generatedWithWarnings,
+            Map<DatabasePlatform, Integer> generatedWithErrors,
             Map<DatabasePlatform, Integer> blockedByMapping,
             Map<DatabasePlatform, Integer> failed) {
 
@@ -244,8 +301,8 @@ class CanonicalJsonDirectoryToDdlIT {
         if (mappingAssessment.fatal()) {
             blockedByMapping.compute(platform, (key, value) -> value + 1);
             for (ValidationFinding finding : mappingAssessment.findings()) {
-                issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.stage(),
-                        finding.location(), finding.code(), finding.message(), finding.fragment()));
+                issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.severity(),
+                        finding.stage(), finding.location(), finding.code(), finding.message(), finding.fragment()));
             }
             summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(),
                     "GENERATION_BLOCKED_BY_MAPPING", Integer.toString(mappingAssessment.findings().size()), "",
@@ -286,12 +343,18 @@ class CanonicalJsonDirectoryToDdlIT {
                 summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(), "GENERATED", "0",
                         normalize(outputRoot.relativize(target)), ""));
             } else {
-                generatedWithIssues.compute(platform, (key, value) -> value + 1);
-                summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(), "GENERATED_WITH_ISSUES",
+                boolean hasError = findings.stream().anyMatch(ValidationFinding::error);
+                if (hasError) {
+                    generatedWithErrors.compute(platform, (key, value) -> value + 1);
+                } else {
+                    generatedWithWarnings.compute(platform, (key, value) -> value + 1);
+                }
+                summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(),
+                        hasError ? "GENERATED_WITH_ERRORS" : "GENERATED_WITH_WARNINGS",
                         Integer.toString(findings.size()), normalize(outputRoot.relativize(target)), ""));
                 for (ValidationFinding finding : findings) {
-                    issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.stage(),
-                            finding.location(), finding.code(), finding.message(), finding.fragment()));
+                    issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.severity(),
+                            finding.stage(), finding.location(), finding.code(), finding.message(), finding.fragment()));
                 }
             }
         } catch (Exception exception) {
@@ -299,8 +362,8 @@ class CanonicalJsonDirectoryToDdlIT {
             String message = exception.getClass().getSimpleName() + ": " + safeMessage(exception);
             summary.add(csvLine(relativeSnapshot, source, platform.commandLineName(), "GENERATION_FAILED", "0",
                     target == null ? "" : normalize(outputRoot.relativize(target)), message));
-            issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), "GENERATION", "",
-                    "GENERATION_FAILED", message, ""));
+            issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), "ERROR",
+                    "GENERATION", "", "GENERATION_FAILED", message, ""));
         }
     }
 
@@ -342,7 +405,7 @@ class CanonicalJsonDirectoryToDdlIT {
         var assessment = datatypeCompatibilityAnalyzer.analyze(schema, dialect);
         List<ValidationFinding> findings = assessment.issues().stream()
                 .map(issue -> new ValidationFinding(
-                        "DIALECT_MAPPING", issue.path(), issue.code(), issue.message(), ""))
+                        issue.severity(), "DIALECT_MAPPING", issue.path(), issue.code(), issue.message(), ""))
                 .toList();
         return new MappingAssessment(findings, assessment.blocking());
     }
@@ -350,20 +413,39 @@ class CanonicalJsonDirectoryToDdlIT {
     private List<ValidationFinding> validate(DatabasePlatform platform, String sql) {
         return switch (platform) {
             case ORACLE -> oracleSanityChecker.inspect(sql).stream()
-                    .map(issue -> new ValidationFinding("STATIC_VALIDATION", "line " + issue.lineNumber(),
+                    .map(issue -> new ValidationFinding("ERROR", "STATIC_VALIDATION", "line " + issue.lineNumber(),
                             issue.code(), issue.message(), issue.fragment())).toList();
             case POSTGRESQL -> postgreSqlSanityChecker.inspect(sql).stream()
-                    .map(issue -> new ValidationFinding("STATIC_VALIDATION",
+                    .map(issue -> new ValidationFinding("ERROR", "STATIC_VALIDATION",
                             "statement " + issue.statementNumber(), issue.code(),
                             issue.message(), issue.fragment())).toList();
             case SQLSERVER -> sqlServerValidator.validate(sql).issues().stream()
-                    .map(issue -> new ValidationFinding("STATIC_VALIDATION",
+                    .map(issue -> new ValidationFinding(issue.severity(), "STATIC_VALIDATION",
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
             case DB2_ZOS -> db2ZosValidator.validate(sql).issues().stream()
-                    .map(issue -> new ValidationFinding("STATIC_VALIDATION",
+                    .map(issue -> new ValidationFinding(issue.severity(), "STATIC_VALIDATION",
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
-            case MYSQL -> List.of(); // MySQL offline validator is introduced after logical P1.
+            case MYSQL -> basicMySqlValidation(sql);
         };
+    }
+
+    private static List<ValidationFinding> basicMySqlValidation(String sql) {
+        List<ValidationFinding> findings = new ArrayList<>();
+        if (sql == null || sql.isBlank()) {
+            findings.add(new ValidationFinding("ERROR", "STATIC_VALIDATION", "script",
+                    "MYSQL_EMPTY_SCRIPT", "Generated MySQL DDL is empty", ""));
+            return findings;
+        }
+        String upper = sql.toUpperCase(Locale.ROOT);
+        if (!upper.contains("CREATE TABLE")) {
+            findings.add(new ValidationFinding("ERROR", "STATIC_VALIDATION", "script",
+                    "MYSQL_CREATE_TABLE_MISSING", "Generated MySQL DDL does not contain CREATE TABLE", ""));
+        }
+        if (upper.contains("[ERROR]")) {
+            findings.add(new ValidationFinding("ERROR", "STATIC_VALIDATION", "script",
+                    "MYSQL_ERROR_MARKER", "Generated MySQL DDL contains an [ERROR] marker", ""));
+        }
+        return List.copyOf(findings);
     }
 
     private SnapshotSelection selectSnapshots(Path inputRoot, List<Path> discovered) {
@@ -460,9 +542,12 @@ class CanonicalJsonDirectoryToDdlIT {
 
     private static String textSummary(
             Path inputRoot, Path outputRoot, int snapshotsDiscovered, int snapshotsSelected, int duplicateSnapshots,
-            int outputCollisions, int snapshotFailures, int staleParserSnapshots, List<DatabasePlatform> platforms,
+            int outputCollisions, int snapshotFailures, int staleParserSnapshots, int processedSnapshots,
+            int canonicalWarnings, int canonicalErrors, CorpusStats corpusStats,
+            NumericMappingStrategy numericMappingStrategy, List<DatabasePlatform> platforms,
             Map<DatabasePlatform, Integer> generated,
-            Map<DatabasePlatform, Integer> withIssues, Map<DatabasePlatform, Integer> blockedByMapping,
+            Map<DatabasePlatform, Integer> withWarnings, Map<DatabasePlatform, Integer> withErrors,
+            Map<DatabasePlatform, Integer> blockedByMapping,
             Map<DatabasePlatform, Integer> failed) {
         StringBuilder result = new StringBuilder();
         result.append("SchemaForge canonical JSON to DDL summary").append(System.lineSeparator());
@@ -475,13 +560,28 @@ class CanonicalJsonDirectoryToDdlIT {
         result.append("Output collisions   : ").append(outputCollisions).append(System.lineSeparator());
         result.append("Snapshot failures   : ").append(snapshotFailures).append(System.lineSeparator());
         result.append("Stale parser sources: ").append(staleParserSnapshots).append(System.lineSeparator());
+        result.append("Processed snapshots  : ").append(processedSnapshots).append(System.lineSeparator());
+        result.append("Numeric mapping       : ").append(numericMappingStrategy).append(System.lineSeparator());
+        result.append("Canonical warnings    : ").append(canonicalWarnings).append(System.lineSeparator());
+        result.append("Canonical errors      : ").append(canonicalErrors).append(System.lineSeparator());
+        result.append("Tables                : ").append(corpusStats.tables()).append(System.lineSeparator());
+        result.append("Columns               : ").append(corpusStats.columns()).append(System.lineSeparator());
+        result.append("Primary keys          : ").append(corpusStats.primaryKeys()).append(System.lineSeparator());
+        result.append("Foreign keys          : ").append(corpusStats.foreignKeys()).append(System.lineSeparator());
+        result.append("Unique keys           : ").append(corpusStats.uniqueKeys()).append(System.lineSeparator());
+        result.append("Indexes               : ").append(corpusStats.indexes()).append(System.lineSeparator());
+        result.append("Checks                : ").append(corpusStats.checks()).append(System.lineSeparator());
+        result.append("Sequences             : ").append(corpusStats.sequences()).append(System.lineSeparator());
+        result.append("Identity columns      : ").append(corpusStats.identityColumns()).append(System.lineSeparator());
+        result.append("Defaulted columns     : ").append(corpusStats.defaultedColumns()).append(System.lineSeparator());
         result.append("Parser freshness    : provenance warning only for persisted JSON sources; ")
                 .append("snapshot/model contract remains the DDL eligibility gate")
                 .append(System.lineSeparator());
         for (DatabasePlatform platform : platforms) {
             result.append(System.lineSeparator()).append(platform.commandLineName()).append(System.lineSeparator());
             result.append("  Generated        : ").append(generated.get(platform)).append(System.lineSeparator());
-            result.append("  With issues      : ").append(withIssues.get(platform)).append(System.lineSeparator());
+            result.append("  With warnings    : ").append(withWarnings.get(platform)).append(System.lineSeparator());
+            result.append("  With errors      : ").append(withErrors.get(platform)).append(System.lineSeparator());
             result.append("  Blocked mapping  : ").append(blockedByMapping.get(platform)).append(System.lineSeparator());
             result.append("  Failed           : ").append(failed.get(platform)).append(System.lineSeparator());
         }
@@ -531,7 +631,45 @@ class CanonicalJsonDirectoryToDdlIT {
     private record MappingAssessment(List<ValidationFinding> findings, boolean fatal) {
     }
 
-    /** One normalized static-validation finding independent from its DBMS-specific validator. */
-    private record ValidationFinding(String stage, String location, String code, String message, String fragment) {
+    /** Aggregate source-canonical statistics for the selected historical corpus. */
+    private record CorpusStats(long tables, long columns, long primaryKeys, long foreignKeys,
+                               long uniqueKeys, long indexes, long checks, long sequences,
+                               long identityColumns, long defaultedColumns) {
+        static CorpusStats empty() {
+            return new CorpusStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        static CorpusStats from(DatabaseSchema schema) {
+            long tables = schema.tables().size();
+            long columns = schema.tables().stream().mapToLong(table -> table.columns().size()).sum();
+            long primaryKeys = schema.tables().stream().filter(table -> table.primaryKey().isPresent()).count();
+            long foreignKeys = schema.tables().stream().mapToLong(table -> table.foreignKeys().size()).sum();
+            long uniqueKeys = schema.tables().stream().mapToLong(table -> table.uniqueKeys().size()).sum();
+            long indexes = schema.tables().stream().mapToLong(table -> table.indexes().size()).sum();
+            long checks = schema.tables().stream().mapToLong(table -> table.checkConstraints().size()).sum();
+            long sequences = schema.sequences().size();
+            long identityColumns = schema.tables().stream().flatMap(table -> table.columns().stream())
+                    .filter(com.behsazan.schemaforge.domain.model.Column::identity).count();
+            long defaultedColumns = schema.tables().stream().flatMap(table -> table.columns().stream())
+                    .filter(column -> column.defaultValue().isPresent()).count();
+            return new CorpusStats(tables, columns, primaryKeys, foreignKeys, uniqueKeys, indexes, checks, sequences,
+                    identityColumns, defaultedColumns);
+        }
+
+        CorpusStats plus(CorpusStats other) {
+            return new CorpusStats(tables + other.tables, columns + other.columns,
+                    primaryKeys + other.primaryKeys, foreignKeys + other.foreignKeys,
+                    uniqueKeys + other.uniqueKeys, indexes + other.indexes, checks + other.checks,
+                    sequences + other.sequences, identityColumns + other.identityColumns,
+                    defaultedColumns + other.defaultedColumns);
+        }
+    }
+
+    /** One normalized validation finding independent from its DBMS-specific validator. */
+    private record ValidationFinding(
+            String severity, String stage, String location, String code, String message, String fragment) {
+        boolean error() {
+            return "ERROR".equalsIgnoreCase(severity);
+        }
     }
 }
