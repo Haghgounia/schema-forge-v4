@@ -1,3 +1,13 @@
+## 2026-08-25 - R6.6 ZIP Batch input accounting and duplicate suppression
+
+- Batch summaries now account for every regular input file, not only processable DOCX files. Unsupported extensions and temporary/hidden files are recorded as `SKIPPED` with an explicit reason.
+- Added `DUPLICATE_SOURCE_CONTENT` detection using SHA-256 so byte-identical documents are not emitted twice into an executable package.
+- Added `DUPLICATE_LOGICAL_TABLE` detection after canonical preparation so different source bytes resolving to an already accepted `schema.table` are also excluded from executable artifacts.
+- The first accepted source remains authoritative for the batch; duplicate sources produce no DDL/model/diagram artifacts and are reported in `batch-generation-summary.csv`.
+- Standard Manifest V1 now records `extensions.batchInput` counts for regular files, processable documents, successes, failures and skips.
+- Existing fault isolation remains unchanged: genuinely failing processable documents are still `FAILED` and captured in `batch-generation-errors.log`.
+- R6.5 EA TIMESTAMP precision, R6.4 opt-in grants, and R6.3 MySQL cleanup behavior are unchanged.
+
 ## 2026-08-25 - R6.5 EA TIMESTAMP precision preservation
 
 - Fixed Enterprise Architect XMI import dropping tagged temporal precision after reading it from the source column.

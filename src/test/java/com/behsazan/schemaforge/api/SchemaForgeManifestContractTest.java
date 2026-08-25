@@ -69,7 +69,7 @@ class SchemaForgeManifestContractTest {
     }
 
     @Test
-    void zipBatchManifestKeepsChildSourceModelsAndFinalCollisionPaths() throws Exception {
+    void zipBatchManifestKeepsAcceptedModelAndReportsSkippedDuplicateInput() throws Exception {
         byte[] word = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
         byte[] zip = inputZip(Map.of(
                 "first/" + TestSamplePaths.PROVINCES_V1_2.getFileName(), word,
@@ -80,12 +80,15 @@ class SchemaForgeManifestContractTest {
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
 
         assertBaseContract(manifest, "ZIP_BATCH", "batch.zip");
-        assertEquals(2, manifest.path("models").size());
+        assertEquals(1, manifest.path("models").size());
         List<String> modelSources = manifest.path("models").findValuesAsText("sourceName");
         assertTrue(modelSources.contains("first/" + TestSamplePaths.PROVINCES_V1_2.getFileName()));
-        assertTrue(modelSources.contains("second/" + TestSamplePaths.PROVINCES_V1_2.getFileName()));
-        assertTrue(manifest.path("artifacts").findValuesAsText("path").stream()
+        assertFalse(modelSources.contains("second/" + TestSamplePaths.PROVINCES_V1_2.getFileName()));
+        assertFalse(manifest.path("artifacts").findValuesAsText("path").stream()
                 .anyMatch(path -> path.contains("__sf_")));
+        assertEquals(2, manifest.path("extensions").path("batchInput").path("regularFileCount").asInt());
+        assertEquals(1, manifest.path("extensions").path("batchInput").path("successCount").asInt());
+        assertEquals(1, manifest.path("extensions").path("batchInput").path("skippedCount").asInt());
         assertManifestMatchesArchive(entries, manifest);
     }
 

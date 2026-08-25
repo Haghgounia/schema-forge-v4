@@ -83,7 +83,7 @@ class BatchGenerationOrchestratorTest {
     }
 
     @Test
-    void duplicateDocumentsPreserveCollisionSafePathsAndSharedTimestamp() throws Exception {
+    void byteIdenticalDuplicateDocumentsAreReportedAndExcludedFromExecutableArtifacts() throws Exception {
         Fixture fixture = fixture();
         byte[] valid = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
         byte[] upload = inputZip(Map.of(
@@ -97,12 +97,68 @@ class BatchGenerationOrchestratorTest {
 
         var oracleDdls = output.keySet().stream()
                 .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))
-                .sorted()
                 .toList();
-        assertEquals(2, oracleDdls.size());
-        assertTrue(oracleDdls.stream().anyMatch(name -> !name.contains("__sf_")));
-        assertTrue(oracleDdls.stream().anyMatch(name -> name.contains("__sf_")));
-        assertTrue(oracleDdls.stream().allMatch(name -> name.contains(TIMESTAMP)));
+        assertEquals(1, oracleDdls.size());
+        assertTrue(oracleDdls.getFirst().contains(TIMESTAMP));
+
+        String summary = text(output, "reports/batch-generation-summary.csv");
+        assertTrue(summary.contains("first/MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SUCCESS"));
+        assertTrue(summary.contains("second/MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SKIPPED"));
+        assertTrue(summary.contains("DUPLICATE_SOURCE_CONTENT"));
+
+        var manifest = new ObjectMapper().readTree(output.get("manifest.json"));
+        assertEquals(2, manifest.path("extensions").path("batchInput").path("regularFileCount").asInt());
+        assertEquals(1, manifest.path("extensions").path("batchInput").path("successCount").asInt());
+        assertEquals(1, manifest.path("extensions").path("batchInput").path("skippedCount").asInt());
+    }
+
+    @Test
+    void differentSourceBytesForSameLogicalTableAreReportedAndExcluded() throws Exception {
+        Fixture fixture = fixture();
+        byte[] valid = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
+        byte[] changedBytes = addHarmlessParagraph(valid);
+        byte[] upload = inputZip(Map.of(
+                "first/MCB.BIM.TBL.PROVINCES.V1.2.docx", valid,
+                "second/MCB.BIM.TBL.PROVINCES.V1.2.docx", changedBytes));
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.ZIP_BATCH, "logical-duplicates.zip", TIMESTAMP);
+
+        Map<String, byte[]> output = unzip(fixture.orchestrator().generate(
+                upload("logical-duplicates.zip", upload), "logical-duplicates", context));
+
+        assertEquals(1, output.keySet().stream()
+                .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))
+                .count());
+        String summary = text(output, "reports/batch-generation-summary.csv");
+        assertTrue(summary.contains("DUPLICATE_LOGICAL_TABLE"));
+        assertTrue(summary.contains("BIM.PROVINCES"));
+    }
+
+    @Test
+    void unsupportedAndTemporaryInputFilesAreAccountedAsSkipped() throws Exception {
+        Fixture fixture = fixture();
+        byte[] valid = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
+        byte[] upload = inputZip(Map.of(
+                "specifications/MCB.BIM.TBL.PROVINCES.V1.2.docx", valid,
+                "specifications/MCB.BIM.TBL.LANGUAGES.V1.0.docx_", new byte[] {1, 2, 3},
+                "specifications/readme.txt", "notes".getBytes(StandardCharsets.UTF_8),
+                "specifications/~$temporary.docx", new byte[] {1, 2, 3}));
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.ZIP_BATCH, "mixed-input.zip", TIMESTAMP);
+
+        Map<String, byte[]> output = unzip(fixture.orchestrator().generate(
+                upload("mixed-input.zip", upload), "mixed-input", context));
+
+        String summary = text(output, "reports/batch-generation-summary.csv");
+        assertTrue(summary.contains("MCB.BIM.TBL.LANGUAGES.V1.0.docx_\",\"SKIPPED\",\"0\",\"UNSUPPORTED_EXTENSION"));
+        assertTrue(summary.contains("readme.txt\",\"SKIPPED\",\"0\",\"UNSUPPORTED_EXTENSION"));
+        assertTrue(summary.contains("~$temporary.docx\",\"SKIPPED\",\"0\",\"TEMPORARY_OR_HIDDEN_FILE"));
+
+        var manifest = new ObjectMapper().readTree(output.get("manifest.json"));
+        assertEquals(4, manifest.path("extensions").path("batchInput").path("regularFileCount").asInt());
+        assertEquals(1, manifest.path("extensions").path("batchInput").path("processableDocumentCount").asInt());
+        assertEquals(1, manifest.path("extensions").path("batchInput").path("successCount").asInt());
+        assertEquals(3, manifest.path("extensions").path("batchInput").path("skippedCount").asInt());
     }
 
     @Test
@@ -161,6 +217,16 @@ class BatchGenerationOrchestratorTest {
             metadata.getRow(1).getCell(0).setText("INVALID_NOTES");
             metadata.getRow(1).getCell(1).setText("BIM");
             metadata.getRow(1).getCell(2).setText("Metadata exists, but the column specification table is missing.");
+            document.write(bytes);
+            return bytes.toByteArray();
+        }
+    }
+
+
+    private static byte[] addHarmlessParagraph(byte[] content) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(content));
+             ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+            document.createParagraph().createRun().setText("SchemaForge duplicate-content discriminator");
             document.write(bytes);
             return bytes.toByteArray();
         }

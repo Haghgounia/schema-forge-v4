@@ -81,7 +81,7 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(summary.contains("MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SUCCESS"));
         assertTrue(summary.contains("notes.docx\",\"FAILED"));
         assertTrue(summary.contains("Column specification table was not found"));
-        assertFalse(summary.contains("~$MCB.BIM.TBL.PROVINCES.V1.2.docx"));
+        assertTrue(summary.contains("~$MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SKIPPED\",\"0\",\"TEMPORARY_OR_HIDDEN_FILE"));
 
         String errors = text(output, "reports/batch-generation-errors.log");
         assertTrue(errors.contains("Document : specifications/notes.docx"));
@@ -89,7 +89,7 @@ class SchemaForgeApiZipBatchTest {
     }
 
     @Test
-    void zipGenerationShouldResolveDuplicateArtifactPathsDeterministicallyWithinOneBatch() throws Exception {
+    void zipGenerationShouldExcludeByteIdenticalDuplicateDocumentsFromExecutableArtifacts() throws Exception {
         byte[] valid = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
         byte[] upload = inputZip(Map.of(
                 "first/MCB.BIM.TBL.PROVINCES.V1.2.docx", valid,
@@ -99,20 +99,12 @@ class SchemaForgeApiZipBatchTest {
 
         var oracleDdls = output.keySet().stream()
                 .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))
-                .sorted()
                 .toList();
-        assertTrue(oracleDdls.size() == 2, oracleDdls.toString());
-        assertTrue(oracleDdls.stream().anyMatch(name -> !name.contains("__sf_")), oracleDdls.toString());
-        assertTrue(oracleDdls.stream().anyMatch(name ->
-                name.matches("ddl/oracle/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2__sf_[0-9a-f]{10}_"
-                        + "\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql")), oracleDdls.toString());
-
-        String firstTimestamp = oracleDdls.getFirst().replaceFirst(
-                ".*_(\\d{8}_\\d{6}_\\d{3})\\.oracle\\.sql", "$1");
-        String secondTimestamp = oracleDdls.getLast().replaceFirst(
-                ".*_(\\d{8}_\\d{6}_\\d{3})\\.oracle\\.sql", "$1");
-        assertTrue(firstTimestamp.matches("\\d{8}_\\d{6}_\\d{3}"), firstTimestamp);
-        assertTrue(firstTimestamp.equals(secondTimestamp), oracleDdls.toString());
+        assertTrue(oracleDdls.size() == 1, oracleDdls.toString());
+        assertFalse(oracleDdls.getFirst().contains("__sf_"), oracleDdls.toString());
+        String summary = text(output, "reports/batch-generation-summary.csv");
+        assertTrue(summary.contains("DUPLICATE_SOURCE_CONTENT"));
+        assertTrue(summary.contains("second/MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SKIPPED"));
     }
 
     @Test

@@ -49,14 +49,19 @@ public final class BatchArchiveSupport {
         }
     }
 
-    public static List<Path> processableWordDocuments(Path inputDirectory) throws IOException {
+    public static List<Path> regularInputFiles(Path inputDirectory) throws IOException {
         try (var files = Files.walk(inputDirectory)) {
             return files.filter(Files::isRegularFile)
-                    .filter(BatchArchiveSupport::isProcessableWordDocument)
                     .sorted(Comparator.comparing(path ->
                             normalizePath(inputDirectory.relativize(path)).toLowerCase(Locale.ROOT)))
                     .toList();
         }
+    }
+
+    public static List<Path> processableWordDocuments(Path inputDirectory) throws IOException {
+        return regularInputFiles(inputDirectory).stream()
+                .filter(BatchArchiveSupport::isProcessableWordDocument)
+                .toList();
     }
 
     public static long countRegularFiles(Path directory) throws IOException {
@@ -139,15 +144,21 @@ public final class BatchArchiveSupport {
                 .append('\n');
     }
 
-    private static boolean isProcessableWordDocument(Path path) {
+    public static boolean isProcessableWordDocument(Path path) {
+        return skippedInputReason(path) == null;
+    }
+
+    public static String skippedInputReason(Path path) {
         String name = path.getFileName().toString();
         String lower = name.toLowerCase(Locale.ROOT);
-        if (!lower.endsWith(".docx")) return false;
-        if (name.startsWith("~$") || name.startsWith("._") || name.startsWith(".")) return false;
         for (Path segment : path) {
-            if ("__MACOSX".equalsIgnoreCase(segment.toString())) return false;
+            if ("__MACOSX".equalsIgnoreCase(segment.toString())) return "MACOSX_METADATA";
         }
-        return true;
+        if (name.startsWith("~$") || name.startsWith("._") || name.startsWith(".")) {
+            return "TEMPORARY_OR_HIDDEN_FILE";
+        }
+        if (!lower.endsWith(".docx")) return "UNSUPPORTED_EXTENSION";
+        return null;
     }
 
     private static String normalizePath(Path path) {
