@@ -1,6 +1,8 @@
 package com.behsazan.schemaforge.migration;
 
 import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.application.DialectFactory;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 
@@ -16,7 +18,13 @@ public final class MigrationGenerationService {
     private final FlywayMigrationNamer namer;
 
     public MigrationGenerationService() {
-        this(new SchemaDiffEngine(), new MigrationSqlRenderer(), new FlywayMigrationNamer());
+        this(DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public MigrationGenerationService(NumericMappingStrategy numericMappingStrategy) {
+        this(new SchemaDiffEngine(numericMappingStrategy),
+                new MigrationSqlRenderer(numericMappingStrategy),
+                new FlywayMigrationNamer());
     }
 
     public MigrationGenerationService(

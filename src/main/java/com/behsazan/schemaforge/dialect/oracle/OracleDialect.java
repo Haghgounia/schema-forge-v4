@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.dialect.oracle;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
@@ -22,6 +23,8 @@ public final class OracleDialect implements Dialect {
     public static final int MAX_NVARCHAR2_STANDARD_LENGTH = 2000;
     public static final int MAX_CHAR_STANDARD_LENGTH = 2000;
     public static final int MAX_RAW_STANDARD_LENGTH = 2000;
+    private final NumericMappingStrategy numericMappingStrategy;
+
     private static final Set<DialectFeature> FEATURES = Set.of(
             DialectFeature.SEQUENCE,
             DialectFeature.IDENTITY_COLUMN,
@@ -31,6 +34,20 @@ public final class OracleDialect implements Dialect {
             DialectFeature.GRANT,
             DialectFeature.EXPRESSION_INDEX,
             DialectFeature.DEFERRABLE_CONSTRAINT);
+
+    public OracleDialect() {
+        this(NumericMappingStrategy.SAFE);
+    }
+
+    public OracleDialect(NumericMappingStrategy numericMappingStrategy) {
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
+    }
+
+    @Override
+    public NumericMappingStrategy numericMappingStrategy() {
+        return numericMappingStrategy;
+    }
 
     @Override
     public Set<DialectFeature> supportedFeatures() {

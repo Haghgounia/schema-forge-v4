@@ -1,5 +1,8 @@
 package com.behsazan.schemaforge.dialect.mysql;
 
+import com.behsazan.schemaforge.dialect.NumericIntegerProfiles;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.NumericTypeOptimizationService;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 
 import java.util.Locale;
@@ -14,6 +17,18 @@ public final class MySqlTypeMapper {
     public static final int MAX_DECIMAL_SCALE = 30;
     public static final int MAX_TEMPORAL_PRECISION = 6;
 
+    private final NumericMappingStrategy strategy;
+    private final NumericTypeOptimizationService optimizer;
+
+    public MySqlTypeMapper() {
+        this(NumericMappingStrategy.SAFE);
+    }
+
+    public MySqlTypeMapper(NumericMappingStrategy strategy) {
+        this.strategy = Objects.requireNonNull(strategy, "strategy must not be null");
+        this.optimizer = new NumericTypeOptimizationService();
+    }
+
     public String map(DataType type) {
         Objects.requireNonNull(type, "type must not be null");
         String source = type.name().normalized().toUpperCase(Locale.ROOT);
@@ -22,7 +37,7 @@ public final class MySqlTypeMapper {
             case "VARCHAR", "VARCHAR2", "NVARCHAR", "NVARCHAR2" ->
                     variableCharacter("VARCHAR", type);
             case "CHAR", "NCHAR", "CHARACTER" -> fixedCharacter(type);
-            case "NUMBER", "NUMERIC", "DECIMAL", "DEC" -> decimal(type);
+            case "NUMBER", "NUMERIC", "DECIMAL", "DEC" -> exactNumeric(type);
             case "INT", "INTEGER", "BINARY_INTEGER", "PLS_INTEGER" -> "INT";
             case "BIGINT" -> "BIGINT";
             case "SMALLINT" -> "SMALLINT";
@@ -68,6 +83,16 @@ public final class MySqlTypeMapper {
             throw unsupported(type, "VARBINARY requires explicit length in SchemaForge MySQL foundation");
         }
         return "VARBINARY(" + type.length() + ")";
+    }
+
+    private String exactNumeric(DataType type) {
+        if (strategy == NumericMappingStrategy.OPTIMIZED) {
+            var optimized = optimizer.optimize(type, NumericIntegerProfiles.MYSQL);
+            if (optimized.isPresent()) {
+                return optimized.get();
+            }
+        }
+        return decimal(type);
     }
 
     private String decimal(DataType type) {

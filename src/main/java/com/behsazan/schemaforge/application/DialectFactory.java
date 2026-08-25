@@ -16,17 +16,22 @@ public final class DialectFactory {
     }
 
     public static Dialect create(DatabasePlatform platform) {
+        return create(platform, configuredNumericMappingStrategy());
+    }
+
+    public static Dialect create(DatabasePlatform platform, NumericMappingStrategy strategy) {
         Objects.requireNonNull(platform, "platform must not be null");
+        Objects.requireNonNull(strategy, "strategy must not be null");
         return switch (platform) {
-            case ORACLE -> new OracleDialect();
-            case POSTGRESQL -> new PostgreSqlDialect(resolveNumericMappingStrategy());
-            case DB2_ZOS -> new Db2ZosDialect(resolveNumericMappingStrategy());
-            case SQLSERVER -> new SqlServerDialect(resolveNumericMappingStrategy());
-            case MYSQL -> new MySqlDialect();
+            case ORACLE -> new OracleDialect(strategy);
+            case POSTGRESQL -> new PostgreSqlDialect(strategy);
+            case DB2_ZOS -> new Db2ZosDialect(strategy);
+            case SQLSERVER -> new SqlServerDialect(strategy);
+            case MYSQL -> new MySqlDialect(strategy);
         };
     }
 
-    private static NumericMappingStrategy resolveNumericMappingStrategy() {
+    public static NumericMappingStrategy configuredNumericMappingStrategy() {
         String configured = System.getProperty("schemaforge.numeric-mapping.strategy");
         if (configured == null || configured.isBlank()) {
             configured = System.getenv("SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY");

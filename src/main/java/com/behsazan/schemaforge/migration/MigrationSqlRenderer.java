@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
@@ -28,10 +29,21 @@ import java.util.regex.Pattern;
 public final class MigrationSqlRenderer {
     private static final String NL = System.lineSeparator();
 
+    private final NumericMappingStrategy numericMappingStrategy;
+
+    public MigrationSqlRenderer() {
+        this(DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public MigrationSqlRenderer(NumericMappingStrategy numericMappingStrategy) {
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
+    }
+
     public String render(TableMigrationPlan plan, MigrationRenderOptions options) {
         Objects.requireNonNull(plan, "plan must not be null");
         options = options == null ? MigrationRenderOptions.safeDefaults() : options;
-        Dialect dialect = DialectFactory.create(plan.platform());
+        Dialect dialect = DialectFactory.create(plan.platform(), numericMappingStrategy);
         DdlGenerator ddlGenerator = new DdlGenerator(dialect);
 
         StringBuilder sql = new StringBuilder();

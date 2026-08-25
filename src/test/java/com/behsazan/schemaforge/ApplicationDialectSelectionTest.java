@@ -2,6 +2,7 @@ package com.behsazan.schemaforge;
 
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
@@ -13,6 +14,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -51,6 +53,17 @@ class ApplicationDialectSelectionTest {
         assertInstanceOf(Db2ZosDialect.class, DialectFactory.create(DatabasePlatform.DB2_ZOS));
         assertInstanceOf(SqlServerDialect.class, DialectFactory.create(DatabasePlatform.SQLSERVER));
         assertInstanceOf(MySqlDialect.class, DialectFactory.create(DatabasePlatform.MYSQL));
+    }
+
+
+    @Test
+    void shouldApplyExplicitNumericStrategyToEveryDialect() {
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            assertSame(
+                    NumericMappingStrategy.OPTIMIZED,
+                    DialectFactory.create(platform, NumericMappingStrategy.OPTIMIZED).numericMappingStrategy(),
+                    platform.name());
+        }
     }
 
     @Test

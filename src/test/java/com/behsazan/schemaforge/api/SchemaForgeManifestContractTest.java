@@ -4,6 +4,9 @@ import com.behsazan.schemaforge.TestSamplePaths;
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
+import com.behsazan.schemaforge.config.EaImportProperties;
+import com.behsazan.schemaforge.config.NumericMappingProperties;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
@@ -51,6 +54,21 @@ class SchemaForgeManifestContractTest {
         assertEquals(1, manifest.path("models").size());
         assertEquals(entries.size(), manifest.path("artifactOutcomes").path("generated").asInt());
         assertManifestMatchesArchive(entries, manifest);
+    }
+
+    @Test
+    void optimizedNumericPolicyIsRecordedInManifest() throws Exception {
+        Path source = TestSamplePaths.PROVINCES_V1_2;
+        MockMultipartFile file = new MockMultipartFile(
+                "file", source.getFileName().toString(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                Files.readAllBytes(source));
+
+        Map<String, byte[]> entries = unzip(service(NumericMappingStrategy.OPTIMIZED).generateFromWord(file));
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+
+        assertEquals("OPTIMIZED", manifest.path("extensions")
+                .path("generationOptions").path("numericMapping").path("strategy").asText());
     }
 
     @Test
@@ -110,13 +128,19 @@ class SchemaForgeManifestContractTest {
     }
 
     private static SchemaForgeApiService service() {
+        return service(NumericMappingStrategy.SAFE);
+    }
+
+    private static SchemaForgeApiService service(NumericMappingStrategy strategy) {
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(MetadataRepository.empty());
         SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
         spellCheck.setEnabled(false);
+        NumericMappingProperties numericMapping = NumericMappingProperties.defaults();
+        numericMapping.setStrategy(strategy);
         return new SchemaForgeApiService(
                 AuditProperties.defaults(), GrantProperties.defaults(), spellCheck,
-                new ObjectMapper(), resolver);
+                new ObjectMapper(), resolver, EaImportProperties.defaults(), numericMapping);
     }
 
     private static void assertBaseContract(JsonNode manifest, String origin, String sourceName) {
@@ -128,6 +152,8 @@ class SchemaForgeManifestContractTest {
         assertTrue(manifest.path("generation").path("timestampToken").asText()
                 .matches("\\d{8}_\\d{6}_\\d{3}"));
         assertTrue(manifest.path("generation").path("generatedAt").asText().contains("T"));
+        assertEquals("SAFE", manifest.path("extensions")
+                .path("generationOptions").path("numericMapping").path("strategy").asText());
     }
 
     private static void assertManifestMatchesArchive(Map<String, byte[]> entries, JsonNode manifest) throws Exception {

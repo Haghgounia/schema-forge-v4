@@ -44,6 +44,18 @@ class NumericTypeEquivalenceServiceTest {
     }
 
     @Test
+    void shouldRecognizeMySqlOptimizedIntegerMappings() {
+        assertTrue(equivalence.equivalent(
+                "MySQL", "DECIMAL(4,0)", "SMALLINT", NumericMappingStrategy.OPTIMIZED));
+        assertTrue(equivalence.equivalent(
+                "MySQL", "DECIMAL(9)", "INT", NumericMappingStrategy.OPTIMIZED));
+        assertTrue(equivalence.equivalent(
+                "MySQL", "BIGINT", "DECIMAL(18,0)", NumericMappingStrategy.OPTIMIZED));
+        assertFalse(equivalence.equivalent(
+                "MySQL", "DECIMAL(19,0)", "BIGINT", NumericMappingStrategy.OPTIMIZED));
+    }
+
+    @Test
     void shouldKeepUnsafeOrUnrelatedTypesDifferent() {
         assertFalse(equivalence.equivalent(
                 "PostgreSQL", "NUMERIC(2,0)", "SMALLINT", NumericMappingStrategy.SAFE));

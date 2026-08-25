@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
 import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
@@ -33,6 +34,12 @@ public final class MigrationArtifactProducer {
 
     public MigrationArtifactProducer(ArtifactNamingPolicy artifactNamingPolicy) {
         this(artifactNamingPolicy, new MigrationGenerationService(), new MigrationFileWriter());
+    }
+
+    public MigrationArtifactProducer(
+            ArtifactNamingPolicy artifactNamingPolicy,
+            NumericMappingStrategy numericMappingStrategy) {
+        this(artifactNamingPolicy, new MigrationGenerationService(numericMappingStrategy), new MigrationFileWriter());
     }
 
     public MigrationArtifactProducer(

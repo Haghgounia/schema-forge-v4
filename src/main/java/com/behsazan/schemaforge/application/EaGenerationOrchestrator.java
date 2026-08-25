@@ -9,6 +9,7 @@ import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
 import com.behsazan.schemaforge.config.EaImportProperties;
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Sequence;
@@ -63,6 +64,7 @@ public final class EaGenerationOrchestrator {
     private final ComparisonArtifactProducer comparisonArtifactProducer;
     private final CrudArtifactProducer crudArtifactProducer;
     private final OracleDdlSanityChecker oracleDdlSanityChecker;
+    private final NumericMappingStrategy numericMappingStrategy;
 
     public EaGenerationOrchestrator(
             SchemaPreparationService preparationService,
@@ -76,6 +78,25 @@ public final class EaGenerationOrchestrator {
             ComparisonArtifactProducer comparisonArtifactProducer,
             CrudArtifactProducer crudArtifactProducer,
             OracleDdlSanityChecker oracleDdlSanityChecker) {
+        this(preparationService, metadataRepositoryResolver, eaImportProperties, artifactManifestWriter,
+                artifactNamingPolicy, artifactPackageBuilder, diagramArtifactProducer, migrationArtifactProducer,
+                comparisonArtifactProducer, crudArtifactProducer, oracleDdlSanityChecker,
+                DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public EaGenerationOrchestrator(
+            SchemaPreparationService preparationService,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            EaImportProperties eaImportProperties,
+            ArtifactManifestWriter artifactManifestWriter,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            ArtifactPackageBuilder artifactPackageBuilder,
+            DiagramArtifactProducer diagramArtifactProducer,
+            MigrationArtifactProducer migrationArtifactProducer,
+            ComparisonArtifactProducer comparisonArtifactProducer,
+            CrudArtifactProducer crudArtifactProducer,
+            OracleDdlSanityChecker oracleDdlSanityChecker,
+            NumericMappingStrategy numericMappingStrategy) {
         this.preparationService = Objects.requireNonNull(preparationService, "preparationService must not be null");
         this.metadataRepositoryResolver = Objects.requireNonNull(
                 metadataRepositoryResolver, "metadataRepositoryResolver must not be null");
@@ -96,6 +117,8 @@ public final class EaGenerationOrchestrator {
                 crudArtifactProducer, "crudArtifactProducer must not be null");
         this.oracleDdlSanityChecker = Objects.requireNonNull(
                 oracleDdlSanityChecker, "oracleDdlSanityChecker must not be null");
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
     }
 
     /** Parses and prepares an EA XML/XMI input while preserving the existing schema resolution policy. */
@@ -165,7 +188,7 @@ public final class EaGenerationOrchestrator {
         DependencyOrder dependencyOrder = dependencyOrder(schema.tables());
 
         for (DatabasePlatform platform : DatabasePlatform.values()) {
-            Dialect dialect = DialectFactory.create(platform);
+            Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, repository).validate(schema);
             metadata.issues().stream()
@@ -227,9 +250,12 @@ public final class EaGenerationOrchestrator {
                                 .map(table -> table.qualifiedName().toString()).toList());
         Map<String, Object> manifestExtensions = new LinkedHashMap<>();
         manifestExtensions.put("enterpriseArchitect", eaExtension);
+        Map<String, Object> generationOptions = new LinkedHashMap<>();
+        generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
         if (auditOptions != null) {
-            manifestExtensions.put("generationOptions", Map.of("audit", auditOptions.manifestValue()));
+            generationOptions.put("audit", auditOptions.manifestValue());
         }
+        manifestExtensions.put("generationOptions", generationOptions);
         artifactManifestWriter.write(
                 output, context, baseName,
                 List.of(new ArtifactManifestAssembler.ModelInput(

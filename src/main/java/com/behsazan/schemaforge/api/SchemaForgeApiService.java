@@ -20,6 +20,7 @@ import com.behsazan.schemaforge.application.SchemaPreparationService;
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
+import com.behsazan.schemaforge.config.NumericMappingProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
@@ -49,8 +50,7 @@ public class SchemaForgeApiService {
     private final ArtifactPackageBuilder artifactPackageBuilder = new ArtifactPackageBuilder();
     private final DiagramArtifactProducer diagramArtifactProducer =
             new DiagramArtifactProducer(artifactNamingPolicy);
-    private final MigrationArtifactProducer migrationArtifactProducer =
-            new MigrationArtifactProducer(artifactNamingPolicy);
+    private final MigrationArtifactProducer migrationArtifactProducer;
     private final ComparisonArtifactProducer comparisonArtifactProducer =
             new ComparisonArtifactProducer(artifactNamingPolicy);
     private final CrudArtifactProducer crudArtifactProducer;
@@ -67,7 +67,18 @@ public class SchemaForgeApiService {
             ObjectMapper objectMapper,
             MetadataRepositoryResolver metadataRepositoryResolver) {
         this(auditProperties, grantProperties, spellCheckProperties, objectMapper,
-                metadataRepositoryResolver, EaImportProperties.defaults());
+                metadataRepositoryResolver, EaImportProperties.defaults(), NumericMappingProperties.defaults());
+    }
+
+    public SchemaForgeApiService(
+            AuditProperties auditProperties,
+            GrantProperties grantProperties,
+            SpellCheckProperties spellCheckProperties,
+            ObjectMapper objectMapper,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            EaImportProperties eaImportProperties) {
+        this(auditProperties, grantProperties, spellCheckProperties, objectMapper,
+                metadataRepositoryResolver, eaImportProperties, NumericMappingProperties.defaults());
     }
 
     @Autowired
@@ -77,28 +88,31 @@ public class SchemaForgeApiService {
             SpellCheckProperties spellCheckProperties,
             ObjectMapper objectMapper,
             MetadataRepositoryResolver metadataRepositoryResolver,
-            EaImportProperties eaImportProperties) {
+            EaImportProperties eaImportProperties,
+            NumericMappingProperties numericMappingProperties) {
         this.auditProperties = auditProperties;
         this.preparationService = new SchemaPreparationService(
                 auditProperties, grantProperties, spellCheckProperties, objectMapper);
         this.metadataRepositoryResolver = metadataRepositoryResolver;
         this.eaImportProperties = eaImportProperties;
         this.artifactManifestWriter = new ArtifactManifestWriter(objectMapper);
+        var numericMappingStrategy = numericMappingProperties.getStrategy();
+        this.migrationArtifactProducer = new MigrationArtifactProducer(artifactNamingPolicy, numericMappingStrategy);
         this.crudArtifactProducer = new CrudArtifactProducer(
                 artifactNamingPolicy, metadataRepositoryResolver, grantProperties);
         this.documentGenerationOrchestrator = new DocumentGenerationOrchestrator(
                 preparationService, metadataRepositoryResolver, artifactNamingPolicy,
                 diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
-                crudArtifactProducer, oracleDdlSanityChecker);
+                crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy);
         this.artifactGenerationService = new ArtifactGenerationService(
-                documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter);
+                documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy);
         this.batchGenerationOrchestrator = new BatchGenerationOrchestrator(
                 documentGenerationOrchestrator, diagramArtifactProducer, artifactNamingPolicy,
-                artifactPackageBuilder, artifactManifestWriter);
+                artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy);
         this.eaGenerationOrchestrator = new EaGenerationOrchestrator(
                 preparationService, metadataRepositoryResolver, eaImportProperties, artifactManifestWriter,
                 artifactNamingPolicy, artifactPackageBuilder, diagramArtifactProducer, migrationArtifactProducer,
-                comparisonArtifactProducer, crudArtifactProducer, oracleDdlSanityChecker);
+                comparisonArtifactProducer, crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy);
     }
 
     public byte[] generateFromWord(MultipartFile file) throws IOException {

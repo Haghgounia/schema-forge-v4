@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
@@ -46,6 +47,7 @@ public final class DocumentGenerationOrchestrator {
     private final CrudArtifactProducer crudArtifactProducer;
     private final LegacyWordSpecificationParser legacyWordSpecificationParser;
     private final OracleDdlSanityChecker oracleDdlSanityChecker;
+    private final NumericMappingStrategy numericMappingStrategy;
 
     public DocumentGenerationOrchestrator(
             SchemaPreparationService preparationService,
@@ -57,15 +59,26 @@ public final class DocumentGenerationOrchestrator {
             CrudArtifactProducer crudArtifactProducer,
             OracleDdlSanityChecker oracleDdlSanityChecker) {
         this(
-                preparationService,
-                metadataRepositoryResolver,
-                artifactNamingPolicy,
-                diagramArtifactProducer,
-                migrationArtifactProducer,
-                comparisonArtifactProducer,
-                crudArtifactProducer,
-                new LegacyWordSpecificationParser(),
-                oracleDdlSanityChecker);
+                preparationService, metadataRepositoryResolver, artifactNamingPolicy,
+                diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
+                crudArtifactProducer, oracleDdlSanityChecker, DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public DocumentGenerationOrchestrator(
+            SchemaPreparationService preparationService,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            DiagramArtifactProducer diagramArtifactProducer,
+            MigrationArtifactProducer migrationArtifactProducer,
+            ComparisonArtifactProducer comparisonArtifactProducer,
+            CrudArtifactProducer crudArtifactProducer,
+            OracleDdlSanityChecker oracleDdlSanityChecker,
+            NumericMappingStrategy numericMappingStrategy) {
+        this(
+                preparationService, metadataRepositoryResolver, artifactNamingPolicy,
+                diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
+                crudArtifactProducer, new LegacyWordSpecificationParser(), oracleDdlSanityChecker,
+                numericMappingStrategy);
     }
 
     DocumentGenerationOrchestrator(
@@ -78,6 +91,24 @@ public final class DocumentGenerationOrchestrator {
             CrudArtifactProducer crudArtifactProducer,
             LegacyWordSpecificationParser legacyWordSpecificationParser,
             OracleDdlSanityChecker oracleDdlSanityChecker) {
+        this(
+                preparationService, metadataRepositoryResolver, artifactNamingPolicy,
+                diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
+                crudArtifactProducer, legacyWordSpecificationParser, oracleDdlSanityChecker,
+                DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    DocumentGenerationOrchestrator(
+            SchemaPreparationService preparationService,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            DiagramArtifactProducer diagramArtifactProducer,
+            MigrationArtifactProducer migrationArtifactProducer,
+            ComparisonArtifactProducer comparisonArtifactProducer,
+            CrudArtifactProducer crudArtifactProducer,
+            LegacyWordSpecificationParser legacyWordSpecificationParser,
+            OracleDdlSanityChecker oracleDdlSanityChecker,
+            NumericMappingStrategy numericMappingStrategy) {
         this.preparationService = Objects.requireNonNull(preparationService, "preparationService must not be null");
         this.metadataRepositoryResolver = Objects.requireNonNull(
                 metadataRepositoryResolver, "metadataRepositoryResolver must not be null");
@@ -93,6 +124,8 @@ public final class DocumentGenerationOrchestrator {
                 legacyWordSpecificationParser, "legacyWordSpecificationParser must not be null");
         this.oracleDdlSanityChecker = Objects.requireNonNull(
                 oracleDdlSanityChecker, "oracleDdlSanityChecker must not be null");
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
     }
 
     /** Parses, prepares and generates all artifacts for one Standard Word specification. */
@@ -161,7 +194,7 @@ public final class DocumentGenerationOrchestrator {
         // Metadata is queried once per database output. The same comparison result is
         // reused by SQL generation and the consolidated JSON validation report.
         for (DatabasePlatform platform : DatabasePlatform.values()) {
-            Dialect dialect = DialectFactory.create(platform);
+            Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(
                     dialect, repository).validate(schema);

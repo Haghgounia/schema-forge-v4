@@ -14,7 +14,7 @@ public final class NumericTypeOptimizationService {
         Objects.requireNonNull(profile, "profile must not be null");
 
         String name = type.name().normalized().toUpperCase(Locale.ROOT);
-        if (!name.equals("NUMBER") && !name.equals("NUMERIC") && !name.equals("DECIMAL")) {
+        if (!name.equals("NUMBER") && !name.equals("NUMERIC") && !name.equals("DECIMAL") && !name.equals("DEC")) {
             return Optional.empty();
         }
         if (type.precision() == null || (type.scale() != null && type.scale() != 0)) {

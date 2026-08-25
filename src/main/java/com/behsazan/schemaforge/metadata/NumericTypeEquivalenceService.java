@@ -83,6 +83,7 @@ public final class NumericTypeEquivalenceService {
             case "POSTGRESQL" -> Optional.of(NumericIntegerProfiles.POSTGRESQL);
             case "DB2" -> Optional.of(NumericIntegerProfiles.DB2_ZOS);
             case "SQLSERVER" -> Optional.of(NumericIntegerProfiles.SQL_SERVER);
+            case "MYSQL" -> Optional.of(NumericIntegerProfiles.MYSQL);
             default -> Optional.empty();
         };
     }

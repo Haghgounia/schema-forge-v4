@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.migration;
 
 import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
@@ -57,6 +58,25 @@ class SchemaDiffEngineTest {
                         && change.rationale().contains("rename is never inferred")));
     }
 
+
+    @Test
+    void usesConfiguredOptimizedNumericPolicyForMySqlDiffs() {
+        Table live = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.nullable("N", DataType.simple("INT")))
+                .build();
+        Table desired = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.nullable("N", DataType.numeric("NUMBER", 9, 0)))
+                .build();
+
+        TableMigrationPlan safe = new SchemaDiffEngine(NumericMappingStrategy.SAFE)
+                .diff(DatabasePlatform.MYSQL, live, desired);
+        TableMigrationPlan optimized = new SchemaDiffEngine(NumericMappingStrategy.OPTIMIZED)
+                .diff(DatabasePlatform.MYSQL, live, desired);
+
+        assertTrue(safe.columnChanges().stream().anyMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_TYPE));
+        assertTrue(optimized.columnChanges().isEmpty());
+    }
 
     @Test
     void treatsMySqlIdentityNextvalAsEffectiveAutoIncrementDefault() {

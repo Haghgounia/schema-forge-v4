@@ -3,6 +3,7 @@ package com.behsazan.schemaforge.application;
 import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -24,17 +25,29 @@ public final class ArtifactGenerationService {
     private final DocumentGenerationOrchestrator documentGenerationOrchestrator;
     private final ArtifactPackageBuilder artifactPackageBuilder;
     private final ArtifactManifestWriter artifactManifestWriter;
+    private final NumericMappingStrategy numericMappingStrategy;
 
     public ArtifactGenerationService(
             DocumentGenerationOrchestrator documentGenerationOrchestrator,
             ArtifactPackageBuilder artifactPackageBuilder,
             ArtifactManifestWriter artifactManifestWriter) {
+        this(documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter,
+                DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public ArtifactGenerationService(
+            DocumentGenerationOrchestrator documentGenerationOrchestrator,
+            ArtifactPackageBuilder artifactPackageBuilder,
+            ArtifactManifestWriter artifactManifestWriter,
+            NumericMappingStrategy numericMappingStrategy) {
         this.documentGenerationOrchestrator = Objects.requireNonNull(
                 documentGenerationOrchestrator, "documentGenerationOrchestrator must not be null");
         this.artifactPackageBuilder = Objects.requireNonNull(
                 artifactPackageBuilder, "artifactPackageBuilder must not be null");
         this.artifactManifestWriter = Objects.requireNonNull(
                 artifactManifestWriter, "artifactManifestWriter must not be null");
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
     }
 
     /** Generates and packages one Standard Word specification. */
@@ -115,9 +128,17 @@ public final class ArtifactGenerationService {
                 logicalName,
                 List.of(new ArtifactManifestAssembler.ModelInput(
                         sourceName, prepared.schema(), prepared.validationReport())),
-                auditOptions == null
-                        ? Map.of()
-                        : Map.of("generationOptions", Map.of("audit", auditOptions.manifestValue())));
+                generationExtensions(auditOptions));
+    }
+
+
+    private Map<String, Object> generationExtensions(AuditGenerationOptions auditOptions) {
+        Map<String, Object> generationOptions = new java.util.LinkedHashMap<>();
+        generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
+        if (auditOptions != null) {
+            generationOptions.put("audit", auditOptions.manifestValue());
+        }
+        return Map.of("generationOptions", generationOptions);
     }
 
     private static String stripExtension(String name) {

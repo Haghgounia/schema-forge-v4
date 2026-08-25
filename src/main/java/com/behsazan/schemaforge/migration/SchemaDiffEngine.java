@@ -3,6 +3,7 @@ package com.behsazan.schemaforge.migration;
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
@@ -30,13 +31,24 @@ import java.util.regex.Pattern;
 public final class SchemaDiffEngine {
     private static final Pattern TYPE_ARGUMENTS = Pattern.compile("^([A-Z0-9_ ]+)\\((\\d+)(?:,(\\d+))?(?: (?:CHAR|BYTE|CHARACTERS?))?\\)(.*)$");
 
+    private final NumericMappingStrategy numericMappingStrategy;
+
+    public SchemaDiffEngine() {
+        this(DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public SchemaDiffEngine(NumericMappingStrategy numericMappingStrategy) {
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
+    }
+
     public TableMigrationPlan diff(DatabasePlatform platform, Table liveTable, Table desiredTable) {
         Objects.requireNonNull(platform, "platform must not be null");
         Objects.requireNonNull(liveTable, "liveTable must not be null");
         Objects.requireNonNull(desiredTable, "desiredTable must not be null");
         requireSameTable(liveTable, desiredTable);
 
-        Dialect dialect = DialectFactory.create(platform);
+        Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
         List<ColumnChange> columnChanges = diffColumns(platform, dialect, liveTable, desiredTable);
         List<TableObjectChange> objectChanges = diffObjects(platform, dialect, liveTable, desiredTable);
         return new TableMigrationPlan(platform, liveTable, desiredTable, columnChanges, objectChanges);

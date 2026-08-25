@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.dialect.mysql;
 
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +18,18 @@ class MySqlTypeMapperTest {
         assertEquals("BIGINT", mapper.map(DataType.simple("BIGINT")));
         assertEquals("DATETIME(6)", mapper.map(DataType.numeric("TIMESTAMP", 6, null)));
         assertEquals("JSON", mapper.map(DataType.simple("JSON")));
+    }
+
+
+    @Test
+    void shouldLosslesslyOptimizeScaleZeroExactNumbersWhenRequested() {
+        MySqlTypeMapper optimized = new MySqlTypeMapper(NumericMappingStrategy.OPTIMIZED);
+
+        assertEquals("SMALLINT", optimized.map(DataType.numeric("NUMBER", 4, 0)));
+        assertEquals("INT", optimized.map(DataType.numeric("NUMBER", 9, 0)));
+        assertEquals("BIGINT", optimized.map(DataType.numeric("NUMBER", 18, 0)));
+        assertEquals("DECIMAL(19)", optimized.map(DataType.numeric("NUMBER", 19, 0)));
+        assertEquals("DECIMAL(12,2)", optimized.map(DataType.numeric("NUMBER", 12, 2)));
     }
 
     @Test

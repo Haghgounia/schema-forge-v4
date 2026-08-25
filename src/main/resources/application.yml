@@ -98,8 +98,8 @@ schemaforge:
 
     # MySQL metadata is enabled explicitly for migration/live comparison.
     mysql:
-      enabled: ${SCHEMAFORGE_METADATA_MYSQL_ENABLED:false}
-      url: ${SCHEMAFORGE_METADATA_MYSQL_URL:jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
-      username: ${SCHEMAFORGE_METADATA_MYSQL_USERNAME:root}
-      password: ${SCHEMAFORGE_METADATA_MYSQL_PASSWORD:}
+      enabled: true
+      url: jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC
+      username: root
+      password: mysql123
       driver-class-name: com.mysql.cj.jdbc.Driver

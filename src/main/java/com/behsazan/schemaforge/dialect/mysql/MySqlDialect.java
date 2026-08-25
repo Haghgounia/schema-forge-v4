@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.dialect.mysql;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
@@ -49,9 +50,25 @@ public final class MySqlDialect implements Dialect {
             DialectFeature.GRANT,
             DialectFeature.EXPRESSION_INDEX);
 
-    private final MySqlTypeMapper typeMapper = new MySqlTypeMapper();
+    private final NumericMappingStrategy numericMappingStrategy;
+    private final MySqlTypeMapper typeMapper;
     private final MySqlIdentifierRenderer identifierRenderer = new MySqlIdentifierRenderer();
     private final MySqlExpressionMapper expressionMapper = new MySqlExpressionMapper();
+
+    public MySqlDialect() {
+        this(NumericMappingStrategy.SAFE);
+    }
+
+    public MySqlDialect(NumericMappingStrategy numericMappingStrategy) {
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
+        this.typeMapper = new MySqlTypeMapper(numericMappingStrategy);
+    }
+
+    @Override
+    public NumericMappingStrategy numericMappingStrategy() {
+        return numericMappingStrategy;
+    }
 
     @Override
     public String name() {

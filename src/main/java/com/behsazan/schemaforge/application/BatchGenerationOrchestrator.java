@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocator;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
+import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +46,7 @@ public final class BatchGenerationOrchestrator {
     private final ArtifactNamingPolicy artifactNamingPolicy;
     private final ArtifactPackageBuilder artifactPackageBuilder;
     private final ArtifactManifestWriter artifactManifestWriter;
+    private final NumericMappingStrategy numericMappingStrategy;
 
     public BatchGenerationOrchestrator(
             DocumentGenerationOrchestrator documentGenerationOrchestrator,
@@ -52,6 +54,17 @@ public final class BatchGenerationOrchestrator {
             ArtifactNamingPolicy artifactNamingPolicy,
             ArtifactPackageBuilder artifactPackageBuilder,
             ArtifactManifestWriter artifactManifestWriter) {
+        this(documentGenerationOrchestrator, diagramArtifactProducer, artifactNamingPolicy,
+                artifactPackageBuilder, artifactManifestWriter, DialectFactory.configuredNumericMappingStrategy());
+    }
+
+    public BatchGenerationOrchestrator(
+            DocumentGenerationOrchestrator documentGenerationOrchestrator,
+            DiagramArtifactProducer diagramArtifactProducer,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            ArtifactPackageBuilder artifactPackageBuilder,
+            ArtifactManifestWriter artifactManifestWriter,
+            NumericMappingStrategy numericMappingStrategy) {
         this.documentGenerationOrchestrator = Objects.requireNonNull(
                 documentGenerationOrchestrator, "documentGenerationOrchestrator must not be null");
         this.diagramArtifactProducer = Objects.requireNonNull(
@@ -62,6 +75,8 @@ public final class BatchGenerationOrchestrator {
                 artifactPackageBuilder, "artifactPackageBuilder must not be null");
         this.artifactManifestWriter = Objects.requireNonNull(
                 artifactManifestWriter, "artifactManifestWriter must not be null");
+        this.numericMappingStrategy = Objects.requireNonNull(
+                numericMappingStrategy, "numericMappingStrategy must not be null");
     }
 
     public byte[] generate(
@@ -216,10 +231,12 @@ public final class BatchGenerationOrchestrator {
                     "text/plain", LEGACY_PRODUCER);
 
             Map<String, Object> manifestExtensions = new LinkedHashMap<>();
+            Map<String, Object> generationOptions = new LinkedHashMap<>();
+            generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
             if (auditOptions != null) {
-                manifestExtensions.put(
-                        "generationOptions", Map.of("audit", auditOptions.manifestValue()));
+                generationOptions.put("audit", auditOptions.manifestValue());
             }
+            manifestExtensions.put("generationOptions", generationOptions);
             manifestExtensions.put("batchInput", Map.of(
                     "regularFileCount", inputFiles.size(),
                     "processableDocumentCount", processableDocuments,

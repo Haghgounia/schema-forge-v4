@@ -1,3 +1,13 @@
+## R6.7 — Configurable exact-numeric mapping policy (2026-08-25)
+
+- Kept `SAFE` as the default exact-numeric policy.
+- Wired `schemaforge.numeric-mapping.strategy` through Spring configuration for REST generation.
+- Added explicit `DialectFactory.create(platform, strategy)` to avoid global mutable configuration.
+- Applied the selected strategy consistently to Oracle, PostgreSQL, Db2 z/OS, SQL Server and MySQL dialect instances. Oracle keeps Oracle-native `NUMBER` rendering while reporting the active policy.
+- Added MySQL lossless `OPTIMIZED` narrowing for scale-zero exact numerics: precision 1–4 -> `SMALLINT`, 5–9 -> `INT`, 10–18 -> `BIGINT`, larger/fractional values remain `DECIMAL`.
+- Aligned MySQL metadata equivalence and migration diff/rendering with the selected strategy so `OPTIMIZED` output does not create false datatype mismatches or contradictory ALTER plans.
+- Recorded `extensions.generationOptions.numericMapping.strategy` in Word, Legacy Word, Batch and EA manifests.
+
 ## 2026-08-25 - R6.6 ZIP Batch input accounting and duplicate suppression
 
 - Batch summaries now account for every regular input file, not only processable DOCX files. Unsupported extensions and temporary/hidden files are recorded as `SKIPPED` with an explicit reason.
