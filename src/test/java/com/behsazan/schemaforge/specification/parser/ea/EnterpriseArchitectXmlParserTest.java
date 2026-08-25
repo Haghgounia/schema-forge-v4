@@ -13,6 +13,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -306,6 +307,69 @@ class EnterpriseArchitectXmlParserTest {
         assertFalse(statusCode.identity());
         assertEquals("VARCHAR2", statusCode.dataType().name().normalized());
         assertEquals(50, statusCode.dataType().length());
+    }
+
+    @Test
+    void shouldPreserveTimestampPrecisionFromEaTaggedValues() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="EVENT_LOG" xmi.id="TABLE_EVENT_LOG">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="EVENT_ID">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="NUMBER"/>
+                                <UML:TaggedValue tag="precision" value="19"/>
+                                <UML:TaggedValue tag="scale" value="0"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="OCCURRED_AT">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="TIMESTAMP"/>
+                                <UML:TaggedValue tag="precision" value="6"/>
+                                <UML:TaggedValue tag="position" value="1"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="SOURCE_OCCURRED_AT">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="TIMESTAMP WITH TIME ZONE"/>
+                                <UML:TaggedValue tag="precision" value="6"/>
+                                <UML:TaggedValue tag="position" value="2"/>
+                                <UML:TaggedValue tag="lowerBound" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("FEE").parse(
+                "timestamp-precision.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var table = schema.findTable("EVENT_LOG").orElseThrow();
+        var timestamp = table.findColumn("OCCURRED_AT").orElseThrow().dataType();
+        assertEquals("TIMESTAMP", timestamp.name().normalized());
+        assertEquals(6, timestamp.precision());
+        assertNull(timestamp.scale());
+
+        var timestampWithTimeZone = table.findColumn("SOURCE_OCCURRED_AT").orElseThrow().dataType();
+        assertEquals("TIMESTAMP_WITH_TIME_ZONE", timestampWithTimeZone.name().normalized());
+        assertEquals(6, timestampWithTimeZone.precision());
+        assertNull(timestampWithTimeZone.scale());
     }
 
 }

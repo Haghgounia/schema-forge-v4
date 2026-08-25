@@ -605,6 +605,11 @@ public final class EnterpriseArchitectXmlParser {
             }
             return DataType.simple(canonicalName);
         }
+        if (isTemporalType(canonicalName) && precision > 0) {
+            return new DataType(
+                    Identifier.of(canonicalName), null, LengthSemantics.DEFAULT,
+                    precision, null);
+        }
         return DataType.simple(canonicalName);
     }
 
@@ -615,6 +620,11 @@ public final class EnterpriseArchitectXmlParser {
 
     private static boolean isNumericType(String name) {
         return Set.of("NUMBER", "NUMERIC", "DECIMAL", "INTEGER", "INT", "SMALLINT", "BIGINT", "FLOAT")
+                .contains(name);
+    }
+
+    private static boolean isTemporalType(String name) {
+        return Set.of("TIMESTAMP", "TIMESTAMP_WITH_TIME_ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE")
                 .contains(name);
     }
 

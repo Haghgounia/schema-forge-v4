@@ -1,3 +1,12 @@
+## 2026-08-25 - R6.5 EA TIMESTAMP precision preservation
+
+- Fixed Enterprise Architect XMI import dropping tagged temporal precision after reading it from the source column.
+- `TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`, and `TIMESTAMP WITH LOCAL TIME ZONE` now retain positive EA `precision` values in the canonical `DataType`.
+- The FEE acceptance source now parses all `99` source TIMESTAMP columns as canonical `TIMESTAMP(6)` instead of `TIMESTAMP` with null precision.
+- Existing dialect policies then render source `TIMESTAMP(6)` as Oracle `TIMESTAMP(6)`, PostgreSQL `TIMESTAMP(6)`, Db2 z/OS `TIMESTAMP(6)`, SQL Server `DATETIME2(6)`, and MySQL `DATETIME(6)`.
+- Added focused EA parser regression coverage for both regular and timezone-aware TIMESTAMP precision.
+- No GRANT policy, audit enrichment, FK recovery, LOB mapping, artifact contract, or live-test cleanup behavior changed.
+
 ## 2026-08-25 - R6.4.1 MySQL native LOB portability
 
 - Fixed REST `INVALID_REQUEST` on canonical/live `LONGTEXT` caused by a MySQL foundation mapper round-trip gap.
