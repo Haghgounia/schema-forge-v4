@@ -42,7 +42,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * canonical JSON. It reapplies the exact DB2 overlay and unanimous historical numeric
  * precision evidence, then consumes only the already-confirmed P2-R7, P2-R8 and P2-R10
  * recovery decisions. Anything that still blocks is classified as an explicit hard blocker
- * instead of being guessed or clamped.</p>
+ * instead of being guessed or clamped. When requested, the same in-memory recovery result is also
+ * materialized as a separate database-neutral derived canonical corpus for cross-dialect acceptance;
+ * the source canonical corpus is never modified.</p>
  */
 class MySqlFinalRecoveryGenerationIT {
     private static final String SNAPSHOT_DIR = "schemaforge.mysql.final.snapshotDir";
@@ -58,6 +60,8 @@ class MySqlFinalRecoveryGenerationIT {
     private static final String FAIL_ON_SNAPSHOT_READ_ERRORS = "schemaforge.mysql.final.failOnSnapshotReadErrors";
     private static final String EXPECTED_MIN_SNAPSHOTS = "schemaforge.mysql.final.expectedMinSnapshots";
     private static final String EXPECTED_MIN_GENERATED = "schemaforge.mysql.final.expectedMinGenerated";
+    private static final String RECOVERED_SNAPSHOT_DIR = "schemaforge.mysql.final.recoveredSnapshotDir";
+    private static final String CLEAN_RECOVERED_SNAPSHOTS = "schemaforge.mysql.final.cleanRecoveredSnapshots";
 
     private static final Set<String> CANONICAL_EXACT_NUMERIC = Set.of("NUMBER", "NUMERIC", "DECIMAL", "DEC");
     private static final Set<String> METADATA_EXACT_NUMERIC = Set.of(
@@ -85,6 +89,13 @@ class MySqlFinalRecoveryGenerationIT {
         int minEvidence = positiveInt(System.getProperty(MIN_EVIDENCE, "1"), MIN_EVIDENCE);
         int expectedMinSnapshots = positiveInt(System.getProperty(EXPECTED_MIN_SNAPSHOTS, "5321"), EXPECTED_MIN_SNAPSHOTS);
         int expectedMinGenerated = positiveInt(System.getProperty(EXPECTED_MIN_GENERATED, "4702"), EXPECTED_MIN_GENERATED);
+        Path recoveredSnapshotRoot = optionalOutputDirectory(RECOVERED_SNAPSHOT_DIR);
+        if (recoveredSnapshotRoot != null && recoveredSnapshotRoot.startsWith(snapshotRoot)) {
+            throw new IllegalArgumentException(RECOVERED_SNAPSHOT_DIR
+                    + " must be outside the source snapshot directory: " + recoveredSnapshotRoot);
+        }
+        boolean cleanRecoveredSnapshots = Boolean.parseBoolean(
+                System.getProperty(CLEAN_RECOVERED_SNAPSHOTS, "true"));
 
         Path p2r2Details = latestFile(p2r2Root, "mysql-metadata-recovery-details_", ".csv");
         Path p2r7Applied = latestFile(p2r7Root, "mysql-strong-table-reconciliation-applied_", ".csv");
@@ -106,6 +117,10 @@ class MySqlFinalRecoveryGenerationIT {
         Files.createDirectories(outputRoot);
         if (cleanOutput) cleanDirectory(generatedRoot);
         Files.createDirectories(generatedRoot);
+        if (recoveredSnapshotRoot != null) {
+            if (cleanRecoveredSnapshots) cleanDirectory(recoveredSnapshotRoot);
+            Files.createDirectories(recoveredSnapshotRoot);
+        }
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
         List<String> details = new ArrayList<>();
@@ -131,6 +146,8 @@ class MySqlFinalRecoveryGenerationIT {
         int generated = 0;
         int hardBlockedSnapshots = 0;
         int generationFailures = 0;
+        int recoveredSnapshotsWritten = 0;
+        int recoveredSnapshotWriteFailures = 0;
         int remainingOccurrences = 0;
         Map<String, Integer> remainingByCode = new LinkedHashMap<>();
         Map<String, Integer> hardByClassification = new LinkedHashMap<>();
@@ -159,6 +176,31 @@ class MySqlFinalRecoveryGenerationIT {
                 applied.add(csvLine(item.relative(), source, action.directive().stage(), action.schema(), action.table(),
                         action.column(), action.directive().evidenceSchema(), action.directive().evidenceTable(),
                         action.directive().evidenceColumn(), renderType(action.canonicalType()), renderType(action.recoveredType())));
+            }
+
+            if (recoveredSnapshotRoot != null) {
+                Path recoveredTarget = recoveredSnapshotRoot.resolve(
+                        snapshotRoot.relativize(item.path())).normalize();
+                try {
+                    CanonicalSchemaSnapshot.SourceSnapshot recoveredSource = item.snapshot().source();
+                    if (recoveredSource == null) {
+                        recoveredSource = new CanonicalSchemaSnapshot.SourceSnapshot(
+                                item.relative(), item.path().getFileName().toString(), "", 0L, "",
+                                "legacy-evidence-recovery");
+                    }
+                    CanonicalSchemaSnapshot mappedRecovered = mapper.toSnapshot(
+                            confirmed.schema(), recoveredSource, item.snapshot().generatedAtUtc());
+                    CanonicalSchemaSnapshot recoveredSnapshot = new CanonicalSchemaSnapshot(
+                            item.snapshot().snapshotVersion(), item.snapshot().modelVersion(),
+                            item.snapshot().parserVersion(), item.snapshot().generatedAtUtc(),
+                            recoveredSource, mappedRecovered.schema());
+                    store.writeSnapshot(recoveredTarget, recoveredSnapshot);
+                    recoveredSnapshotsWritten++;
+                } catch (Exception exception) {
+                    recoveredSnapshotWriteFailures++;
+                    String error = exception.getClass().getSimpleName() + ": " + safe(exception.getMessage());
+                    generationErrors.merge("RECOVERED_SNAPSHOT_WRITE: " + error, 1, Integer::sum);
+                }
             }
 
             var finalAssessment = compatibilityAnalyzer.analyze(confirmed.schema(), mysqlDialect);
@@ -247,6 +289,9 @@ class MySqlFinalRecoveryGenerationIT {
         summary.add("Final generated                 : " + generated);
         summary.add("Final hard-blocked snapshots    : " + hardBlockedSnapshots);
         summary.add("Generation failures             : " + generationFailures);
+        summary.add("Recovered snapshots written     : " + recoveredSnapshotsWritten);
+        summary.add("Recovered snapshot write failures: " + recoveredSnapshotWriteFailures);
+        summary.add("Recovered snapshot directory    : " + (recoveredSnapshotRoot == null ? "DISABLED" : recoveredSnapshotRoot));
         summary.add(String.format(Locale.ROOT, "Loaded generation coverage       : %.2f%%", loadedCoverage));
         summary.add(String.format(Locale.ROOT, "Corpus generation coverage       : %.2f%%", corpusCoverage));
         summary.add("Remaining blocker occurrences   : " + remainingOccurrences);
@@ -290,6 +335,9 @@ class MySqlFinalRecoveryGenerationIT {
         System.out.println("Final generated                 : " + generated);
         System.out.println("Final hard-blocked snapshots    : " + hardBlockedSnapshots);
         System.out.println("Generation failures             : " + generationFailures);
+        System.out.println("Recovered snapshots written     : " + recoveredSnapshotsWritten);
+        System.out.println("Recovered snapshot write failures: " + recoveredSnapshotWriteFailures);
+        System.out.println("Recovered snapshot directory    : " + (recoveredSnapshotRoot == null ? "DISABLED" : recoveredSnapshotRoot));
         System.out.printf(Locale.ROOT, "Loaded generation coverage       : %.2f%%%n", loadedCoverage);
         System.out.printf(Locale.ROOT, "Corpus generation coverage       : %.2f%%%n", corpusCoverage);
         confirmedByStage.forEach((key, value) -> System.out.println(key + " : " + value));
@@ -307,6 +355,12 @@ class MySqlFinalRecoveryGenerationIT {
         if (failOnSnapshotReadErrors) {
             assertEquals(0, loadResult.failures().size(),
                     "Canonical snapshot read failures were found; see " + snapshotReadFailuresFile);
+        }
+        if (recoveredSnapshotRoot != null) {
+            assertEquals(loaded.size(), recoveredSnapshotsWritten + recoveredSnapshotWriteFailures,
+                    "Every loaded snapshot must be accounted for in the derived recovered canonical corpus");
+            assertEquals(0, recoveredSnapshotWriteFailures,
+                    "Recovered canonical snapshot write failures were found");
         }
         if (failOnGenerationErrors) assertEquals(0, generationFailures, "Final MySQL generation failures were found");
         assertTrue(generated >= expectedMinGenerated,
@@ -678,6 +732,12 @@ class MySqlFinalRecoveryGenerationIT {
         Path path = Path.of(value).toAbsolutePath().normalize();
         if (!Files.isRegularFile(path)) throw new IllegalArgumentException(property + " must point to a file: " + path);
         return path;
+    }
+
+
+    private static Path optionalOutputDirectory(String property) {
+        String value = trimToNull(System.getProperty(property));
+        return value == null ? null : Path.of(value).toAbsolutePath().normalize();
     }
 
     private static Path outputDirectory(Path snapshotRoot) throws Exception {

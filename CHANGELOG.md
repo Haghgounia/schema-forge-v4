@@ -1,3 +1,12 @@
+## R7.2 — Cross-dialect recovered canonical corpus preparation (2026-08-25)
+
+- Classified the first SAFE four-DBMS corpus gate: PostgreSQL generated all 5,321 snapshots; Oracle blocked 25; Db2/zOS blocked 1,508; SQL Server blocked 1,498; canonical read/validation failures remained zero.
+- Confirmed the dominant Db2/zOS and SQL Server failures are the same canonical exact-numeric precision gap already handled by evidence-backed recovery, not independent dialect defects.
+- Extended `MySqlFinalRecoveryGenerationIT` with optional `schemaforge.mysql.final.recoveredSnapshotDir` output so the exact cumulative DB2/historical/confirmed evidence overlay can be materialized as a separate database-neutral derived canonical corpus.
+- The source canonical JSON corpus remains immutable; derived snapshots preserve original snapshot/model/parser provenance and source identity.
+- Added complete accounting and zero-write-failure assertions for derived recovered snapshots.
+- Added `docs/R7.2-FIVE-DBMS-CORPUS-ACCEPTANCE.md` with the recovery-materialization and observational SAFE commands.
+
 ## R7.1 — MySQL final recovery closure gate (2026-08-25)
 
 - Hardened `MySqlFinalRecoveryGenerationIT` so canonical snapshot read failures are no longer silently skipped.
