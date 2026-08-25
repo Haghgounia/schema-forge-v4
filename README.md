@@ -188,28 +188,29 @@ Oracle does not create a schema with the ANSI `CREATE SCHEMA` statement; the sch
 
 Db2 for z/OS schema definitions are processed by DSNHSP and are not mixed into the ordinary executable DDL file. The execution authorization ID must have the required schema and database privileges before running the generated table DDL.
 
-## Standard database role grants
+## Optional database role grants
 
-Standard table privileges are configured centrally and are applied to every generated table:
+SchemaForge does **not** invent or assume database users/roles. Grant generation is opt-in: the default configuration is an empty list, so no configured `GRANT` statements are added to generated DDL.
+
+```yaml
+schemaforge:
+  standards:
+    grants: []
+```
+
+To enable configured grants, list only principals that have already been provisioned by the target environment/DBA:
 
 ```yaml
 schemaforge:
   standards:
     grants:
-      - grantee: U_DEVELOPER
+      - grantee: APP_DEVELOPER
         privileges: [SELECT, INSERT, UPDATE, DELETE]
-      - grantee: U_DESIGNER
-        privileges: [SELECT, INSERT, UPDATE, DELETE]
+      - grantee: APP_READONLY
+        privileges: [SELECT]
 ```
 
-`grantee` identifies a database **role/principal**, not an application user id. The generated statements are placed at the end of the executable SQL body:
-
-```sql
-GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.DEPOSITS TO U_DEVELOPER;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DPS.DEPOSITS TO U_DESIGNER;
-```
-
-The same configuration is used by REST Word/ZIP/EA XML generation and the offline generation pipeline. An empty `grants` list disables standard grants. Explicit table-level `GRANTS` options are retained and merged without duplicate statements.
+`grantee` identifies a database **role/principal**, not an application user id. SchemaForge does not emit executable `CREATE USER` / `CREATE ROLE` statements for configured grantees. Explicit table-level `GRANTS` options present in the input model are preserved and merged without duplicate statements.
 
 ## Oracle metadata-based CRUD packages
 

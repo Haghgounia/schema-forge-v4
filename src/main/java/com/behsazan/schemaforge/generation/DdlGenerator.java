@@ -774,7 +774,7 @@ public final class DdlGenerator {
                 if (trimmed.isEmpty()) {
                     continue;
                 }
-                // Canonical option format: SELECT, INSERT, UPDATE, DELETE TO U_DEVELOPER
+                // Canonical option format: SELECT, INSERT, UPDATE, DELETE TO APP_ROLE
                 // The grantee is a database role/principal; it is not an application user id.
                 int toIndex = trimmed.toUpperCase(Locale.ROOT).lastIndexOf(" TO ");
                 if (toIndex <= 0 || toIndex + 4 >= trimmed.length()) {

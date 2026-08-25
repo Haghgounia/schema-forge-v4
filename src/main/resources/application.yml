@@ -42,12 +42,15 @@ schemaforge:
           nullable: false
           comment: "Last modification timestamp"
 
-    # Grantees are database roles/principals, not application user ids.
-    grants:
-      - grantee: U_DEVELOPER
-        privileges: [SELECT, INSERT, UPDATE, DELETE]
-      - grantee: U_DESIGNER
-        privileges: [SELECT, INSERT, UPDATE, DELETE]
+    # GRANT generation is opt-in. SchemaForge never invents database users/roles.
+    # Add only principals that are provisioned by the target environment/DBA.
+    grants: []
+    # Example:
+    # grants:
+    #   - grantee: APP_DEVELOPER
+    #     privileges: [SELECT, INSERT, UPDATE, DELETE]
+    #   - grantee: APP_READONLY
+    #     privileges: [SELECT]
 
   spell-check:
     enabled: true
@@ -95,8 +98,8 @@ schemaforge:
 
     # MySQL metadata is enabled explicitly for migration/live comparison.
     mysql:
-      enabled: ${SCHEMAFORGE_METADATA_MYSQL_ENABLED:false}
-      url: ${SCHEMAFORGE_METADATA_MYSQL_URL:jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
-      username: ${SCHEMAFORGE_METADATA_MYSQL_USERNAME:root}
-      password: ${SCHEMAFORGE_METADATA_MYSQL_PASSWORD:}
+      enabled: true
+      url: jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC
+      username: root
+      password: mysql123
       driver-class-name: com.mysql.cj.jdbc.Driver

@@ -203,8 +203,13 @@ class MySqlDirectoryExecutionTest {
         report.cleanupAttempted++;
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(config.statementTimeoutSeconds());
-            statement.execute(sql);
-            report.cleanupSucceeded++;
+            statement.execute("SET FOREIGN_KEY_CHECKS = 0");
+            try {
+                statement.execute(sql);
+                report.cleanupSucceeded++;
+            } finally {
+                statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+            }
         } catch (SQLException exception) {
             // MySQL error 1049 = unknown database. The script's CREATE DATABASE statement
             // will bootstrap it immediately after this pre-create cleanup attempt.

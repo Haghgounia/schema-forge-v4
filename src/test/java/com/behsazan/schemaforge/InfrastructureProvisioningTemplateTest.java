@@ -17,7 +17,7 @@ class InfrastructureProvisioningTemplateTest {
     void emitsDbmsSpecificInfrastructureGuidanceWithoutGuessingEnvironmentValues() {
         DatabaseSchema schema = DatabaseSchema.builder("FEE")
                 .addTable(Table.builder("FEE", "T1")
-                        .addColumn(Column.required("ID", DataType.simple("NUMBER")))
+                        .addColumn(Column.required("ID", DataType.numeric("NUMBER", 19, 0)))
                         .build())
                 .build();
 
@@ -40,7 +40,7 @@ class InfrastructureProvisioningTemplateTest {
         String sqlServer = new DdlGenerator(DialectFactory.create(DatabasePlatform.SQLSERVER)).generate(schema);
         assertTrue(sqlServer.contains("[INFRASTRUCTURE TEMPLATE][SQLSERVER]"));
         assertTrue(sqlServer.contains("ADD FILEGROUP [<FILEGROUP>]"));
-        assertTrue(sqlServer.contains("CREATE SCHEMA [FEE]"));
+        assertTrue(sqlServer.contains("CREATE SCHEMA FEE AUTHORIZATION [dbo]"));
 
         String mysql = new DdlGenerator(DialectFactory.create(DatabasePlatform.MYSQL)).generate(schema);
         assertTrue(mysql.contains("[INFRASTRUCTURE TEMPLATE][MYSQL]"));

@@ -1,3 +1,34 @@
+## 2026-08-25 - R6.4 Grant Policy Hardening
+
+- Changed configured database grants to opt-in: `GrantProperties.defaults()` now contains no invented principals.
+- Removed hard-coded `U_DEVELOPER` / `U_DESIGNER` from `application.yml`; default is `schemaforge.standards.grants: []`.
+- Explicit table-level `GRANTS` metadata is still preserved because it originates from the input model.
+- Configured grants and CRUD execute grants are generated only for principals explicitly configured by the deployment environment.
+- SchemaForge does not create users/roles to satisfy a grant; principal provisioning remains a DBA/security responsibility.
+- Added regression coverage proving default MySQL DDL contains no invented grant principals.
+
+## 2026-08-25 - R6.3 MySQL live-test FK-safe cleanup
+
+- User-side FULL `MySqlDirectoryExecutionTest` rerun on the 47-table FEE corpus reported `31` cleanup failures plus `63` SQL failures, totaling the same `94` actionable failures.
+- The prior GRANT prerequisite issue was no longer the blocker; the rerun exposed test-harness cleanup attempting to drop parent tables while child foreign keys from the previous run still existed.
+- Updated only `MySqlDirectoryExecutionTest` destructive cleanup to disable session `FOREIGN_KEY_CHECKS` around each `DROP TABLE IF EXISTS` and restore it immediately afterward.
+- Production DDL, MySQL dialect behavior, FK generation, REST behavior, parser, canonical model and artifact contracts are unchanged.
+- R6.3 is a test-harness repair candidate pending user rerun of the same 47-file FULL live gate.
+
+## 2026-08-25 - R6.2 infrastructure SQL Server assertion repair
+
+- User-side R6.1 targeted gate compiled `279` main and `193` test Java sources and ran 20 tests; 19 passed and only `InfrastructureProvisioningTemplateTest` failed at SQL Server assertion line 43.
+- Production SQL Server identifier rendering intentionally leaves safe ordinary identifiers unquoted, so schema bootstrap renders `CREATE SCHEMA FEE AUTHORIZATION [dbo]` rather than `CREATE SCHEMA [FEE]`.
+- Updated only the test expectation to the actual SQL Server contract; no production DDL, REST, audit policy, parser, manifest, Db2/zOS mapper, or infrastructure template behavior changed.
+- R6.2 is a test-contract repair candidate pending user rerun of the same targeted gate.
+
+## 2026-08-25 - R6.1 infrastructure test fixture repair
+
+- User-side R6 targeted gate compiled `279` main and `193` test Java sources and ran 20 tests; 19 passed and only `InfrastructureProvisioningTemplateTest` errored before assertions.
+- Root cause was test-only fixture `DataType.simple("NUMBER")`, which is intentionally rejected by Db2 z/OS because lossless NUMBER mapping requires explicit precision.
+- Replaced only that fixture with `DataType.numeric("NUMBER", 19, 0)`; no production mapper, DDL, REST, audit policy, infrastructure template, parser, or manifest behavior changed.
+- R6.1 is a test-contract repair candidate pending user rerun of the R6 targeted gate.
+
 ## 2026-08-24 - C11 final consolidation baseline official
 
 - User-verified targeted consolidation gate passed `95 / 0 / 0 / 0`, `BUILD SUCCESS`, finished `2026-08-24T10:54:16+03:30`.

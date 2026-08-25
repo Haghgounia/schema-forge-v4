@@ -120,42 +120,36 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(oracleSql.contains("TABLESPACE TS_BIM;"));
         assertTrue(oracleSql.contains("-- ORACLE TABLE PHYSICAL OPTIONS"));
         assertTrue(oracleSql.contains("TABLESPACE ITS_BIM"));
-        assertTrue(oracleSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DEVELOPER;"));
-        assertTrue(oracleSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DESIGNER;"));
+        assertFalse(oracleSql.contains("U_DEVELOPER"));
+        assertFalse(oracleSql.contains("U_DESIGNER"));
         assertTrue(postgresqlSql.contains("fk_provinces_language_id"));
         assertTrue(postgresqlSql.contains("fk_provinces_country_id"));
         assertTrue(postgresqlSql.contains("[LOGICAL FOREIGN KEY] fk_provinces_calendar_id"));
         assertFalse(postgresqlSql.contains("ADD CONSTRAINT fk_provinces_calendar_id"));
-        assertTrue(postgresqlSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON bim.provinces TO U_DEVELOPER;"));
-        assertTrue(postgresqlSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON bim.provinces TO U_DESIGNER;"));
+        assertFalse(postgresqlSql.contains("U_DEVELOPER"));
+        assertFalse(postgresqlSql.contains("U_DESIGNER"));
         assertTrue(db2ZosSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(db2ZosSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(db2ZosSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
         assertFalse(db2ZosSql.contains("ADD CONSTRAINT FK_PROVINCES_CALENDAR_ID"));
-        assertTrue(db2ZosSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DEVELOPER;"));
-        assertTrue(db2ZosSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DESIGNER;"));
+        assertFalse(db2ZosSql.contains("U_DEVELOPER"));
+        assertFalse(db2ZosSql.contains("U_DESIGNER"));
         assertTrue(sqlServerSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(sqlServerSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(sqlServerSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));
         assertFalse(sqlServerSql.contains("ADD CONSTRAINT FK_PROVINCES_CALENDAR_ID"));
         assertTrue(sqlServerSql.contains("PROVINCE_ID DECIMAL(2,0) DEFAULT NEXT VALUE FOR BIM.SEQ_PROVINCES NOT NULL"));
         assertTrue(sqlServerSql.contains("EXEC sys.sp_addextendedproperty"));
-        assertTrue(sqlServerSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DEVELOPER;"));
-        assertTrue(sqlServerSql.contains(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.PROVINCES TO U_DESIGNER;"));
+        assertFalse(sqlServerSql.contains("U_DEVELOPER"));
+        assertFalse(sqlServerSql.contains("U_DESIGNER"));
         assertTrue(mysqlSql.contains("CREATE DATABASE IF NOT EXISTS `BIM`;"));
         assertTrue(mysqlSql.contains("CREATE TABLE `BIM`.`PROVINCES`"));
         assertTrue(mysqlSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(mysqlSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(mysqlSql.contains("[LOGICAL FOREIGN KEY] `FK_PROVINCES_CALENDAR_ID`"));
         assertFalse(mysqlSql.contains("ADD CONSTRAINT `FK_PROVINCES_CALENDAR_ID`"));
+        assertFalse(mysqlSql.contains("U_DEVELOPER"));
+        assertFalse(mysqlSql.contains("U_DESIGNER"));
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {

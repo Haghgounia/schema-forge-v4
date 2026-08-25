@@ -6,12 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Standard database grants applied to every generated table.
- * The configured grantee is a database role/principal, not an application user id.
+ * Optional database grants applied to generated tables.
+ * No database principal is invented by default; configured grantees are database roles/principals,
+ * not application user ids.
  */
 @ConfigurationProperties(prefix = "schemaforge.standards")
 public class GrantProperties {
-    private List<GrantRule> grants = new ArrayList<>(defaultGrants());
+    private List<GrantRule> grants = new ArrayList<>();
 
     public List<GrantRule> getGrants() {
         return grants;
@@ -25,12 +26,6 @@ public class GrantProperties {
         return new GrantProperties();
     }
 
-    private static List<GrantRule> defaultGrants() {
-        return List.of(
-                new GrantRule("U_DEVELOPER", List.of("SELECT", "INSERT", "UPDATE", "DELETE")),
-                new GrantRule("U_DESIGNER", List.of("SELECT", "INSERT", "UPDATE", "DELETE"))
-        );
-    }
 
     public static class GrantRule {
         private String grantee;

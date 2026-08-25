@@ -87,19 +87,17 @@ schemaforge:
       driver-class-name: oracle.jdbc.OracleDriver
 ```
 
-The configured standard grant principals are reused as package execute grantees:
+Configured grant principals are reused as package execute grantees only when explicitly configured. The default is `grants: []`, so no execute grantee is assumed.
 
 ```yaml
 schemaforge:
   standards:
     grants:
-      - grantee: U_DEVELOPER
-        privileges: [SELECT, INSERT, UPDATE, DELETE]
-      - grantee: U_DESIGNER
+      - grantee: APP_DEVELOPER
         privileges: [SELECT, INSERT, UPDATE, DELETE]
 ```
 
-Only configured principals with at least one write privilege (`INSERT`, `UPDATE`, or `DELETE`) are reused. The generated package privilege is always `EXECUTE`; read-only principals are not promoted to CRUD execution.
+Only configured principals with at least one write privilege (`INSERT`, `UPDATE`, or `DELETE`) are reused. The generated package privilege is always `EXECUTE`; read-only principals are not promoted to CRUD execution. SchemaForge does not create the principal.
 
 ## Validation constraints
 

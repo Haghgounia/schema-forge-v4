@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -46,7 +48,8 @@ class GrantSchemaEnricherTest {
                 .addTable(table)
                 .build();
 
-        DatabaseSchema enriched = new GrantSchemaEnricher(GrantProperties.defaults()).enrich(source);
+        GrantProperties properties = configuredWriteGrants();
+        DatabaseSchema enriched = new GrantSchemaEnricher(properties).enrich(source);
         assertEquals("سپرده‌ها", enriched.tables().getFirst().persianName().value());
         String grants = enriched.tables().getFirst().physicalOptions().get("GRANTS");
 
@@ -73,6 +76,40 @@ class GrantSchemaEnricherTest {
         assertTrue(oracle.lastIndexOf("GRANT ") > oracle.lastIndexOf("COMMENT ON COLUMN"));
         assertTrue(postgresql.lastIndexOf("GRANT ") > postgresql.lastIndexOf("COMMENT ON COLUMN"));
         assertTrue(mysql.lastIndexOf("GRANT ") > mysql.lastIndexOf("CREATE TABLE"));
+    }
+
+
+    @Test
+    void defaultsShouldNotInventDatabasePrincipalsOrConfiguredGrants() {
+        Table table = Table.builder("DPS", "DEPOSITS")
+                .addColumn(Column.required("DEPOSIT_ID", DataType.numeric("NUMBER", 9, 0)))
+                .build();
+
+        DatabaseSchema enriched = new GrantSchemaEnricher(GrantProperties.defaults()).enrich(
+                DatabaseSchema.builder("DPS").addTable(table).build());
+
+        assertNull(enriched.tables().getFirst().physicalOptions().get("GRANTS"));
+        String mysql = new DdlGenerator(new MySqlDialect()).generate(enriched);
+        assertFalse(mysql.contains("GRANT "));
+        assertFalse(mysql.contains("U_DEVELOPER"));
+        assertFalse(mysql.contains("U_DESIGNER"));
+    }
+
+    @Test
+    void defaultsShouldPreserveExplicitSourceGrantWithoutAddingConfiguredPrincipals() {
+        Table table = Table.builder("DPS", "DEPOSITS")
+                .addColumn(Column.required("DEPOSIT_ID", DataType.numeric("NUMBER", 9, 0)))
+                .physicalOption("GRANTS", "SELECT TO APP_READONLY")
+                .build();
+
+        DatabaseSchema enriched = new GrantSchemaEnricher(GrantProperties.defaults()).enrich(
+                DatabaseSchema.builder("DPS").addTable(table).build());
+
+        assertEquals("SELECT TO APP_READONLY", enriched.tables().getFirst().physicalOptions().get("GRANTS"));
+        String mysql = new DdlGenerator(new MySqlDialect()).generate(enriched);
+        assertTrue(mysql.contains("GRANT SELECT ON `DPS`.`DEPOSITS` TO APP_READONLY;"));
+        assertFalse(mysql.contains("U_DEVELOPER"));
+        assertFalse(mysql.contains("U_DESIGNER"));
     }
 
     @Test
@@ -102,5 +139,13 @@ class GrantSchemaEnricherTest {
                 .filter(line -> line.equalsIgnoreCase("SELECT TO U_DEVELOPER"))
                 .count());
         assertTrue(grants.contains("SELECT TO U_DESIGNER"));
+    }
+
+    private static GrantProperties configuredWriteGrants() {
+        GrantProperties properties = new GrantProperties();
+        properties.setGrants(List.of(
+                new GrantProperties.GrantRule("U_DEVELOPER", List.of("SELECT", "INSERT", "UPDATE", "DELETE")),
+                new GrantProperties.GrantRule("U_DESIGNER", List.of("SELECT", "INSERT", "UPDATE", "DELETE"))));
+        return properties;
     }
 }

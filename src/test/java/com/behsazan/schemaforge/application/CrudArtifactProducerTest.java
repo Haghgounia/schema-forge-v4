@@ -72,7 +72,10 @@ class CrudArtifactProducerTest {
         ArtifactGenerationContext context = context();
         ArtifactNamingPolicy naming = new ArtifactNamingPolicy();
 
-        new CrudArtifactProducer(naming, resolver, GrantProperties.defaults())
+        GrantProperties grants = new GrantProperties();
+        grants.setGrants(List.of(new GrantProperties.GrantRule(
+                "U_DEVELOPER", List.of("SELECT", "INSERT", "UPDATE", "DELETE"))));
+        new CrudArtifactProducer(naming, resolver, grants)
                 .writeMetadataCrudArtifacts(schema(true), tempDir, "customers", TIMESTAMP, context);
 
         Path oraclePath = tempDir.resolve(naming.crudRelativePath(
