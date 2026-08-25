@@ -49,6 +49,11 @@ class CanonicalJsonDirectoryToDdlIT {
     private static final String PLATFORMS = "schemaforge.snapshot.ddl.platforms";
     private static final String FAIL_ON_ERRORS = "schemaforge.snapshot.ddl.failOnErrors";
     private static final String FAIL_ON_WARNINGS = "schemaforge.snapshot.ddl.failOnWarnings";
+    private static final String FAIL_ON_REGRESSION = "schemaforge.snapshot.ddl.failOnRegression";
+    private static final String EXPECTED_MIN_SUCCESSFUL_PREFIX = "schemaforge.snapshot.ddl.expectedMinSuccessful.";
+    private static final String EXPECTED_MAX_BLOCKED_PREFIX = "schemaforge.snapshot.ddl.expectedMaxBlockedMapping.";
+    private static final String EXPECTED_MAX_WARNINGS_PREFIX = "schemaforge.snapshot.ddl.expectedMaxWarningScripts.";
+    private static final String ALLOWED_BLOCKING_CODES_PREFIX = "schemaforge.snapshot.ddl.allowedBlockingCodes.";
     private static final String CLEAN_OUTPUT = "schemaforge.snapshot.ddl.cleanOutput";
     private static final String EXPECTED_MIN_SNAPSHOTS = "schemaforge.snapshot.ddl.expectedMinSnapshots";
 
@@ -73,6 +78,7 @@ class CanonicalJsonDirectoryToDdlIT {
         NumericMappingStrategy numericMappingStrategy = DialectFactory.configuredNumericMappingStrategy();
         boolean failOnErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_ERRORS, "false"));
         boolean failOnWarnings = Boolean.parseBoolean(System.getProperty(FAIL_ON_WARNINGS, "false"));
+        boolean failOnRegression = Boolean.parseBoolean(System.getProperty(FAIL_ON_REGRESSION, "false"));
         int expectedMinSnapshots = Integer.parseInt(System.getProperty(EXPECTED_MIN_SNAPSHOTS, "1"));
         boolean cleanOutput = Boolean.parseBoolean(System.getProperty(CLEAN_OUTPUT, "false"));
         Files.createDirectories(outputRoot);
@@ -112,6 +118,7 @@ class CanonicalJsonDirectoryToDdlIT {
         Map<DatabasePlatform, Integer> generatedWithErrors = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> blockedByMapping = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> failed = new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Set<String>> blockingCodes = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Dialect> dialects = new EnumMap<>(DatabasePlatform.class);
         platforms.forEach(platform -> {
             generated.put(platform, 0);
@@ -119,6 +126,7 @@ class CanonicalJsonDirectoryToDdlIT {
             generatedWithErrors.put(platform, 0);
             blockedByMapping.put(platform, 0);
             failed.put(platform, 0);
+            blockingCodes.put(platform, new LinkedHashSet<>());
             targetAllocators.put(platform, new CollisionSafeScriptTargetAllocator(outputFileNamer));
             writtenTargets.put(platform, new LinkedHashSet<>());
             try {
@@ -175,7 +183,7 @@ class CanonicalJsonDirectoryToDdlIT {
                 generate(inputRoot, outputRoot, snapshotPath, relativeSnapshot, snapshot, prepared, platform,
                         dialects.get(platform), timestamp, summary, issues, outputCollisions,
                         targetAllocators.get(platform), writtenTargets.get(platform),
-                        generated, generatedWithWarnings, generatedWithErrors, blockedByMapping, failed);
+                        generated, generatedWithWarnings, generatedWithErrors, blockedByMapping, failed, blockingCodes);
             }
         }
 
@@ -267,6 +275,43 @@ class CanonicalJsonDirectoryToDdlIT {
                                 + ": processed=" + processedSnapshots + ", generated=" + successful);
             }
         }
+        if (failOnRegression) {
+            assertTrue(snapshotFailures == 0 && canonicalErrors == 0 && totalFailed == 0,
+                    "JSON-to-DDL regression gate found snapshot/canonical/generation failures; see " + issueFile);
+            for (DatabasePlatform platform : platforms) {
+                String platformName = platform.commandLineName();
+                int successful = generated.get(platform) + generatedWithWarnings.get(platform)
+                        + generatedWithErrors.get(platform);
+                int expectedMinSuccessful = requiredNonNegativeInt(EXPECTED_MIN_SUCCESSFUL_PREFIX + platformName);
+                int expectedMaxBlocked = requiredNonNegativeInt(EXPECTED_MAX_BLOCKED_PREFIX + platformName);
+                int expectedMaxWarnings = requiredNonNegativeInt(EXPECTED_MAX_WARNINGS_PREFIX + platformName);
+                Set<String> allowedCodes = configuredCsvSet(ALLOWED_BLOCKING_CODES_PREFIX + platformName);
+
+                assertTrue(successful >= expectedMinSuccessful,
+                        "DDL regression for " + platformName + ": successful=" + successful
+                                + ", expectedMin=" + expectedMinSuccessful);
+                assertTrue(blockedByMapping.get(platform) <= expectedMaxBlocked,
+                        "Mapping-blocker regression for " + platformName + ": blocked="
+                                + blockedByMapping.get(platform) + ", expectedMax=" + expectedMaxBlocked);
+                assertTrue(generatedWithWarnings.get(platform) <= expectedMaxWarnings,
+                        "Warning-script regression for " + platformName + ": warnings="
+                                + generatedWithWarnings.get(platform) + ", expectedMax=" + expectedMaxWarnings);
+                assertTrue(generatedWithErrors.get(platform) == 0,
+                        "Generated SQL validation errors are not accepted for " + platformName + ": "
+                                + generatedWithErrors.get(platform));
+
+                Set<String> unexpectedBlockingCodes = new LinkedHashSet<>(blockingCodes.get(platform));
+                unexpectedBlockingCodes.removeAll(allowedCodes);
+                assertTrue(unexpectedBlockingCodes.isEmpty(),
+                        "Unexpected blocking mapping code(s) for " + platformName + ": "
+                                + unexpectedBlockingCodes + "; allowed=" + allowedCodes);
+
+                int accounted = successful + blockedByMapping.get(platform) + failed.get(platform);
+                assertTrue(accounted == processedSnapshots,
+                        "Per-platform corpus accounting mismatch for " + platformName + ": processed="
+                                + processedSnapshots + ", accounted=" + accounted);
+            }
+        }
         if (failOnWarnings) {
             int warningScripts = generatedWithWarnings.values().stream().mapToInt(Integer::intValue).sum();
             assertTrue(canonicalWarnings == 0 && warningScripts == 0,
@@ -293,7 +338,8 @@ class CanonicalJsonDirectoryToDdlIT {
             Map<DatabasePlatform, Integer> generatedWithWarnings,
             Map<DatabasePlatform, Integer> generatedWithErrors,
             Map<DatabasePlatform, Integer> blockedByMapping,
-            Map<DatabasePlatform, Integer> failed) {
+            Map<DatabasePlatform, Integer> failed,
+            Map<DatabasePlatform, Set<String>> blockingCodes) {
 
         String source = snapshot.source() == null ? "" : snapshot.source().relativePath();
         Path target = null;
@@ -301,6 +347,9 @@ class CanonicalJsonDirectoryToDdlIT {
         if (mappingAssessment.fatal()) {
             blockedByMapping.compute(platform, (key, value) -> value + 1);
             for (ValidationFinding finding : mappingAssessment.findings()) {
+                if (finding.error() && finding.code() != null && !finding.code().isBlank()) {
+                    blockingCodes.get(platform).add(finding.code());
+                }
                 issues.add(csvLine(relativeSnapshot, source, platform.commandLineName(), finding.severity(),
                         finding.stage(), finding.location(), finding.code(), finding.message(), finding.fragment()));
             }
@@ -613,6 +662,38 @@ class CanonicalJsonDirectoryToDdlIT {
 
     private static String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static int requiredNonNegativeInt(String property) {
+        String value = System.getProperty(property);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Missing required acceptance property: -D" + property + "=<non-negative integer>");
+        }
+        int parsed;
+        try {
+            parsed = Integer.parseInt(value.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Acceptance property must be an integer: -D" + property + "=" + value, exception);
+        }
+        if (parsed < 0) {
+            throw new IllegalArgumentException("Acceptance property must be non-negative: -D" + property + "=" + parsed);
+        }
+        return parsed;
+    }
+
+    private static Set<String> configuredCsvSet(String property) {
+        String value = System.getProperty(property, "").trim();
+        if (value.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> values = new LinkedHashSet<>();
+        for (String token : value.split(",")) {
+            String normalized = token.trim();
+            if (!normalized.isEmpty()) {
+                values.add(normalized);
+            }
+        }
+        return Set.copyOf(values);
     }
 
     private static String safeMessage(Exception exception) {

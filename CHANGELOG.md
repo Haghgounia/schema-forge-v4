@@ -1857,3 +1857,12 @@
 - SQL Server CHECK comparison now ignores only catalog-only bracket quoting of ordinary identifiers, numeric scalar parentheses, redundant atomic predicate parentheses, and whitespace adjacent to operators.
 - Boolean grouping that changes precedence and string-literal contents/case remain significant, so semantic CHECK changes are still reported.
 - CREATE SQL, migration SQL, SQL Server dependency refresh, destructive-confirmation policy, and the other four database dialects are unchanged.
+
+## 2026-08-25 - R7.2.1 recovered-corpus SAFE acceptance baseline
+
+- Froze the first evidence-backed recovered SAFE corpus baseline across Oracle, PostgreSQL, Db2/zOS, and SQL Server.
+- The 5,321-snapshot recovered corpus produced 5,296 successful Oracle scripts, 5,321 PostgreSQL scripts, 4,693 Db2/zOS scripts, and 4,703 SQL Server scripts with zero snapshot failures, canonical errors, or generation failures.
+- Evidence-backed canonical recovery newly unblocked exactly 880 Db2/zOS snapshots and 880 SQL Server snapshots versus the raw corpus.
+- Added optional regression-aware acceptance mode to `CanonicalJsonDirectoryToDdlIT`; known No-Guess hard blockers are allowed only within frozen per-platform ceilings and only for explicitly allowed mapping codes.
+- The regression gate fails on lower successful-script counts, higher blocker counts, warning regressions, generated SQL validation errors, generation/snapshot/canonical failures, unknown blocking codes, or broken corpus accounting.
+- No production Java, dialect mapping, canonical model, parser, DDL renderer, or source canonical snapshot is changed by this gate hardening.
