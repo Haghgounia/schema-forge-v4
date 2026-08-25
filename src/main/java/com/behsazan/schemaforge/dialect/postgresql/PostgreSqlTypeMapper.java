@@ -42,8 +42,8 @@ public final class PostgreSqlTypeMapper {
             case "SMALLINT" -> "SMALLINT";
             case "BINARY_DOUBLE", "DOUBLE", "DOUBLE PRECISION", "FLOAT" -> "DOUBLE PRECISION";
             case "BINARY_FLOAT", "REAL" -> "REAL";
-            case "CLOB", "NCLOB", "LONG" -> "TEXT";
-            case "BLOB", "RAW", "LONG RAW", "LONG_RAW" -> "BYTEA";
+            case "CLOB", "NCLOB", "LONG", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT" -> "TEXT";
+            case "BLOB", "RAW", "LONG RAW", "LONG_RAW", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB" -> "BYTEA";
             case "DATE" -> "TIMESTAMP";
             case "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITH LOCAL TIME ZONE",
                     "TIMESTAMP_WITH_TIME_ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE" -> "TIMESTAMP WITH TIME ZONE";

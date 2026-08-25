@@ -42,8 +42,10 @@ public final class SqlServerTypeMapper {
             case "NCHAR" -> fixedCharacter("NCHAR", type, 4000);
 
             case "RAW" -> variableBinary(type);
-            case "LONG RAW", "LONG_RAW", "BLOB", "VARBINARY_MAX", "IMAGE" -> "VARBINARY(MAX)";
-            case "LONG", "CLOB", "VARCHAR_MAX", "TEXT" -> "VARCHAR(MAX)";
+            case "LONG RAW", "LONG_RAW", "BLOB", "VARBINARY_MAX", "IMAGE",
+                    "TINYBLOB", "MEDIUMBLOB", "LONGBLOB" -> "VARBINARY(MAX)";
+            case "LONG", "CLOB", "VARCHAR_MAX", "TEXT",
+                    "TINYTEXT", "MEDIUMTEXT", "LONGTEXT" -> "VARCHAR(MAX)";
             case "NCLOB", "NVARCHAR_MAX", "NTEXT" -> "NVARCHAR(MAX)";
 
             case "DATE" -> "DATETIME2(0)";

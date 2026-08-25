@@ -54,6 +54,8 @@ public final class OracleDialect implements Dialect {
             case "TIMESTAMP_WITH_TIME_ZONE" -> "TIMESTAMP WITH TIME ZONE";
             case "TIMESTAMP_WITH_LOCAL_TIME_ZONE" -> "TIMESTAMP WITH LOCAL TIME ZONE";
             case "LONG_RAW" -> "LONG RAW";
+            case "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT" -> "CLOB";
+            case "TINYBLOB", "MEDIUMBLOB", "LONGBLOB" -> "BLOB";
             default -> name.toUpperCase(Locale.ROOT);
         };
 

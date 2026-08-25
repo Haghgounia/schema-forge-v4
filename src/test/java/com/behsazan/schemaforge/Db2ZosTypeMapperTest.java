@@ -72,6 +72,8 @@ class Db2ZosTypeMapperTest {
         assertEquals("VARBINARY(100)", mapper.map(DataType.varchar("RAW", 100)));
         assertEquals("BLOB", mapper.map(DataType.simple("LONG_RAW")));
         assertEquals("DBCLOB", mapper.map(DataType.simple("NCLOB")));
+        assertEquals("CLOB", mapper.map(DataType.simple("LONGTEXT")));
+        assertEquals("BLOB", mapper.map(DataType.simple("LONGBLOB")));
         assertEquals("SMALLINT", mapper.map(DataType.simple("BOOLEAN")));
         assertEquals("ROWID", mapper.map(DataType.simple("DB2_ROWID")));
     }

@@ -262,6 +262,16 @@ class OracleDdlGeneratorTest {
     }
 
     @Test
+    void shouldMapMysqlNativeLobAliasesToOracleLobs() {
+        OracleDialect dialect = new OracleDialect();
+        Column text = column("PAYLOAD_TEXT", DataType.simple("LONGTEXT"), true, null, "Text payload", 1);
+        Column binary = column("PAYLOAD_BIN", DataType.simple("LONGBLOB"), true, null, "Binary payload", 2);
+
+        assertEquals("CLOB", dialect.sqlType(text));
+        assertEquals("BLOB", dialect.sqlType(binary));
+    }
+
+    @Test
     void shouldRenderDuplicateColumnWarningWithoutGeneratingDuplicateColumn() {
         Column isActive = column("IS_ACTIVE", DataType.numeric("NUMBER", 1, 0), false, "1",
                 "Active flag", 1);

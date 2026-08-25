@@ -30,7 +30,9 @@ public final class MySqlTypeMapper {
             case "BINARY_DOUBLE", "DOUBLE", "DOUBLE PRECISION" -> "DOUBLE";
             case "BINARY_FLOAT", "FLOAT", "REAL" -> "FLOAT";
             case "CLOB", "NCLOB", "LONG", "TEXT" -> "LONGTEXT";
+            case "TINYTEXT", "MEDIUMTEXT", "LONGTEXT" -> source;
             case "BLOB", "LONG RAW", "LONG_RAW" -> "LONGBLOB";
+            case "TINYBLOB", "MEDIUMBLOB", "LONGBLOB" -> source;
             case "RAW", "VARBINARY" -> binary(type);
             case "DATE" -> "DATETIME";
             case "TIMESTAMP", "DATETIME" -> temporal("DATETIME", type);

@@ -20,6 +20,16 @@ class MySqlTypeMapperTest {
     }
 
     @Test
+    void shouldRoundTripNativeMysqlLobTypes() {
+        assertEquals("TINYTEXT", mapper.map(DataType.simple("TINYTEXT")));
+        assertEquals("MEDIUMTEXT", mapper.map(DataType.simple("MEDIUMTEXT")));
+        assertEquals("LONGTEXT", mapper.map(DataType.simple("LONGTEXT")));
+        assertEquals("TINYBLOB", mapper.map(DataType.simple("TINYBLOB")));
+        assertEquals("MEDIUMBLOB", mapper.map(DataType.simple("MEDIUMBLOB")));
+        assertEquals("LONGBLOB", mapper.map(DataType.simple("LONGBLOB")));
+    }
+
+    @Test
     void shouldRejectLossyOrUnsupportedMappings() {
         assertThrows(IllegalArgumentException.class,
                 () -> mapper.map(DataType.simple("NUMBER")));

@@ -25,6 +25,8 @@ class PostgreSqlTypeMapperTest {
         assertEquals("BYTEA", mapper.map(DataType.simple("RAW")));
         assertEquals("BYTEA", mapper.map(DataType.simple("LONG_RAW")));
         assertEquals("VARCHAR", mapper.map(DataType.simple("UROWID")));
+        assertEquals("TEXT", mapper.map(DataType.simple("LONGTEXT")));
+        assertEquals("BYTEA", mapper.map(DataType.simple("LONGBLOB")));
     }
 
     @Test

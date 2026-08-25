@@ -1,3 +1,11 @@
+## 2026-08-25 - R6.4.1 MySQL native LOB portability
+
+- Fixed REST `INVALID_REQUEST` on canonical/live `LONGTEXT` caused by a MySQL foundation mapper round-trip gap.
+- MySQL now accepts native `TINYTEXT`, `MEDIUMTEXT`, `LONGTEXT`, `TINYBLOB`, `MEDIUMBLOB`, and `LONGBLOB` without guessing.
+- Added cross-dialect portability for MySQL native LOB aliases: Oracle -> CLOB/BLOB, PostgreSQL -> TEXT/BYTEA, Db2 z/OS -> CLOB/BLOB, SQL Server -> VARCHAR(MAX)/VARBINARY(MAX).
+- Existing generic `TEXT`/`CLOB` and `BLOB` mapping policies remain unchanged.
+- Added regression assertions across all five dialects.
+
 ## 2026-08-25 - R6.4 Grant Policy Hardening
 
 - Changed configured database grants to opt-in: `GrantProperties.defaults()` now contains no invented principals.

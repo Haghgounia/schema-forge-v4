@@ -47,8 +47,8 @@ public final class Db2ZosTypeMapper {
             case "NCHAR" -> withOptionalLength("GRAPHIC", type);
 
             case "RAW" -> withRequiredLength("VARBINARY", type);
-            case "LONG RAW", "LONG_RAW", "BLOB" -> "BLOB";
-            case "LONG", "CLOB" -> "CLOB";
+            case "LONG RAW", "LONG_RAW", "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB" -> "BLOB";
+            case "LONG", "CLOB", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT" -> "CLOB";
             case "NCLOB" -> "DBCLOB";
 
             case "DATE" -> "TIMESTAMP(0)";

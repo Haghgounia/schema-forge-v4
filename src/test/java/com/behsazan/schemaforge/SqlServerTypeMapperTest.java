@@ -58,6 +58,8 @@ class SqlServerTypeMapperTest {
         assertEquals("VARCHAR(MAX)", mapper.map(DataType.simple("VARCHAR_MAX")));
         assertEquals("NVARCHAR(MAX)", mapper.map(DataType.simple("NVARCHAR_MAX")));
         assertEquals("VARBINARY(MAX)", mapper.map(DataType.simple("VARBINARY_MAX")));
+        assertEquals("VARCHAR(MAX)", mapper.map(DataType.simple("LONGTEXT")));
+        assertEquals("VARBINARY(MAX)", mapper.map(DataType.simple("LONGBLOB")));
         assertEquals("XML", mapper.map(DataType.simple("XMLTYPE")));
         assertEquals("NVARCHAR(MAX)", mapper.map(DataType.simple("JSON")));
         assertEquals("BIT", mapper.map(DataType.simple("BOOLEAN")));
