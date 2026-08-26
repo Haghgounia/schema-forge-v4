@@ -86,7 +86,7 @@ public final class SqlScriptStatementParser {
                         || trimmed.regionMatches(true, 0, "WHENEVER SQLERROR", 0, "WHENEVER SQLERROR".length())
                         || trimmed.equals("/");
                 case POSTGRESQL -> trimmed.startsWith("\\");
-                case DB2_ZOS -> false;
+                case DB2_ZOS, DB2_LUW -> false;
                 case SQLSERVER -> trimmed.startsWith(":") || trimmed.equalsIgnoreCase("GO");
                 case MYSQL -> false;
             };

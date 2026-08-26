@@ -306,7 +306,7 @@ public final class EaGenerationOrchestrator {
             switch (platform) {
                 case ORACLE -> script.append("@@").append(reference);
                 case POSTGRESQL -> script.append("\\ir ").append(reference);
-                case DB2_ZOS -> script.append("-- Execute in this order: ").append(reference);
+                case DB2_ZOS, DB2_LUW -> script.append("-- Execute in this order: ").append(reference);
                 case SQLSERVER -> script.append(":r ").append(reference);
                 case MYSQL -> script.append("-- Execute in this order: ").append(reference);
             }

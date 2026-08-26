@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
+import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
@@ -39,6 +40,9 @@ class ApplicationDialectSelectionTest {
         assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("db2zos"));
         assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("db2-zos"));
         assertEquals(DatabasePlatform.DB2_ZOS, DatabasePlatform.parse("DB2"));
+        assertEquals(DatabasePlatform.DB2_LUW, DatabasePlatform.parse("db2luw"));
+        assertEquals(DatabasePlatform.DB2_LUW, DatabasePlatform.parse("db2-luw"));
+        assertEquals(DatabasePlatform.DB2_LUW, DatabasePlatform.parse("LUW"));
         assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("sqlserver"));
         assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("sql-server"));
         assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("MSSQL"));
@@ -51,6 +55,7 @@ class ApplicationDialectSelectionTest {
         assertInstanceOf(OracleDialect.class, DialectFactory.create(DatabasePlatform.ORACLE));
         assertInstanceOf(PostgreSqlDialect.class, DialectFactory.create(DatabasePlatform.POSTGRESQL));
         assertInstanceOf(Db2ZosDialect.class, DialectFactory.create(DatabasePlatform.DB2_ZOS));
+        assertInstanceOf(Db2LuwDialect.class, DialectFactory.create(DatabasePlatform.DB2_LUW));
         assertInstanceOf(SqlServerDialect.class, DialectFactory.create(DatabasePlatform.SQLSERVER));
         assertInstanceOf(MySqlDialect.class, DialectFactory.create(DatabasePlatform.MYSQL));
     }

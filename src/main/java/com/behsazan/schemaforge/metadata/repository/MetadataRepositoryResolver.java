@@ -14,17 +14,20 @@ public class MetadataRepositoryResolver {
     private final ObjectProvider<OracleMetadataRepository> oracle;
     private final ObjectProvider<PostgreSqlMetadataRepository> postgresql;
     private final ObjectProvider<Db2ZosMetadataRepository> db2zos;
+    private final ObjectProvider<Db2LuwMetadataRepository> db2luw;
     private final ObjectProvider<SqlServerMetadataRepository> sqlserver;
     private final ObjectProvider<MySqlMetadataRepository> mysql;
 
     public MetadataRepositoryResolver(ObjectProvider<OracleMetadataRepository> oracle,
                                       ObjectProvider<PostgreSqlMetadataRepository> postgresql,
                                       ObjectProvider<Db2ZosMetadataRepository> db2zos,
+                                      ObjectProvider<Db2LuwMetadataRepository> db2luw,
                                       ObjectProvider<SqlServerMetadataRepository> sqlserver,
                                       ObjectProvider<MySqlMetadataRepository> mysql) {
         this.oracle = oracle;
         this.postgresql = postgresql;
         this.db2zos = db2zos;
+        this.db2luw = db2luw;
         this.sqlserver = sqlserver;
         this.mysql = mysql;
     }
@@ -34,6 +37,7 @@ public class MetadataRepositoryResolver {
             case ORACLE -> oracle.getIfAvailable();
             case POSTGRESQL -> postgresql.getIfAvailable();
             case DB2_ZOS -> db2zos.getIfAvailable();
+            case DB2_LUW -> db2luw.getIfAvailable();
             case SQLSERVER -> sqlserver.getIfAvailable();
             case MYSQL -> mysql.getIfAvailable();
         };

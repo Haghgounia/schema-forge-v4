@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.deployment;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
+import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
@@ -30,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>SchemaForge deliberately creates all tables before phase-3 foreign keys. Therefore
  * dependency safety does not require topologically sorting CREATE TABLE statements: even a
  * cycle remains deployable because cross-table foreign keys are deferred until every table
- * exists. This gate verifies that invariant across all five DBMS renderers.</p>
+ * exists. This gate verifies that invariant across all registered core DBMS renderers.</p>
  */
 class RunAllOrderingAcceptanceTest {
     private final IntegratedSchemaDeploymentPlanner planner = new IntegratedSchemaDeploymentPlanner();
@@ -192,6 +193,7 @@ class RunAllOrderingAcceptanceTest {
                 new OracleDialect(),
                 new PostgreSqlDialect(),
                 new Db2ZosDialect(),
+                new Db2LuwDialect(),
                 new SqlServerDialect(),
                 new MySqlDialect());
     }

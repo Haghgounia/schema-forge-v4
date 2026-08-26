@@ -56,6 +56,19 @@ public class MetadataDataSourceConfiguration {
         return new NamedParameterJdbcTemplate(dataSource);
     }
 
+    @Bean("db2LuwMetadataDataSource")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.db2luw", name = "enabled", havingValue = "true")
+    DataSource db2LuwMetadataDataSource(MetadataProperties properties) {
+        return create(properties.getDb2luw(), "Db2 LUW");
+    }
+
+    @Bean("db2LuwMetadataJdbcTemplate")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.db2luw", name = "enabled", havingValue = "true")
+    NamedParameterJdbcTemplate db2LuwMetadataJdbcTemplate(
+            @Qualifier("db2LuwMetadataDataSource") DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
     @Bean("sqlServerMetadataDataSource")
     @ConditionalOnProperty(prefix = "schemaforge.metadata.sqlserver", name = "enabled", havingValue = "true")
     DataSource sqlServerMetadataDataSource(MetadataProperties properties) {

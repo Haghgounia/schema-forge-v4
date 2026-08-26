@@ -81,7 +81,8 @@ public final class NumericTypeEquivalenceService {
     private Optional<NumericTypeOptimizationService.NumericIntegerProfile> profile(String database) {
         return switch (normalizeDatabase(database)) {
             case "POSTGRESQL" -> Optional.of(NumericIntegerProfiles.POSTGRESQL);
-            case "DB2" -> Optional.of(NumericIntegerProfiles.DB2_ZOS);
+            case "DB2_ZOS" -> Optional.of(NumericIntegerProfiles.DB2_ZOS);
+            case "DB2_LUW" -> Optional.of(NumericIntegerProfiles.DB2_LUW);
             case "SQLSERVER" -> Optional.of(NumericIntegerProfiles.SQL_SERVER);
             case "MYSQL" -> Optional.of(NumericIntegerProfiles.MYSQL);
             default -> Optional.empty();
@@ -109,7 +110,8 @@ public final class NumericTypeEquivalenceService {
                 .replace("-", "");
         return switch (normalized) {
             case "POSTGRES", "POSTGRESQL" -> "POSTGRESQL";
-            case "IBMDB2", "DB2", "DB2ZOS", "IBMDB2ZOS" -> "DB2";
+            case "IBMDB2", "DB2", "DB2ZOS", "IBMDB2ZOS" -> "DB2_ZOS";
+            case "DB2LUW", "IBMDB2LUW" -> "DB2_LUW";
             case "MSSQL", "SQLSERVER", "MICROSOFTSQLSERVER" -> "SQLSERVER";
             default -> normalized;
         };

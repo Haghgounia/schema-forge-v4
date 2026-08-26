@@ -2,6 +2,7 @@ package com.behsazan.schemaforge;
 
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
+import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
@@ -26,6 +27,7 @@ class DialectCapabilityTest {
         OracleDialect oracle = new OracleDialect();
         PostgreSqlDialect postgreSql = new PostgreSqlDialect();
         Db2ZosDialect db2Zos = new Db2ZosDialect();
+        Db2LuwDialect db2Luw = new Db2LuwDialect();
         SqlServerDialect sqlServer = new SqlServerDialect();
         MySqlDialect mySql = new MySqlDialect();
 
@@ -61,6 +63,17 @@ class DialectCapabilityTest {
         assertFalse(db2Zos.supportedFeatures().contains(DialectFeature.INDEX_INCLUDE));
         assertFalse(db2Zos.supportedFeatures().contains(DialectFeature.PARTIAL_INDEX));
         assertFalse(db2Zos.supportedFeatures().contains(DialectFeature.DEFERRABLE_CONSTRAINT));
+
+        // Db2 LUW core scope
+        assertTrue(db2Luw.supportedFeatures().contains(DialectFeature.SEQUENCE));
+        assertTrue(db2Luw.supportedFeatures().contains(DialectFeature.IDENTITY_COLUMN));
+        assertTrue(db2Luw.supportedFeatures().contains(DialectFeature.GENERATED_COLUMN));
+        assertTrue(db2Luw.supportedFeatures().contains(DialectFeature.TABLE_COMMENT));
+        assertTrue(db2Luw.supportedFeatures().contains(DialectFeature.COLUMN_COMMENT));
+        assertTrue(db2Luw.supportedFeatures().contains(DialectFeature.GRANT));
+        assertFalse(db2Luw.supportedFeatures().contains(DialectFeature.INDEX_INCLUDE));
+        assertFalse(db2Luw.supportedFeatures().contains(DialectFeature.PARTIAL_INDEX));
+        assertFalse(db2Luw.supportedFeatures().contains(DialectFeature.DEFERRABLE_CONSTRAINT));
 
         // Microsoft SQL Server core scope
         assertTrue(sqlServer.supportedFeatures().contains(DialectFeature.SEQUENCE));

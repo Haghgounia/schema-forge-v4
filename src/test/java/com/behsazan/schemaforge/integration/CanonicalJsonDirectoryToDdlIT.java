@@ -474,6 +474,7 @@ class CanonicalJsonDirectoryToDdlIT {
             case DB2_ZOS -> db2ZosValidator.validate(sql).issues().stream()
                     .map(issue -> new ValidationFinding(issue.severity(), "STATIC_VALIDATION",
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
+            case DB2_LUW -> List.of(); // Dedicated Db2 LUW offline validator follows core P1.
             case MYSQL -> basicMySqlValidation(sql);
         };
     }

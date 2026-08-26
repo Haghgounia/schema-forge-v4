@@ -384,7 +384,7 @@ class PhysicalPhase1CorpusAuditIT {
         String placeholder = switch (platform) {
             case ORACLE, POSTGRESQL -> "<INDEX_TABLESPACE>";
             case SQLSERVER -> "<INDEX_FILEGROUP>";
-            case DB2_ZOS, MYSQL -> "";
+            case DB2_ZOS, DB2_LUW, MYSQL -> "";
         };
         boolean placeholderPresent = !placeholder.isBlank() && indexBlock.contains(placeholder);
         if (activeIndexPlacement && placeholderPresent) {
@@ -556,7 +556,7 @@ class PhysicalPhase1CorpusAuditIT {
             case POSTGRESQL -> List.of("WITH (FILLFACTOR = 100)", "WITH (FILLFACTOR = 90)");
             case SQLSERVER -> List.of("DATA_COMPRESSION = NONE", "FILLFACTOR = 0", "PAD_INDEX = OFF");
             case DB2_ZOS -> List.of("FREEPAGE 0", "PCTFREE 10", "GBPCACHE CHANGED", "COMPRESS NO");
-            case MYSQL -> List.of();
+            case DB2_LUW, MYSQL -> List.of();
         };
         for (String token : forbidden) {
             if (active.contains(token)) {
@@ -752,7 +752,7 @@ class PhysicalPhase1CorpusAuditIT {
             case ORACLE, POSTGRESQL -> "<TABLE_TABLESPACE>";
             case SQLSERVER -> "<TABLE_FILEGROUP>";
             case DB2_ZOS -> "<DATABASE>.<TABLESPACE>";
-            case MYSQL -> "";
+            case DB2_LUW, MYSQL -> "";
         };
     }
 
@@ -762,6 +762,7 @@ class PhysicalPhase1CorpusAuditIT {
             case POSTGRESQL -> "-- POSTGRESQL TABLE PHYSICAL OPTIONS";
             case SQLSERVER -> "-- SQL SERVER TABLE PHYSICAL OPTIONS";
             case DB2_ZOS -> "-- DB2/ZOS TABLE PHYSICAL OPTIONS";
+            case DB2_LUW -> "-- DB2/LUW TABLE PHYSICAL OPTIONS";
             case MYSQL -> "-- MYSQL TABLE PHYSICAL OPTIONS";
         };
     }
@@ -772,6 +773,7 @@ class PhysicalPhase1CorpusAuditIT {
             case POSTGRESQL -> "-- POSTGRESQL INDEX PHYSICAL OPTIONS";
             case SQLSERVER -> "-- SQL SERVER INDEX PHYSICAL OPTIONS";
             case DB2_ZOS -> "-- DB2/ZOS INDEX PHYSICAL OPTIONS";
+            case DB2_LUW -> "-- DB2/LUW INDEX PHYSICAL OPTIONS";
             case MYSQL -> "-- MYSQL INDEX PHYSICAL OPTIONS";
         };
     }

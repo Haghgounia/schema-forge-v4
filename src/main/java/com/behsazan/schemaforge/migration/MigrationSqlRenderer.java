@@ -587,7 +587,7 @@ public final class MigrationSqlRenderer {
     private String renderAddColumn(DatabasePlatform platform, Dialect dialect, Table table, Column column, String tableName) {
         String keyword = switch (platform) {
             case ORACLE, SQLSERVER -> " ADD ";
-            case POSTGRESQL, DB2_ZOS, MYSQL -> " ADD COLUMN ";
+            case POSTGRESQL, DB2_ZOS, DB2_LUW, MYSQL -> " ADD COLUMN ";
         };
         return "ALTER TABLE " + tableName + keyword + columnDefinition(dialect, table, column)
                 + dialect.statementTerminator();
@@ -607,7 +607,7 @@ public final class MigrationSqlRenderer {
                     + dialect.statementTerminator());
             case POSTGRESQL -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " TYPE " + type
                     + dialect.statementTerminator());
-            case DB2_ZOS -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " SET DATA TYPE " + type
+            case DB2_ZOS, DB2_LUW -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " SET DATA TYPE " + type
                     + dialect.statementTerminator());
             case SQLSERVER -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " " + type
                     + (desired.nullable() ? " NULL" : " NOT NULL") + dialect.statementTerminator());
@@ -624,7 +624,7 @@ public final class MigrationSqlRenderer {
                     + (desired.nullable() ? " NULL" : " NOT NULL") + ")" + dialect.statementTerminator());
             case POSTGRESQL -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
                     + (desired.nullable() ? " DROP NOT NULL" : " SET NOT NULL") + dialect.statementTerminator());
-            case DB2_ZOS -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
+            case DB2_ZOS, DB2_LUW -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
                     + (desired.nullable() ? " DROP NOT NULL" : " SET NOT NULL") + dialect.statementTerminator());
             case SQLSERVER -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " "
                     + dialect.sqlType(table, desired) + (desired.nullable() ? " NULL" : " NOT NULL")
@@ -644,7 +644,7 @@ public final class MigrationSqlRenderer {
                     + (present ? expression : "NULL") + ")" + dialect.statementTerminator());
             case POSTGRESQL -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
                     + (present ? " SET DEFAULT " + expression : " DROP DEFAULT") + dialect.statementTerminator());
-            case DB2_ZOS -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
+            case DB2_ZOS, DB2_LUW -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
                     + (present ? " SET DEFAULT " + expression : " DROP DEFAULT") + dialect.statementTerminator());
             case MYSQL -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
                     + columnDefinition(dialect, table, desired) + dialect.statementTerminator());

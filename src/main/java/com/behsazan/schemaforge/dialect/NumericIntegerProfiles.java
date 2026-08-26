@@ -10,6 +10,10 @@ public final class NumericIntegerProfiles {
             new NumericTypeOptimizationService.NumericIntegerProfile(
                     "SMALLINT", 4, "INTEGER", 9, "BIGINT", 18);
 
+    public static final NumericTypeOptimizationService.NumericIntegerProfile DB2_LUW =
+            new NumericTypeOptimizationService.NumericIntegerProfile(
+                    "SMALLINT", 4, "INTEGER", 9, "BIGINT", 18);
+
     public static final NumericTypeOptimizationService.NumericIntegerProfile SQL_SERVER =
             new NumericTypeOptimizationService.NumericIntegerProfile(
                     "SMALLINT", 4, "INT", 9, "BIGINT", 18);

@@ -3,6 +3,8 @@ package com.behsazan.schemaforge.validation.datatype;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosTypeMapper;
+import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
+import com.behsazan.schemaforge.dialect.db2luw.Db2LuwTypeMapper;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlTypeMapper;
@@ -75,6 +77,8 @@ public final class DatatypeCompatibilityAnalyzer {
                     analyzeMySql(type, sourceName, path, issues);
                 } else if (dialect instanceof Db2ZosDialect) {
                     analyzeDb2Zos(type, sourceName, path, issues);
+                } else if (dialect instanceof Db2LuwDialect) {
+                    analyzeDb2Luw(type, sourceName, path, issues);
                 }
             }
         }
@@ -256,6 +260,39 @@ public final class DatatypeCompatibilityAnalyzer {
                             + ") exceeds Db2 for z/OS TIMESTAMP precision "
                             + Db2ZosTypeMapper.MAX_TIMESTAMP_PRECISION
                             + "; no target precision is invented.");
+        }
+    }
+
+    private void analyzeDb2Luw(
+            DataType type, String sourceName, String path, List<ValidationIssue> issues) {
+        if (EXACT_NUMERIC.contains(sourceName)) {
+            if (type.precision() == null) {
+                error(issues, "DB2_LUW_NUMBER_PRECISION_REQUIRED", path,
+                        "Canonical " + sourceName
+                                + " has no explicit precision; Db2 LUW cannot map it losslessly to DECIMAL.");
+            } else if (type.precision() > Db2LuwTypeMapper.MAX_DECIMAL_PRECISION) {
+                error(issues, "DB2_LUW_DECIMAL_PRECISION_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds Db2 LUW DECIMAL precision "
+                                + Db2LuwTypeMapper.MAX_DECIMAL_PRECISION + ".");
+            }
+        }
+        if (ORACLE_TIMESTAMP.contains(sourceName)
+                && type.precision() != null
+                && type.precision() > Db2LuwTypeMapper.MAX_TIMESTAMP_PRECISION) {
+            error(issues, "DB2_LUW_TEMPORAL_PRECISION_UNSUPPORTED", path,
+                    "Canonical " + sourceName + "(" + type.precision()
+                            + ") exceeds Db2 LUW TIMESTAMP precision "
+                            + Db2LuwTypeMapper.MAX_TIMESTAMP_PRECISION
+                            + "; no target precision is invented.");
+        }
+        if (sourceName.equals("TIMESTAMP WITH TIME ZONE")
+                || sourceName.equals("TIMESTAMP_WITH_TIME_ZONE")
+                || sourceName.equals("TIMESTAMP WITH LOCAL TIME ZONE")
+                || sourceName.equals("TIMESTAMP_WITH_LOCAL_TIME_ZONE")) {
+            error(issues, "DB2_LUW_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
+                    "Db2 LUW has no lossless table-column equivalent for canonical " + sourceName
+                            + "; SchemaForge does not silently discard the time-zone semantic.");
         }
     }
 

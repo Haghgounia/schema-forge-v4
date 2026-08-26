@@ -28,11 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** R7.5A offline acceptance gate for the complete ALTER/Migration M2 change matrix. */
+/** R7.5A offline acceptance gate for the complete ALTER/Migration M2 change matrix across registered platforms. */
 class ComprehensiveAlterAcceptanceTest {
 
     @Test
-    void detectsEveryColumnChangeKindForAllFivePlatforms() {
+    void detectsEveryColumnChangeKindForAllRegisteredPlatforms() {
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, liveColumns(), desiredColumns());
             Set<ColumnChangeKind> kinds = plan.columnChanges().stream()
@@ -50,7 +50,7 @@ class ComprehensiveAlterAcceptanceTest {
     }
 
     @Test
-    void detectsAddDropAndReplaceForEveryOwnedStructuralObjectForAllFivePlatforms() {
+    void detectsAddDropAndReplaceForEveryOwnedStructuralObjectForAllRegisteredPlatforms() {
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             assertStructuralKinds(platform, emptyStructure(), fullStructure("A"), TableObjectChangeKind.ADD);
             assertStructuralKinds(platform, fullStructure("A"), emptyStructure(), TableObjectChangeKind.DROP);
@@ -71,7 +71,7 @@ class ComprehensiveAlterAcceptanceTest {
     }
 
     @Test
-    void identicalDesiredAndLiveTablesProduceZeroResidualDiffForAllFivePlatforms() {
+    void identicalDesiredAndLiveTablesProduceZeroResidualDiffForAllRegisteredPlatforms() {
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             Table table = fullStructure("A");
             TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, table, table);
