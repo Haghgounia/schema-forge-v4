@@ -54,6 +54,10 @@ Physical recommendations remain non-executable comments. Source/validation issue
 
 For large Legacy Word corpora, Word parsing can be materialized once as versioned DBMS-neutral `*.schema.json` snapshots. Subsequent dialect work, including MySQL logical DDL, can read JSON instead of reopening Word documents. Cache reuse is guarded by source SHA-256 plus snapshot/model/parser versions, so a dialect-only change does not trigger a multi-hour Word reparse. See [`docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md`](docs/integration/CANONICAL-JSON-SNAPSHOT-CACHE.md).
 
+## R8.1 pre-freeze release candidate
+
+R8.1 is VERIFIED / CLOSED after a full clean `587 / 0 / 0 / 4` regression. Production Java under `src/main` remains unchanged; seven test-side files were aligned with the already-frozen R7.3 fail-closed datatype contract and current service overloads. R7.1, R7.2, and R7.3 are closed; R7.4 live M2 acceptance has passed on SQL Server, MySQL, PostgreSQL, and Oracle, while Db2 z/OS remains `PENDING_ENVIRONMENT`. See [`docs/R8.1-PRE-FREEZE-PREPARATION.md`](docs/R8.1-PRE-FREEZE-PREPARATION.md) and [`docs/R8-ACCEPTANCE-MATRIX.md`](docs/R8-ACCEPTANCE-MATRIX.md). R8.2 final freeze is blocked by Db2 z/OS live acceptance; after that evidence is available, the final regression/hash promotion is performed.
+
 ## R7.3 new Word corpus acceptance
 
 The standard DOCX acceptance corpus is tracked in [`docs/R7.3-NEW-WORD-CORPUS-ACCEPTANCE.md`](docs/R7.3-NEW-WORD-CORPUS-ACCEPTANCE.md). R7.3.1 makes the diagnostic canonical sentinel `MISSING_DATA_TYPE` fail closed for all dialects; unresolved source types are never rendered as executable SQL.

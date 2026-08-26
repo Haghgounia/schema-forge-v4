@@ -1,0 +1,13 @@
+SchemaForge PostgreSQL ALTER/Migration M2 live pilot
+====================================================
+Server              : PostgreSQL 16.14 (Debian 16.14-1.pgdg13+1)
+Database            : mydb
+Pilot schema        : tstshma
+Schema owner        : postgres
+CREATE generated    : true
+Column changes      : 6
+Object changes      : 6
+Statements executed : 16
+Residual changes    : 0
+Data preserved      : true
+Cleanup             : true

@@ -6,6 +6,8 @@
 **Previous official baseline:** `SCHEMAFORGE-V4-CONSOLIDATED-BASELINE-20260823-C8.10`  
 **Status:** OFFICIAL / FROZEN C11 CONSOLIDATED BASELINE / CLEAN REGRESSION VERIFIED
 
+> **Post-C11 R8.1 status (2026-08-26):** R8.1 is VERIFIED / CLOSED after a full clean `587 / 0 / 0 / 4` regression. C11 remains the official frozen baseline until R8.2. Four R7.4 live M2 pilots passed (SQL Server, MySQL, PostgreSQL, Oracle); Db2 z/OS live acceptance remains `PENDING_ENVIRONMENT`. See `docs/R8.1-PRE-FREEZE-PREPARATION.md`.
+
 ## 1. Baseline purpose
 
 This is the current official SchemaForge V4 consolidated baseline. It contains the completed C4 Artifact

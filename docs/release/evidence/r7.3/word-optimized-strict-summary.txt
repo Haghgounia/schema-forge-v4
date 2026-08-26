@@ -1,0 +1,35 @@
+SchemaForge multi-database Word generation summary
+===============================================
+Run timestamp      : 20260826_080939_786
+Input directory    : D:\Sample-Docs\Word\all
+Output directory   : D:\Sample-Docs-Scripts\SchemaForge-R7.3.3-OPTIMIZED-STRICT-5DBMS
+Parser mode        : standard
+Numeric mapping    : OPTIMIZED
+Documents          : 660
+Skipped            : 0
+Parse failures     : 0
+
+oracle
+  Generated        : 656
+  With issues      : 0
+  Failed           : 4
+
+postgresql
+  Generated        : 657
+  With issues      : 0
+  Failed           : 3
+
+db2zos
+  Generated        : 656
+  With issues      : 0
+  Failed           : 4
+
+sqlserver
+  Generated        : 656
+  With issues      : 0
+  Failed           : 4
+
+mysql
+  Generated        : 644
+  With issues      : 0
+  Failed           : 16

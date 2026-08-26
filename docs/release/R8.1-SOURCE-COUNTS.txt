@@ -1,0 +1,7 @@
+SchemaForge V4 R8.1 verified source counts
+==========================================
+src/main/java .java files    : 280
+src/test/java .java files    : 195
+Total Java source/test files : 475
+Complete src/ files          : 485
+R8.1 full regression         : 587 / 0 failures / 0 errors / 4 skipped

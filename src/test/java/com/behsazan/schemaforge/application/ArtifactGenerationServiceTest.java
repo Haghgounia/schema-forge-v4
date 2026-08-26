@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -46,7 +47,7 @@ class ArtifactGenerationServiceTest {
         PreparedSchema prepared = prepared("APP");
         AtomicReference<Path> work = new AtomicReference<>();
 
-        when(orchestrator.generateStandardWord(any(Path.class), any(Path.class), same(context)))
+        when(orchestrator.generateStandardWord(any(Path.class), any(Path.class), same(context), isNull()))
                 .thenAnswer(invocation -> {
                     Path input = invocation.getArgument(0);
                     Path output = invocation.getArgument(1);
@@ -81,7 +82,7 @@ class ArtifactGenerationServiceTest {
         ArtifactGenerationContext context = context(ArtifactOrigin.LEGACY_WORD, "legacy.doc");
         PreparedSchema prepared = prepared("DPS");
 
-        when(orchestrator.generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context)))
+        when(orchestrator.generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context), isNull()))
                 .thenReturn(prepared);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -92,7 +93,7 @@ class ArtifactGenerationServiceTest {
 
         assertEquals("legacy.doc", manifest.path("source").path("name").asText());
         assertEquals("DPS", manifest.path("models").get(0).path("schema").asText());
-        verify(orchestrator).generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context));
+        verify(orchestrator).generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context), isNull());
     }
 
     @Test
@@ -102,7 +103,7 @@ class ArtifactGenerationServiceTest {
         ArtifactGenerationContext context = context(ArtifactOrigin.STANDARD_WORD, "failure.docx");
         AtomicReference<Path> work = new AtomicReference<>();
 
-        when(orchestrator.generateStandardWord(any(Path.class), any(Path.class), same(context)))
+        when(orchestrator.generateStandardWord(any(Path.class), any(Path.class), same(context), isNull()))
                 .thenAnswer(invocation -> {
                     Path input = invocation.getArgument(0);
                     work.set(input.getParent());

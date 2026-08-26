@@ -1,3 +1,19 @@
+## R8.1 — Pre-Freeze Preparation (2026-08-26)
+
+- R8.1 is VERIFIED / CLOSED after user-side full clean regression: `587 / 0 / 0 / 4`, `BUILD SUCCESS`.
+- Kept all production Java under `src/main` unchanged.
+- Fixed the Windows regression helper so the active log is not locked under `target` during `mvn clean`.
+- Aligned seven test-side files with the already-frozen R7.3 fail-closed datatype contract and current service overloads; focused gate passed `26 / 0 / 0 / 0`.
+- The local nine-document Word regression now records the known `BIM.PROVINCES.POPULATION` unresolved datatype as `Blocked=1`, with `Failed=0`, rather than generating guessed DDL.
+- Recorded R7.1 legacy recovery, R7.2 recovered-corpus, R7.3 SAFE/OPTIMIZED strict acceptance, and R7.4 live PASS evidence for SQL Server, MySQL, PostgreSQL, and Oracle.
+- Db2 z/OS remains `PENDING_ENVIRONMENT`; R7.4 stays open and R8.2 remains blocked by that external environment only.
+
+## R7.3.3 — New Word strict regression gate (2026-08-26)
+
+- Added exact corpus/accounting/failure-taxonomy assertions to `WordDirectoryMultiDatabaseGenerationIT` behind `schemaforge.word.failOnRegression=true`.
+- User-side SAFE Strict and OPTIMIZED Strict both passed the frozen 660-document standard-parser baseline with the same exact 31 classified target failures and no generic `GENERATION_FAILED`.
+- R7.3 is CLOSED / PASS. No parser or DDL semantics changed in R7.3.3.
+
 ## R7.3.2 — Word corpus failure-code reporting synchronization (2026-08-26)
 
 - Repackaged the R7.3.1 functional baseline with the structured failure classifier present in `WordDirectoryMultiDatabaseGenerationIT`.

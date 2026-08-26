@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Regression coverage that generates a real PostgreSQL SQL file for every Word sample. */
@@ -44,6 +45,16 @@ class PostgreSqlWordSpecificationRegressionTest {
         SchemaGenerationService service = new SchemaGenerationService();
 
         for (Path inputFile : inputFiles) {
+            if (isExpectedUnresolvedDatatype(inputFile)) {
+                IllegalArgumentException blocked = assertThrows(
+                        IllegalArgumentException.class,
+                        () -> service.generate(
+                                inputFile, OUTPUT_DIRECTORY, DatabasePlatform.POSTGRESQL));
+                assertTrue(blocked.getMessage().contains(
+                        "Unresolved canonical datatype for BIM.PROVINCES.POPULATION"));
+                continue;
+            }
+
             GenerationOutput output = service.generate(
                     inputFile,
                     OUTPUT_DIRECTORY,
@@ -70,5 +81,10 @@ class PostgreSqlWordSpecificationRegressionTest {
 
     private boolean isWordDocument(Path path) {
         return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".docx");
+    }
+
+    private boolean isExpectedUnresolvedDatatype(Path path) {
+        return path.getFileName().toString()
+                .equals("MCB.BIM.TBL.PROVINCES.V1.1.docx");
     }
 }

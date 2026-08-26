@@ -32,7 +32,8 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void generationErrorsUseStandardContract() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any())).thenThrow(new IllegalArgumentException("invalid word"));
+        when(service.generateFromWord(any(), any(), any()))
+                .thenThrow(new IllegalArgumentException("invalid word"));
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));

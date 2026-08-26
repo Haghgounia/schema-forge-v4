@@ -1,0 +1,8 @@
+SchemaForge V4 R8.1 verified source-tree fingerprint
+====================================================
+Fingerprint : e6ee45fe4b99eef440c4fedc22f486844f8cc5e2ccee05f90a073bd8a878ff11
+Src files   : 485
+Algorithm   : SHA-256 of docs/release/R8.1-SRC-FILE-HASHES.sha256
+Manifest    : sorted relative src/ paths; each line is SHA-256 + two spaces + path
+Production  : src/main unchanged from R7.3.3/R8.1 initial RC
+Test align. : seven test-side files updated during R8.1 regression closure

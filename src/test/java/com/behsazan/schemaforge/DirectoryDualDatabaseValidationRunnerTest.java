@@ -43,8 +43,11 @@ class DirectoryDualDatabaseValidationRunnerTest {
         assertEquals(expectedDocuments, result.documents());
         assertEquals(expectedDocuments * 2, result.generated());
         assertEquals(0, result.passed());
-        assertEquals(0, result.failed());
+        assertEquals(2, result.failed(),
+                "PROVINCES.V1.1 must be blocked once for Oracle and once for PostgreSQL");
         assertTrue(Files.isRegularFile(result.reportFile()));
-        assertTrue(Files.readString(result.reportFile()).contains("GENERATED_ONLY"));
+        String report = Files.readString(result.reportFile());
+        assertTrue(report.contains("GENERATED_ONLY"));
+        assertTrue(report.contains("Unresolved canonical datatype for BIM.PROVINCES.POPULATION"));
     }
 }

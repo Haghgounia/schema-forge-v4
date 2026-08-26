@@ -1,0 +1,894 @@
+Microsoft Windows [Version 10.0.19045.6456]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\Projects\schema-forge-v4>cd /d D:\Projects\schema-forge-v4
+
+D:\Projects\schema-forge-v4>
+D:\Projects\schema-forge-v4>scripts\RUN-R8.1-FULL-REGRESSION.cmd
+SchemaForge V4 R8.1 full clean regression
+Project: D:\Projects\schema-forge-v4
+Log    : .r8.1\r8.1-full-regression.log
+
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.behsazan:schema-forge-v4 >--------------------
+[INFO] Building SchemaForge v4 4.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.4.1:clean (default-clean) @ schema-forge-v4 ---
+[INFO] Deleting D:\Projects\schema-forge-v4\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ schema-forge-v4 ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ schema-forge-v4 ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 280 source files with javac [debug parameters release 21] to target\classes
+[INFO] Annotation processing is enabled because one or more processors were found
+  on the class path. A future release of javac may disable annotation processing
+  unless at least one processor is specified by name (-processor), or a search
+  path is specified (--processor-path, --processor-module-path), or annotation
+  processing is enabled explicitly (-proc:only, -proc:full).
+  Use -Xlint:-options to suppress this message.
+  Use -proc:none to disable annotation processing.
+[INFO] /D:/Projects/schema-forge-v4/src/main/java/com/behsazan/schemaforge/specification/parser/legacy/DocTableExtractor.java: D:\Projects\schema-forge-v4\src\main\java\com\behsazan\schemaforge\specification\parser\legacy\DocTableExtractor.java uses or overrides a deprecated API.
+[INFO] /D:/Projects/schema-forge-v4/src/main/java/com/behsazan/schemaforge/specification/parser/legacy/DocTableExtractor.java: Recompile with -Xlint:deprecation for details.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ schema-forge-v4 ---
+[INFO] Copying 9 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ schema-forge-v4 ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 195 source files with javac [debug parameters release 21] to target\test-classes
+[INFO] Annotation processing is enabled because one or more processors were found
+  on the class path. A future release of javac may disable annotation processing
+  unless at least one processor is specified by name (-processor), or a search
+  path is specified (--processor-path, --processor-module-path), or annotation
+  processing is enabled explicitly (-proc:only, -proc:full).
+  Use -Xlint:-options to suppress this message.
+  Use -proc:none to disable annotation processing.
+[WARNING] /D:/Projects/schema-forge-v4/src/test/java/com/behsazan/schemaforge/ApplicationDialectSelectionTest.java:[72,9] com.behsazan.schemaforge.Phase1Application in com.behsazan.schemaforge has been deprecated and marked for removal
+[WARNING] /D:/Projects/schema-forge-v4/src/test/java/com/behsazan/schemaforge/ApplicationDialectSelectionTest.java:[73,17] com.behsazan.schemaforge.Phase1Application in com.behsazan.schemaforge has been deprecated and marked for removal
+[WARNING] /D:/Projects/schema-forge-v4/src/test/java/com/behsazan/schemaforge/ApplicationDialectSelectionTest.java:[82,9] com.behsazan.schemaforge.Phase1Application in com.behsazan.schemaforge has been deprecated and marked for removal
+[WARNING] /D:/Projects/schema-forge-v4/src/test/java/com/behsazan/schemaforge/ApplicationDialectSelectionTest.java:[83,17] com.behsazan.schemaforge.Phase1Application in com.behsazan.schemaforge has been deprecated and marked for removal
+[WARNING] /D:/Projects/schema-forge-v4/src/test/java/com/behsazan/schemaforge/ApplicationDialectSelectionTest.java:[93,9] com.behsazan.schemaforge.Phase1Application in com.behsazan.schemaforge has been deprecated and marked for removal
+[WARNING] /D:/Projects/schema-forge-v4/src/test/java/com/behsazan/schemaforge/ApplicationDialectSelectionTest.java:[93,56] com.behsazan.schemaforge.Phase1Application in com.behsazan.schemaforge has been deprecated and marked for removal
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ schema-forge-v4 ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.behsazan.schemaforge.api.error.RestErrorResponseTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.116 s -- in com.behsazan.schemaforge.api.error.RestErrorResponseTest
+[INFO] Running com.behsazan.schemaforge.api.error.SchemaForgeRequestCorrelationFilterTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.222 s -- in com.behsazan.schemaforge.api.error.SchemaForgeRequestCorrelationFilterTest
+[INFO] Running com.behsazan.schemaforge.api.error.SchemaForgeRestContractMvcTest
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+WARNING: A Java agent has been loaded dynamically (C:\Users\user.DESKTOP-Q5SD7T2\.m2\repository\net\bytebuddy\byte-buddy-agent\1.17.5\byte-buddy-agent-1.17.5.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+09:23:11.107 [main] INFO org.hibernate.validator.internal.util.Version -- HV000001: Hibernate Validator 8.0.2.Final
+09:23:12.777 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:12.778 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:12.788 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 7 ms
+09:23:13.312 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:13.312 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:13.313 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 1 ms
+09:23:13.423 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:13.424 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:13.424 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+09:23:13.631 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:13.631 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:13.632 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 1 ms
+09:23:13.792 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:13.793 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:13.793 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+09:23:13.903 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:13.903 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:13.903 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+09:23:14.152 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:14.152 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:14.153 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+09:23:14.225 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:14.225 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:14.225 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+09:23:14.270 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:14.270 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:14.271 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 1 ms
+09:23:14.412 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:14.413 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:14.413 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+09:23:14.529 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+09:23:14.529 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+09:23:14.530 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.199 s -- in com.behsazan.schemaforge.api.error.SchemaForgeRestContractMvcTest
+[INFO] Running com.behsazan.schemaforge.api.error.SchemaForgeRestExceptionHandlerTest
+09:23:14.579 [main] ERROR com.behsazan.schemaforge.api.error.SchemaForgeRestExceptionHandler -- Unhandled REST error requestId=7c7f6156-edba-401f-8214-19e21e677a06 path=/api/v1/generate/word
+java.lang.RuntimeException: password=secret
+        at com.behsazan.schemaforge.api.error.SchemaForgeRestExceptionHandlerTest.unexpectedErrorDoesNotExposeInternalMessage(SchemaForgeRestExceptionHandlerTest.java:68)
+        at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+        at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:775)
+        at org.junit.platform.commons.support.ReflectionSupport.invokeMethod(ReflectionSupport.java:479)
+        at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+        at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+        at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:161)
+        at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:152)
+        at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:91)
+        at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:112)
+        at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:94)
+        at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+        at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+        at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+        at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+        at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:93)
+        at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:87)
+        at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:216)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:212)
+        at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:137)
+        at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+        at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+        at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+        at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+        at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+        at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+        at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+        at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+        at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+        at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+        at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+        at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+        at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:201)
+        at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:170)
+        at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:94)
+        at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:59)
+        at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:142)
+        at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:58)
+        at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+        at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+        at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+        at org.junit.platform.launcher.core.InterceptingLauncher.lambda$execute$1(InterceptingLauncher.java:39)
+        at org.junit.platform.launcher.core.ClasspathAlignmentCheckingLauncherInterceptor.intercept(ClasspathAlignmentCheckingLauncherInterceptor.java:25)
+        at org.junit.platform.launcher.core.InterceptingLauncher.execute(InterceptingLauncher.java:38)
+        at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+        at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56)
+        at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:194)
+        at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:150)
+        at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:124)
+        at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+        at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+        at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+        at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.073 s -- in com.behsazan.schemaforge.api.error.SchemaForgeRestExceptionHandlerTest
+[INFO] Running com.behsazan.schemaforge.api.MermaidDiagramApiServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.865 s -- in com.behsazan.schemaforge.api.MermaidDiagramApiServiceTest
+[INFO] Running com.behsazan.schemaforge.api.MermaidDiagramControllerOptionsTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.058 s -- in com.behsazan.schemaforge.api.MermaidDiagramControllerOptionsTest
+[INFO] Running com.behsazan.schemaforge.api.OracleCrudControllerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.behsazan.schemaforge.api.OracleCrudControllerTest
+[INFO] Running com.behsazan.schemaforge.api.SchemaForgeArtifactTrackingTest
+09:23:16.894 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:19.141 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.582 s -- in com.behsazan.schemaforge.api.SchemaForgeArtifactTrackingTest
+[INFO] Running com.behsazan.schemaforge.api.SchemaForgeManifestContractTest
+09:23:21.473 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; document table has no primary key: DPS.CTPINCOMEPARAMACTIVITYLOG
+09:23:21.475 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; document table has no primary key: DPS.CTPINCOMEPARAMACTIVITYLOG
+09:23:21.678 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:22.451 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:23.826 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.176 s -- in com.behsazan.schemaforge.api.SchemaForgeManifestContractTest
+[INFO] Running com.behsazan.schemaforge.api.SqlServerCrudControllerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.api.SqlServerCrudControllerTest
+[INFO] Running com.behsazan.schemaforge.application.ArtifactGenerationServiceTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.186 s -- in com.behsazan.schemaforge.application.ArtifactGenerationServiceTest
+[INFO] Running com.behsazan.schemaforge.application.ArtifactPackageBuilderTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.069 s -- in com.behsazan.schemaforge.application.ArtifactPackageBuilderTest
+[INFO] Running com.behsazan.schemaforge.application.BatchArchiveSupportTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.175 s -- in com.behsazan.schemaforge.application.BatchArchiveSupportTest
+[INFO] Running com.behsazan.schemaforge.application.BatchGenerationOrchestratorTest
+09:23:24.983 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:26.315 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:26.714 [main] WARN com.behsazan.schemaforge.api.SchemaForgeApiService -- ZIP document skipped after generation failure: specifications/notes.docx - Column specification table was not found
+09:23:27.015 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:27.692 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:28.172 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:28.447 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.208 s -- in com.behsazan.schemaforge.application.BatchGenerationOrchestratorTest
+[INFO] Running com.behsazan.schemaforge.application.CollisionSafeScriptTargetAllocatorTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.033 s -- in com.behsazan.schemaforge.application.CollisionSafeScriptTargetAllocatorTest
+[INFO] Running com.behsazan.schemaforge.application.ComparisonArtifactProducerTest
+09:23:29.921 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] EA comparison workbook generated: comparison/postgresql/app.customers_20260823_033000_000.postgresql.compare.xlsx
+09:23:30.121 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] Comparison table resolved. requested=APP.CUSTOMERS, actual=APP.CUSTOMERS
+09:23:30.245 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] Comparison workbook generated: APP.CUSTOMERS_20260823_033000_000.oracle.compare.xlsx
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.248 s -- in com.behsazan.schemaforge.application.ComparisonArtifactProducerTest
+[INFO] Running com.behsazan.schemaforge.application.CrudArtifactProducerTest
+09:23:30.327 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; document table has no primary key: APP.CUSTOMERS
+09:23:30.327 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; document table has no primary key: APP.CUSTOMERS
+09:23:30.365 [main] WARN com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact generation failed for APP.CUSTOMERS: Oracle CRUD generation found no updatable columns: APP.CUSTOMERS
+09:23:30.373 [main] WARN com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact generation failed for APP.CUSTOMERS: SQL Server CRUD generation found no updatable columns: APP.CUSTOMERS
+09:23:30.431 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact generated: crud/oracle/APP.CUSTOMERS_20260823_034000_000.oracle.crud-package.sql
+09:23:30.454 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact generated: crud/sqlserver/APP.CUSTOMERS_20260823_034000_000.sqlserver.crud-procedures.sql
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.162 s -- in com.behsazan.schemaforge.application.CrudArtifactProducerTest
+[INFO] Running com.behsazan.schemaforge.application.DiagramArtifactProducerTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.230 s -- in com.behsazan.schemaforge.application.DiagramArtifactProducerTest
+[INFO] Running com.behsazan.schemaforge.application.DocumentGenerationOrchestratorTest
+09:23:31.002 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; document table has no primary key: DPS.CTPINCOMEPARAMACTIVITYLOG
+09:23:31.002 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; document table has no primary key: DPS.CTPINCOMEPARAMACTIVITYLOG
+09:23:31.168 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:33.363 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.885 s -- in com.behsazan.schemaforge.application.DocumentGenerationOrchestratorTest
+[INFO] Running com.behsazan.schemaforge.application.EaGenerationOrchestratorTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.384 s -- in com.behsazan.schemaforge.application.EaGenerationOrchestratorTest
+[INFO] Running com.behsazan.schemaforge.application.MigrationArtifactProducerTest
+09:23:35.072 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Flyway migration generated: migration\oracle\V20260823020000000__APP_CUSTOMER_ALTER.sql
+09:23:35.091 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Migration not required; live table already matches desired columns: APP.CUSTOMER
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.096 s -- in com.behsazan.schemaforge.application.MigrationArtifactProducerTest
+[INFO] Running com.behsazan.schemaforge.application.OracleCrudGenerationServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.249 s -- in com.behsazan.schemaforge.application.OracleCrudGenerationServiceTest
+[INFO] Running com.behsazan.schemaforge.application.SqlServerCrudGenerationServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.behsazan.schemaforge.application.SqlServerCrudGenerationServiceTest
+[INFO] Running com.behsazan.schemaforge.ApplicationDialectSelectionTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.041 s -- in com.behsazan.schemaforge.ApplicationDialectSelectionTest
+[INFO] Running com.behsazan.schemaforge.artifact.ArtifactContractTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.016 s -- in com.behsazan.schemaforge.artifact.ArtifactContractTest
+[INFO] Running com.behsazan.schemaforge.artifact.ArtifactLedgerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.behsazan.schemaforge.artifact.ArtifactLedgerTest
+[INFO] Running com.behsazan.schemaforge.artifact.ArtifactManifestWriterTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.092 s -- in com.behsazan.schemaforge.artifact.ArtifactManifestWriterTest
+[INFO] Running com.behsazan.schemaforge.artifact.ArtifactNamingPolicyTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.artifact.ArtifactNamingPolicyTest
+[INFO] Running com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocatorTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocatorTest
+[INFO] Running com.behsazan.schemaforge.AuditColumnsAllDialectsTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.019 s -- in com.behsazan.schemaforge.AuditColumnsAllDialectsTest
+[INFO] Running com.behsazan.schemaforge.config.NumericMappingPropertiesTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.112 s -- in com.behsazan.schemaforge.config.NumericMappingPropertiesTest
+[INFO] Running com.behsazan.schemaforge.Db2ZosDdlGeneratorTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.behsazan.schemaforge.Db2ZosDdlGeneratorTest
+[INFO] Running com.behsazan.schemaforge.Db2ZosExpressionMapperTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.Db2ZosExpressionMapperTest
+[INFO] Running com.behsazan.schemaforge.Db2ZosIdentifierRendererTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.Db2ZosIdentifierRendererTest
+[INFO] Running com.behsazan.schemaforge.Db2ZosIndexBuildOptionsP7Test
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.016 s -- in com.behsazan.schemaforge.Db2ZosIndexBuildOptionsP7Test
+[INFO] Running com.behsazan.schemaforge.Db2ZosTypeMapperTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.behsazan.schemaforge.Db2ZosTypeMapperTest
+[INFO] Running com.behsazan.schemaforge.deployment.ForeignKeyAnalyzerTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.025 s -- in com.behsazan.schemaforge.deployment.ForeignKeyAnalyzerTest
+[INFO] Running com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlannerTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.021 s -- in com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlannerTest
+[INFO] Running com.behsazan.schemaforge.deployment.IntegratedSqlRendererTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.071 s -- in com.behsazan.schemaforge.deployment.IntegratedSqlRendererTest
+[INFO] Running com.behsazan.schemaforge.diagram.ConceptualErdCardinalityTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.diagram.ConceptualErdCardinalityTest
+[INFO] Running com.behsazan.schemaforge.diagram.graphviz.GraphvizBatchDiagramExporterTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.030 s -- in com.behsazan.schemaforge.diagram.graphviz.GraphvizBatchDiagramExporterTest
+[INFO] Running com.behsazan.schemaforge.diagram.graphviz.GraphvizDiagramExporterTest
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.040 s -- in com.behsazan.schemaforge.diagram.graphviz.GraphvizDiagramExporterTest
+[INFO] Running com.behsazan.schemaforge.diagram.mermaid.CanonicalJsonDiagramInputLoaderTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.194 s -- in com.behsazan.schemaforge.diagram.mermaid.CanonicalJsonDiagramInputLoaderTest
+[INFO] Running com.behsazan.schemaforge.diagram.mermaid.MermaidBatchDiagramExporterTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.behsazan.schemaforge.diagram.mermaid.MermaidBatchDiagramExporterTest
+[INFO] Running com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramExporterTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.055 s -- in com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramExporterTest
+[INFO] Running com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramGenerationServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.183 s -- in com.behsazan.schemaforge.diagram.mermaid.MermaidDiagramGenerationServiceTest
+[INFO] Running com.behsazan.schemaforge.dialect.mysql.MySqlDialectFoundationTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.behsazan.schemaforge.dialect.mysql.MySqlDialectFoundationTest
+[INFO] Running com.behsazan.schemaforge.dialect.mysql.MySqlIdentifierRendererTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.behsazan.schemaforge.dialect.mysql.MySqlIdentifierRendererTest
+[INFO] Running com.behsazan.schemaforge.dialect.mysql.MySqlTypeMapperTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.019 s -- in com.behsazan.schemaforge.dialect.mysql.MySqlTypeMapperTest
+[INFO] Running com.behsazan.schemaforge.DialectCapabilityTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.DialectCapabilityTest
+[INFO] Running com.behsazan.schemaforge.DirectoryDualDatabaseGenerationRunnerTest
+[1/9] MCB.BIM.TBL.CONTINENTAL_REGION_COUNTRIES.V1.0.docx
+09:23:36.846 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:37.141 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:37.356 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=3 pk=1 fk=0 uniqueKeys=1 indexes=0 uniqueIndexes=0 valid=true
+[2/9] MCB.BIM.TBL.CONTINENTS.V1.0.docx
+09:23:37.460 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:37.550 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:37.708 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=5 pk=1 fk=0 uniqueKeys=2 indexes=0 uniqueIndexes=0 valid=true
+[3/9] MCB.BIM.TBL.COUNTRIES.V1.1.docx
+09:23:37.803 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:38.001 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:38.214 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=18 pk=1 fk=4 uniqueKeys=2 indexes=0 uniqueIndexes=0 valid=true
+[4/9] MCB.BIM.TBL.COUNTRY_CURRENCY_HISTORY.V1.1.docx
+09:23:38.375 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:38.477 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:38.610 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=5 pk=1 fk=3 uniqueKeys=0 indexes=0 uniqueIndexes=0 valid=true
+[5/9] MCB.BIM.TBL.COUNTRY_OTHER_LANGUAGES.V1.0.docx
+09:23:38.775 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:38.872 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:39.040 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=3 pk=1 fk=2 uniqueKeys=1 indexes=0 uniqueIndexes=0 valid=true
+[6/9] MCB.BIM.TBL.CURRENCIES.V1.0.docx
+09:23:39.154 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:39.260 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:39.370 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=13 pk=1 fk=0 uniqueKeys=3 indexes=0 uniqueIndexes=0 valid=true
+[7/9] MCB.BIM.TBL.LANGUAGES.V1.0.docx
+09:23:39.477 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:39.583 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:39.654 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=6 pk=1 fk=0 uniqueKeys=2 indexes=0 uniqueIndexes=0 valid=true
+[8/9] MCB.BIM.TBL.PROVINCES.V1.1.docx
+09:23:39.813 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:39.935 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  FAILED: IllegalArgumentException: Unresolved canonical datatype for BIM.PROVINCES.POPULATION; source specification must provide an exact datatype before DDL generation
+[9/9] MCB.BIM.TBL.PROVINCES.V1.2.docx
+09:23:40.035 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.119 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.199 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+  tables=1 columns=16 pk=1 fk=3 uniqueKeys=1 indexes=0 uniqueIndexes=0 valid=true
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.930 s -- in com.behsazan.schemaforge.DirectoryDualDatabaseGenerationRunnerTest
+[INFO] Running com.behsazan.schemaforge.DirectoryDualDatabaseValidationRunnerTest
+09:23:40.415 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.489 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.569 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.645 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.742 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:40.887 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.084 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.164 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.254 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.327 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.401 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.481 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.562 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.640 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.720 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.795 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.876 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:41.992 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.796 s -- in com.behsazan.schemaforge.DirectoryDualDatabaseValidationRunnerTest
+[INFO] Running com.behsazan.schemaforge.generation.enrichment.AuditColumnSchemaEnricherTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.behsazan.schemaforge.generation.enrichment.AuditColumnSchemaEnricherTest
+[INFO] Running com.behsazan.schemaforge.generation.enrichment.DefaultValueSchemaEnricherTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.001 s -- in com.behsazan.schemaforge.generation.enrichment.DefaultValueSchemaEnricherTest
+[INFO] Running com.behsazan.schemaforge.generation.enrichment.GrantSchemaEnricherTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.behsazan.schemaforge.generation.enrichment.GrantSchemaEnricherTest
+[INFO] Running com.behsazan.schemaforge.generation.issue.DdlIssueRenderingTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.behsazan.schemaforge.generation.issue.DdlIssueRenderingTest
+[INFO] Running com.behsazan.schemaforge.generation.issue.InlineIssueRendererTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.generation.issue.InlineIssueRendererTest
+[INFO] Running com.behsazan.schemaforge.generation.issue.TableInlineIssueRenderingTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.generation.issue.TableInlineIssueRenderingTest
+[INFO] Running com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudPackageGeneratorTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudPackageGeneratorTest
+[INFO] Running com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudProcedureGeneratorTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudProcedureGeneratorTest
+[INFO] Running com.behsazan.schemaforge.IndexBuildOptionsP5Test
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.IndexBuildOptionsP5Test
+[INFO] Running com.behsazan.schemaforge.InfrastructureProvisioningTemplateTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.InfrastructureProvisioningTemplateTest
+[INFO] Running com.behsazan.schemaforge.integration.DirectoryExecutionCleanupSyntaxTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.behsazan.schemaforge.integration.DirectoryExecutionCleanupSyntaxTest
+[INFO] Running com.behsazan.schemaforge.integration.HistoricalDependencyCoverageTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.019 s -- in com.behsazan.schemaforge.integration.HistoricalDependencyCoverageTest
+[INFO] Running com.behsazan.schemaforge.integration.MySqlDirectoryExecutionSyntaxTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.behsazan.schemaforge.integration.MySqlDirectoryExecutionSyntaxTest
+[INFO] Running com.behsazan.schemaforge.integration.MySqlDirectoryExecutionTest
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.013 s -- in com.behsazan.schemaforge.integration.MySqlDirectoryExecutionTest
+[INFO] Running com.behsazan.schemaforge.integration.OracleSqlDirectoryExecutionTest
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.integration.OracleSqlDirectoryExecutionTest
+[INFO] Running com.behsazan.schemaforge.integration.OracleStatementSplitterTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.integration.OracleStatementSplitterTest
+[INFO] Running com.behsazan.schemaforge.integration.PostgreSqlDirectoryExecutionTest
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.integration.PostgreSqlDirectoryExecutionTest
+[INFO] Running com.behsazan.schemaforge.integration.SpecialDependencyPilotSelectorTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.105 s -- in com.behsazan.schemaforge.integration.SpecialDependencyPilotSelectorTest
+[INFO] Running com.behsazan.schemaforge.integration.SqlServerDirectoryExecutionCleanupSyntaxTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.integration.SqlServerDirectoryExecutionCleanupSyntaxTest
+[INFO] Running com.behsazan.schemaforge.integration.SqlServerDirectoryExecutionTest
+[WARNING] Tests run: 1, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.integration.SqlServerDirectoryExecutionTest
+[INFO] Running com.behsazan.schemaforge.integration.SqlServerHistoricalForeignKeySkipTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.integration.SqlServerHistoricalForeignKeySkipTest
+[INFO] Running com.behsazan.schemaforge.metadata.DataTypeCanonicalizerTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.metadata.DataTypeCanonicalizerTest
+[INFO] Running com.behsazan.schemaforge.metadata.MetadataComparisonDdlTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.behsazan.schemaforge.metadata.MetadataComparisonDdlTest
+[INFO] Running com.behsazan.schemaforge.metadata.MetadataNumericEquivalenceTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.metadata.MetadataNumericEquivalenceTest
+[INFO] Running com.behsazan.schemaforge.metadata.NumericTypeEquivalenceServiceTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.behsazan.schemaforge.metadata.NumericTypeEquivalenceServiceTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.Db2SysColumnsFileCatalogTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.081 s -- in com.behsazan.schemaforge.metadata.repository.Db2SysColumnsFileCatalogTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.JdbcDb2ZosMetadataRepositoryTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in com.behsazan.schemaforge.metadata.repository.JdbcDb2ZosMetadataRepositoryTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.JdbcMySqlMetadataRepositoryTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.033 s -- in com.behsazan.schemaforge.metadata.repository.JdbcMySqlMetadataRepositoryTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.JdbcOracleMetadataRepositoryTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.metadata.repository.JdbcOracleMetadataRepositoryTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.JdbcPostgreSqlMetadataRepositoryTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.metadata.repository.JdbcPostgreSqlMetadataRepositoryTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.JdbcSqlServerMetadataRepositoryTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.053 s -- in com.behsazan.schemaforge.metadata.repository.JdbcSqlServerMetadataRepositoryTest
+[INFO] Running com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolverTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.489 s -- in com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolverTest
+[INFO] Running com.behsazan.schemaforge.metadata.TablePluralValidationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.behsazan.schemaforge.metadata.TablePluralValidationTest
+[INFO] Running com.behsazan.schemaforge.metadata.validation.PhysicalMetadataComparatorTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.017 s -- in com.behsazan.schemaforge.metadata.validation.PhysicalMetadataComparatorTest
+[INFO] Running com.behsazan.schemaforge.migration.FlywayMigrationNamerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.001 s -- in com.behsazan.schemaforge.migration.FlywayMigrationNamerTest
+[INFO] Running com.behsazan.schemaforge.migration.MigrationGenerationServiceTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.migration.MigrationGenerationServiceTest
+[INFO] Running com.behsazan.schemaforge.migration.MigrationSqlRendererTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.047 s -- in com.behsazan.schemaforge.migration.MigrationSqlRendererTest
+[INFO] Running com.behsazan.schemaforge.migration.SchemaDiffEngineTest
+[INFO] Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.047 s -- in com.behsazan.schemaforge.migration.SchemaDiffEngineTest
+[INFO] Running com.behsazan.schemaforge.MySqlAutoIncrementSupportingIndexTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.013 s -- in com.behsazan.schemaforge.MySqlAutoIncrementSupportingIndexTest
+[INFO] Running com.behsazan.schemaforge.MySqlDdlGeneratorTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.037 s -- in com.behsazan.schemaforge.MySqlDdlGeneratorTest
+[INFO] Running com.behsazan.schemaforge.MySqlTimezoneAwareTimestampAdaptationTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.behsazan.schemaforge.MySqlTimezoneAwareTimestampAdaptationTest
+[INFO] Running com.behsazan.schemaforge.NumericTypeOptimizationServiceTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.NumericTypeOptimizationServiceTest
+[INFO] Running com.behsazan.schemaforge.OracleDdlGeneratorTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.040 s -- in com.behsazan.schemaforge.OracleDdlGeneratorTest
+[INFO] Running com.behsazan.schemaforge.OutputFileNamerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.behsazan.schemaforge.OutputFileNamerTest
+[INFO] Running com.behsazan.schemaforge.Phase1PipelineTest
+09:23:43.480 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+Test JSON created: D:\Projects\schema-forge-v4\target\test-output\MCB.BIM.TBL.PROVINCES.V1.1_20260826_092343_469.json
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.080 s -- in com.behsazan.schemaforge.Phase1PipelineTest
+[INFO] Running com.behsazan.schemaforge.PhysicalPhase1DdlGeneratorTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.086 s -- in com.behsazan.schemaforge.PhysicalPhase1DdlGeneratorTest
+[INFO] Running com.behsazan.schemaforge.PhysicalPhase1GoldenCorpusTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.025 s -- in com.behsazan.schemaforge.PhysicalPhase1GoldenCorpusTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlColumnPhysicalP6Test
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.PostgreSqlColumnPhysicalP6Test
+[INFO] Running com.behsazan.schemaforge.PostgreSqlDdlGeneratorTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.behsazan.schemaforge.PostgreSqlDdlGeneratorTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlExpressionMapperTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.PostgreSqlExpressionMapperTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlFeatureParityTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.behsazan.schemaforge.PostgreSqlFeatureParityTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlIdentifierRendererTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.041 s -- in com.behsazan.schemaforge.PostgreSqlIdentifierRendererTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlIndexQualificationRegressionTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.PostgreSqlIndexQualificationRegressionTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlPhysicalP3Test
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.behsazan.schemaforge.PostgreSqlPhysicalP3Test
+[INFO] Running com.behsazan.schemaforge.PostgreSqlTypeMapperTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.PostgreSqlTypeMapperTest
+[INFO] Running com.behsazan.schemaforge.PostgreSqlWordSpecificationRegressionTest
+09:23:43.845 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.005 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.087 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.196 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.284 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.409 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.509 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.610 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:44.711 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.020 s -- in com.behsazan.schemaforge.PostgreSqlWordSpecificationRegressionTest
+[INFO] Running com.behsazan.schemaforge.RealSourcePhysicalPhase1RegressionTest
+09:23:45.092 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:45.877 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.142 s -- in com.behsazan.schemaforge.RealSourcePhysicalPhase1RegressionTest
+[INFO] Running com.behsazan.schemaforge.reporting.SchemaCompareExcelWriterTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.165 s -- in com.behsazan.schemaforge.reporting.SchemaCompareExcelWriterTest
+[INFO] Running com.behsazan.schemaforge.SchemaForgeApiComparisonExcelTest
+09:23:48.174 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:48.256 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Flyway migration generated: migration\oracle\V20260826092348247__BIM_PROVINCES_ALTER.sql
+09:23:48.256 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] Comparison table resolved. requested=BIM.PROVINCES, actual=BIM.PROVINCES
+09:23:48.416 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] Comparison workbook generated: BIM.PROVINCES_20260826_092348_154.oracle.compare.xlsx
+09:23:48.428 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [POSTGRESQL] Flyway migration generated: migration\postgresql\V20260826092348422__BIM_PROVINCES_ALTER.sql
+09:23:48.428 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] Comparison table resolved. requested=BIM.PROVINCES, actual=BIM.PROVINCES
+09:23:48.535 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] Comparison workbook generated: BIM.PROVINCES_20260826_092348_154.postgresql.compare.xlsx
+09:23:48.555 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [DB2_ZOS] Flyway migration generated: migration\db2zos\V20260826092348545__BIM_PROVINCES_ALTER.sql
+09:23:48.556 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [DB2_ZOS] Comparison table resolved. requested=BIM.PROVINCES, actual=BIM.PROVINCES
+09:23:48.712 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [DB2_ZOS] Comparison workbook generated: BIM.PROVINCES_20260826_092348_154.db2zos.compare.xlsx
+09:23:48.729 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [SQLSERVER] Flyway migration generated: migration\sqlserver\V20260826092348723__BIM_PROVINCES_ALTER.sql
+09:23:48.729 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [SQLSERVER] Comparison table resolved. requested=BIM.PROVINCES, actual=BIM.PROVINCES
+09:23:48.876 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [SQLSERVER] Comparison workbook generated: BIM.PROVINCES_20260826_092348_154.sqlserver.compare.xlsx
+09:23:48.913 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [MYSQL] Flyway migration generated: migration\mysql\V20260826092348901__BIM_PROVINCES_ALTER.sql
+09:23:48.913 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [MYSQL] Comparison table resolved. requested=BIM.PROVINCES, actual=BIM.PROVINCES
+09:23:49.055 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [MYSQL] Comparison workbook generated: BIM.PROVINCES_20260826_092348_154.mysql.compare.xlsx
+09:23:49.105 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact generated: crud/oracle/BIM.PROVINCES_20260826_092348_154.oracle.crud-package.sql
+09:23:49.135 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact generated: crud/sqlserver/BIM.PROVINCES_20260826_092348_154.sqlserver.crud-procedures.sql
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.379 s -- in com.behsazan.schemaforge.SchemaForgeApiComparisonExcelTest
+[INFO] Running com.behsazan.schemaforge.SchemaForgeApiServiceRegressionTest
+09:23:49.543 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.250 s -- in com.behsazan.schemaforge.SchemaForgeApiServiceRegressionTest
+[INFO] Running com.behsazan.schemaforge.SchemaForgeApiZipBatchTest
+09:23:49.835 [main] WARN com.behsazan.schemaforge.api.SchemaForgeApiService -- ZIP document skipped after generation failure: notes.docx - Column specification table was not found
+09:23:50.004 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:50.248 [main] WARN com.behsazan.schemaforge.api.SchemaForgeApiService -- ZIP document skipped after generation failure: specifications/notes.docx - Column specification table was not found
+09:23:50.489 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.402 s -- in com.behsazan.schemaforge.SchemaForgeApiZipBatchTest
+[INFO] Running com.behsazan.schemaforge.SchemaForgeEaPerTableOutputTest
+09:23:51.852 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; document table has no primary key: FEE.FEE_VERSION
+09:23:51.852 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; document table has no primary key: FEE.REGULATORY_RULE
+09:23:51.852 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; document table has no primary key: FEE.FEE_VERSION
+09:23:51.852 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; document table has no primary key: FEE.REGULATORY_RULE
+09:23:52.139 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] EA comparison workbook generated: comparison/oracle/FEE.FEE_VERSION_20260826_092352_059.oracle.compare.xlsx
+09:23:52.190 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] EA comparison workbook generated: comparison/oracle/FEE.REGULATORY_RULE_20260826_092352_059.oracle.compare.xlsx
+09:23:52.201 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Flyway migration generated: migration\oracle\V20260826092352191__FEE_FEE_VERSION_ALTER.sql
+09:23:52.205 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Flyway migration generated: migration\oracle\V20260826092352201__FEE_REGULATORY_RULE_ALTER.sql
+09:23:52.273 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] EA comparison workbook generated: comparison/postgresql/fee.fee_version_20260826_092352_059.postgresql.compare.xlsx
+09:23:52.323 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] EA comparison workbook generated: comparison/postgresql/fee.regulatory_rule_20260826_092352_059.postgresql.compare.xlsx
+09:23:52.327 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [POSTGRESQL] Flyway migration generated: migration\postgresql\V20260826092352323__FEE_FEE_VERSION_ALTER.sql
+09:23:52.332 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [POSTGRESQL] Flyway migration generated: migration\postgresql\V20260826092352328__FEE_REGULATORY_RULE_ALTER.sql
+09:23:52.385 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [DB2_ZOS] EA comparison workbook generated: comparison/db2zos/FEE.FEE_VERSION_20260826_092352_059.db2zos.compare.xlsx
+09:23:52.439 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [DB2_ZOS] EA comparison workbook generated: comparison/db2zos/FEE.REGULATORY_RULE_20260826_092352_059.db2zos.compare.xlsx
+09:23:52.444 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [DB2_ZOS] Flyway migration generated: migration\db2zos\V20260826092352439__FEE_FEE_VERSION_ALTER.sql
+09:23:52.450 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [DB2_ZOS] Flyway migration generated: migration\db2zos\V20260826092352444__FEE_REGULATORY_RULE_ALTER.sql
+09:23:52.506 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [SQLSERVER] EA comparison workbook generated: comparison/sqlserver/FEE.FEE_VERSION_20260826_092352_059.sqlserver.compare.xlsx
+09:23:52.562 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [SQLSERVER] EA comparison workbook generated: comparison/sqlserver/FEE.REGULATORY_RULE_20260826_092352_059.sqlserver.compare.xlsx
+09:23:52.568 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [SQLSERVER] Flyway migration generated: migration\sqlserver\V20260826092352562__FEE_FEE_VERSION_ALTER.sql
+09:23:52.577 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [SQLSERVER] Flyway migration generated: migration\sqlserver\V20260826092352568__FEE_REGULATORY_RULE_ALTER.sql
+09:23:52.629 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [MYSQL] EA comparison workbook generated: comparison/mysql/FEE.FEE_VERSION_20260826_092352_059.mysql.compare.xlsx
+09:23:52.667 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [MYSQL] EA comparison workbook generated: comparison/mysql/FEE.REGULATORY_RULE_20260826_092352_059.mysql.compare.xlsx
+09:23:52.671 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [MYSQL] Flyway migration generated: migration\mysql\V20260826092352667__FEE_FEE_VERSION_ALTER.sql
+09:23:52.675 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [MYSQL] Flyway migration generated: migration\mysql\V20260826092352672__FEE_REGULATORY_RULE_ALTER.sql
+09:23:52.679 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; live table has no primary key: FEE.FEE_VERSION
+09:23:52.680 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; live table has no primary key: FEE.REGULATORY_RULE
+09:23:52.680 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; live table has no primary key: FEE.FEE_VERSION
+09:23:52.680 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; live table has no primary key: FEE.REGULATORY_RULE
+09:23:53.127 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] EA comparison workbook generated: comparison/oracle/FEE.FEE_VERSION_20260826_092353_009.oracle.compare.xlsx
+09:23:53.177 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [ORACLE] EA comparison workbook generated: comparison/oracle/FEE.REGULATORY_RULE_20260826_092353_009.oracle.compare.xlsx
+09:23:53.185 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Flyway migration generated: migration\oracle\V20260826092353177__FEE_FEE_VERSION_ALTER.sql
+09:23:53.188 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [ORACLE] Flyway migration generated: migration\oracle\V20260826092353185__FEE_REGULATORY_RULE_ALTER.sql
+09:23:53.235 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] EA comparison workbook generated: comparison/postgresql/fee.fee_version_20260826_092353_009.postgresql.compare.xlsx
+09:23:53.292 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [POSTGRESQL] EA comparison workbook generated: comparison/postgresql/fee.regulatory_rule_20260826_092353_009.postgresql.compare.xlsx
+09:23:53.297 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [POSTGRESQL] Flyway migration generated: migration\postgresql\V20260826092353293__FEE_FEE_VERSION_ALTER.sql
+09:23:53.303 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [POSTGRESQL] Flyway migration generated: migration\postgresql\V20260826092353297__FEE_REGULATORY_RULE_ALTER.sql
+09:23:53.353 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [DB2_ZOS] EA comparison workbook generated: comparison/db2zos/FEE.FEE_VERSION_20260826_092353_009.db2zos.compare.xlsx
+09:23:53.457 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [DB2_ZOS] EA comparison workbook generated: comparison/db2zos/FEE.REGULATORY_RULE_20260826_092353_009.db2zos.compare.xlsx
+09:23:53.465 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [DB2_ZOS] Flyway migration generated: migration\db2zos\V20260826092353459__FEE_FEE_VERSION_ALTER.sql
+09:23:53.473 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [DB2_ZOS] Flyway migration generated: migration\db2zos\V20260826092353467__FEE_REGULATORY_RULE_ALTER.sql
+09:23:53.527 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [SQLSERVER] EA comparison workbook generated: comparison/sqlserver/FEE.FEE_VERSION_20260826_092353_009.sqlserver.compare.xlsx
+09:23:53.611 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [SQLSERVER] EA comparison workbook generated: comparison/sqlserver/FEE.REGULATORY_RULE_20260826_092353_009.sqlserver.compare.xlsx
+09:23:53.621 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [SQLSERVER] Flyway migration generated: migration\sqlserver\V20260826092353611__FEE_FEE_VERSION_ALTER.sql
+09:23:53.630 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [SQLSERVER] Flyway migration generated: migration\sqlserver\V20260826092353622__FEE_REGULATORY_RULE_ALTER.sql
+09:23:53.746 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [MYSQL] EA comparison workbook generated: comparison/mysql/FEE.FEE_VERSION_20260826_092353_009.mysql.compare.xlsx
+09:23:53.907 [main] INFO com.behsazan.schemaforge.application.ComparisonArtifactProducer -- [MYSQL] EA comparison workbook generated: comparison/mysql/FEE.REGULATORY_RULE_20260826_092353_009.mysql.compare.xlsx
+09:23:53.956 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [MYSQL] Flyway migration generated: migration\mysql\V20260826092353908__FEE_FEE_VERSION_ALTER.sql
+09:23:53.998 [main] INFO com.behsazan.schemaforge.application.MigrationArtifactProducer -- [MYSQL] Flyway migration generated: migration\mysql\V20260826092353957__FEE_REGULATORY_RULE_ALTER.sql
+09:23:54.063 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact generated: crud/oracle/FEE.FEE_VERSION_20260826_092353_009.oracle.crud-package.sql
+09:23:54.067 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact generated: crud/oracle/FEE.REGULATORY_RULE_20260826_092353_009.oracle.crud-package.sql
+09:23:54.071 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact generated: crud/sqlserver/FEE.FEE_VERSION_20260826_092353_009.sqlserver.crud-procedures.sql
+09:23:54.075 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact generated: crud/sqlserver/FEE.REGULATORY_RULE_20260826_092353_009.sqlserver.crud-procedures.sql
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.708 s -- in com.behsazan.schemaforge.SchemaForgeEaPerTableOutputTest
+[INFO] Running com.behsazan.schemaforge.SchemaForgeLegacyWordApiServiceTest
+09:23:55.136 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [ORACLE] REST CRUD artifact skipped; document table has no primary key: DPS.CTPINCOMEPARAMACTIVITYLOG
+09:23:55.136 [main] INFO com.behsazan.schemaforge.application.CrudArtifactProducer -- [SQLSERVER] REST CRUD artifact skipped; document table has no primary key: DPS.CTPINCOMEPARAMACTIVITYLOG
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.433 s -- in com.behsazan.schemaforge.SchemaForgeLegacyWordApiServiceTest
+[INFO] Running com.behsazan.schemaforge.SchemaGenerationServiceIntegrationTest
+09:23:55.360 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.104 s -- in com.behsazan.schemaforge.SchemaGenerationServiceIntegrationTest
+[INFO] Running com.behsazan.schemaforge.snapshot.CanonicalSnapshotMapperTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.020 s -- in com.behsazan.schemaforge.snapshot.CanonicalSnapshotMapperTest
+[INFO] Running com.behsazan.schemaforge.specification.json.JsonValidationIssuesTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.behsazan.schemaforge.specification.json.JsonValidationIssuesTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectPartyProbeTest
+schema=DPS
+tables=41
+columns=651
+pk=41
+fk=41
+indexes=181
+uk=13
+checks=114
+metadata={recovery.warningCount=128, source.eaExporter=Enterprise Architect, source.eaSchemaResolution=CONFIG_DEFAULT, source.fileName=Party_14050514.xml, source.format=EA-XMI, source.eaDefaultSchema=DPS, source.eaExporterVersion=2.5, source.eaDuplicateTableCount=1, source.eaTableElementCount=46, source.eaTableCount=41, recovery.warnings=EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_CLASSIFICATION|foreignKey=FK_CLASS_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_CLASSIFICATION|foreignKey=FK_PARTY_CLASSIFICATION_REF_ASSIGNMENT_REASON
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_CLASSIFICATION|foreignKey=FK_PARTY_CLASSIFICATION_REF_CLASSIFICATION_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_CLASSIFICATION|foreignKey=FK_PARTY_CLASSIFICATION_REF_CLASSIFICATION_VALUE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_IDENTIFIER_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_COUNTRY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_DATA_SOURCE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_IDENTIFIER_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_ISSUING_AUTHORITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_ISSUING_AUTHORITY_2
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_VERIFICATION_METHOD
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_IDENTIFIER|foreignKey=FK_PARTY_IDENTIFIER_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_NAME|foreignKey=FK_PARTY_NAME_REF_DATA_SOURCE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_NAME|foreignKey=FK_PARTY_NAME_REF_LANGUAGE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_NAME|foreignKey=FK_PARTY_NAME_REF_NAME_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_NAME|foreignKey=FK_PARTY_NAME_REF_SCRIPT
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_NAME|foreignKey=FK_PARTY_NAME_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY|foreignKey=FK_PARTY_REF_DATA_QUALITY_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY|foreignKey=FK_PARTY_REF_DATA_SOURCE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY|foreignKey=FK_PARTY_REF_PARTY_LIFECYCLE_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY|foreignKey=FK_PARTY_REF_PARTY_STATUS_REASON
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY|foreignKey=FK_PARTY_REF_PARTY_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY|foreignKey=FK_PARTY_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_GEOGRAPHIC_LOCATION
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_COUNTRY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_DATA_QUALITY_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_GENDER
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_LANGUAGE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_LEGAL_CAPACITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_LIFE_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_MARITAL_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_RESIDENCE_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PERSON|foreignKey=FK_PERSON_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=ORGANIZATION|foreignKey=FK_ORG_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=ORGANIZATION|foreignKey=FK_ORGANIZATION_REF_CITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=ORGANIZATION|foreignKey=FK_ORGANIZATION_REF_ECONOMIC_SECTOR
+EA_FK_ASSOCIATION_NOT_FOUND|table=ORGANIZATION|foreignKey=FK_ORGANIZATION_REF_ISIC_ACTIVITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=ORGANIZATION|foreignKey=FK_ORGANIZATION_REF_LEGAL_FORM
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_CONSENT|foreignKey=FK_PARTY_CONSENT_REF_CONSENT_PURPOSE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_CONSENT|foreignKey=FK_PARTY_CONSENT_REF_CONSENT_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=CONTACT_POINT|foreignKey=FK_CONTACT_POINT_REF_CONTACT_PURPOSE
+EA_FK_ASSOCIATION_NOT_FOUND|table=CONTACT_POINT|foreignKey=FK_CONTACT_POINT_REF_CONTACT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=ADDRESS|foreignKey=FK_ADDRESS_REF_CITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=ADDRESS|foreignKey=FK_ADDRESS_REF_COUNTRY
+EA_FK_ASSOCIATION_NOT_FOUND|table=ADDRESS|foreignKey=FK_ADDRESS_REF_DISTRICT
+EA_FK_ASSOCIATION_NOT_FOUND|table=ADDRESS|foreignKey=FK_ADDRESS_REF_PROVINCE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ADDRESS|foreignKey=FK_PARTY_ADDRESS_REF_ADDRESS_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=ORGANIZATION_OFFICER|foreignKey=FK_ORGANIZATION_OFFICER_REF_OFFICER_ROLE
+EA_FK_ASSOCIATION_NOT_FOUND|table=COMMUNICATION_PREFERENCE|foreignKey=FK_COMMUNICATION_PREFERENCE_REF_CHANNEL
+EA_FK_ASSOCIATION_NOT_FOUND|table=COMMUNICATION_PREFERENCE|foreignKey=FK_COMMUNICATION_PREFERENCE_REF_COMMUNICATION_PURPOSE
+EA_FK_ASSOCIATION_NOT_FOUND|table=COMMUNICATION_PREFERENCE|foreignKey=FK_COMMUNICATION_PREFERENCE_REF_LANGUAGE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_RISK_ASSESSMENT|foreignKey=FK_PARTY_RISK_ASSESSMENT_REF_DECISION
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_RISK_ASSESSMENT|foreignKey=FK_PARTY_RISK_ASSESSMENT_REF_RISK_LEVEL
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_RISK_ASSESSMENT|foreignKey=FK_PARTY_RISK_ASSESSMENT_REF_RISK_MODEL
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_RISK_ASSESSMENT|foreignKey=FK_PARTY_RISK_ASSESSMENT_REF_RISK_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_RISK_ASSESSMENT|foreignKey=FK_RISK_KYC
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_RISK_ASSESSMENT|foreignKey=FK_RISK_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_DOCUMENT|foreignKey=FK_DOC_KYC
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_DOCUMENT|foreignKey=FK_DOC_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_DOCUMENT|foreignKey=FK_PARTY_DOCUMENT_REF_DOCUMENT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_DOCUMENT|foreignKey=FK_PARTY_DOCUMENT_REF_ISSUING_AUTHORITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_DOCUMENT|foreignKey=FK_PARTY_DOCUMENT_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ALERT_CASE|foreignKey=FK_ALERT_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ALERT_CASE|foreignKey=FK_PARTY_ALERT_CASE_REF_ALERT_RESOLUTION
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ALERT_CASE|foreignKey=FK_PARTY_ALERT_CASE_REF_ALERT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ALERT_CASE|foreignKey=FK_PARTY_ALERT_CASE_REF_SEVERITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ALERT_CASE|foreignKey=FK_PARTY_ALERT_CASE_REF_SOURCE_SYSTEM
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ALERT_CASE|foreignKey=FK_PARTY_ALERT_CASE_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=SCREENING_RESULT|foreignKey=FK_SCREENING_RESULT_REF_DECISION
+EA_FK_ASSOCIATION_NOT_FOUND|table=SCREENING_RESULT|foreignKey=FK_SCREENING_RESULT_REF_DECISION_2
+EA_FK_ASSOCIATION_NOT_FOUND|table=SCREENING_RESULT|foreignKey=FK_SCREENING_RESULT_REF_SCREENING_LIST
+EA_FK_ASSOCIATION_NOT_FOUND|table=SCREENING_RESULT|foreignKey=FK_SCREENING_RESULT_REF_SCREENING_PROVIDER
+EA_FK_ASSOCIATION_NOT_FOUND|table=SCREENING_RESULT|foreignKey=FK_SCREENING_RESULT_REF_SCREENING_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=KYC_CASE|foreignKey=FK_KYC_CASE_REF_DECISION
+EA_FK_ASSOCIATION_NOT_FOUND|table=KYC_CASE|foreignKey=FK_KYC_CASE_REF_DUE_DILIGENCE_LEVEL
+EA_FK_ASSOCIATION_NOT_FOUND|table=KYC_CASE|foreignKey=FK_KYC_CASE_REF_KYC_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=KYC_CASE|foreignKey=FK_KYC_CASE_REF_RISK_LEVEL
+EA_FK_ASSOCIATION_NOT_FOUND|table=KYC_CASE|foreignKey=FK_KYC_CASE_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=KYC_CASE|foreignKey=FK_KYC_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_LICENSE|foreignKey=FK_LICENSE_ISSUER
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_LICENSE|foreignKey=FK_LICENSE_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_LICENSE|foreignKey=FK_PARTY_LICENSE_REF_LICENSE_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_LICENSE|foreignKey=FK_PARTY_LICENSE_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=FINANCIAL_PROFILE|foreignKey=FK_FIN_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=FINANCIAL_PROFILE|foreignKey=FK_FINANCIAL_PROFILE_REF_CURRENCY
+EA_FK_ASSOCIATION_NOT_FOUND|table=FINANCIAL_PROFILE|foreignKey=FK_FINANCIAL_PROFILE_REF_SOURCE_OF_FUNDS
+EA_FK_ASSOCIATION_NOT_FOUND|table=FINANCIAL_PROFILE|foreignKey=FK_FINANCIAL_PROFILE_REF_SOURCE_OF_WEALTH
+EA_FK_ASSOCIATION_NOT_FOUND|table=FINANCIAL_PROFILE|foreignKey=FK_FINANCIAL_PROFILE_REF_TAX_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=FINANCIAL_PROFILE|foreignKey=FK_FINANCIAL_PROFILE_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_EMPLOYMENT|foreignKey=FK_EMP_EMPLOYER
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_EMPLOYMENT|foreignKey=FK_EMP_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_EMPLOYMENT|foreignKey=FK_PARTY_EMPLOYMENT_REF_CURRENCY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_EMPLOYMENT|foreignKey=FK_PARTY_EMPLOYMENT_REF_ECONOMIC_SECTOR
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_EMPLOYMENT|foreignKey=FK_PARTY_EMPLOYMENT_REF_ISIC_ACTIVITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_EMPLOYMENT|foreignKey=FK_PARTY_EMPLOYMENT_REF_OCCUPATION
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_PRODUCT_RESTRICTION|foreignKey=FK_PARTY_PRODUCT_RESTRICTION_REF_PRODUCT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_PRODUCT_RESTRICTION|foreignKey=FK_PARTY_PRODUCT_RESTRICTION_REF_RESTRICTION_REASON
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_PRODUCT_RESTRICTION|foreignKey=FK_PARTY_PRODUCT_RESTRICTION_REF_RESTRICTION_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_PRODUCT_RESTRICTION|foreignKey=FK_PARTY_PRODUCT_RESTRICTION_REF_SEVERITY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_PRODUCT_RESTRICTION|foreignKey=FK_PARTY_PRODUCT_RESTRICTION_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_PRODUCT_RESTRICTION|foreignKey=FK_RESTRICTION_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_OPERATION_LIMIT|foreignKey=FK_LIMIT_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_OPERATION_LIMIT|foreignKey=FK_PARTY_OPERATION_LIMIT_REF_CONTEXT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_OPERATION_LIMIT|foreignKey=FK_PARTY_OPERATION_LIMIT_REF_CURRENCY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_OPERATION_LIMIT|foreignKey=FK_PARTY_OPERATION_LIMIT_REF_LIMIT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_OPERATION_LIMIT|foreignKey=FK_PARTY_OPERATION_LIMIT_REF_PERIOD
+EA_FK_ASSOCIATION_NOT_FOUND|table=SIGNATURE_SPECIMEN|foreignKey=FK_SIGNATURE_SPECIMEN_REF_CHANNEL
+EA_FK_ASSOCIATION_NOT_FOUND|table=SIGNATURE_SPECIMEN|foreignKey=FK_SIGNATURE_SPECIMEN_REF_SIGNING_RULE
+EA_FK_ASSOCIATION_NOT_FOUND|table=SIGNATURE_SPECIMEN|foreignKey=FK_SIGNATURE_SPECIMEN_REF_SPECIMEN_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=SIGNATURE_SPECIMEN|foreignKey=FK_SIGNATURE_SPECIMEN_REF_VERIFICATION_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=SIGNATURE_SPECIMEN|foreignKey=FK_SIGNATURE_SPECIMEN_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_AUTHORITY|foreignKey=FK_AUTH_AUTHORIZED
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_AUTHORITY|foreignKey=FK_AUTH_PRINCIPAL
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_AUTHORITY|foreignKey=FK_PARTY_AUTHORITY_REF_AUTHORITY_SCOPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_AUTHORITY|foreignKey=FK_PARTY_AUTHORITY_REF_AUTHORITY_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_AUTHORITY|foreignKey=FK_PARTY_AUTHORITY_REF_CURRENCY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_GROUP|foreignKey=FK_PARTY_GROUP_REF_GROUP_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_GROUP|foreignKey=FK_PARTY_GROUP_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ROLE|foreignKey=FK_PARTY_ROLE_REF_CONTEXT_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ROLE|foreignKey=FK_PARTY_ROLE_REF_ROLE_TYPE
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ROLE|foreignKey=FK_PARTY_ROLE_REF_WORKFLOW_STATUS
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_ROLE|foreignKey=FK_ROLE_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_GROUP_MEMBER|foreignKey=FK_GMEM_GROUP
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_GROUP_MEMBER|foreignKey=FK_GMEM_PARTY
+EA_FK_ASSOCIATION_NOT_FOUND|table=PARTY_GROUP_MEMBER|foreignKey=FK_PARTY_GROUP_MEMBER_REF_GROUP_MEMBER_ROLE
+EA_FK_ASSOCIATION_NOT_FOUND|table=BENEFICIAL_OWNERSHIP|foreignKey=FK_BENEFICIAL_OWNERSHIP_REF_CONTROL_BASIS
+EA_FK_ASSOCIATION_NOT_FOUND|table=BENEFICIAL_OWNERSHIP|foreignKey=FK_UBO_LEGAL
+EA_FK_ASSOCIATION_NOT_FOUND|table=BENEFICIAL_OWNERSHIP|foreignKey=FK_UBO_OWNER, source.eaDuplicateTableElementCount=5, source.eaDuplicateTables=DPS.PARTY=6, source.eaRequestedSchema=}
+PARTY_CLASSIFICATION cols=12 pk=PK_PARTY_CLASSI_01 fk=1 idx=5 uk=1 ck=0
+PARTY_IDENTIFIER cols=23 pk=PK_PARTY_IDENTI_01 fk=1 idx=9 uk=1 ck=2
+PARTY_NAME cols=26 pk=PK_PARTY_NAME fk=1 idx=8 uk=0 ck=4
+PARTY cols=20 pk=PK_PARTY fk=1 idx=9 uk=1 ck=6
+PERSON cols=22 pk=PK_PERSON fk=1 idx=11 uk=1 ck=1
+ORGANIZATION cols=17 pk=PK_ORGANIZATION fk=1 idx=7 uk=1 ck=2
+PARTY_CONSENT cols=14 pk=PK_PARTY_CONSENT fk=1 idx=3 uk=0 ck=3
+CONTACT_POINT cols=16 pk=PK_CONTACT_POIN_01 fk=1 idx=4 uk=0 ck=4
+ADDRESS cols=13 pk=PK_ADDRESS fk=0 idx=4 uk=0 ck=1
+PARTY_ADDRESS cols=12 pk=PK_PARTY_ADDRES_01 fk=2 idx=4 uk=0 ck=3
+ORGANIZATION_OFFICER cols=8 pk=PK_ORGANIZATION_OFFICER fk=2 idx=1 uk=0 ck=0
+CONTACT_POINT_ADDRESS cols=12 pk=PK_CONTACT_POINT_ADDRESS fk=2 idx=0 uk=1 ck=3
+COMMUNICATION_PREFERENCE cols=13 pk=PK_COMMUNICATIO_01 fk=1 idx=4 uk=1 ck=3
+PARTY_GENERAL_PREFERENCE cols=12 pk=PK_PARTY_GENERAL_PREFERENCE fk=1 idx=2 uk=0 ck=2
+PARTY_JOURNEY_EVENT cols=14 pk=PK_PARTY_JOURNEY_EVENT fk=1 idx=2 uk=0 ck=2
+PARTY_SEGMENT_MEMBERSHIP cols=12 pk=PK_PARTY_SEGMENT_MEMBERSHIP fk=1 idx=2 uk=0 ck=3
+PARTY_COMPLAINT cols=17 pk=PK_PARTY_COMPLAINT fk=1 idx=3 uk=0 ck=4
+PARTY_METRIC_SNAPSHOT cols=14 pk=PK_PARTY_METRIC_SNAPSHOT fk=1 idx=2 uk=1 ck=2
+AUDIT_EVENT cols=18 pk=PK_AUDIT_EVENT fk=1 idx=2 uk=0 ck=3
+PARTY_COMPLAINT_STATUS_HISTORY cols=13 pk=PK_COMPLAINT_STATUS_HISTORY fk=1 idx=1 uk=0 ck=2
+PARTY_PRODUCT_HOLDING cols=14 pk=PK_PARTY_PRODUCT_HOLDING fk=1 idx=2 uk=1 ck=3
+PARTY_RECOMMENDATION cols=15 pk=PK_PARTY_RECOMMENDATION fk=1 idx=2 uk=0 ck=3
+PARTY_VALUE_SCORE cols=17 pk=PK_PARTY_VALUE_01 fk=1 idx=2 uk=0 ck=3
+EXTERNAL_INQUIRY_RESULT cols=16 pk=PK_EXTERNAL_INQ_01 fk=1 idx=2 uk=0 ck=4
+PARTY_INTERACTION cols=17 pk=PK_PARTY_INTERA_01 fk=1 idx=2 uk=0 ck=3
+PARTY_RISK_ASSESSMENT cols=17 pk=PK_PARTY_RISK_A_01 fk=1 idx=6 uk=0 ck=2
+PARTY_DOCUMENT cols=18 pk=PK_PARTY_DOCUMENT fk=2 idx=8 uk=0 ck=3
+PARTY_ALERT_CASE cols=17 pk=PK_PARTY_ALERT_01 fk=1 idx=6 uk=0 ck=3
+SCREENING_RESULT cols=21 pk=PK_SCREENING_RE_01 fk=2 idx=7 uk=0 ck=4
+KYC_CASE cols=18 pk=PK_KYC_CASE fk=1 idx=8 uk=0 ck=4
+PARTY_LICENSE cols=15 pk=PK_PARTY_LICENSE fk=0 idx=3 uk=1 ck=2
+FINANCIAL_PROFILE cols=17 pk=PK_FINANCIAL_PR_01 fk=0 idx=6 uk=1 ck=2
+PARTY_EMPLOYMENT cols=20 pk=PK_PARTY_EMPLOY_01 fk=0 idx=5 uk=0 ck=4
+PARTY_PRODUCT_RESTRICTION cols=15 pk=PK_PARTY_PRODUCT_RESTRICTION fk=0 idx=6 uk=0 ck=2
+PARTY_OPERATION_LIMIT cols=16 pk=PK_PARTY_OPERATION_01 fk=0 idx=5 uk=0 ck=3
+SIGNATURE_SPECIMEN cols=21 pk=PK_SIGNATURE_SP_01 fk=1 idx=6 uk=0 ck=3
+PARTY_AUTHORITY cols=16 pk=PK_PARTY_AUTHORITY fk=1 idx=7 uk=0 ck=4
+PARTY_GROUP cols=11 pk=PK_PARTY_GROUP fk=0 idx=4 uk=0 ck=2
+PARTY_ROLE cols=13 pk=PK_PARTY_ROLE fk=1 idx=5 uk=1 ck=3
+PARTY_GROUP_MEMBER cols=12 pk=PK_PARTY_GROUP_01 fk=2 idx=3 uk=1 ck=3
+BENEFICIAL_OWNERSHIP cols=17 pk=PK_BENEFICIAL_O_01 fk=2 idx=3 uk=0 ck=4
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.593 s -- in com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectPartyProbeTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlParserTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.044 s -- in com.behsazan.schemaforge.specification.parser.ea.EnterpriseArchitectXmlParserTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.ea.MySqlEnterpriseArchitectIdentityCompatibilityTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.337 s -- in com.behsazan.schemaforge.specification.parser.ea.MySqlEnterpriseArchitectIdentityCompatibilityTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.FinalMetadataAcceptanceRegressionTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.442 s -- in com.behsazan.schemaforge.specification.parser.legacy.FinalMetadataAcceptanceRegressionTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyDataTypeNormalizerTest
+[INFO] Tests run: 26, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.230 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyDataTypeNormalizerTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyDefaultValueNormalizerTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyDefaultValueNormalizerTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyDocRawMetadataScannerRegressionTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.014 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyDocRawMetadataScannerRegressionTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyFlatRowReconstructorTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.024 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyFlatRowReconstructorTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyMetadataRecoveryPolicyTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyMetadataRecoveryPolicyTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyOracleGenerationPipelineTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.070 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyOracleGenerationPipelineTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyPostExtractionMergedColumnRecoveryTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyPostExtractionMergedColumnRecoveryTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParserMappingTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.073 s -- in com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParserMappingTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.LengthValueParserTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.behsazan.schemaforge.specification.parser.legacy.LengthValueParserTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.SchemaForgeWordTableParserApiTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.062 s -- in com.behsazan.schemaforge.specification.parser.legacy.SchemaForgeWordTableParserApiTest
+[INFO] Running com.behsazan.schemaforge.specification.parser.legacy.TextNormalizerTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.specification.parser.legacy.TextNormalizerTest
+[INFO] Running com.behsazan.schemaforge.specification.validation.SpecificationSpellCheckTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.specification.validation.SpecificationSpellCheckTest
+[INFO] Running com.behsazan.schemaforge.specification.validation.spelling.LanguageToolSpellCheckServiceTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.239 s -- in com.behsazan.schemaforge.specification.validation.spelling.LanguageToolSpellCheckServiceTest
+[INFO] Running com.behsazan.schemaforge.SqlServerDdlGeneratorTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in com.behsazan.schemaforge.SqlServerDdlGeneratorTest
+[INFO] Running com.behsazan.schemaforge.SqlServerExpressionMapperTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.SqlServerExpressionMapperTest
+[INFO] Running com.behsazan.schemaforge.SqlServerIdentifierRendererTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.SqlServerIdentifierRendererTest
+[INFO] Running com.behsazan.schemaforge.SqlServerPhysicalP4Test
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in com.behsazan.schemaforge.SqlServerPhysicalP4Test
+[INFO] Running com.behsazan.schemaforge.SqlServerTypeMapperTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.008 s -- in com.behsazan.schemaforge.SqlServerTypeMapperTest
+[INFO] Running com.behsazan.schemaforge.UnresolvedCanonicalDatatypeGenerationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.behsazan.schemaforge.UnresolvedCanonicalDatatypeGenerationTest
+[INFO] Running com.behsazan.schemaforge.validation.datatype.MySqlDatatypeCompatibilityAnalyzerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.behsazan.schemaforge.validation.datatype.MySqlDatatypeCompatibilityAnalyzerTest
+[INFO] Running com.behsazan.schemaforge.validation.db2zos.Db2ZosConnectionProbeServiceTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.behsazan.schemaforge.validation.db2zos.Db2ZosConnectionProbeServiceTest
+[INFO] Running com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidatorTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidatorTest
+[INFO] Running com.behsazan.schemaforge.validation.DdlValidationReportWriterTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in com.behsazan.schemaforge.validation.DdlValidationReportWriterTest
+[INFO] Running com.behsazan.schemaforge.validation.oracle.OracleDdlSanityCheckerTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.012 s -- in com.behsazan.schemaforge.validation.oracle.OracleDdlSanityCheckerTest
+[INFO] Running com.behsazan.schemaforge.validation.PostgreSqlDdlSanityCheckerTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.behsazan.schemaforge.validation.PostgreSqlDdlSanityCheckerTest
+[INFO] Running com.behsazan.schemaforge.validation.SqlScriptStatementParserTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.validation.SqlScriptStatementParserTest
+[INFO] Running com.behsazan.schemaforge.validation.sqlserver.SqlServerConnectionProbeServiceTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.behsazan.schemaforge.validation.sqlserver.SqlServerConnectionProbeServiceTest
+[INFO] Running com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidatorTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidatorTest
+[INFO] Running com.behsazan.schemaforge.WordContinuationForeignKeyTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.063 s -- in com.behsazan.schemaforge.WordContinuationForeignKeyTest
+[INFO] Running com.behsazan.schemaforge.WordLegacyIndexParsingTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.022 s -- in com.behsazan.schemaforge.WordLegacyIndexParsingTest
+[INFO] Running com.behsazan.schemaforge.WordSpecificationIntegrationTest
+09:23:58.000 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.064 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.179 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.248 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.316 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.375 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.441 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.512 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.580 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.701 s -- in com.behsazan.schemaforge.WordSpecificationIntegrationTest
+[INFO] Running com.behsazan.schemaforge.WordSpecificationRegressionTest
+09:23:58.664 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.723 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:58.832 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:59.034 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:59.089 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:59.142 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:59.203 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:59.255 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+09:23:59.315 [main] WARN org.apache.poi.ooxml.POIXMLDocumentPart -- POI does not currently support template.main+xml (glossary) parts.  Skipping this part for now.
+
+Word regression test completed
+Documents : 9
+Passed    : 8
+Blocked   : 1
+Failed    : 0
+Tables    : 9
+Columns   : 117
+Elapsed ms: 630
+Summary   : D:\Projects\schema-forge-v4\target\test-reports\word-regression-summary_20260826_092359_373.csv
+
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.731 s -- in com.behsazan.schemaforge.WordSpecificationRegressionTest
+[INFO] Running com.behsazan.schemaforge.WordVariantHeaderAndDatatypeRecoveryTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.021 s -- in com.behsazan.schemaforge.WordVariantHeaderAndDatatypeRecoveryTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[WARNING] Tests run: 587, Failures: 0, Errors: 0, Skipped: 4
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:42 min
+[INFO] Finished at: 2026-08-26T09:24:00+03:30
+[INFO] ------------------------------------------------------------------------
+
+R8.1 FULL REGRESSION: PASS
+
+D:\Projects\schema-forge-v4>

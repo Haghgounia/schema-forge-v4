@@ -1,0 +1,57 @@
+SchemaForge MySQL P2-FINAL evidence-backed recovery freeze
+=========================================================
+Snapshot directory              : D:\Sample-Docs-Scripts\Legacy\SchemaForgeCanonicalJson-20260818
+DB2 SYSCOLUMNS file             : D:\SYSCOLUMNS-050511.zip
+P2-R2 evidence details          : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R2\mysql-metadata-recovery-details_20260819_234757_662.csv
+P2-R7 applied                   : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R7\mysql-strong-table-reconciliation-applied_20260820_063542_205.csv
+P2-R8 applied                   : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R8\mysql-cross-schema-reconciliation-applied_20260820_071418_545.csv
+P2-R10 details                  : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-R10\mysql-historical-column-corroboration-details_20260821_211239_530.csv
+Snapshots discovered            : 5321
+Expected minimum snapshots      : 5321
+Snapshots loaded                : 5321
+Snapshot read failures          : 0
+Baseline compatible             : 3824
+Baseline blocked                : 1497
+DB2 recovery occurrences        : 4403
+Historical recovery occurrences : 104
+Confirmed recovery occurrences  : 1268
+Confirmed recovery snapshots    : 200
+Newly unblocked by P2-R7/R8/R10 : 155
+Final generated                 : 4704
+Final hard-blocked snapshots    : 617
+Generation failures             : 0
+Recovered snapshots written     : 5321
+Recovered snapshot write failures: 0
+Recovered snapshot directory    : D:\Sample-Docs-Scripts\SchemaForge-Recovered-Canonical-R7.2
+Loaded generation coverage       : 88.40%
+Corpus generation coverage       : 88.40%
+Remaining blocker occurrences   : 2473
+
+Confirmed recovery occurrences by stage
+---------------------------------------
+P2-R10 : 3
+P2-R7 : 318
+P2-R8 : 947
+
+Remaining blockers by MySQL code
+--------------------------------
+MYSQL_EXACT_NUMERIC_PRECISION_REQUIRED : 2448
+MYSQL_DECIMAL_PRECISION_UNSUPPORTED : 24
+MYSQL_ROWID_UNSUPPORTED : 1
+
+Hard blocker classifications (occurrences / snapshots)
+------------------------------------------------------
+HARD_CANONICAL_METADATA_TYPE_CONFLICT : 228 / 147
+HARD_NO_EXACT_COLUMN_EVIDENCE : 126 / 88
+HARD_NO_EXACT_TABLE_EVIDENCE : 2094 / 371
+HARD_MYSQL_DECIMAL_PRECISION_UNSUPPORTED : 24 / 23
+HARD_ROWID_PHYSICAL_ARTIFACT_REVIEW : 1 / 1
+
+Generation errors
+-----------------
+None
+
+Details      : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-FINAL-R7.2\mysql-final-recovery-details_20260825_175537_841.csv
+Applied      : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-FINAL-R7.2\mysql-final-recovery-applied_20260825_175537_841.csv
+Hard blockers: D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-FINAL-R7.2\mysql-final-hard-blockers_20260825_175537_841.csv
+Read failures : D:\Sample-Docs-Scripts\SchemaForge-MySQL-P2-FINAL-R7.2\mysql-final-snapshot-read-failures_20260825_175537_841.csv

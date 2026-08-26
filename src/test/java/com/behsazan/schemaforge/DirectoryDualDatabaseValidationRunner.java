@@ -88,17 +88,26 @@ public final class DirectoryDualDatabaseValidationRunner {
                 DatabasePlatform.POSTGRESQL);
         for (Path document : documents) {
             for (DatabasePlatform platform : validationPlatforms) {
-                GenerationOutput generated = generationService.generate(document, output, platform);
-                if (!generated.valid()) {
-                    results.add(new DdlValidationResult(document, generated.sqlFile(), platform,
-                            DdlValidationStatus.FAILED, 0, "Specification validation failed"));
-                    continue;
+                try {
+                    GenerationOutput generated = generationService.generate(document, output, platform);
+                    if (!generated.valid()) {
+                        results.add(new DdlValidationResult(document, generated.sqlFile(), platform,
+                                DdlValidationStatus.FAILED, 0, "Specification validation failed"));
+                        continue;
+                    }
+                    JdbcConnectionSettings connection = platform == DatabasePlatform.ORACLE
+                            ? oracleSettings : postgreSqlSettings;
+                    results.add(execute
+                            ? validationService.validate(document, generated.sqlFile(), platform, connection)
+                            : validationService.generatedOnly(document, generated.sqlFile(), platform));
+                } catch (IllegalArgumentException generationBlocked) {
+                    Path blockedTarget = output.resolve(
+                            document.getFileName().toString() + "."
+                                    + platform.commandLineName() + ".blocked.sql");
+                    results.add(new DdlValidationResult(
+                            document, blockedTarget, platform, DdlValidationStatus.FAILED, 0,
+                            "Generation blocked: " + generationBlocked.getMessage()));
                 }
-                JdbcConnectionSettings connection = platform == DatabasePlatform.ORACLE
-                        ? oracleSettings : postgreSqlSettings;
-                results.add(execute
-                        ? validationService.validate(document, generated.sqlFile(), platform, connection)
-                        : validationService.generatedOnly(document, generated.sqlFile(), platform));
             }
         }
 

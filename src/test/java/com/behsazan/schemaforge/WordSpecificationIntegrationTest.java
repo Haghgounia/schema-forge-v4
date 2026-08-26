@@ -65,6 +65,21 @@ class WordSpecificationIntegrationTest {
             ValidationReport report =
                     new SpecificationValidator().validate(normalizedSchema);
 
+            if (isExpectedUnresolvedDatatype(inputFile)) {
+                assertFalse(report.valid(), "Known unresolved datatype must remain fail-closed");
+                assertTrue(report.issues().stream().anyMatch(issue ->
+                                "COLUMN_DATATYPE_UNRESOLVED".equals(issue.code())
+                                        && "tables.PROVINCES.columns.POPULATION".equals(issue.path())),
+                        () -> "Expected unresolved POPULATION issue in "
+                                + inputFile.getFileName() + " : " + report.issues());
+                IllegalArgumentException blocked = assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new DdlGenerator(new OracleDialect()).generate(normalizedSchema));
+                assertTrue(blocked.getMessage().contains(
+                        "Unresolved canonical datatype for BIM.PROVINCES.POPULATION"));
+                return;
+            }
+
             assertTrue(
                     report.valid(),
                     () -> "Validation issues in "
@@ -101,5 +116,10 @@ class WordSpecificationIntegrationTest {
                     assertTrue(sql.contains("CREATE TABLE " + table.qualifiedName()),
                             () -> "Missing CREATE TABLE for " + table.qualifiedName()));
         }
+    }
+
+    private static boolean isExpectedUnresolvedDatatype(Path inputFile) {
+        return inputFile.getFileName().toString()
+                .equals("MCB.BIM.TBL.PROVINCES.V1.1.docx");
     }
 }

@@ -1,0 +1,13 @@
+SchemaForge Oracle ALTER/Migration M2 live pilot
+================================================
+Server              : Oracle Oracle AI Database 26ai Free Release 23.26.2.0.0 - Develop, Learn, and Run for Free
+Version 23.26.2.0.0
+Pilot schema        : SCHEMAFORGE_R74
+Default tablespace  : USERS
+CREATE generated    : true
+Column changes      : 6
+Object changes      : 6
+Statements executed : 16
+Residual changes    : 0
+Data preserved      : true
+Cleanup             : true
