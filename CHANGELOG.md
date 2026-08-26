@@ -1884,3 +1884,11 @@
 - Added optional regression-aware acceptance mode to `CanonicalJsonDirectoryToDdlIT`; known No-Guess hard blockers are allowed only within frozen per-platform ceilings and only for explicitly allowed mapping codes.
 - The regression gate fails on lower successful-script counts, higher blocker counts, warning regressions, generated SQL validation errors, generation/snapshot/canonical failures, unknown blocking codes, or broken corpus accounting.
 - No production Java, dialect mapping, canonical model, parser, DDL renderer, or source canonical snapshot is changed by this gate hardening.
+
+## 2026-08-26 - R7.3.3 New Word strict corpus regression gate
+
+- Verified the 660-document standard Word corpus has identical SAFE and OPTIMIZED coverage after R7.3.2.
+- Added optional `schemaforge.word.failOnRegression=true` exact acceptance mode to `WordDirectoryMultiDatabaseGenerationIT`.
+- Strict mode freezes document/skip/parse counts, per-platform generated/with-issues/failed counts, corpus accounting, and exact structured failure-code counts.
+- Added numeric mapping strategy to the Word multi-database text/console summary for explicit SAFE vs OPTIMIZED evidence.
+- No production parser or DDL semantics changed in R7.3.3.

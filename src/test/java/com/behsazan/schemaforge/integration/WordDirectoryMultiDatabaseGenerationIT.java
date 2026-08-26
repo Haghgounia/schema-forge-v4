@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -53,6 +54,14 @@ class WordDirectoryMultiDatabaseGenerationIT {
     private static final String FAIL_ON_ERRORS = "schemaforge.word.failOnErrors";
     private static final String PARSER_MODE = "schemaforge.word.parserMode";
     private static final String EXPECTED_MIN_DOCUMENTS = "schemaforge.word.expectedMinDocuments";
+    private static final String FAIL_ON_REGRESSION = "schemaforge.word.failOnRegression";
+    private static final String EXPECTED_DOCUMENTS = "schemaforge.word.expectedDocuments";
+    private static final String EXPECTED_SKIPPED = "schemaforge.word.expectedSkipped";
+    private static final String EXPECTED_PARSE_FAILURES = "schemaforge.word.expectedParseFailures";
+    private static final String EXPECTED_GENERATED_PREFIX = "schemaforge.word.expectedGenerated.";
+    private static final String EXPECTED_WITH_ISSUES_PREFIX = "schemaforge.word.expectedWithIssues.";
+    private static final String EXPECTED_FAILED_PREFIX = "schemaforge.word.expectedFailed.";
+    private static final String EXPECTED_FAILURE_CODES_PREFIX = "schemaforge.word.expectedFailureCodes.";
 
     private static final List<DatabasePlatform> DEFAULT_PLATFORMS = List.of(
             DatabasePlatform.ORACLE,
@@ -76,6 +85,8 @@ class WordDirectoryMultiDatabaseGenerationIT {
         List<DatabasePlatform> platforms = configuredPlatforms();
         ParserMode parserMode = configuredParserMode();
         boolean failOnErrors = Boolean.parseBoolean(System.getProperty(FAIL_ON_ERRORS, "false"));
+        boolean failOnRegression = Boolean.parseBoolean(System.getProperty(FAIL_ON_REGRESSION, "false"));
+        String numericMappingStrategy = DialectFactory.configuredNumericMappingStrategy().name();
         Files.createDirectories(outputRoot);
 
         List<Path> documents;
@@ -101,10 +112,12 @@ class WordDirectoryMultiDatabaseGenerationIT {
         Map<DatabasePlatform, Integer> generated = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> generatedWithIssues = new EnumMap<>(DatabasePlatform.class);
         Map<DatabasePlatform, Integer> failed = new EnumMap<>(DatabasePlatform.class);
+        Map<DatabasePlatform, Map<String, Integer>> failureCodeCounts = new EnumMap<>(DatabasePlatform.class);
         platforms.forEach(platform -> {
             generated.put(platform, 0);
             generatedWithIssues.put(platform, 0);
             failed.put(platform, 0);
+            failureCodeCounts.put(platform, new LinkedHashMap<>());
             try {
                 Files.createDirectories(outputRoot.resolve(platform.commandLineName()));
             } catch (Exception exception) {
@@ -147,6 +160,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
                             "", "0", "", message));
                     issues.add(csvLine(relative, platform.commandLineName(), "PARSE", "", "PARSE_FAILED",
                             message, ""));
+                    addFailureCode(failureCodeCounts, platform, "PARSE_FAILED");
                 }
                 System.out.println("[PARSE-FAILED] " + relative + " - " + message);
                 continue;
@@ -154,7 +168,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
 
             for (DatabasePlatform platform : platforms) {
                 generatePlatform(inputRoot, outputRoot, document, relative, prepared, platform, timestamp,
-                        summary, issues, generated, generatedWithIssues, failed);
+                        summary, issues, generated, generatedWithIssues, failed, failureCodeCounts);
             }
         }
 
@@ -167,13 +181,14 @@ class WordDirectoryMultiDatabaseGenerationIT {
         Files.writeString(issueFile, String.join(System.lineSeparator(), issues) + System.lineSeparator(),
                 StandardCharsets.UTF_8);
         Files.writeString(textFile, textSummary(inputRoot, outputRoot, documents.size(), skipped, parseFailures,
-                parserMode, platforms, generated, generatedWithIssues, failed, timestamp), StandardCharsets.UTF_8);
+                parserMode, numericMappingStrategy, platforms, generated, generatedWithIssues, failed, timestamp), StandardCharsets.UTF_8);
 
         int totalGenerated = generated.values().stream().mapToInt(Integer::intValue).sum()
                 + generatedWithIssues.values().stream().mapToInt(Integer::intValue).sum();
         int totalFailed = failed.values().stream().mapToInt(Integer::intValue).sum();
 
         System.out.println("Parser mode       : " + parserMode.name().toLowerCase(Locale.ROOT));
+        System.out.println("Numeric mapping   : " + numericMappingStrategy);
         System.out.println("Word files        : " + documents.size());
         System.out.println("Skipped           : " + skipped);
         System.out.println("Parse failures    : " + parseFailures);
@@ -188,6 +203,10 @@ class WordDirectoryMultiDatabaseGenerationIT {
 
         assertTrue(totalGenerated > 0,
                 "No SQL script was generated. Check input documents, platform selection and legacy schema property.");
+        if (failOnRegression) {
+            assertRegressionBaseline(documents.size(), skipped, parseFailures, platforms, generated,
+                    generatedWithIssues, failed, failureCodeCounts, issueFile);
+        }
         if (failOnErrors) {
             assertTrue(totalFailed == 0 && issues.size() == 1,
                     "Multi-database generation produced failures or validation issues. See: " + issueFile);
@@ -206,7 +225,8 @@ class WordDirectoryMultiDatabaseGenerationIT {
             List<String> issues,
             Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> generatedWithIssues,
-            Map<DatabasePlatform, Integer> failed) {
+            Map<DatabasePlatform, Integer> failed,
+            Map<DatabasePlatform, Map<String, Integer>> failureCodeCounts) {
 
         Path target = null;
         try {
@@ -250,10 +270,121 @@ class WordDirectoryMultiDatabaseGenerationIT {
             summary.add(csvLine(relative, platform.commandLineName(), "GENERATION_FAILED",
                     Boolean.toString(prepared.validationReport().valid()), "0",
                     target == null ? "" : normalize(outputRoot.relativize(target)), message));
+            String failureCode = generationFailureCode(platform, exception);
             issues.add(csvLine(relative, platform.commandLineName(), "GENERATION", "",
-                    generationFailureCode(platform, exception), message, ""));
+                    failureCode, message, ""));
+            addFailureCode(failureCodeCounts, platform, failureCode);
             System.out.println("[FAILED][" + platform.commandLineName() + "] " + relative + " - " + message);
         }
+    }
+
+    private static void addFailureCode(
+            Map<DatabasePlatform, Map<String, Integer>> failureCodeCounts,
+            DatabasePlatform platform,
+            String code) {
+        failureCodeCounts.get(platform).merge(code, 1, Integer::sum);
+    }
+
+    private static void assertRegressionBaseline(
+            int documents,
+            int skipped,
+            int parseFailures,
+            List<DatabasePlatform> platforms,
+            Map<DatabasePlatform, Integer> generated,
+            Map<DatabasePlatform, Integer> generatedWithIssues,
+            Map<DatabasePlatform, Integer> failed,
+            Map<DatabasePlatform, Map<String, Integer>> failureCodeCounts,
+            Path issueFile) {
+
+        assertTrue(documents == requiredIntProperty(EXPECTED_DOCUMENTS),
+                "Word corpus size changed: actual=" + documents
+                        + ", expected=" + requiredIntProperty(EXPECTED_DOCUMENTS));
+        assertTrue(skipped == requiredIntProperty(EXPECTED_SKIPPED),
+                "Skipped-document count changed: actual=" + skipped
+                        + ", expected=" + requiredIntProperty(EXPECTED_SKIPPED));
+        assertTrue(parseFailures == requiredIntProperty(EXPECTED_PARSE_FAILURES),
+                "Parse-failure count changed: actual=" + parseFailures
+                        + ", expected=" + requiredIntProperty(EXPECTED_PARSE_FAILURES));
+
+        for (DatabasePlatform platform : platforms) {
+            String name = platform.commandLineName();
+            int expectedGenerated = requiredIntProperty(EXPECTED_GENERATED_PREFIX + name);
+            int expectedWithIssues = requiredIntProperty(EXPECTED_WITH_ISSUES_PREFIX + name);
+            int expectedFailed = requiredIntProperty(EXPECTED_FAILED_PREFIX + name);
+            Map<String, Integer> expectedFailureCodes = requiredFailureCodeCounts(
+                    EXPECTED_FAILURE_CODES_PREFIX + name);
+
+            assertTrue(generated.get(platform) == expectedGenerated,
+                    name + " generated count changed: actual=" + generated.get(platform)
+                            + ", expected=" + expectedGenerated + ". See: " + issueFile);
+            assertTrue(generatedWithIssues.get(platform) == expectedWithIssues,
+                    name + " generated-with-issues count changed: actual=" + generatedWithIssues.get(platform)
+                            + ", expected=" + expectedWithIssues + ". See: " + issueFile);
+            assertTrue(failed.get(platform) == expectedFailed,
+                    name + " failed count changed: actual=" + failed.get(platform)
+                            + ", expected=" + expectedFailed + ". See: " + issueFile);
+
+            int accounted = generated.get(platform) + generatedWithIssues.get(platform) + failed.get(platform);
+            assertTrue(accounted == documents - skipped,
+                    name + " corpus accounting mismatch: generated+withIssues+failed=" + accounted
+                            + ", expected=" + (documents - skipped));
+
+            Map<String, Integer> actualFailureCodes = failureCodeCounts.get(platform);
+            assertTrue(actualFailureCodes.equals(expectedFailureCodes),
+                    name + " failure taxonomy changed: actual=" + actualFailureCodes
+                            + ", expected=" + expectedFailureCodes + ". See: " + issueFile);
+        }
+    }
+
+    private static int requiredIntProperty(String propertyName) {
+        String value = trimToNull(System.getProperty(propertyName));
+        if (value == null) {
+            throw new IllegalArgumentException(
+                    "Missing strict regression property: " + propertyName);
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    "Strict regression property must be an integer: " + propertyName + "=" + value,
+                    exception);
+        }
+    }
+
+    private static Map<String, Integer> requiredFailureCodeCounts(String propertyName) {
+        String value = trimToNull(System.getProperty(propertyName));
+        if (value == null) {
+            throw new IllegalArgumentException(
+                    "Missing strict regression property: " + propertyName);
+        }
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (String token : value.split("[,;]+")) {
+            String entry = token.trim();
+            if (entry.isEmpty()) {
+                continue;
+            }
+            int separator = entry.lastIndexOf(':');
+            if (separator <= 0 || separator == entry.length() - 1) {
+                throw new IllegalArgumentException(
+                        "Invalid failure-code count in " + propertyName + ": " + entry
+                                + ". Expected CODE:COUNT entries.");
+            }
+            String code = entry.substring(0, separator).trim();
+            String countText = entry.substring(separator + 1).trim();
+            final int count;
+            try {
+                count = Integer.parseInt(countText);
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException(
+                        "Invalid failure-code count in " + propertyName + ": " + entry,
+                        exception);
+            }
+            if (count < 0 || result.putIfAbsent(code, count) != null) {
+                throw new IllegalArgumentException(
+                        "Invalid or duplicate failure-code count in " + propertyName + ": " + entry);
+            }
+        }
+        return result;
     }
 
     private String generationFailureCode(DatabasePlatform platform, Exception exception) {
@@ -436,6 +567,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
             int skipped,
             int parseFailures,
             ParserMode parserMode,
+            String numericMappingStrategy,
             List<DatabasePlatform> platforms,
             Map<DatabasePlatform, Integer> generated,
             Map<DatabasePlatform, Integer> generatedWithIssues,
@@ -449,6 +581,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
         result.append("Input directory    : ").append(inputRoot.toAbsolutePath()).append(System.lineSeparator());
         result.append("Output directory   : ").append(outputRoot.toAbsolutePath()).append(System.lineSeparator());
         result.append("Parser mode        : ").append(parserMode.name().toLowerCase(Locale.ROOT)).append(System.lineSeparator());
+        result.append("Numeric mapping    : ").append(numericMappingStrategy).append(System.lineSeparator());
         result.append("Documents          : ").append(documents).append(System.lineSeparator());
         result.append("Skipped            : ").append(skipped).append(System.lineSeparator());
         result.append("Parse failures     : ").append(parseFailures).append(System.lineSeparator());
