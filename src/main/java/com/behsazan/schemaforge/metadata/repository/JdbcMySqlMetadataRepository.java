@@ -35,7 +35,7 @@ import java.util.Set;
 @ConditionalOnProperty(prefix = "schemaforge.metadata.mysql", name = "enabled", havingValue = "true")
 public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
     static final String TABLE_SQL = """
-            SELECT table_schema, table_name, table_comment, engine, table_collation
+            SELECT table_schema, table_name, table_comment, engine, table_collation, row_format, create_options
               FROM information_schema.tables
              WHERE table_type = 'BASE TABLE'
                AND LOWER(table_schema) = LOWER(:schemaName)
@@ -175,7 +175,9 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
                         rs.getString("table_name"),
                         trimToNull(rs.getString("table_comment")),
                         trimToNull(rs.getString("engine")),
-                        trimToNull(rs.getString("table_collation"))));
+                        trimToNull(rs.getString("table_collation")),
+                        trimToNull(rs.getString("row_format")),
+                        trimToNull(rs.getString("create_options"))));
         if (tables.isEmpty()) return Optional.empty();
 
         TableInfo info = tables.getFirst();
@@ -183,6 +185,8 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
         if (info.comment() != null) builder.description(info.comment());
         if (info.engine() != null) builder.physicalOption("MYSQL_ENGINE", info.engine());
         if (info.collation() != null) builder.physicalOption("MYSQL_COLLATION", info.collation());
+        if (info.rowFormat() != null) builder.physicalOption("MYSQL_ROW_FORMAT", info.rowFormat().toUpperCase(Locale.ROOT));
+        if (info.createOptions() != null) builder.physicalOption("MYSQL_CREATE_OPTIONS", info.createOptions());
 
         MapSqlParameterSource exact = new MapSqlParameterSource()
                 .addValue("schemaName", info.schema())
@@ -436,7 +440,8 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    record TableInfo(String schema, String name, String comment, String engine, String collation) {}
+    record TableInfo(String schema, String name, String comment, String engine, String collation,
+                     String rowFormat, String createOptions) {}
     record ProfileRow(String columnName, String typeSignature, long frequency) {}
     record MySqlColumnRow(
             int position,

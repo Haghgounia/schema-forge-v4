@@ -4,7 +4,7 @@ R8 freezes the current supported operational contract. The following work is int
 
 | ID | Deferred capability | Rationale for deferral |
 |---|---|---|
-| F1 | MySQL Physical Contract / physical comparison | logical DDL, metadata, comparison, and M2 are already accepted; physical parity is a separate expansion |
+| F1 | MySQL Physical Contract / physical comparison | CLOSED in MySQL Physical Closure: table ENGINE/COLLATION/ROW_FORMAT/TABLESPACE, index access method, JDBC metadata and physical comparison |
 | F2 | Migration M3 | incoming foreign keys, dependency-wide destructive ordering, and physical ALTER require a new migration phase |
 | F3 | Advanced Physical Model | partitioning, compression, advanced storage/index tuning should not destabilize the operational freeze |
 | F4 | CRUD Parity | Oracle and SQL Server CRUD exist; PostgreSQL/Db2/MySQL parity is feature expansion |

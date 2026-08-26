@@ -140,6 +140,32 @@ class PhysicalMetadataComparatorTest {
         assertEquals("MIXED [PAGE, ROW]", row.actualValue());
     }
 
+
+    @Test
+    void comparesMySqlTableAndIndexPhysicalState() {
+        Table expected = baseTable("APP", "CUSTOMERS")
+                .physicalOption("MYSQL_ENGINE", "InnoDB")
+                .physicalOption("MYSQL_COLLATION", "utf8mb4_0900_ai_ci")
+                .physicalOption("MYSQL_ROW_FORMAT", "DYNAMIC")
+                .addIndex(index("IX_CUSTOMER_CODE", Map.of("MYSQL_INDEX_TYPE", "BTREE")))
+                .build();
+        Table actual = baseTable("APP", "CUSTOMERS")
+                .physicalOption("MYSQL_ENGINE", "InnoDB")
+                .physicalOption("MYSQL_COLLATION", "utf8mb4_0900_ai_ci")
+                .physicalOption("MYSQL_ROW_FORMAT", "COMPACT")
+                .addIndex(index("IX_CUSTOMER_CODE", Map.of("MYSQL_INDEX_TYPE", "BTREE")))
+                .build();
+
+        var tableRows = new PhysicalMetadataComparator().compareTable(expected, actual, "MYSQL");
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "ENGINE"));
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "COLLATION"));
+        assertEquals(PhysicalComparisonStatus.MISMATCH, status(tableRows, "ROW_FORMAT"));
+
+        var indexRows = new PhysicalMetadataComparator().compareIndexes(expected, actual, "MYSQL");
+        assertEquals(PhysicalComparisonStatus.MATCH,
+                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "ACCESS_METHOD"));
+    }
+
     private static PhysicalComparisonStatus status(List<PhysicalComparisonRow> rows, String property) {
         return row(rows, property).status();
     }

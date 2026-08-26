@@ -277,6 +277,11 @@ public final class PhysicalMetadataComparator {
                     identifier("FILEGROUP_OR_DATA_SPACE", "TABLESPACE"),
                     property("DATA_COMPRESSION", "SQLSERVER_TABLE_DATA_COMPRESSION", "TABLE_DATA_COMPRESSION"),
                     property("XML_COMPRESSION", "SQLSERVER_TABLE_XML_COMPRESSION", "TABLE_XML_COMPRESSION"));
+            case "MYSQL" -> List.of(
+                    property("ENGINE", "MYSQL_ENGINE", "ENGINE"),
+                    property("COLLATION", "MYSQL_COLLATION", "TABLE_COLLATION", "COLLATION"),
+                    property("ROW_FORMAT", "MYSQL_ROW_FORMAT", "ROW_FORMAT"),
+                    identifier("TABLESPACE", "TABLESPACE", "MYSQL_TABLESPACE"));
             case "DB2_ZOS" -> List.of(
                     identifier("DATABASE_TABLESPACE", "TABLESPACE"),
                     identifier("BUFFERPOOL", "DB2_TABLESPACE_BUFFERPOOL", "TABLESPACE_BUFFERPOOL", "DB2_BUFFERPOOL"),
@@ -336,6 +341,8 @@ public final class PhysicalMetadataComparator {
                     property("ALLOW_PAGE_LOCKS", "SQLSERVER_INDEX_ALLOW_PAGE_LOCKS", "INDEX_ALLOW_PAGE_LOCKS"),
                     property("XML_COMPRESSION", "SQLSERVER_INDEX_XML_COMPRESSION", "INDEX_XML_COMPRESSION"),
                     property("OPTIMIZE_FOR_SEQUENTIAL_KEY", "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY"));
+            case "MYSQL" -> List.of(
+                    property("ACCESS_METHOD", "MYSQL_INDEX_TYPE", "INDEX_TYPE", "INDEX_ACCESS_METHOD"));
             case "DB2_ZOS" -> List.of(
                     property("PADDING", "DB2_INDEX_PADDING", "INDEX_PADDING"),
                     identifier("STOGROUP", "DB2_INDEX_STOGROUP", "INDEX_STOGROUP"),

@@ -41,7 +41,6 @@ Db2 z/OS live acceptance has not been executed because a live Db2 z/OS environme
 
 The following are outside the R8 operational freeze scope and do not convert the accepted R7 evidence into failures:
 
-- MySQL physical contract/comparison;
 - Migration M3 incoming-FK and advanced physical ALTER behavior;
 - advanced physical model features;
 - CRUD parity for PostgreSQL, Db2 z/OS, and MySQL;

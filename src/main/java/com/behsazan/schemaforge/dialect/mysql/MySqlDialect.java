@@ -26,10 +26,9 @@ import java.util.Set;
 /**
  * MySQL logical DDL dialect.
  *
- * <p>P1 activates MySQL in the platform/factory path while deliberately keeping
- * metadata/JDBC and physical tuning out of scope. The dialect therefore renders
- * only evidence-safe logical constructs and rejects unsupported semantics rather
- * than translating them approximately.</p>
+ * <p>MySQL participates in the logical and physical SchemaForge contracts. Physical
+ * options remain evidence-safe and DBA-reviewable; unsupported semantics are rejected
+ * rather than translated approximately.</p>
  */
 public final class MySqlDialect implements Dialect {
     private static final int UTF8MB4_MAX_BYTES_PER_CHARACTER = 4;
@@ -303,13 +302,13 @@ public final class MySqlDialect implements Dialect {
 
     @Override
     public String tableTablespaceClause(String tablespace) {
-        // Physical placement is intentionally deferred to the MySQL physical phase.
-        return "";
+        if (tablespace == null || tablespace.isBlank()) return "";
+        return " TABLESPACE " + quote(Identifier.of(tablespace.trim()));
     }
 
     @Override
     public String indexTablespaceClause(String tablespace) {
-        // MySQL CREATE INDEX placement is not mapped from cross-DBMS TABLESPACE evidence in P1.
+        // MySQL has table/general-tablespace placement, not an independent CREATE INDEX TABLESPACE clause.
         return "";
     }
 
