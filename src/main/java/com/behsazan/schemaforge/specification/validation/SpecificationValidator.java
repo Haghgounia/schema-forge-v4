@@ -46,6 +46,12 @@ public final class SpecificationValidator {
             String name = column.name().normalized();
             String path = tablePath + ".columns." + column.name().value();
             if (!names.add(name)) issues.add(error("DUPLICATE_COLUMN", path, "Duplicate column name."));
+            if ("MISSING_DATA_TYPE".equalsIgnoreCase(column.dataType().name().normalized())) {
+                issues.add(error(
+                        "COLUMN_DATATYPE_UNRESOLVED",
+                        path,
+                        "Column data type is unresolved; executable DDL must not be generated until the source specification provides an exact type."));
+            }
             addSpellingIssues(column.name().value(), path, issues);
         }
         table.primaryKey().ifPresent(pk -> {

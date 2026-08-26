@@ -52,6 +52,7 @@ class WordDirectoryMultiDatabaseGenerationIT {
     private static final String PLATFORMS = "schemaforge.word.platforms";
     private static final String FAIL_ON_ERRORS = "schemaforge.word.failOnErrors";
     private static final String PARSER_MODE = "schemaforge.word.parserMode";
+    private static final String EXPECTED_MIN_DOCUMENTS = "schemaforge.word.expectedMinDocuments";
 
     private static final List<DatabasePlatform> DEFAULT_PLATFORMS = List.of(
             DatabasePlatform.ORACLE,
@@ -85,6 +86,11 @@ class WordDirectoryMultiDatabaseGenerationIT {
                     .sorted(Comparator.comparing(path -> normalize(inputRoot.relativize(path))))
                     .toList();
         }
+
+        int expectedMinDocuments = Integer.parseInt(System.getProperty(EXPECTED_MIN_DOCUMENTS, "0"));
+        assertTrue(documents.size() >= expectedMinDocuments,
+                "Word corpus is smaller than expected minimum: discovered=" + documents.size()
+                        + ", expectedMin=" + expectedMinDocuments);
 
         String timestamp = outputFileNamer.timestamp();
         List<String> summary = new ArrayList<>();
@@ -244,10 +250,41 @@ class WordDirectoryMultiDatabaseGenerationIT {
             summary.add(csvLine(relative, platform.commandLineName(), "GENERATION_FAILED",
                     Boolean.toString(prepared.validationReport().valid()), "0",
                     target == null ? "" : normalize(outputRoot.relativize(target)), message));
-            issues.add(csvLine(relative, platform.commandLineName(), "GENERATION", "", "GENERATION_FAILED",
-                    message, ""));
+            issues.add(csvLine(relative, platform.commandLineName(), "GENERATION", "",
+                    generationFailureCode(platform, exception), message, ""));
             System.out.println("[FAILED][" + platform.commandLineName() + "] " + relative + " - " + message);
         }
+    }
+
+    private String generationFailureCode(DatabasePlatform platform, Exception exception) {
+        String message = safeMessage(exception).toUpperCase(Locale.ROOT);
+        if (message.contains("UNRESOLVED CANONICAL DATATYPE")) {
+            return "CANONICAL_DATATYPE_UNRESOLVED";
+        }
+        if (platform == DatabasePlatform.MYSQL) {
+            if (message.contains("PERMITS ONLY ONE AUTO_INCREMENT")) {
+                return "MYSQL_MULTIPLE_AUTO_INCREMENT";
+            }
+            if (message.contains("AUTO_INCREMENT REQUIRES AN INTEGER COLUMN")) {
+                return "MYSQL_IDENTITY_INTEGER_UNREPRESENTABLE";
+            }
+            if (message.contains("DOES NOT MAP SEQUENCE NEXTVAL EXPRESSIONS")) {
+                return "MYSQL_SEQUENCE_NEXTVAL_UNSUPPORTED";
+            }
+            if (message.contains("DECIMAL PRECISION MUST BE BETWEEN 1 AND 65")) {
+                return "MYSQL_DECIMAL_PRECISION_UNSUPPORTED";
+            }
+        }
+        if (platform == DatabasePlatform.ORACLE && message.contains("NUMBER PRECISION EXCEEDS MAXIMUM")) {
+            return "ORACLE_NUMBER_PRECISION_UNSUPPORTED";
+        }
+        if (platform == DatabasePlatform.DB2_ZOS && message.contains("DECIMAL PRECISION EXCEEDS 31")) {
+            return "DB2_DECIMAL_PRECISION_UNSUPPORTED";
+        }
+        if (platform == DatabasePlatform.SQLSERVER && message.contains("DECIMAL PRECISION EXCEEDS MAXIMUM")) {
+            return "SQLSERVER_DECIMAL_PRECISION_UNSUPPORTED";
+        }
+        return "GENERATION_FAILED";
     }
 
     private List<ValidationFinding> validate(DatabasePlatform platform, String sql) {

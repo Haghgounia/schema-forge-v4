@@ -1,3 +1,21 @@
+## R7.3.2 — Word corpus failure-code reporting synchronization (2026-08-26)
+
+- Repackaged the R7.3.1 functional baseline with the structured failure classifier present in `WordDirectoryMultiDatabaseGenerationIT`.
+- No DDL semantics, parser behavior, or dialect mapping changed.
+- Failure reporting now distinguishes unresolved canonical datatypes, MySQL multiple AUTO_INCREMENT, sequence NEXTVAL portability, identity integer representability, and per-dialect decimal precision limits instead of collapsing them to `GENERATION_FAILED`.
+- Intended as the reporting prerequisite for the R7.3 SAFE strict acceptance freeze.
+
+## R7.3.1 — New Word corpus unresolved-datatype fail-closed gate (2026-08-25)
+
+- R7.3 SAFE discovery parsed all 660 standard DOCX files with zero parse failures and generated PostgreSQL for all 660; 19 dialect generation failures were isolated to 16 documents.
+- Classified those failures into five evidence-backed groups: one `NUMBER(510)` portability blocker, nine MySQL multiple-identity/AUTO_INCREMENT blockers, three source rows with missing datatype, two MySQL sequence `NEXTVAL` blockers, and one MySQL `NUMBER(20)` identity range blocker.
+- Fixed a cross-dialect safety gap where the canonical sentinel `MISSING_DATA_TYPE` could be rendered as executable type text by Oracle, PostgreSQL, Db2 z/OS and SQL Server.
+- `SpecificationValidator` now emits `ERROR/COLUMN_DATATYPE_UNRESOLVED` for that sentinel.
+- `DdlGenerator` now fails closed before dialect rendering when any executable column still has `MISSING_DATA_TYPE`; no target DBMS may publish guessed/invalid DDL for an unresolved source type.
+- Added focused five-dialect regression coverage in `UnresolvedCanonicalDatatypeGenerationTest` and updated the existing phase-1 parser regression to expect the unresolved-type model to be invalid while still exportable as diagnostic JSON.
+- Hardened `WordDirectoryMultiDatabaseGenerationIT` with `schemaforge.word.expectedMinDocuments` and structured generation-failure codes for R7.3 acceptance reporting.
+- No guess-based repair was added for multiple identities, sequence defaults, oversized exact numerics, or the `NUMBER(20)` MySQL identity case.
+
 ## R7.2 — Cross-dialect recovered canonical corpus preparation (2026-08-25)
 
 - Classified the first SAFE four-DBMS corpus gate: PostgreSQL generated all 5,321 snapshots; Oracle blocked 25; Db2/zOS blocked 1,508; SQL Server blocked 1,498; canonical read/validation failures remained zero.

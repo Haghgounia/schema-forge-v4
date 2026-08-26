@@ -106,8 +106,14 @@ class Phase1PipelineTest {
 
         assertNotNull(report);
 
-        assertTrue(
+        assertFalse(
                 report.valid(),
+                "A column with MISSING_DATA_TYPE must make the canonical model invalid"
+        );
+        assertTrue(
+                report.issues().stream().anyMatch(issue ->
+                        issue.code().equals("COLUMN_DATATYPE_UNRESOLVED")
+                                && issue.path().endsWith(".POPULATION")),
                 () -> "Validation issues: " + report.issues()
         );
 

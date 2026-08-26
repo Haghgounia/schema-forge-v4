@@ -413,6 +413,12 @@ public final class DdlGenerator {
             sql.append("/* ").append(String.format(Locale.ROOT, "%3d", metadataFrequency)).append("*/  ");
         }
         sql.append(dialect.quote(column.name()));
+        if ("MISSING_DATA_TYPE".equalsIgnoreCase(column.dataType().name().normalized())) {
+            throw new IllegalArgumentException(
+                    "Unresolved canonical datatype for "
+                            + table.qualifiedName() + "." + column.name().value()
+                            + "; source specification must provide an exact datatype before DDL generation");
+        }
         if (!column.generated() || dialect.generatedColumnIncludesDataType()) {
             sql.append(" ").append(dialect.sqlType(schemaContext, table, column));
         }
