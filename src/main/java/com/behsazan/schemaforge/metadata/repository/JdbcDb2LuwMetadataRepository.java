@@ -41,6 +41,7 @@ import java.util.Set;
 @ConditionalOnProperty(prefix = "schemaforge.metadata.db2luw", name = "enabled", havingValue = "true")
 public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcDb2LuwMetadataRepository.class);
+    private static final String REVIEW_PREFIX = "REVIEW:";
 
     static final String COLUMN_PROFILE_SQL = """
             SELECT C.COLNAME AS COLUMN_NAME,
@@ -77,6 +78,23 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
                       END,
                       TABSCHEMA,
                       TABNAME
+             WITH UR
+            """;
+
+    static final String TABLE_PHYSICAL_SQL = """
+            SELECT TBSPACE,
+                   INDEX_TBSPACE,
+                   LONG_TBSPACE,
+                   PCTFREE,
+                   APPEND_MODE,
+                   VOLATILE,
+                   COMPRESSION,
+                   ROWCOMPMODE,
+                   TABLEORG
+              FROM SYSCAT.TABLES
+             WHERE TABSCHEMA = :schemaName
+               AND TABNAME = :tableName
+               AND TYPE IN ('T', 'U')
              WITH UR
             """;
 
@@ -162,11 +180,19 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
                    U.COLORDER,
                    U.COLNAME AS COLUMN_NAME,
                    U.VIRTUAL,
-                   U.TEXT AS EXPRESSION_TEXT
+                   U.TEXT AS EXPRESSION_TEXT,
+                   TS.TBSPACE AS INDEX_TABLESPACE,
+                   I.PCTFREE,
+                   I.MINPCTUSED,
+                   I.REVERSE_SCANS,
+                   I.COMPRESSION,
+                   I.PAGESPLIT
               FROM SYSCAT.INDEXES I
               JOIN SYSCAT.INDEXCOLUSE U
                 ON U.INDSCHEMA = I.INDSCHEMA
                AND U.INDNAME = I.INDNAME
+              LEFT JOIN SYSCAT.TABLESPACES TS
+                ON TS.TBSPACEID = I.TBSPACEID
              WHERE I.TABSCHEMA = :schemaName
                AND I.TABNAME = :tableName
                AND I.INDEXTYPE = 'REG'
@@ -229,6 +255,21 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
                 .addValue("schemaName", info.schema())
                 .addValue("tableName", info.name());
 
+        List<Db2LuwTablePhysicalRow> tablePhysical = jdbcTemplate.query(TABLE_PHYSICAL_SQL, exact,
+                (rs, rowNumber) -> new Db2LuwTablePhysicalRow(
+                        trimToNull(rs.getString("TBSPACE")),
+                        trimToNull(rs.getString("INDEX_TBSPACE")),
+                        trimToNull(rs.getString("LONG_TBSPACE")),
+                        nullableInt(rs, "PCTFREE"),
+                        trimToNull(rs.getString("APPEND_MODE")),
+                        trimToNull(rs.getString("VOLATILE")),
+                        trimToNull(rs.getString("COMPRESSION")),
+                        trimToNull(rs.getString("ROWCOMPMODE")),
+                        trimToNull(rs.getString("TABLEORG"))));
+        if (!tablePhysical.isEmpty()) {
+            db2LuwTablePhysicalOptions(tablePhysical.getFirst()).forEach(builder::physicalOption);
+        }
+
         List<Db2LuwColumnRow> columns = jdbcTemplate.query(COLUMNS_SQL, exact,
                 (rs, rowNumber) -> new Db2LuwColumnRow(
                         rs.getInt("COLUMN_ID"),
@@ -246,13 +287,30 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
                         trimToNull(rs.getString("TEXT"))));
         columns.stream().map(JdbcDb2LuwMetadataRepository::mapColumn).forEach(builder::addColumn);
 
+        List<IndexRow> indexes = jdbcTemplate.query(INDEXES_SQL, exact,
+                (rs, rowNumber) -> new IndexRow(
+                        rs.getString("INDEX_SCHEMA"),
+                        rs.getString("INDEX_NAME"),
+                        rs.getString("UNIQUERULE"),
+                        rs.getInt("COLUMN_POSITION"),
+                        rs.getString("COLORDER"),
+                        trimToNull(rs.getString("COLUMN_NAME")),
+                        trimToNull(rs.getString("VIRTUAL")),
+                        trimToNull(rs.getString("EXPRESSION_TEXT")),
+                        trimToNull(rs.getString("INDEX_TABLESPACE")),
+                        nullableInt(rs, "PCTFREE"),
+                        nullableInt(rs, "MINPCTUSED"),
+                        trimToNull(rs.getString("REVERSE_SCANS")),
+                        trimToNull(rs.getString("COMPRESSION")),
+                        trimToNull(rs.getString("PAGESPLIT"))));
+
         List<KeyConstraintRow> keys = jdbcTemplate.query(KEY_CONSTRAINTS_SQL, exact,
                 (rs, rowNumber) -> new KeyConstraintRow(
                         rs.getString("CONSTRAINT_NAME"),
                         rs.getString("CONSTRAINT_TYPE"),
                         rs.getString("COLUMN_NAME"),
                         rs.getInt("COLUMN_POSITION")));
-        mapKeys(builder, keys);
+        mapKeys(builder, keys, indexes);
 
         List<ForeignKeyRow> foreignKeys = jdbcTemplate.query(FOREIGN_KEYS_SQL, exact,
                 (rs, rowNumber) -> new ForeignKeyRow(
@@ -275,16 +333,6 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
             }
         }
 
-        List<IndexRow> indexes = jdbcTemplate.query(INDEXES_SQL, exact,
-                (rs, rowNumber) -> new IndexRow(
-                        rs.getString("INDEX_SCHEMA"),
-                        rs.getString("INDEX_NAME"),
-                        rs.getString("UNIQUERULE"),
-                        rs.getInt("COLUMN_POSITION"),
-                        rs.getString("COLORDER"),
-                        trimToNull(rs.getString("COLUMN_NAME")),
-                        trimToNull(rs.getString("VIRTUAL")),
-                        trimToNull(rs.getString("EXPRESSION_TEXT"))));
         mapIndexes(builder, indexes, keys);
 
         return Optional.of(builder.build());
@@ -335,6 +383,11 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
     }
 
     static void mapKeys(Table.Builder builder, List<KeyConstraintRow> rows) {
+        mapKeys(builder, rows, List.of());
+    }
+
+    static void mapKeys(Table.Builder builder, List<KeyConstraintRow> rows, List<IndexRow> indexes) {
+        Map<List<String>, Map<String, String>> indexPhysicalByKey = constraintIndexPhysicalByKey(indexes);
         Map<String, List<KeyConstraintRow>> grouped = new LinkedHashMap<>();
         for (KeyConstraintRow row : rows) {
             grouped.computeIfAbsent(row.name(), ignored -> new ArrayList<>()).add(row);
@@ -343,10 +396,12 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
             group.sort(Comparator.comparingInt(KeyConstraintRow::position));
             KeyConstraintRow first = group.getFirst();
             List<Identifier> columns = group.stream().map(row -> Identifier.of(row.column())).toList();
+            Map<String, String> physicalOptions = indexPhysicalByKey.getOrDefault(
+                    columns.stream().map(id -> id.normalized()).toList(), Map.of());
             if ("P".equalsIgnoreCase(first.type())) {
-                builder.primaryKey(new PrimaryKey(identifierOrNull(first.name()), columns));
+                builder.primaryKey(new PrimaryKey(identifierOrNull(first.name()), columns, false, false, physicalOptions));
             } else if ("U".equalsIgnoreCase(first.type())) {
-                builder.addUniqueKey(new UniqueKey(identifierOrNull(first.name()), columns));
+                builder.addUniqueKey(new UniqueKey(identifierOrNull(first.name()), columns, false, false, physicalOptions));
             }
         }
     }
@@ -427,8 +482,114 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
                     Description.empty(),
                     includeColumns,
                     null,
-                    Map.of()));
+                    db2LuwIndexPhysicalOptions(group.getFirst())));
         }
+    }
+
+    static Map<String, String> db2LuwTablePhysicalOptions(Db2LuwTablePhysicalRow row) {
+        Map<String, String> options = new LinkedHashMap<>();
+        put(options, "TABLESPACE", row.tablespace());
+        put(options, "DB2_LUW_INDEX_TABLESPACE",
+                row.indexTablespace() == null ? row.tablespace() : row.indexTablespace());
+        put(options, "DB2_LUW_LONG_TABLESPACE",
+                row.longTablespace() == null ? row.tablespace() : row.longTablespace());
+        if (row.pctFree() != null) {
+            options.put("DB2_LUW_TABLE_PCTFREE", Integer.toString(row.pctFree() < 0 ? 0 : row.pctFree()));
+        }
+        mapCode(options, "DB2_LUW_APPEND", row.appendMode(), Map.of("N", "OFF", "Y", "ON"));
+        String volatileCode = row.volatileMode();
+        if (volatileCode == null || volatileCode.isBlank()) {
+            options.put("DB2_LUW_VOLATILE", "NO");
+        } else if ("C".equalsIgnoreCase(volatileCode)) {
+            options.put("DB2_LUW_VOLATILE", "YES");
+        } else {
+            options.put("DB2_LUW_VOLATILE", REVIEW_PREFIX + volatileCode);
+        }
+        mapCode(options, "DB2_LUW_TABLE_ORGANIZATION", row.tableOrganization(),
+                Map.of("R", "ROW", "C", "COLUMN"));
+        mapCompression(options, row.compression(), row.rowCompressionMode());
+        return Map.copyOf(options);
+    }
+
+    static Map<String, String> db2LuwIndexPhysicalOptions(IndexRow row) {
+        Map<String, String> options = new LinkedHashMap<>();
+        put(options, "INDEX_TABLESPACE", row.tablespace());
+        put(options, "DB2_LUW_INDEX_PCTFREE", row.pctFree());
+        put(options, "DB2_LUW_INDEX_MINPCTUSED", row.minPctUsed());
+        mapCode(options, "DB2_LUW_INDEX_REVERSE_SCANS", row.reverseScans(), Map.of("N", "DISALLOW", "Y", "ALLOW"));
+        mapCode(options, "DB2_LUW_INDEX_COMPRESSION", row.compression(), Map.of("N", "NO", "Y", "YES"));
+        mapCode(options, "DB2_LUW_INDEX_PAGE_SPLIT", row.pageSplit(),
+                Map.of("H", "HIGH", "L", "LOW", "S", "SYMMETRIC"));
+        return Map.copyOf(options);
+    }
+
+    private static Map<List<String>, Map<String, String>> constraintIndexPhysicalByKey(List<IndexRow> rows) {
+        Map<String, List<IndexRow>> grouped = new LinkedHashMap<>();
+        for (IndexRow row : rows) {
+            grouped.computeIfAbsent(row.schema() + "." + row.name(), ignored -> new ArrayList<>()).add(row);
+        }
+        Map<List<String>, Map<String, String>> result = new LinkedHashMap<>();
+        for (List<IndexRow> group : grouped.values()) {
+            group.sort(Comparator.comparingInt(IndexRow::position));
+            IndexRow first = group.getFirst();
+            if (!isUniqueRule(first.uniqueRule())) continue;
+            List<String> key = group.stream()
+                    .filter(row -> !"I".equalsIgnoreCase(row.order()))
+                    .filter(row -> row.column() != null)
+                    .map(row -> Identifier.of(row.column()).normalized())
+                    .toList();
+            if (!key.isEmpty()) result.putIfAbsent(key, db2LuwIndexPhysicalOptions(first));
+        }
+        return result;
+    }
+
+    private static void mapCompression(Map<String, String> options, String compression, String rowMode) {
+        String c = compression == null ? "" : compression.trim().toUpperCase(Locale.ROOT);
+        String mode = rowMode == null ? "" : rowMode.trim().toUpperCase(Locale.ROOT);
+        switch (c) {
+            case "N", "" -> {
+                options.put("DB2_LUW_ROW_COMPRESSION", "NO");
+                options.put("DB2_LUW_VALUE_COMPRESSION", "NO");
+            }
+            case "R" -> {
+                options.put("DB2_LUW_ROW_COMPRESSION", compressionMode(mode));
+                options.put("DB2_LUW_VALUE_COMPRESSION", "NO");
+            }
+            case "V" -> {
+                options.put("DB2_LUW_ROW_COMPRESSION", "NO");
+                options.put("DB2_LUW_VALUE_COMPRESSION", "YES");
+            }
+            case "B" -> {
+                options.put("DB2_LUW_ROW_COMPRESSION", compressionMode(mode));
+                options.put("DB2_LUW_VALUE_COMPRESSION", "YES");
+            }
+            default -> {
+                options.put("DB2_LUW_ROW_COMPRESSION", REVIEW_PREFIX + compression);
+                options.put("DB2_LUW_VALUE_COMPRESSION", REVIEW_PREFIX + compression);
+            }
+        }
+    }
+
+    private static String compressionMode(String mode) {
+        return switch (mode) {
+            case "A" -> "ADAPTIVE";
+            case "S" -> "STATIC";
+            case "" -> REVIEW_PREFIX + "ROW_COMPRESSION_MODE_UNAVAILABLE";
+            default -> REVIEW_PREFIX + mode;
+        };
+    }
+
+    private static void mapCode(Map<String, String> target, String key, String raw, Map<String, String> mapping) {
+        if (raw == null) return;
+        String normalized = raw.trim().toUpperCase(Locale.ROOT);
+        String mapped = mapping.get(normalized);
+        target.put(key, mapped == null ? REVIEW_PREFIX + raw.trim() : mapped);
+    }
+
+    private static void put(Map<String, String> target, String key, Object value) {
+        if (value == null) return;
+        String normalized = value.toString().trim();
+        if (!normalized.isEmpty()) target.put(key, normalized);
     }
 
     static String profileSignature(ResultSet rs) throws SQLException {
@@ -508,6 +669,9 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
 
     record ProfileRow(String columnName, String typeSignature, long frequency) { }
     record TableInfo(String schema, String name, String comment) { }
+    record Db2LuwTablePhysicalRow(String tablespace, String indexTablespace, String longTablespace,
+                                  Integer pctFree, String appendMode, String volatileMode,
+                                  String compression, String rowCompressionMode, String tableOrganization) { }
     record Db2LuwColumnRow(Integer position, String name, String typeSchema, String typeName,
                            Integer length, Integer scale, Integer stringUnitsLength,
                            boolean nullable, String defaultValue, String comment,
@@ -518,5 +682,13 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
                          String deleteRule, String updateRule) { }
     record CheckRow(String name, String expression) { }
     record IndexRow(String schema, String name, String uniqueRule, int position, String order,
-                    String column, String virtual, String expression) { }
+                    String column, String virtual, String expression, String tablespace,
+                    Integer pctFree, Integer minPctUsed, String reverseScans,
+                    String compression, String pageSplit) {
+        IndexRow(String schema, String name, String uniqueRule, int position, String order,
+                 String column, String virtual, String expression) {
+            this(schema, name, uniqueRule, position, order, column, virtual, expression,
+                    null, null, null, null, null, null);
+        }
+    }
 }

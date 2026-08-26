@@ -89,6 +89,9 @@ class JdbcDb2LuwMetadataRepositoryTest {
     @Test
     void catalogQueriesUseDocumentedLuwSyscatViewsAndUncommittedRead() {
         assertTrue(JdbcDb2LuwMetadataRepository.TABLE_SQL.contains("SYSCAT.TABLES"));
+        assertTrue(JdbcDb2LuwMetadataRepository.TABLE_PHYSICAL_SQL.contains("SYSCAT.TABLES"));
+        assertTrue(JdbcDb2LuwMetadataRepository.TABLE_PHYSICAL_SQL.contains("INDEX_TBSPACE"));
+        assertTrue(JdbcDb2LuwMetadataRepository.TABLE_PHYSICAL_SQL.contains("ROWCOMPMODE"));
         assertTrue(JdbcDb2LuwMetadataRepository.COLUMNS_SQL.contains("SYSCAT.COLUMNS"));
         assertTrue(JdbcDb2LuwMetadataRepository.KEY_CONSTRAINTS_SQL.contains("SYSCAT.TABCONST"));
         assertTrue(JdbcDb2LuwMetadataRepository.KEY_CONSTRAINTS_SQL.contains("SYSCAT.KEYCOLUSE"));
@@ -96,8 +99,40 @@ class JdbcDb2LuwMetadataRepositoryTest {
         assertTrue(JdbcDb2LuwMetadataRepository.CHECKS_SQL.contains("SYSCAT.CHECKS"));
         assertTrue(JdbcDb2LuwMetadataRepository.INDEXES_SQL.contains("SYSCAT.INDEXES"));
         assertTrue(JdbcDb2LuwMetadataRepository.INDEXES_SQL.contains("SYSCAT.INDEXCOLUSE"));
+        assertTrue(JdbcDb2LuwMetadataRepository.INDEXES_SQL.contains("SYSCAT.TABLESPACES"));
+        assertTrue(JdbcDb2LuwMetadataRepository.INDEXES_SQL.contains("MINPCTUSED"));
+        assertTrue(JdbcDb2LuwMetadataRepository.INDEXES_SQL.contains("REVERSE_SCANS"));
         assertTrue(JdbcDb2LuwMetadataRepository.TABLE_SQL.contains("WITH UR"));
         assertTrue(JdbcDb2LuwMetadataRepository.COLUMNS_SQL.contains("COALESCE(HIDDEN, ' ') = ' '"));
+    }
+
+    @Test
+    void mapsPersistentLuwTableAndIndexPhysicalCatalogState() {
+        var tableOptions = JdbcDb2LuwMetadataRepository.db2LuwTablePhysicalOptions(
+                new JdbcDb2LuwMetadataRepository.Db2LuwTablePhysicalRow(
+                        "TS_DATA", null, "TS_LONG", -1, "N", null, "B", "A", "R"));
+
+        assertEquals("TS_DATA", tableOptions.get("TABLESPACE"));
+        assertEquals("TS_DATA", tableOptions.get("DB2_LUW_INDEX_TABLESPACE"));
+        assertEquals("TS_LONG", tableOptions.get("DB2_LUW_LONG_TABLESPACE"));
+        assertEquals("0", tableOptions.get("DB2_LUW_TABLE_PCTFREE"));
+        assertEquals("OFF", tableOptions.get("DB2_LUW_APPEND"));
+        assertEquals("NO", tableOptions.get("DB2_LUW_VOLATILE"));
+        assertEquals("ROW", tableOptions.get("DB2_LUW_TABLE_ORGANIZATION"));
+        assertEquals("ADAPTIVE", tableOptions.get("DB2_LUW_ROW_COMPRESSION"));
+        assertEquals("YES", tableOptions.get("DB2_LUW_VALUE_COMPRESSION"));
+
+        var indexOptions = JdbcDb2LuwMetadataRepository.db2LuwIndexPhysicalOptions(
+                new JdbcDb2LuwMetadataRepository.IndexRow(
+                        "APP", "IX_SAMPLE", "D", 1, "A", "CODE", "N", null,
+                        "TS_INDEX", 15, 40, "Y", "Y", "L"));
+
+        assertEquals("TS_INDEX", indexOptions.get("INDEX_TABLESPACE"));
+        assertEquals("15", indexOptions.get("DB2_LUW_INDEX_PCTFREE"));
+        assertEquals("40", indexOptions.get("DB2_LUW_INDEX_MINPCTUSED"));
+        assertEquals("ALLOW", indexOptions.get("DB2_LUW_INDEX_REVERSE_SCANS"));
+        assertEquals("YES", indexOptions.get("DB2_LUW_INDEX_COMPRESSION"));
+        assertEquals("LOW", indexOptions.get("DB2_LUW_INDEX_PAGE_SPLIT"));
     }
 
     private static Table.Builder baseTable() {

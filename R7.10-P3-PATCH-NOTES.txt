@@ -1,0 +1,17 @@
+SchemaForge V4 - R7.10 Db2 LUW P3
+Physical Metadata / Physical DDL Contract / Comparison
+
+Apply over a workspace that already contains R7.10 P1 and P2.
+
+Production changes:
+- Db2LuwPhysicalRenderer
+- PhysicalCommentRendererResolver DB2_LUW routing
+- JdbcDb2LuwMetadataRepository physical SYSCAT mapping
+- PhysicalMetadataComparator DB2_LUW property contract
+
+Tests:
+- Db2LuwPhysicalContractTest
+- JdbcDb2LuwMetadataRepositoryTest additions
+- PhysicalMetadataComparatorTest additions
+
+Db2/zOS code and physical contract are not modified.

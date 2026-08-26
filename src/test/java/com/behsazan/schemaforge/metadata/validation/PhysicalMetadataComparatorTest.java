@@ -166,6 +166,58 @@ class PhysicalMetadataComparatorTest {
                 status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "ACCESS_METHOD"));
     }
 
+    @Test
+    void comparesDb2LuwTableAndIndexPhysicalStateIndependentlyFromDb2Zos() {
+        Table expected = baseTable("APP", "CUSTOMERS")
+                .physicalOption("TABLESPACE", "TS_DATA")
+                .physicalOption("DB2_LUW_INDEX_TABLESPACE", "TS_INDEX")
+                .physicalOption("DB2_LUW_LONG_TABLESPACE", "TS_LONG")
+                .physicalOption("DB2_LUW_TABLE_PCTFREE", "5")
+                .physicalOption("DB2_LUW_APPEND", "OFF")
+                .physicalOption("DB2_LUW_TABLE_ORGANIZATION", "ROW")
+                .physicalOption("DB2_LUW_ROW_COMPRESSION", "ADAPTIVE")
+                .physicalOption("DB2_LUW_VALUE_COMPRESSION", "YES")
+                .addIndex(index("IX_CUSTOMER_CODE", Map.of(
+                        "INDEX_TABLESPACE", "TS_INDEX",
+                        "DB2_LUW_INDEX_PCTFREE", "15",
+                        "DB2_LUW_INDEX_MINPCTUSED", "40",
+                        "DB2_LUW_INDEX_REVERSE_SCANS", "ALLOW",
+                        "DB2_LUW_INDEX_COMPRESSION", "YES",
+                        "DB2_LUW_INDEX_PAGE_SPLIT", "LOW")))
+                .build();
+        Table actual = baseTable("APP", "CUSTOMERS")
+                .physicalOption("TABLESPACE", "TS_DATA")
+                .physicalOption("DB2_LUW_INDEX_TABLESPACE", "TS_INDEX")
+                .physicalOption("DB2_LUW_LONG_TABLESPACE", "TS_LONG")
+                .physicalOption("DB2_LUW_TABLE_PCTFREE", "10")
+                .physicalOption("DB2_LUW_APPEND", "OFF")
+                .physicalOption("DB2_LUW_TABLE_ORGANIZATION", "ROW")
+                .physicalOption("DB2_LUW_ROW_COMPRESSION", "ADAPTIVE")
+                .physicalOption("DB2_LUW_VALUE_COMPRESSION", "YES")
+                .addIndex(index("IX_CUSTOMER_CODE", Map.of(
+                        "INDEX_TABLESPACE", "TS_INDEX",
+                        "DB2_LUW_INDEX_PCTFREE", "15",
+                        "DB2_LUW_INDEX_MINPCTUSED", "40",
+                        "DB2_LUW_INDEX_REVERSE_SCANS", "ALLOW",
+                        "DB2_LUW_INDEX_COMPRESSION", "NO",
+                        "DB2_LUW_INDEX_PAGE_SPLIT", "LOW")))
+                .build();
+
+        var tableRows = new PhysicalMetadataComparator().compareTable(expected, actual, "DB2_LUW");
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "TABLESPACE"));
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "INDEX_TABLESPACE"));
+        assertEquals(PhysicalComparisonStatus.MISMATCH, status(tableRows, "PCTFREE"));
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "ROW_COMPRESSION"));
+
+        var indexRows = new PhysicalMetadataComparator().compareIndexes(expected, actual, "db2luw");
+        assertEquals(PhysicalComparisonStatus.MATCH,
+                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "TABLESPACE"));
+        assertEquals(PhysicalComparisonStatus.MATCH,
+                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "PCTFREE"));
+        assertEquals(PhysicalComparisonStatus.MISMATCH,
+                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "COMPRESSION"));
+    }
+
     private static PhysicalComparisonStatus status(List<PhysicalComparisonRow> rows, String property) {
         return row(rows, property).status();
     }

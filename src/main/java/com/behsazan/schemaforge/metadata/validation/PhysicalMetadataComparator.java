@@ -282,6 +282,16 @@ public final class PhysicalMetadataComparator {
                     property("COLLATION", "MYSQL_COLLATION", "TABLE_COLLATION", "COLLATION"),
                     property("ROW_FORMAT", "MYSQL_ROW_FORMAT", "ROW_FORMAT"),
                     identifier("TABLESPACE", "TABLESPACE", "MYSQL_TABLESPACE"));
+            case "DB2_LUW" -> List.of(
+                    identifier("TABLESPACE", "TABLESPACE"),
+                    identifier("INDEX_TABLESPACE", "DB2_LUW_INDEX_TABLESPACE", "TABLE_INDEX_TABLESPACE"),
+                    identifier("LONG_TABLESPACE", "DB2_LUW_LONG_TABLESPACE", "TABLE_LONG_TABLESPACE"),
+                    property("PCTFREE", "DB2_LUW_TABLE_PCTFREE", "TABLE_PCTFREE", "PCTFREE"),
+                    property("APPEND_MODE", "DB2_LUW_APPEND", "TABLE_APPEND", "APPEND"),
+                    property("VOLATILE", "DB2_LUW_VOLATILE", "TABLE_VOLATILE", "VOLATILE"),
+                    property("ORGANIZATION", "DB2_LUW_TABLE_ORGANIZATION", "TABLE_ORGANIZATION"),
+                    property("ROW_COMPRESSION", "DB2_LUW_ROW_COMPRESSION", "TABLE_ROW_COMPRESSION"),
+                    property("VALUE_COMPRESSION", "DB2_LUW_VALUE_COMPRESSION", "TABLE_VALUE_COMPRESSION"));
             case "DB2_ZOS" -> List.of(
                     identifier("DATABASE_TABLESPACE", "TABLESPACE"),
                     identifier("BUFFERPOOL", "DB2_TABLESPACE_BUFFERPOOL", "TABLESPACE_BUFFERPOOL", "DB2_BUFFERPOOL"),
@@ -343,6 +353,13 @@ public final class PhysicalMetadataComparator {
                     property("OPTIMIZE_FOR_SEQUENTIAL_KEY", "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY"));
             case "MYSQL" -> List.of(
                     property("ACCESS_METHOD", "MYSQL_INDEX_TYPE", "INDEX_TYPE", "INDEX_ACCESS_METHOD"));
+            case "DB2_LUW" -> List.of(
+                    identifier("TABLESPACE", "INDEX_TABLESPACE"),
+                    property("PCTFREE", "DB2_LUW_INDEX_PCTFREE", "INDEX_PCTFREE"),
+                    property("MINPCTUSED", "DB2_LUW_INDEX_MINPCTUSED", "INDEX_MINPCTUSED"),
+                    property("REVERSE_SCANS", "DB2_LUW_INDEX_REVERSE_SCANS", "INDEX_REVERSE_SCANS"),
+                    property("COMPRESSION", "DB2_LUW_INDEX_COMPRESSION", "INDEX_COMPRESSION"),
+                    property("PAGE_SPLIT", "DB2_LUW_INDEX_PAGE_SPLIT", "INDEX_PAGE_SPLIT"));
             case "DB2_ZOS" -> List.of(
                     property("PADDING", "DB2_INDEX_PADDING", "INDEX_PADDING"),
                     identifier("STOGROUP", "DB2_INDEX_STOGROUP", "INDEX_STOGROUP"),
@@ -466,6 +483,7 @@ public final class PhysicalMetadataComparator {
         if (normalized.equals("POSTGRES") || normalized.equals("POSTGRESQL")) return "POSTGRESQL";
         if (normalized.equals("SQL_SERVER") || normalized.equals("SQLSERVER")) return "SQLSERVER";
         if (normalized.equals("DB2") || normalized.equals("DB2ZOS") || normalized.equals("DB2_ZOS")) return "DB2_ZOS";
+        if (normalized.equals("DB2LUW") || normalized.equals("DB2_LUW") || normalized.equals("LUW")) return "DB2_LUW";
         return normalized;
     }
 
