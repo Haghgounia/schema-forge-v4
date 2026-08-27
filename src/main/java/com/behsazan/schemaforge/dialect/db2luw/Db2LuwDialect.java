@@ -93,6 +93,25 @@ public final class Db2LuwDialect implements Dialect {
     }
 
     @Override
+    public String inlineColumnConstraintClause(com.behsazan.schemaforge.domain.model.Table table, Column column) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(column, "column must not be null");
+        if (!column.nullable()) {
+            return "";
+        }
+        boolean primaryKeyColumn = table.primaryKey()
+                .map(primaryKey -> primaryKey.columns().stream()
+                        .anyMatch(keyColumn -> keyColumn.normalized().equals(column.name().normalized())))
+                .orElse(false);
+        if (!primaryKeyColumn) {
+            return "";
+        }
+        return " NOT NULL /* [DB2/LUW PK NULLABILITY ADAPTATION][DB2LUW-PK-NULL-001] "
+                + "Db2 LUW requires every PRIMARY KEY column to be explicitly NOT NULL. "
+                + "The canonical nullable flag was preserved; only target DDL nullability was adapted. */";
+    }
+
+    @Override
     public String generatedColumnClause(Column column) {
         return " GENERATED ALWAYS AS (" + expression(column.generatedExpression()) + ")";
     }

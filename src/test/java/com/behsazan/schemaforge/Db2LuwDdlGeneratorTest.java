@@ -106,6 +106,26 @@ class Db2LuwDdlGeneratorTest {
     }
 
     @Test
+    void adaptsNullableCanonicalPrimaryKeyColumnToExplicitNotNull() {
+        Column id = new Column(Identifier.of("ID"), DataType.numeric("NUMBER", 9, 0),
+                true, null, new Description("Legacy PK with nullable source flag"), false, 1);
+        Table table = Table.builder("TSTSHMA", "LEGACY_PK_TABLE")
+                .addColumn(id)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_LEGACY_PK_TABLE"), List.of(Identifier.of("ID"))))
+                .build();
+        DatabaseSchema schema = DatabaseSchema.builder("TSTSHMA")
+                .addTable(table)
+                .build();
+
+        String sql = new DdlGenerator(new Db2LuwDialect()).generate(schema);
+
+        assertTrue(id.nullable(), "target adaptation must not mutate the canonical column");
+        assertTrue(sql.contains("ID DECIMAL(9,0) NOT NULL"));
+        assertTrue(sql.contains("[DB2/LUW PK NULLABILITY ADAPTATION][DB2LUW-PK-NULL-001]"));
+        assertTrue(sql.contains("CONSTRAINT PK_LEGACY_PK_TABLE PRIMARY KEY (ID)"));
+    }
+
+    @Test
     void doesNotEmitInvalidSequenceNextValueAsColumnDefault() {
         Column id = new Column(Identifier.of("ID"), DataType.numeric("NUMBER", 9, 0),
                 false, new DefaultValue("BIM.SEQ_DOC.NEXTVAL"),

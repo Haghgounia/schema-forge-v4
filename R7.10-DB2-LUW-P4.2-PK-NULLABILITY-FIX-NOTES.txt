@@ -1,0 +1,18 @@
+R7.10 Db2 LUW P4.2 - PRIMARY KEY nullability adaptation
+
+Evidence from live Legacy corpus execution (4693 generated Db2 LUW scripts):
+- 1226 failed statements
+- all 1226 failures were CREATE TABLE
+- all 1226 were SQLCODE=-542 / SQLSTATE=42831
+- Db2 reported a key column that could contain NULL
+
+Root cause:
+Legacy canonical snapshots can contain nullable=true for a column that is also part of a PRIMARY KEY.
+Other engines may infer NOT NULL from PRIMARY KEY, but Db2 LUW rejects the CREATE TABLE unless the key column is explicitly NOT NULL.
+
+Fix:
+Db2LuwDialect now adds explicit NOT NULL for nullable canonical PRIMARY KEY columns.
+The canonical model/JSON is not mutated. A DBA-visible adaptation comment is emitted in the SQL:
+[DB2/LUW PK NULLABILITY ADAPTATION][DB2LUW-PK-NULL-001]
+
+Scope is Db2 LUW only. No behavior change for the other DBMS dialects.
