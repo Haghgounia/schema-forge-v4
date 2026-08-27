@@ -11,6 +11,7 @@ import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudGeneration
 import com.behsazan.schemaforge.generation.procedure.oracle.OracleCrudPackageGenerator;
 import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudGenerationOptions;
 import com.behsazan.schemaforge.generation.procedure.sqlserver.SqlServerCrudProcedureGenerator;
+import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Produces metadata-based Oracle and SQL Server CRUD artifacts for prepared schemas.
@@ -85,12 +87,33 @@ public final class CrudArtifactProducer {
             String baseName,
             String timestamp,
             ArtifactGenerationContext context) throws IOException {
+        writeMetadataCrudArtifacts(documentSchema, output, baseName, timestamp, context,
+                Set.of(DatabasePlatform.values()));
+    }
+
+    public void writeMetadataCrudArtifacts(
+            DatabaseSchema documentSchema,
+            Path output,
+            String baseName,
+            String timestamp,
+            ArtifactGenerationContext context,
+            Set<DatabasePlatform> platforms) throws IOException {
+
+        boolean oracleSelected = platforms.contains(DatabasePlatform.ORACLE);
+        boolean sqlServerSelected = platforms.contains(DatabasePlatform.SQLSERVER);
+        if (!oracleSelected && !sqlServerSelected) {
+            return;
+        }
 
         List<String> summary = new ArrayList<>();
         summary.add("platform,schema,table,status,file,error");
 
-        writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary, context);
-        writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary, context);
+        if (oracleSelected) {
+            writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary, context);
+        }
+        if (sqlServerSelected) {
+            writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary, context);
+        }
 
         Path summaryPath = output.resolve(
                 artifactNamingPolicy.metadataCrudSummaryRelativePath(baseName, timestamp));
@@ -109,7 +132,8 @@ public final class CrudArtifactProducer {
             List<String> summary,
             ArtifactGenerationContext context) {
 
-        MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
+        MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
+                platform, metadataRepositoryResolver.resolve(platform));
         for (Table documentTable : documentSchema.tables()) {
             String schemaName = tableSchema(documentSchema, documentTable);
             String tableName = documentTable.qualifiedName().name().value();
@@ -127,8 +151,8 @@ public final class CrudArtifactProducer {
 
             if (!repository.available()) {
                 summary.add(csvLine(platform.name(), schemaName, tableName,
-                        "SKIPPED_REPOSITORY_DISABLED", "",
-                        "Metadata repository is not enabled"));
+                        "SKIPPED_METADATA_UNAVAILABLE", "",
+                        "Metadata repository is disabled or unavailable"));
                 context.ledger().skipped(context, ArtifactType.CRUD, platform,
                         schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
                 continue;
@@ -136,6 +160,16 @@ public final class CrudArtifactProducer {
 
             try {
                 Optional<Table> liveTable = findMetadataTable(repository, schemaName, tableName);
+                if (!repository.available()) {
+                    summary.add(csvLine(platform.name(), schemaName, tableName,
+                            "SKIPPED_METADATA_UNAVAILABLE", "",
+                            "Metadata connection became unavailable"));
+                    LOGGER.warn("[{}] REST CRUD artifact skipped; metadata connection unavailable: {}.{}",
+                            platform.name(), schemaName, tableName);
+                    context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                    continue;
+                }
                 if (liveTable.isEmpty()) {
                     summary.add(csvLine(platform.name(), schemaName, tableName,
                             "SKIPPED_TABLE_NOT_FOUND", "",

@@ -49,14 +49,19 @@ public final class MetadataComparisonValidator {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         boolean metadataAvailable = repository.available();
-        Map<String, MetadataColumnProfile> profiles = repository.loadColumnProfiles(columnNames);
+        Map<String, MetadataColumnProfile> profiles = metadataAvailable
+                ? repository.loadColumnProfiles(columnNames)
+                : Map.of();
+        metadataAvailable = metadataAvailable && repository.available();
 
         for (Table table : schema.tables()) {
             validateSingularColumnNames(table, issues);
             validateTableNames(table, issues);
             if (metadataAvailable) {
-                validateTableLocation(table, issues);
-                validateForeignKeys(table, issues, resolvedForeignKeySchemas);
+                metadataAvailable = validateTableLocation(table, issues);
+                if (metadataAvailable) {
+                    metadataAvailable = validateForeignKeys(table, issues, resolvedForeignKeySchemas);
+                }
             }
             for (Column column : table.columns()) {
                 MetadataColumnProfile profile = profiles.get(MetadataColumnProfile.normalizeName(column.name().value()));
@@ -78,22 +83,32 @@ public final class MetadataComparisonValidator {
         return new MetadataComparisonResult(issues, frequencies, resolvedForeignKeySchemas, metadataAvailable);
     }
 
-    private void validateTableLocation(Table table, List<ValidationIssue> issues) {
+    private boolean validateTableLocation(Table table, List<ValidationIssue> issues) {
         String tableName = table.qualifiedName().name().value();
         String schemaName = table.qualifiedName().schemaName().map(i -> i.value()).orElse(null);
-        if (schemaName != null && !repository.schemaExists(schemaName)) {
-            issues.add(new ValidationIssue("WARNING", "SCHEMA_NOT_FOUND", tablePath(table),
-                    "Schema " + schemaName + " does not exist in database metadata."));
+        if (schemaName != null) {
+            boolean schemaExists = repository.schemaExists(schemaName);
+            if (!repository.available()) {
+                return false;
+            }
+            if (!schemaExists) {
+                issues.add(new ValidationIssue("WARNING", "SCHEMA_NOT_FOUND", tablePath(table),
+                        "Schema " + schemaName + " does not exist in database metadata."));
+            }
         }
         List<String> schemas = repository.findTableSchemas(tableName);
+        if (!repository.available()) {
+            return false;
+        }
         if (schemaName != null && !containsIgnoreCase(schemas, schemaName) && !schemas.isEmpty()) {
             issues.add(new ValidationIssue("WARNING", "TABLE_IN_DIFFERENT_SCHEMA", tablePath(table),
                     "Table " + tableName + " was not found in schema " + schemaName
                             + ", but exists in schema(s): " + String.join(", ", schemas) + "."));
         }
+        return true;
     }
 
-    private void validateForeignKeys(Table table, List<ValidationIssue> issues,
+    private boolean validateForeignKeys(Table table, List<ValidationIssue> issues,
                                      Map<String, String> resolvedSchemas) {
         String ownerSchema = table.qualifiedName().schemaName().map(i -> i.value()).orElse(null);
         for (ForeignKey fk : table.foreignKeys()) {
@@ -101,6 +116,9 @@ public final class MetadataComparisonValidator {
             String explicitSchema = fk.referencedTable().schemaName().map(i -> i.value()).orElse(null);
             String preferredSchema = explicitSchema != null ? explicitSchema : ownerSchema;
             List<String> schemas = repository.findTableSchemas(refTable);
+            if (!repository.available()) {
+                return false;
+            }
             String path = foreignKeyPath(table, fk);
 
             if (schemas.isEmpty()) {
@@ -122,6 +140,7 @@ public final class MetadataComparisonValidator {
                                 + String.join(", ", schemas) + "."));
             }
         }
+        return true;
     }
 
 

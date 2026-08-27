@@ -1,0 +1,41 @@
+SchemaForge V4 - Optional Metadata Connection Failure Isolation
+Classification: FIX + TEST
+
+Problem:
+Aggregate Word/Legacy Word/EA generation could terminate with HTTP 500 when any optional metadata DBMS connection failed. A real EA request failed in JdbcMySqlMetadataRepository.loadColumnProfiles because MySQL authentication failed, even though DDL generation for other DBMSs did not require MySQL metadata.
+
+Policy:
+- Aggregate generation must continue when an optional metadata repository is unreachable or authentication fails.
+- Only connectivity/authentication failures are isolated.
+- Non-connectivity SQL/mapping/programming failures are rethrown and remain visible.
+- Once a DBMS metadata connection fails during a request, that repository is treated as unavailable for the remainder of that request (single-attempt circuit breaker).
+- DDL/canonical/diagram/run-all generation continues.
+- Metadata-dependent comparison/migration/aggregate CRUD artifacts for that DBMS are SKIPPED.
+- Explicit metadata-only endpoints such as standalone Oracle/SQL Server CRUD remain strict and can still return 503 when their required database is unavailable.
+
+Covered aggregate paths:
+- Enterprise Architect generation
+- Standard Word generation
+- Legacy Word generation
+- Comparison workbooks
+- Migration artifacts
+- aggregate metadata CRUD summary
+
+Connection classification:
+- Spring CannotGetJdbcConnectionException
+- JDBC transient/non-transient connection exceptions
+- SQLRecoverableException
+- authentication SQLState class 28
+- connection SQLState class 08
+- socket/connect timeout failures
+
+Tests added:
+- FailureIsolatingMetadataRepositoryTest
+- MetadataConnectionFailureIsolationAcceptanceTest
+  * EA continues when MySQL metadata authentication fails
+  * Word continues when PostgreSQL metadata connection fails
+  * failed repository is attempted once per request
+  * non-connection defects are not hidden
+
+Build note:
+The assistant runtime could not execute Maven because Maven Central download is unavailable in this environment. Run the targeted Maven command on the user's Windows project for authoritative verification.

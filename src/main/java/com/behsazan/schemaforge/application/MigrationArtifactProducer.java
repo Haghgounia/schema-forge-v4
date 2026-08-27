@@ -91,6 +91,12 @@ public final class MigrationArtifactProducer {
             String tableName = desiredTable.qualifiedName().name().value();
 
             var liveTable = repository.findTable(schemaName, tableName);
+            if (!repository.available()) {
+                LOGGER.warn("[{}] Migration metadata connection unavailable; remaining migration artifacts will be skipped.",
+                        platform.name());
+                markRemainingSkipped(schema, desiredTable, platform, context);
+                return;
+            }
             if (liveTable.isEmpty()) {
                 LOGGER.debug("[{}] Migration skipped; live table not found: {}.{}",
                         platform.name(), schemaName, tableName);
@@ -118,6 +124,25 @@ public final class MigrationArtifactProducer {
                     "application/sql", "MigrationGenerationService");
             LOGGER.info("[{}] Flyway migration generated: {}",
                     platform.name(), output.relativize(written));
+        }
+    }
+
+
+    private static void markRemainingSkipped(
+            DatabaseSchema schema,
+            Table currentTable,
+            DatabasePlatform platform,
+            ArtifactGenerationContext context) {
+        boolean currentReached = false;
+        for (Table table : schema.tables()) {
+            if (table == currentTable) {
+                currentReached = true;
+            }
+            if (currentReached) {
+                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                        "MigrationGenerationService");
+            }
         }
     }
 

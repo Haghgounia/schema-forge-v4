@@ -11,6 +11,7 @@ import com.behsazan.schemaforge.application.ArtifactPackageBuilder;
 import com.behsazan.schemaforge.application.BatchGenerationOrchestrator;
 import com.behsazan.schemaforge.application.ComparisonArtifactProducer;
 import com.behsazan.schemaforge.application.CrudArtifactProducer;
+import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DiagramArtifactProducer;
 import com.behsazan.schemaforge.application.DocumentGenerationOrchestrator;
 import com.behsazan.schemaforge.application.EaGenerationOrchestrator;
@@ -217,7 +218,16 @@ public class SchemaForgeApiService {
             String schemaName,
             Boolean includeAuditFields,
             String auditProfile) throws IOException {
-        return generateFromEaXmlTracked(file, schemaName, includeAuditFields, auditProfile).content();
+        return generateFromEaXml(file, schemaName, includeAuditFields, auditProfile, null);
+    }
+
+    public byte[] generateFromEaXml(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms) throws IOException {
+        return generateFromEaXmlTracked(file, schemaName, includeAuditFields, auditProfile, platforms).content();
     }
 
     GenerationArchive generateFromEaXmlTracked(MultipartFile file, String schemaName) throws IOException {
@@ -229,6 +239,15 @@ public class SchemaForgeApiService {
             String schemaName,
             Boolean includeAuditFields,
             String auditProfile) throws IOException {
+        return generateFromEaXmlTracked(file, schemaName, includeAuditFields, auditProfile, null);
+    }
+
+    GenerationArchive generateFromEaXmlTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms) throws IOException {
         String name = safeName(file.getOriginalFilename(), "ea-model.xml");
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
@@ -241,7 +260,7 @@ public class SchemaForgeApiService {
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.ENTERPRISE_ARCHITECT, name);
         byte[] content = eaGenerationOrchestrator.generate(
-                prepared, stripExtension(name), context, auditOptions);
+                prepared, stripExtension(name), context, auditOptions, DatabasePlatform.parseSelection(platforms));
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 

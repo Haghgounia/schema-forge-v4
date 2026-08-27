@@ -16,6 +16,7 @@ import com.behsazan.schemaforge.domain.model.Sequence;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
@@ -160,14 +161,27 @@ public final class EaGenerationOrchestrator {
             String baseName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
+        return generate(prepared, baseName, context, auditOptions, Set.of(DatabasePlatform.values()));
+    }
+
+    public byte[] generate(
+            PreparedSchema prepared,
+            String baseName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
         Objects.requireNonNull(prepared, "prepared must not be null");
         Objects.requireNonNull(baseName, "baseName must not be null");
         Objects.requireNonNull(context, "context must not be null");
+        Objects.requireNonNull(platforms, "platforms must not be null");
+        if (platforms.isEmpty()) {
+            throw new IllegalArgumentException("At least one database platform must be selected");
+        }
 
         Path work = Files.createTempDirectory("schemaforge-ea-");
         try {
             Path output = Files.createDirectories(work.resolve("output"));
-            writeEaPerTableOutputs(prepared, output, baseName, context, auditOptions);
+            writeEaPerTableOutputs(prepared, output, baseName, context, auditOptions, platforms);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
@@ -179,7 +193,8 @@ public final class EaGenerationOrchestrator {
             Path output,
             String baseName,
             ArtifactGenerationContext context,
-            AuditGenerationOptions auditOptions) throws IOException {
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
@@ -188,8 +203,12 @@ public final class EaGenerationOrchestrator {
         DependencyOrder dependencyOrder = dependencyOrder(schema.tables());
 
         for (DatabasePlatform platform : DatabasePlatform.values()) {
+            if (!platforms.contains(platform)) {
+                continue;
+            }
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
-            MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
+            MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
+                    platform, metadataRepositoryResolver.resolve(platform));
             MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, repository).validate(schema);
             metadata.issues().stream()
                     .map(issue -> new ValidationIssue(
@@ -227,7 +246,7 @@ public final class EaGenerationOrchestrator {
             writeEaRunAll(schema, platform, dependencyOrder, baseName, timestamp, output, context);
         }
 
-        crudArtifactProducer.writeMetadataCrudArtifacts(schema, output, baseName, timestamp, context);
+        crudArtifactProducer.writeMetadataCrudArtifacts(schema, output, baseName, timestamp, context, platforms);
         diagramArtifactProducer.writeMermaidArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeGraphvizArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);
@@ -252,6 +271,9 @@ public final class EaGenerationOrchestrator {
         manifestExtensions.put("enterpriseArchitect", eaExtension);
         Map<String, Object> generationOptions = new LinkedHashMap<>();
         generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
+        generationOptions.put("platforms", DatabasePlatform.values().length == platforms.size()
+                ? List.of("all")
+                : DatabasePlatform.valuesAsList(platforms));
         if (auditOptions != null) {
             generationOptions.put("audit", auditOptions.manifestValue());
         }

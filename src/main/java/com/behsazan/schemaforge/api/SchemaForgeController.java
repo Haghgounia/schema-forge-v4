@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -25,7 +26,7 @@ import java.util.Locale;
  */
 @RestController
 @RequestMapping("/api/v1/generate")
-@Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, Db2 for z/OS, SQL Server, and MySQL DDL from Word, legacy Word, ZIP, or Enterprise Architect XML/XMI")
+@Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, Db2 for z/OS, Db2 LUW, SQL Server, and MySQL DDL from Word, legacy Word, ZIP, or Enterprise Architect XML/XMI")
 public class SchemaForgeController {
     private static final DateTimeFormatter ARCHIVE_TIME =
             DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss_SSS", Locale.ROOT);
@@ -74,10 +75,11 @@ public class SchemaForgeController {
     public ResponseEntity<byte[]> eaXml(
             @RequestPart("file") MultipartFile file,
             @RequestParam(value = "schema", required = false) String schema,
+            @RequestParam(value = "platform", required = false) List<String> platforms,
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
-        return zip(service.generateFromEaXml(file, schema, includeAuditFields, auditProfile),
+        return zip(service.generateFromEaXml(file, schema, includeAuditFields, auditProfile, platforms),
                 archiveName("schemaforge-ea-output"));
     }
 

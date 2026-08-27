@@ -18,7 +18,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.nio.charset.StandardCharsets;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -47,6 +49,24 @@ class SchemaForgeRestContractMvcTest {
                 .andExpect(jsonPath("$.path").value("/api/v1/generate/word"))
                 .andExpect(header().exists(SchemaForgeRequestCorrelationFilter.HEADER_NAME))
                 .andExpect(jsonPath("$.requestId").isNotEmpty());
+    }
+
+    @Test
+    void eaPlatformSelectionIsForwardedToGenerationService() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromEaXml(any(), any(), any(), any(), any()))
+                .thenReturn(new byte[] {1, 2, 3});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "model.xml", MediaType.APPLICATION_XML_VALUE, "<x/>".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/ea-xml")
+                        .file(file)
+                        .param("platform", "oracle"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/zip"));
+
+        verify(service).generateFromEaXml(any(), any(), any(), any(), eq(java.util.List.of("oracle")));
     }
 
     @Test

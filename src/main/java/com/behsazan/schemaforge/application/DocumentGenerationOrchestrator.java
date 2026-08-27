@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
@@ -195,7 +196,8 @@ public final class DocumentGenerationOrchestrator {
         // reused by SQL generation and the consolidated JSON validation report.
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
-            MetadataRepository repository = metadataRepositoryResolver.resolve(platform);
+            MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
+                    platform, metadataRepositoryResolver.resolve(platform));
             MetadataComparisonResult metadata = new MetadataComparisonValidator(
                     dialect, repository).validate(schema);
             metadata.issues().stream()

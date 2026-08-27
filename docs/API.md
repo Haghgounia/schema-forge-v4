@@ -17,18 +17,19 @@ OpenAPI JSON: `http://localhost:9090/v3/api-docs`
 | POST | `/api/v1/generate/word` | multipart `file`; optional audit parameters | `application/zip` |
 | POST | `/api/v1/generate/legacy-word` | multipart `file`, required `schema`; optional audit parameters | `application/zip` |
 | POST | `/api/v1/generate/zip` | multipart `file`, ZIP containing standard `.docx` files; optional audit parameters | `application/zip` |
-| POST | `/api/v1/generate/ea-xml` | multipart `file`, EA `.xml`/`.xmi`; optional `schema` and audit parameters | `application/zip` |
+| POST | `/api/v1/generate/ea-xml` | multipart `file`, EA `.xml`/`.xmi`; optional `schema`, repeatable `platform`, and audit parameters | `application/zip` |
 | POST | `/api/v1/generate/oracle/crud` | JSON `schema` + `table` | `application/sql` |
 | POST | `/api/v1/generate/sqlserver/crud` | JSON `schema` + `table` | `application/sql` |
 | POST | `/api/v1/diagram/mermaid/canonical-json` | multipart canonical JSON or ZIP plus diagram options | `text/plain` Mermaid artifact |
 
 ## Generation DBMS set
 
-The standard Word, Legacy Word, ZIP-batch and EA generation pipelines use the registered five-database set:
+The standard Word, Legacy Word, ZIP-batch and EA generation pipelines use the registered six-database set:
 
 - Oracle
 - PostgreSQL
 - Db2 for z/OS
+- Db2 LUW
 - Microsoft SQL Server
 - MySQL
 
@@ -65,7 +66,7 @@ Content-Type: multipart/form-data
 
 Multipart field: `file`. The `schema` query parameter is required for the legacy parser path.
 
-Both paths prepare one canonical schema and generate five-dialect DDL plus the additional enabled artifacts such as comparison workbooks, migration output, metadata-based CRUD, canonical JSON, Mermaid and Graphviz outputs. Each returned ZIP also contains one root `manifest.json` using `schemaforge-manifest/v1`.
+Both paths prepare one canonical schema and generate six-dialect DDL plus the additional enabled artifacts such as comparison workbooks, migration output, metadata-based CRUD, canonical JSON, Mermaid and Graphviz outputs. Each returned ZIP also contains one root `manifest.json` using `schemaforge-manifest/v1`.
 
 ## ZIP batch
 
@@ -91,7 +92,17 @@ POST /api/v1/generate/ea-xml
 Content-Type: multipart/form-data
 ```
 
-Multipart field: `file`; optional query parameter: `schema`.
+Multipart field: `file`; optional query parameters: `schema` and repeatable `platform`.
+
+When `platform` is omitted, EA generation preserves the legacy all-platform behavior. When supplied, only the selected DBMS pipelines are invoked, including DDL, metadata comparison, migration and metadata-based CRUD. Platform-neutral canonical JSON and diagrams are still emitted. Examples:
+
+```http
+POST /api/v1/generate/ea-xml?platform=oracle
+POST /api/v1/generate/ea-xml?platform=oracle&platform=postgresql
+POST /api/v1/generate/ea-xml?platform=oracle,mysql
+```
+
+Accepted platform names include `oracle`, `postgresql`, `db2zos`, `db2luw`, `sqlserver`, `mysql`, or `all`. Unselected metadata repositories are not resolved or contacted.
 
 EA exports frequently omit the physical schema. Configure the fallback schema in `application.yml`:
 

@@ -1,0 +1,35 @@
+SchemaForge V4 - R7.10 EA REST Platform Selection
+
+Purpose
+- Prevent an EA request targeted at one DBMS from invoking every registered DBMS.
+- Preserve current all-platform behavior when no platform parameter is supplied.
+- Complement metadata connection failure isolation by avoiding unselected connections entirely.
+
+REST contract
+- POST /api/v1/generate/ea-xml accepts optional repeatable query parameter: platform
+- Examples:
+  platform=oracle
+  platform=oracle&platform=postgresql
+  platform=oracle,mysql
+  platform=all
+- Supported: oracle, postgresql, db2zos, db2luw, sqlserver, mysql, all
+
+Selected scope
+- DDL: selected platforms only
+- Run-All: selected platforms only
+- Metadata comparison: selected platforms only
+- Migration: selected platforms only
+- Metadata CRUD: Oracle/SQL Server only when each is selected
+- MetadataRepositoryResolver: unselected platforms are never resolved
+- Canonical JSON and diagrams remain platform-neutral and are always emitted
+- manifest.json records extensions.generationOptions.platforms
+
+Compatibility
+- Omitting platform => all registered platforms, preserving legacy behavior.
+- Existing SchemaForgeApiService overloads remain intact.
+
+Regression coverage
+- Oracle-only selection produces no non-Oracle platform artifacts and never resolves other repositories.
+- Repeated/comma-separated aliases and 'all' selection parsing.
+- MVC binding forwards platform=oracle.
+- Existing EA all-platform regression aligned from five DBMS to six by adding Db2 LUW expectations.

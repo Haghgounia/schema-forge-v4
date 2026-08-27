@@ -108,6 +108,6 @@ schemaforge:
     mysql:
       enabled: true
       url: jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC
-      username: root
-      password: mysql123
+      username: schemaforge #root
+      password: schemaforge123 #mysql123
       driver-class-name: com.mysql.cj.jdbc.Driver

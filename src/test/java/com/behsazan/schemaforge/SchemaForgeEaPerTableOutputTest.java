@@ -68,7 +68,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(22, entries.size());
+        assertEquals(25, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         String modelName = entryName(entries, "model/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.schema\\.json");
         assertTrue(entries.containsKey("manifest.json"));
@@ -94,6 +94,8 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("ddl/postgresql/fee.fee_version_" + timestamp + ".postgresql.sql"));
         assertTrue(entries.containsKey("ddl/db2zos/FEE.REGULATORY_RULE_" + timestamp + ".db2zos.sql"));
         assertTrue(entries.containsKey("ddl/db2zos/FEE.FEE_VERSION_" + timestamp + ".db2zos.sql"));
+        assertTrue(entries.containsKey("ddl/db2luw/FEE.REGULATORY_RULE_" + timestamp + ".db2luw.sql"));
+        assertTrue(entries.containsKey("ddl/db2luw/FEE.FEE_VERSION_" + timestamp + ".db2luw.sql"));
         assertTrue(entries.containsKey("ddl/sqlserver/FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
         assertTrue(entries.containsKey("ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
         assertTrue(entries.containsKey("ddl/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
@@ -102,11 +104,13 @@ class SchemaForgeEaPerTableOutputTest {
         String oracleRunAllName = "scripts/oracle/ea-sample_" + timestamp + ".oracle.run-all.sql";
         String postgresqlRunAllName = "scripts/postgresql/ea-sample_" + timestamp + ".postgresql.run-all.sql";
         String db2ZosRunAllName = "scripts/db2zos/ea-sample_" + timestamp + ".db2zos.run-all.sql";
+        String db2LuwRunAllName = "scripts/db2luw/ea-sample_" + timestamp + ".db2luw.run-all.sql";
         String sqlServerRunAllName = "scripts/sqlserver/ea-sample_" + timestamp + ".sqlserver.run-all.sql";
         String mysqlRunAllName = "scripts/mysql/ea-sample_" + timestamp + ".mysql.run-all.sql";
         assertTrue(entries.containsKey(oracleRunAllName));
         assertTrue(entries.containsKey(postgresqlRunAllName));
         assertTrue(entries.containsKey(db2ZosRunAllName));
+        assertTrue(entries.containsKey(db2LuwRunAllName));
         assertTrue(entries.containsKey(sqlServerRunAllName));
         assertTrue(entries.containsKey(mysqlRunAllName));
         assertFalse(entries.containsKey("ddl/oracle/FEE.REGULATORY_RULE.oracle.sql"));

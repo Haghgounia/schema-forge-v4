@@ -75,6 +75,13 @@ public final class ComparisonArtifactProducer {
             String schemaName = tableSchema(schema, documentTable);
             String tableName = documentTable.qualifiedName().name().value();
             Optional<Table> databaseTable = findTable(repository, schemaName, tableName);
+            if (!repository.available()) {
+                LOGGER.warn("[{}] Comparison workbook skipped; metadata connection unavailable: {}.{}",
+                        platform.name(), schemaName, tableName);
+                context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                        schemaName + "." + tableName, PRODUCER);
+                continue;
+            }
             if (databaseTable.isEmpty()) {
                 LOGGER.warn("[{}] Comparison workbook skipped; table not found. requestedSchema={}, requestedTable={}",
                         platform.name(), schemaName, tableName);
@@ -126,6 +133,13 @@ public final class ComparisonArtifactProducer {
         String schemaName = tableSchema(schema, documentTable);
         String tableName = documentTable.qualifiedName().name().value();
         Optional<Table> databaseTable = findTable(repository, schemaName, tableName);
+        if (!repository.available()) {
+            LOGGER.warn("[{}] EA comparison workbook skipped; metadata connection unavailable: {}.{}",
+                    platform.name(), schemaName, tableName);
+            context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
+                    schemaName + "." + tableName, PRODUCER);
+            return null;
+        }
         if (databaseTable.isEmpty()) {
             LOGGER.warn("[{}] EA comparison workbook skipped; table not found. requestedSchema={}, requestedTable={}",
                     platform.name(), schemaName, tableName);
