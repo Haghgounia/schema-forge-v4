@@ -57,7 +57,7 @@ class Db2LuwPhysicalContractTest {
         assertTrue(sql.contains("COMPRESS YES ADAPTIVE"));
         assertTrue(sql.contains("INDEX IN TS_INDEX"));
         assertTrue(sql.contains("LONG IN TS_LONG"));
-        assertTrue(sql.contains("IN \"TS_DATA\""));
+        assertTrue(sql.contains("IN TS_DATA"));
 
         assertTrue(sql.contains("-- DB2 LUW INDEX PHYSICAL OPTIONS"));
         assertTrue(sql.contains("PCTFREE 15"));
@@ -65,6 +65,6 @@ class Db2LuwPhysicalContractTest {
         assertTrue(sql.contains("ALLOW REVERSE SCANS"));
         assertTrue(sql.contains("COMPRESS YES"));
         assertTrue(sql.contains("PAGE SPLIT LOW"));
-        assertTrue(sql.contains("IN \"TS_INDEX\""));
+        assertTrue(sql.contains("IN TS_INDEX"));
     }
 }

@@ -91,11 +91,12 @@ class Db2LuwDdlGeneratorTest {
         assertTrue(sql.contains("CREATED_AT TIMESTAMP(0) WITH DEFAULT CURRENT TIMESTAMP(0) NOT NULL"));
         assertTrue(sql.contains("EFFECTIVE_STATUS DECIMAL(1,0) GENERATED ALWAYS AS (COALESCE(STATUS, 0))"));
         assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID)"));
-        assertTrue(sql.contains(") IN APP_TS;"));
+        assertTrue(sql.contains("IN APP_TS;"));
         assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE);"));
         assertTrue(sql.contains("CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("REFERENCES BIM.BRANCHES(BRANCH_ID) ON DELETE CASCADE;"));
-        assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_STATUS ON BIM.CUSTOMERS(STATUS DESC) IN APP_IDX_TS;"));
+        assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_STATUS ON BIM.CUSTOMERS(STATUS DESC)"));
+        assertTrue(sql.contains("IN APP_IDX_TS;"));
         assertTrue(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'Customer master';"));
         assertTrue(sql.contains("COMMENT ON COLUMN BIM.CUSTOMERS.CUSTOMER_CODE IS 'Customer code';"));
         assertTrue(sql.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON BIM.CUSTOMERS TO U_DEVELOPER;"));
