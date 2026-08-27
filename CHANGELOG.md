@@ -1,3 +1,12 @@
+## R7.10 DB2 LUW P5 — Final-state FK live validation (2026-08-27)
+
+- Added `Db2LuwForeignKeyDirectoryExecutionIT` as a separate live gate for foreign keys intentionally skipped by DB2 LUW HISTORICAL replay.
+- Mirrors the deterministic historical final-state rule: only the final encountered definition of each qualified table contributes FK candidates.
+- Adds SYSCAT preflight classification for missing source/parent tables, missing source/parent columns, and missing referenced PK/UNIQUE evidence.
+- Executes only preflight-valid FKs against live Db2 LUW and drops every successfully created FK immediately after validation.
+- Produces separate summary, live-error, structural-blocker, dependency-skip, and cleanup-error reports under `target/db2luw-fk-validation-report`.
+- Test/live-validation tooling only; production DDL rendering and the already-verified 4,693-file HISTORICAL baseline are unchanged.
+
 ## R8.1 — Pre-Freeze Preparation (2026-08-26)
 
 - R8.1 is VERIFIED / CLOSED after user-side full clean regression: `587 / 0 / 0 / 4`, `BUILD SUCCESS`.

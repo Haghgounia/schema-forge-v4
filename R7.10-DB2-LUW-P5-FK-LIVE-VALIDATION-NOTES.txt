@@ -1,0 +1,62 @@
+SchemaForge V4 - R7.10 DB2 LUW P5 Foreign-Key Live Validation
+Date: 2026-08-27
+
+Purpose
+-------
+Validate Db2 LUW foreign keys that are intentionally skipped by the HISTORICAL directory replay.
+The validator mirrors the replay's deterministic final-state rule: only the final encountered
+CREATE TABLE definition for each qualified table contributes FK candidates.
+
+New test
+--------
+src/test/java/com/behsazan/schemaforge/integration/Db2LuwForeignKeyDirectoryExecutionIT.java
+
+Validation classification
+-------------------------
+1. DEPENDENCY SKIPPED
+   - OUTSIDE_EXPECTED_SCHEMA
+   - SOURCE_TABLE_NOT_FOUND
+   - REFERENCED_TABLE_NOT_FOUND
+
+2. STRUCTURAL BLOCKED
+   - SOURCE_COLUMN_NOT_FOUND
+   - REFERENCED_COLUMN_NOT_FOUND
+   - REFERENCED_COLUMNS_NOT_PK_OR_UNIQUE
+
+3. LIVE ATTEMPT
+   - Candidate passed Db2 catalog preflight and ALTER TABLE ... ADD CONSTRAINT is executed.
+   - Successful FK is immediately removed using ALTER TABLE ... DROP FOREIGN KEY.
+
+Reports
+-------
+target/db2luw-fk-validation-report/<run-id>/
+  db2luw-fk-validation-summary.txt
+  db2luw-fk-validation-errors.csv
+  db2luw-fk-validation-blockers.csv
+  db2luw-fk-validation-skipped.csv
+  db2luw-fk-validation-cleanup-errors.csv
+
+Recommended first diagnostic run
+--------------------------------
+mvnw.cmd ^
+  -Pdb2luw-live ^
+  -Dtest=Db2LuwForeignKeyDirectoryExecutionIT ^
+  -Ddb2luw.fk.sql.root="D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE" ^
+  -Ddb2luw.fk.sql.fileSuffix=".db2luw.sql" ^
+  -Ddb2luw.fk.jdbc.url="jdbc:db2://127.0.0.1:50000/SFORGE" ^
+  -Ddb2luw.fk.jdbc.user=db2inst1 ^
+  -Ddb2luw.fk.jdbc.password=Schemaforge123 ^
+  -Ddb2luw.fk.expectedDatabase=SFORGE ^
+  -Ddb2luw.fk.expectedSchema=TSTSHMA ^
+  -Ddb2luw.fk.failOnErrors=false ^
+  -Ddb2luw.fk.failOnBlockers=false ^
+  -Ddb2luw.fk.progressEveryTables=100 ^
+  test
+
+Notes
+-----
+- Do NOT enable FK execution in Db2LuwDirectoryExecutionTest HISTORICAL mode. That runner processes
+  every historical revision independently and cannot represent a coherent integrated FK state.
+- The final-state FK validator must be run after the successful HISTORICAL replay so the disposable
+  Db2 database contains the same final encountered table definitions used to select FK candidates.
+- This change is test/live-validation tooling only; production DDL generation semantics are unchanged.
