@@ -1,0 +1,17 @@
+SchemaForge V4 - R7.10 P4 Db2 LUW Live Acceptance
+
+Changes:
+- Adds explicit db2luw-live Maven profile with IBM JCC 12.1.5.0 as test-only dependency.
+- Corrects the default local Db2 LUW JDBC database name from invalid SCHEMAFORGE (>8 chars) to SFORGE.
+- Adds Db2LuwLiveAcceptanceIT.
+
+Live acceptance verifies:
+1. JDBC connectivity to Db2 LUW.
+2. Existing document schema is positively discovered through SYSCAT.SCHEMATA.
+3. Metadata-aware DDL omits Db2 LUW schema bootstrap for that existing schema.
+4. Generated sequence/table/PK/UK/CHECK/index/comments execute against real Db2 LUW.
+5. Created table and sequence exist in SYSCAT.
+6. JdbcDb2LuwMetadataRepository reads columns, PK, UK, CHECK, index and table tablespace back.
+7. Disposable objects are removed in finally cleanup.
+
+The test is not part of normal regression execution and requires explicit DDL confirmation.

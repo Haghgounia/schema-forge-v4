@@ -186,7 +186,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(42, entries.size());
+        assertEquals(49, entries.size());
         String timestamp = timestampFrom(entryName(entries, "ddl/oracle/FEE\\.REGULATORY_RULE_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION_" + timestamp + ".oracle.compare.xlsx"));
@@ -194,6 +194,8 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("comparison/postgresql/fee.fee_version_" + timestamp + ".postgresql.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/db2zos/FEE.REGULATORY_RULE_" + timestamp + ".db2zos.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/db2zos/FEE.FEE_VERSION_" + timestamp + ".db2zos.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/db2luw/FEE.REGULATORY_RULE_" + timestamp + ".db2luw.compare.xlsx"));
+        assertTrue(entries.containsKey("comparison/db2luw/FEE.FEE_VERSION_" + timestamp + ".db2luw.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/sqlserver/FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.compare.xlsx"));

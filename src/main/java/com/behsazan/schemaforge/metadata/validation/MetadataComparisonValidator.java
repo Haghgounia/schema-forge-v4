@@ -43,12 +43,16 @@ public final class MetadataComparisonValidator {
         List<ValidationIssue> issues = new ArrayList<>();
         Map<String, Long> frequencies = new LinkedHashMap<>();
         Map<String, String> resolvedForeignKeySchemas = new LinkedHashMap<>();
+        Map<String, Boolean> schemaExistence = new LinkedHashMap<>();
         Set<String> columnNames = schema.tables().stream()
                 .flatMap(table -> table.columns().stream())
                 .map(column -> column.name().value().toUpperCase(Locale.ROOT))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         boolean metadataAvailable = repository.available();
+        if (metadataAvailable) {
+            metadataAvailable = inspectSchemaExistence(schema, schemaExistence);
+        }
         Map<String, MetadataColumnProfile> profiles = metadataAvailable
                 ? repository.loadColumnProfiles(columnNames)
                 : Map.of();
@@ -58,7 +62,7 @@ public final class MetadataComparisonValidator {
             validateSingularColumnNames(table, issues);
             validateTableNames(table, issues);
             if (metadataAvailable) {
-                metadataAvailable = validateTableLocation(table, issues);
+                metadataAvailable = validateTableLocation(table, issues, schemaExistence);
                 if (metadataAvailable) {
                     metadataAvailable = validateForeignKeys(table, issues, resolvedForeignKeySchemas);
                 }
@@ -80,18 +84,41 @@ public final class MetadataComparisonValidator {
                 }
             }
         }
-        return new MetadataComparisonResult(issues, frequencies, resolvedForeignKeySchemas, metadataAvailable);
+        return new MetadataComparisonResult(issues, frequencies, resolvedForeignKeySchemas,
+                schemaExistence, metadataAvailable);
     }
 
-    private boolean validateTableLocation(Table table, List<ValidationIssue> issues) {
-        String tableName = table.qualifiedName().name().value();
-        String schemaName = table.qualifiedName().schemaName().map(i -> i.value()).orElse(null);
-        if (schemaName != null) {
-            boolean schemaExists = repository.schemaExists(schemaName);
+    private boolean inspectSchemaExistence(DatabaseSchema schema, Map<String, Boolean> schemaExistence) {
+        Set<String> schemas = new LinkedHashSet<>();
+        schema.tables().forEach(table -> schemas.add(table.qualifiedName().schemaName()
+                .map(identifier -> identifier.value())
+                .orElse(schema.name().value())));
+        schema.sequences().forEach(sequence -> schemas.add(sequence.qualifiedName().schemaName()
+                .map(identifier -> identifier.value())
+                .orElse(schema.name().value())));
+        if (schemas.isEmpty()) schemas.add(schema.name().value());
+
+        for (String schemaName : schemas) {
+            boolean exists = repository.schemaExists(schemaName);
             if (!repository.available()) {
                 return false;
             }
-            if (!schemaExists) {
+            schemaExistence.put(normalizeSchema(schemaName), exists);
+        }
+        return true;
+    }
+
+    private static String normalizeSchema(String schemaName) {
+        return schemaName.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean validateTableLocation(Table table, List<ValidationIssue> issues,
+                                          Map<String, Boolean> schemaExistence) {
+        String tableName = table.qualifiedName().name().value();
+        String schemaName = table.qualifiedName().schemaName().map(i -> i.value()).orElse(null);
+        if (schemaName != null) {
+            Boolean schemaExists = schemaExistence.get(normalizeSchema(schemaName));
+            if (Boolean.FALSE.equals(schemaExists)) {
                 issues.add(new ValidationIssue("WARNING", "SCHEMA_NOT_FOUND", tablePath(table),
                         "Schema " + schemaName + " does not exist in database metadata."));
             }

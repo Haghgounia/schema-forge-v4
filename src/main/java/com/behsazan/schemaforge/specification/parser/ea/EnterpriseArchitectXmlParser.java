@@ -120,15 +120,9 @@ public final class EnterpriseArchitectXmlParser {
             }
 
             List<EaAssociation> associations = parseAssociations(document);
-            Map<String, EaAssociation> associationBySourceOperation = new HashMap<>();
-            for (EaAssociation association : associations) {
-                if (!association.sourceOperation().isBlank()) {
-                    associationBySourceOperation.put(
-                            operationKey(association.sourceTableId(), association.sourceOperation()), association);
-                }
-            }
-
             List<String> warnings = new ArrayList<>();
+            Map<String, EaAssociation> associationBySourceOperation = indexAssociations(
+                    tablesById, associations, warnings);
             DatabaseSchema.Builder schema = DatabaseSchema.builder(schemaName)
                     .metadata("source.fileName", fileName)
                     .metadata("source.format", "EA-XMI")
@@ -370,6 +364,93 @@ public final class EnterpriseArchitectXmlParser {
                     tags));
         }
         return List.copyOf(result);
+    }
+
+    private static Map<String, EaAssociation> indexAssociations(
+            Map<String, EaTable> tablesById,
+            List<EaAssociation> associations,
+            List<String> warnings) {
+
+        Map<String, EaAssociation> result = new HashMap<>();
+
+        // Native EA exports normally use the FK operation name on the source
+        // AssociationEnd. Preserve that fast/exact path first.
+        for (EaAssociation association : associations) {
+            EaTable sourceTable = resolveAssociationTable(
+                    tablesById, association.sourceTableId(), association.sourceTableName());
+            if (sourceTable == null || association.sourceOperation().isBlank()) continue;
+
+            boolean operationExists = sourceTable.operations().stream()
+                    .anyMatch(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY
+                            && operation.name().equalsIgnoreCase(association.sourceOperation()));
+            if (operationExists) {
+                result.putIfAbsent(
+                        operationKey(sourceTable.xmiId(), association.sourceOperation()), association);
+            }
+        }
+
+        // Some real EA XMI exports contain a stale/truncated FK role name on the
+        // AssociationEnd while the association still carries the authoritative
+        // source/target table ids and column mapping. Do not silently drop such
+        // FKs. Recover only when the source-column mapping identifies exactly
+        // one FK operation on the source table. Ambiguous cases remain fail-closed.
+        for (EaAssociation association : associations) {
+            EaTable sourceTable = resolveAssociationTable(
+                    tablesById, association.sourceTableId(), association.sourceTableName());
+            if (sourceTable == null) continue;
+
+            List<String> sourceColumns = association.columnPairs().stream()
+                    .map(ColumnPair::source)
+                    .toList();
+            if (sourceColumns.isEmpty()) continue;
+
+            List<EaOperation> candidates = sourceTable.operations().stream()
+                    .filter(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY)
+                    .filter(operation -> sameColumns(
+                            operation.parameters().stream().map(EaParameter::name).toList(),
+                            sourceColumns))
+                    .filter(operation -> !result.containsKey(operationKey(sourceTable.xmiId(), operation.name())))
+                    .toList();
+
+            if (candidates.size() == 1) {
+                EaOperation operation = candidates.getFirst();
+                result.put(operationKey(sourceTable.xmiId(), operation.name()), association);
+                warnings.add("EA_FK_ASSOCIATION_OPERATION_MISMATCH_RECOVERED|table="
+                        + sourceTable.name()
+                        + "|foreignKey=" + operation.name()
+                        + "|associationSourceOperation=" + association.sourceOperation()
+                        + "|columns=" + String.join(",", sourceColumns));
+            } else if (candidates.size() > 1) {
+                warnings.add("EA_FK_ASSOCIATION_STRUCTURAL_MATCH_AMBIGUOUS|table="
+                        + sourceTable.name()
+                        + "|associationSourceOperation=" + association.sourceOperation()
+                        + "|columns=" + String.join(",", sourceColumns)
+                        + "|candidates=" + candidates.stream()
+                                .map(EaOperation::name)
+                                .collect(java.util.stream.Collectors.joining(",")));
+            }
+        }
+
+        return result;
+    }
+
+    private static EaTable resolveAssociationTable(
+            Map<String, EaTable> tablesById, String tableId, String tableName) {
+        EaTable byId = tablesById.get(tableId);
+        if (byId != null) return byId;
+        if (tableName == null || tableName.isBlank()) return null;
+        return tablesById.values().stream()
+                .filter(table -> table.name().equalsIgnoreCase(tableName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static boolean sameColumns(List<String> left, List<String> right) {
+        if (left.size() != right.size()) return false;
+        for (int i = 0; i < left.size(); i++) {
+            if (!left.get(i).equalsIgnoreCase(right.get(i))) return false;
+        }
+        return true;
     }
 
     private static List<String> taggedColumnList(String value) {

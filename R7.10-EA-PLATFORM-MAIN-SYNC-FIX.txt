@@ -1,0 +1,11 @@
+SchemaForge V4 - R7.10 EA REST Platform Selection Main Source Sync Fix
+
+Purpose:
+- Restore the production-side changes that correspond to already-applied platform-selection tests.
+- Adds DatabasePlatform.parseSelection(List<String>).
+- Adds SchemaForgeApiService.generateFromEaXml(..., List<String> platforms).
+- Forwards REST platform parameter from SchemaForgeController.
+- Filters EA generation/metadata/artifacts by selected platforms.
+- Keeps failure-isolating metadata behavior from the current source baseline.
+
+Apply at project root and overwrite existing files.

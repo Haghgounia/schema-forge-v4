@@ -250,6 +250,7 @@ public final class DdlGenerator {
                 .filter(statement -> statement != null && !statement.isBlank())
                 .forEach(statements::add);
         generatedObjectSchemas(schema).stream()
+                .filter(schemaName -> !metadata.schemaKnownToExist(schemaName.value()))
                 .map(dialect::schemaBootstrapStatement)
                 .filter(statement -> statement != null && !statement.isBlank())
                 .forEach(statements::add);

@@ -1,0 +1,34 @@
+SchemaForge V4 - R7.10 Schema Infrastructure Existence Awareness
+
+Contract
+--------
+When database metadata positively verifies that a schema named by the source document already exists,
+SchemaForge omits that DBMS's schema-bootstrap DDL from generated SQL.
+
+Verified existing schema:
+  - CREATE SCHEMA / CREATE USER / CREATE DATABASE bootstrap is omitted.
+  - CREATE TABLE and all normal table/object DDL remain generated.
+  - storage/tablespace infrastructure templates remain unchanged.
+
+Verified missing schema:
+  - existing schema-bootstrap behavior is preserved.
+
+Unknown/unavailable metadata:
+  - offline/backward-compatible schema-bootstrap behavior is preserved.
+  - SchemaForge never assumes that an unverified schema exists.
+
+Implementation
+--------------
+- MetadataComparisonValidator checks each distinct document schema once per DBMS/request.
+- MetadataComparisonResult retains verified schema existence.
+- DdlGenerator suppresses only schemaBootstrapStatement() for positively verified existing schemas.
+- EA per-table generation retains schema-existence state when slicing metadata per table.
+- All six DBMS platforms are covered by SchemaBootstrapExistenceAwarenessTest.
+
+Manual smoke validation performed in the build workspace:
+  ORACLE OK
+  POSTGRESQL OK
+  DB2_ZOS OK
+  DB2_LUW OK
+  SQLSERVER OK
+  MYSQL OK

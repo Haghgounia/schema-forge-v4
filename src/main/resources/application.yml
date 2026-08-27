@@ -92,7 +92,7 @@ schemaforge:
     # Disabled by default because IBM JCC is not bundled with the project.
     db2luw:
       enabled: false
-      url: jdbc:db2://localhost:50000/SCHEMAFORGE
+      url: jdbc:db2://localhost:50000/SFORGE
       username: ${SCHEMAFORGE_METADATA_DB2LUW_USERNAME:}
       password: ${SCHEMAFORGE_METADATA_DB2LUW_PASSWORD:}
       driver-class-name: com.ibm.db2.jcc.DB2Driver
@@ -108,6 +108,6 @@ schemaforge:
     mysql:
       enabled: true
       url: jdbc:mysql://localhost:3307/?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=UTC
-      username: schemaforge #root
-      password: schemaforge123 #mysql123
+      username: root
+      password: mysql123
       driver-class-name: com.mysql.cj.jdbc.Driver

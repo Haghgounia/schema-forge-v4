@@ -393,7 +393,8 @@ public final class EaGenerationOrchestrator {
         List<ValidationIssue> issues = metadata.issues().stream()
                 .filter(issue -> issueAppliesToTable(issue, table))
                 .toList();
-        return new MetadataComparisonResult(issues, frequencies, resolvedSchemas, metadata.metadataAvailable());
+        return new MetadataComparisonResult(issues, frequencies, resolvedSchemas,
+                metadata.schemaExistence(), metadata.metadataAvailable());
     }
 
     private boolean issueAppliesToTable(ValidationIssue issue, Table table) {

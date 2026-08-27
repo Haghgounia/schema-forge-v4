@@ -64,7 +64,32 @@ public final class Db2LuwDialect implements Dialect {
 
     @Override
     public String defaultClause(Column column) {
-        return " WITH DEFAULT " + expression(column.defaultValue().expression());
+        Objects.requireNonNull(column, "column must not be null");
+        String sourceExpression = column.defaultValue().expression();
+        if (expressionMapper.containsNextValueReference(sourceExpression)) {
+            if (column.identity()) {
+                return identityClause(column)
+                        + " /* [DB2/LUW IDENTITY ADAPTATION][DB2LUW-SEQ-DEFAULT-002] "
+                        + "Source sequence NEXTVAL default mapped to native Db2 LUW identity; "
+                        + "the canonical sequence object is still emitted separately. */";
+            }
+            String mapped = safeInlineComment(expression(sourceExpression));
+            return " /* [DB2/LUW DEFAULT REVIEW][DB2LUW-SEQ-DEFAULT-001] "
+                    + "Db2 LUW does not allow a sequence NEXT VALUE expression as a column DEFAULT. "
+                    + "Source intent was: " + mapped + ". The sequence is still created, but this "
+                    + "column has no automatic sequence default. Use " + mapped
+                    + " explicitly in DML, or add a DBA-reviewed BEFORE INSERT trigger if automatic "
+                    + "assignment is required. */";
+        }
+        return " WITH DEFAULT " + expression(sourceExpression);
+    }
+
+    private String safeInlineComment(String value) {
+        return value == null ? "" : value
+                .replace("*/", "* /")
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .trim();
     }
 
     @Override

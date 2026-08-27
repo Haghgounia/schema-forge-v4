@@ -26,6 +26,7 @@
         <snakeyaml.version>2.3</snakeyaml.version>
         <archunit.version>1.4.1</archunit.version>
         <mssql.jdbc.version>13.4.0.jre11</mssql.jdbc.version>
+        <db2.jcc.version>12.1.5.0</db2.jcc.version>
     </properties>
 
     <dependencies>
@@ -155,6 +156,19 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <!-- Explicit Db2 LUW live integration-test wiring; inactive during normal builds. -->
+        <profile>
+            <id>db2luw-live</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ibm.db2</groupId>
+                    <artifactId>jcc</artifactId>
+                    <version>${db2.jcc.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
         </profile>
 
         <!--

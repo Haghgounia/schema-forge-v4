@@ -26,6 +26,10 @@ public final class Db2LuwExpressionMapper {
         return mapped;
     }
 
+    boolean containsNextValueReference(String expression) {
+        return expression != null && !expression.isBlank() && NEXTVAL.matcher(expression.trim()).find();
+    }
+
     private String replaceSequenceReference(Pattern pattern, String expression, String prefix) {
         Matcher matcher = pattern.matcher(expression);
         StringBuffer result = new StringBuffer();
