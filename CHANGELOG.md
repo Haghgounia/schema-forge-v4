@@ -1,3 +1,11 @@
+## 2026-08-29 - EA/REST metadata performance hardening
+
+- Added request-local metadata caching to the failure-isolating repository wrapper.
+- A schema proven missing now short-circuits repeated live-table probes during later comparison/migration phases.
+- Metadata validation skips global column-profile scans and per-table/FK location lookups when the target schema is known missing.
+- EA comparison skips live-table resolution immediately when schema existence metadata already says the schema is absent.
+- Added regression coverage for schema-missing fast paths and request-cache reuse.
+
 ## 2026-08-29 - Oracle EA migration convergence / rename sequencing
 
 - Treats an explicit live `DEFAULT NULL` as equivalent to no logical default.

@@ -6,10 +6,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -19,6 +22,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * the guarded repository becomes unavailable for the remainder of the request and subsequent
  * metadata lookups return empty results. Non-connectivity programming, SQL, mapping, and data
  * contract failures are deliberately rethrown.</p>
+ *
+ * <p>The guard also keeps a small request-local cache for schema/table lookups. This is important
+ * for EA/document generation because comparison and migration phases reuse the same repository.
+ * A schema already proven missing is therefore not probed table-by-table again.</p>
  */
 public final class FailureIsolatingMetadataRepository implements MetadataRepository {
     private static final Logger LOGGER = LoggerFactory.getLogger(FailureIsolatingMetadataRepository.class);
@@ -26,6 +33,9 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     private final DatabasePlatform platform;
     private final MetadataRepository delegate;
     private final AtomicBoolean connectionUnavailable = new AtomicBoolean(false);
+    private final ConcurrentMap<String, Boolean> schemaExistence = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TableKey, Optional<Table>> tables = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, List<String>> tableSchemas = new ConcurrentHashMap<>();
 
     private FailureIsolatingMetadataRepository(DatabasePlatform platform, MetadataRepository delegate) {
         this.platform = Objects.requireNonNull(platform, "platform must not be null");
@@ -60,8 +70,24 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
         if (!available()) {
             return Optional.empty();
         }
+        TableKey key = TableKey.of(schemaName, tableName);
+        if (key == null) {
+            return Optional.empty();
+        }
+
+        Boolean knownSchema = schemaExistence.get(key.schemaName());
+        if (Boolean.FALSE.equals(knownSchema)) {
+            return Optional.empty();
+        }
+
+        Optional<Table> cached = tables.get(key);
+        if (cached != null) {
+            return cached;
+        }
         try {
-            return delegate.findTable(schemaName, tableName);
+            Optional<Table> result = delegate.findTable(schemaName, tableName);
+            tables.putIfAbsent(key, result);
+            return result;
         } catch (RuntimeException exception) {
             if (isolateConnectionFailure("findTable", exception)) {
                 return Optional.empty();
@@ -75,8 +101,18 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
         if (!available()) {
             return false;
         }
+        String key = normalize(schemaName);
+        if (key == null) {
+            return false;
+        }
+        Boolean cached = schemaExistence.get(key);
+        if (cached != null) {
+            return cached;
+        }
         try {
-            return delegate.schemaExists(schemaName);
+            boolean result = delegate.schemaExists(schemaName);
+            schemaExistence.putIfAbsent(key, result);
+            return result;
         } catch (RuntimeException exception) {
             if (isolateConnectionFailure("schemaExists", exception)) {
                 return false;
@@ -86,12 +122,27 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     }
 
     @Override
+    public boolean schemaExistenceAuthoritative() {
+        return delegate.schemaExistenceAuthoritative();
+    }
+
+    @Override
     public List<String> findTableSchemas(String tableName) {
         if (!available()) {
             return List.of();
         }
+        String key = normalize(tableName);
+        if (key == null) {
+            return List.of();
+        }
+        List<String> cached = tableSchemas.get(key);
+        if (cached != null) {
+            return cached;
+        }
         try {
-            return delegate.findTableSchemas(tableName);
+            List<String> result = List.copyOf(delegate.findTableSchemas(tableName));
+            tableSchemas.putIfAbsent(key, result);
+            return result;
         } catch (RuntimeException exception) {
             if (isolateConnectionFailure("findTableSchemas", exception)) {
                 return List.of();
@@ -128,6 +179,13 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
         return true;
     }
 
+    private static String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim().toUpperCase(Locale.ROOT);
+    }
+
     private static Throwable rootCause(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null && current.getCause() != current) {
@@ -139,5 +197,13 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     private static String safeMessage(Throwable throwable) {
         String message = throwable.getMessage();
         return message == null || message.isBlank() ? throwable.getClass().getSimpleName() : message;
+    }
+
+    private record TableKey(String schemaName, String tableName) {
+        static TableKey of(String schemaName, String tableName) {
+            String schema = normalize(schemaName);
+            String table = normalize(tableName);
+            return schema == null || table == null ? null : new TableKey(schema, table);
+        }
     }
 }

@@ -50,10 +50,13 @@ public final class MetadataComparisonValidator {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         boolean metadataAvailable = repository.available();
-        if (metadataAvailable) {
+        if (metadataAvailable && repository.schemaExistenceAuthoritative()) {
             metadataAvailable = inspectSchemaExistence(schema, schemaExistence);
         }
-        Map<String, MetadataColumnProfile> profiles = metadataAvailable
+        boolean allDocumentSchemasVerifiedMissing = repository.schemaExistenceAuthoritative()
+                && !schemaExistence.isEmpty()
+                && schemaExistence.values().stream().noneMatch(Boolean.TRUE::equals);
+        Map<String, MetadataColumnProfile> profiles = metadataAvailable && !allDocumentSchemasVerifiedMissing
                 ? repository.loadColumnProfiles(columnNames)
                 : Map.of();
         metadataAvailable = metadataAvailable && repository.available();
@@ -64,7 +67,8 @@ public final class MetadataComparisonValidator {
             if (metadataAvailable) {
                 metadataAvailable = validateTableLocation(table, issues, schemaExistence);
                 if (metadataAvailable) {
-                    metadataAvailable = validateForeignKeys(table, issues, resolvedForeignKeySchemas);
+                    metadataAvailable = validateForeignKeys(
+                            table, issues, resolvedForeignKeySchemas, schemaExistence);
                 }
             }
             for (Column column : table.columns()) {
@@ -96,6 +100,8 @@ public final class MetadataComparisonValidator {
         schema.sequences().forEach(sequence -> schemas.add(sequence.qualifiedName().schemaName()
                 .map(identifier -> identifier.value())
                 .orElse(schema.name().value())));
+        schema.tables().forEach(table -> table.foreignKeys().forEach(foreignKey ->
+                foreignKey.referencedTable().schemaName().ifPresent(identifier -> schemas.add(identifier.value()))));
         if (schemas.isEmpty()) schemas.add(schema.name().value());
 
         for (String schemaName : schemas) {
@@ -121,6 +127,7 @@ public final class MetadataComparisonValidator {
             if (Boolean.FALSE.equals(schemaExists)) {
                 issues.add(new ValidationIssue("WARNING", "SCHEMA_NOT_FOUND", tablePath(table),
                         "Schema " + schemaName + " does not exist in database metadata."));
+                return true;
             }
         }
         List<String> schemas = repository.findTableSchemas(tableName);
@@ -136,17 +143,25 @@ public final class MetadataComparisonValidator {
     }
 
     private boolean validateForeignKeys(Table table, List<ValidationIssue> issues,
-                                     Map<String, String> resolvedSchemas) {
+                                     Map<String, String> resolvedSchemas,
+                                     Map<String, Boolean> schemaExistence) {
         String ownerSchema = table.qualifiedName().schemaName().map(i -> i.value()).orElse(null);
         for (ForeignKey fk : table.foreignKeys()) {
             String refTable = fk.referencedTable().name().value();
             String explicitSchema = fk.referencedTable().schemaName().map(i -> i.value()).orElse(null);
             String preferredSchema = explicitSchema != null ? explicitSchema : ownerSchema;
+            String path = foreignKeyPath(table, fk);
+            if (preferredSchema != null
+                    && Boolean.FALSE.equals(schemaExistence.get(normalizeSchema(preferredSchema)))) {
+                issues.add(new ValidationIssue("WARNING", "FK_TABLE_NOT_FOUND", path,
+                        "Referenced table " + refTable + " cannot exist in missing schema "
+                                + preferredSchema + "."));
+                continue;
+            }
             List<String> schemas = repository.findTableSchemas(refTable);
             if (!repository.available()) {
                 return false;
             }
-            String path = foreignKeyPath(table, fk);
 
             if (schemas.isEmpty()) {
                 issues.add(new ValidationIssue("WARNING", "FK_TABLE_NOT_FOUND", path,

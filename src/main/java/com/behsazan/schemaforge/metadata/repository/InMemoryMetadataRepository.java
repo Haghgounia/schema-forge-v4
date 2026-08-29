@@ -55,6 +55,11 @@ public final class InMemoryMetadataRepository implements MetadataRepository {
         return Optional.ofNullable(tables.get(tableKey(schemaName, tableName)));
     }
 
+    @Override
+    public boolean schemaExistenceAuthoritative() {
+        return false;
+    }
+
     private static String tableKey(String schemaName, String tableName) {
         String schema = schemaName == null ? "" : schemaName.trim().toUpperCase(Locale.ROOT);
         String table = tableName == null ? "" : tableName.trim().toUpperCase(Locale.ROOT);

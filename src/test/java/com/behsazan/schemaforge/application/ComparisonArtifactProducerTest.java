@@ -27,10 +27,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ComparisonArtifactProducerTest {
@@ -124,6 +126,36 @@ class ComparisonArtifactProducerTest {
         assertEquals(expected, descriptor.relativePath());
         assertEquals("APP.CUSTOMERS", descriptor.logicalName());
         assertEquals(DatabasePlatform.POSTGRESQL, descriptor.platform());
+    }
+
+    @Test
+    void missingKnownSchemaSkipsEaComparisonWithoutTableLookup() throws Exception {
+        DatabaseSchema schema = schema();
+        Table document = schema.tables().get(0);
+        AtomicInteger tableLookups = new AtomicInteger();
+        MetadataRepository repository = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public Optional<Table> findTable(String schemaName, String tableName) {
+                tableLookups.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+        MetadataComparisonResult metadata = new MetadataComparisonResult(
+                List.of(), Map.of(), Map.of(), Map.of("APP", false), true);
+        ArtifactGenerationContext context = context();
+
+        String relative = new ComparisonArtifactProducer(new ArtifactNamingPolicy()).writeEaComparisonWorkbook(
+                schema, document, repository, metadata, tempDir, DatabasePlatform.DB2_LUW,
+                dialect(DatabasePlatform.DB2_LUW), context, TIMESTAMP);
+
+        assertNull(relative);
+        assertEquals(0, tableLookups.get(), "known-missing schema must skip live table lookup");
+        assertEquals(ArtifactStatus.SKIPPED, context.ledger().snapshot().get(0).status());
     }
 
     private static DatabaseSchema schema() {

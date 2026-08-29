@@ -16,6 +16,13 @@ public interface MetadataRepository {
 
     default boolean schemaExists(String schemaName) { return false; }
 
+    /**
+     * Whether {@link #schemaExists(String)} can distinguish a verified missing schema from an
+     * implementation that simply has no schema catalog. Runtime JDBC repositories are
+     * authoritative; profile-only/offline repositories may opt out.
+     */
+    default boolean schemaExistenceAuthoritative() { return true; }
+
     /** Returns all non-system schemas containing the requested table. */
     default List<String> findTableSchemas(String tableName) { return List.of(); }
 

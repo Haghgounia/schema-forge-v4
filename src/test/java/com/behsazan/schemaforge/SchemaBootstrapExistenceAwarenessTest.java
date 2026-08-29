@@ -99,6 +99,46 @@ class SchemaBootstrapExistenceAwarenessTest {
         assertEquals(1, schemaChecks.get(), "schema existence must be queried once per distinct schema");
     }
 
+    @Test
+    void missingSchemaSkipsExpensiveProfileAndPerTableLocationQueries() {
+        DatabaseSchema schema = DatabaseSchema.builder("FEE")
+                .addTable(table("FEE", "T1"))
+                .addTable(table("FEE", "T2"))
+                .build();
+        AtomicInteger profileCalls = new AtomicInteger();
+        AtomicInteger tableSchemaCalls = new AtomicInteger();
+        MetadataRepository repository = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                profileCalls.incrementAndGet();
+                return Map.of();
+            }
+
+            @Override
+            public boolean schemaExists(String schemaName) {
+                return false;
+            }
+
+            @Override
+            public List<String> findTableSchemas(String tableName) {
+                tableSchemaCalls.incrementAndGet();
+                return List.of();
+            }
+        };
+
+        MetadataComparisonResult result = new MetadataComparisonValidator(
+                DialectFactory.create(DatabasePlatform.DB2_LUW), repository).validate(schema);
+
+        assertTrue(result.schemaKnownToBeMissing("FEE"));
+        assertEquals(0, profileCalls.get(),
+                "column-profile scan is unnecessary when every document schema is missing");
+        assertEquals(0, tableSchemaCalls.get(),
+                "per-table schema search must be skipped when the target schema is missing");
+        assertEquals(2, result.issues().stream()
+                .filter(issue -> "SCHEMA_NOT_FOUND".equals(issue.code()))
+                .count());
+    }
+
     private static DatabaseSchema sampleSchema() {
         return DatabaseSchema.builder("FEE")
                 .addTable(table("FEE", "T1"))

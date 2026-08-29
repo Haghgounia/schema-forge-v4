@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -51,6 +53,50 @@ class FailureIsolatingMetadataRepositoryTest {
                 () -> guarded.loadColumnProfiles(Set.of("ID")));
         assertEquals("metadata mapping defect", failure.getMessage());
         assertTrue(guarded.available());
+    }
+
+    @Test
+    void requestCacheAvoidsRepeatedSchemaAndTableLookupsAndShortCircuitsMissingSchema() {
+        AtomicInteger schemaCalls = new AtomicInteger();
+        AtomicInteger tableCalls = new AtomicInteger();
+        AtomicInteger tableSchemaCalls = new AtomicInteger();
+        MetadataRepository delegate = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public boolean schemaExists(String schemaName) {
+                schemaCalls.incrementAndGet();
+                return false;
+            }
+
+            @Override
+            public Optional<com.behsazan.schemaforge.domain.model.Table> findTable(
+                    String schemaName, String tableName) {
+                tableCalls.incrementAndGet();
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> findTableSchemas(String tableName) {
+                tableSchemaCalls.incrementAndGet();
+                return List.of();
+            }
+        };
+        MetadataRepository guarded = FailureIsolatingMetadataRepository.wrap(DatabasePlatform.DB2_LUW, delegate);
+
+        assertFalse(guarded.schemaExists("FEE"));
+        assertFalse(guarded.schemaExists("fee"));
+        assertTrue(guarded.findTable("FEE", "T1").isEmpty());
+        assertTrue(guarded.findTable("fee", "t1").isEmpty());
+        assertTrue(guarded.findTableSchemas("T1").isEmpty());
+        assertTrue(guarded.findTableSchemas("t1").isEmpty());
+
+        assertEquals(1, schemaCalls.get(), "schema existence must be cached case-insensitively");
+        assertEquals(0, tableCalls.get(), "known-missing schema must short-circuit table lookup");
+        assertEquals(1, tableSchemaCalls.get(), "table schema lookup must be cached per request");
     }
 
     @Test

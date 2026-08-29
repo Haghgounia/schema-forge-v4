@@ -91,10 +91,10 @@ schemaforge:
 
     # Disabled by default because IBM JCC is not bundled with the project.
     db2luw:
-      enabled: true
+      enabled: false
       url: jdbc:db2://localhost:50000/SFORGE
-      username: db2inst1
-      password: Schemaforge123
+      username: ${SCHEMAFORGE_METADATA_DB2LUW_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_DB2LUW_PASSWORD:}
       driver-class-name: com.ibm.db2.jcc.DB2Driver
 
     sqlserver:
