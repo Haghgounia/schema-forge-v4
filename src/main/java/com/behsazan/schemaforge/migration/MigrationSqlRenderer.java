@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
@@ -56,6 +57,7 @@ public final class MigrationSqlRenderer {
         List<TableObjectChange> dependencyRefreshes = sqlServerDependencyRefreshes(plan);
         Set<String> dependencyGuardedColumns = sqlServerDependencyGuardedColumns(plan, dependencyRefreshes);
         renderDependencyRefreshDropPhase(sql, plan, dialect, options, dependencyRefreshes);
+        renderObjectRenamePhase(sql, plan, dialect);
         renderObjectDropPhase(sql, plan, dialect, options);
 
         Set<String> renderedComposite = new HashSet<>();
@@ -114,10 +116,21 @@ public final class MigrationSqlRenderer {
         return sql.toString();
     }
 
+    private void renderObjectRenamePhase(
+            StringBuilder sql, TableMigrationPlan plan, Dialect dialect) {
+        for (TableObjectChange change : plan.objectChanges()) {
+            if (change.kind() != TableObjectChangeKind.RENAME) continue;
+            appendObjectHeading(sql, change, "RENAME PHASE");
+            for (String statement : renderObjectRename(plan, dialect, change)) {
+                if (statement != null && !statement.isBlank()) appendStatement(sql, statement, false);
+            }
+        }
+    }
+
     private void renderObjectDropPhase(
             StringBuilder sql, TableMigrationPlan plan, Dialect dialect, MigrationRenderOptions options) {
         for (TableObjectChange change : orderedObjectChangesForDrop(plan.objectChanges())) {
-            if (change.kind() == TableObjectChangeKind.ADD) continue;
+            if (change.kind() == TableObjectChangeKind.ADD || change.kind() == TableObjectChangeKind.RENAME) continue;
             appendObjectHeading(sql, change, "DROP PHASE");
             boolean blocked = change.risk() == MigrationRisk.DESTRUCTIVE && !options.confirmDestructive();
             if (blocked) {
@@ -139,7 +152,7 @@ public final class MigrationSqlRenderer {
             StringBuilder sql, TableMigrationPlan plan, Dialect dialect, DdlGenerator ddlGenerator,
             MigrationRenderOptions options) {
         for (TableObjectChange change : orderedObjectChangesForAdd(plan.objectChanges())) {
-            if (change.kind() == TableObjectChangeKind.DROP) continue;
+            if (change.kind() == TableObjectChangeKind.DROP || change.kind() == TableObjectChangeKind.RENAME) continue;
             appendObjectHeading(sql, change, "ADD PHASE");
             boolean blocked = change.risk() == MigrationRisk.DESTRUCTIVE && !options.confirmDestructive();
             if (blocked) {
@@ -458,6 +471,40 @@ public final class MigrationSqlRenderer {
                 .append(" [").append(phase).append("]: ").append(change.rationale()).append(NL);
     }
 
+    private List<String> renderObjectRename(
+            TableMigrationPlan plan, Dialect dialect, TableObjectChange change) {
+        if (plan.platform() != DatabasePlatform.ORACLE) {
+            throw new UnsupportedOperationException("automatic object rename is currently supported only for Oracle");
+        }
+        Identifier before = objectName(change.before(), change.objectType());
+        Identifier logicalAfter = objectName(change.after(), change.objectType());
+        if (before == null || logicalAfter == null) {
+            throw new UnsupportedOperationException("rename requires both live and desired object names");
+        }
+        Identifier after = PhysicalObjectNamePolicy.physicalIdentifier(dialect, logicalAfter);
+        String terminator = dialect.statementTerminator();
+        String tableName = qualifiedName(dialect, plan.desiredTable().qualifiedName());
+        return switch (change.objectType()) {
+            case INDEX -> List.of("ALTER INDEX "
+                    + qualifiedIndexName(dialect, plan.desiredTable(), before)
+                    + " RENAME TO " + dialect.quote(after) + terminator);
+            case PRIMARY_KEY, FOREIGN_KEY, UNIQUE_KEY, CHECK_CONSTRAINT -> List.of(
+                    "ALTER TABLE " + tableName + " RENAME CONSTRAINT "
+                            + dialect.quote(before) + " TO " + dialect.quote(after) + terminator);
+        };
+    }
+
+    private static Identifier objectName(Object value, TableObjectType type) {
+        if (value == null) return null;
+        return switch (type) {
+            case PRIMARY_KEY -> ((PrimaryKey) value).name();
+            case FOREIGN_KEY -> ((ForeignKey) value).name();
+            case UNIQUE_KEY -> ((UniqueKey) value).name();
+            case CHECK_CONSTRAINT -> ((CheckConstraint) value).name();
+            case INDEX -> ((Index) value).name();
+        };
+    }
+
     private List<String> renderObjectDrop(
             TableMigrationPlan plan, Dialect dialect, TableObjectChange change) {
         String tableName = qualifiedName(dialect, plan.desiredTable().qualifiedName());
@@ -537,6 +584,8 @@ public final class MigrationSqlRenderer {
                 .append(options.confirmDestructive() ? "ENABLED BY EXPLICIT CONFIRMATION" : "BLOCKED/COMMENTED")
                 .append(NL)
                 .append("-- HINT: SchemaForge never infers column renames. Missing old + new names are DROP + ADD until explicit evidence exists.")
+                .append(NL)
+                .append("-- HINT: M2 renders safe name-only RENAME operations before DROP/column/ADD phases.")
                 .append(NL)
                 .append("-- HINT: M2 orders owned-object DROP/REPLACE before column changes and owned-object ADD/REPLACE after them.")
                 .append(NL)

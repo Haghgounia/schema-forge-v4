@@ -5,10 +5,16 @@ import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactOrigin;
 import com.behsazan.schemaforge.artifact.ArtifactStatus;
 import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.domain.enums.IndexType;
+import com.behsazan.schemaforge.domain.enums.SortDirection;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Index;
+import com.behsazan.schemaforge.domain.model.IndexColumn;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
+import com.behsazan.schemaforge.domain.valueobject.Description;
+import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.metadata.repository.InMemoryMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.migration.FlywayMigrationNamer;
@@ -94,6 +100,48 @@ class MigrationArtifactProducerTest {
                 descriptor.relativePath());
         assertEquals("application/sql", descriptor.mediaType());
         assertEquals("MigrationGenerationService", descriptor.provenance().producer());
+    }
+
+
+    @Test
+    void assignsEarlierFlywayVersionToRenamePlansBeforeCrossTableAdds() throws Exception {
+        Column id = Column.required("ID", DataType.numeric("NUMBER", 19, 0));
+        Index addIndex = new Index(Identifier.of("IX_PATTERN_OPERATION_2"),
+                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Index legacyIndex = new Index(Identifier.of("IX_PATTERN_OPERATION_2"),
+                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Index renamedIndex = new Index(Identifier.of("IX_PATTERN_OPERATION__2"),
+                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+
+        Table desiredAdd = Table.builder("APP", "PATTERN_OPERATION")
+                .addColumn(id).addIndex(addIndex).build();
+        Table liveAdd = Table.builder("APP", "PATTERN_OPERATION")
+                .addColumn(id).build();
+        Table desiredRename = Table.builder("APP", "PATTERN_OPERATION_DETAIL")
+                .addColumn(id).addIndex(renamedIndex).build();
+        Table liveRename = Table.builder("APP", "PATTERN_OPERATION_DETAIL")
+                .addColumn(id).addIndex(legacyIndex).build();
+
+        // Deliberately put the ADD table first. Producer must still version the RENAME first.
+        DatabaseSchema schema = DatabaseSchema.builder("APP")
+                .addTable(desiredAdd).addTable(desiredRename).build();
+        MetadataRepository repository = new InMemoryMetadataRepository(
+                List.of(), List.of(liveAdd, liveRename));
+
+        producer().writeMigrationArtifacts(
+                schema, repository, tempDir, DatabasePlatform.ORACLE, context());
+
+        Path rename = tempDir.resolve(
+                "migration/oracle/V20260823020000000__APP_PATTERN_OPERATION_DETAIL_ALTER.sql");
+        Path add = tempDir.resolve(
+                "migration/oracle/V20260823020000001__APP_PATTERN_OPERATION_ALTER.sql");
+        assertTrue(Files.isRegularFile(rename));
+        assertTrue(Files.isRegularFile(add));
+        assertTrue(Files.readString(rename).contains("RENAME TO IX_PATTERN_OPERATION__2"));
+        assertTrue(Files.readString(add).contains("CREATE INDEX APP.IX_PATTERN_OPERATION_2"));
     }
 
     private static MigrationArtifactProducer producer() {

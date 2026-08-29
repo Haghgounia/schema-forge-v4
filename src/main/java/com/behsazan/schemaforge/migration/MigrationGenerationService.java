@@ -70,9 +70,26 @@ public final class MigrationGenerationService {
         Objects.requireNonNull(liveTable, "liveTable must not be null");
         Objects.requireNonNull(desiredTable, "desiredTable must not be null");
 
-        TableMigrationPlan plan = diffEngine.diff(platform, liveTable, desiredTable);
+        TableMigrationPlan plan = plan(platform, liveTable, desiredTable);
+        return generate(plan, options);
+    }
+
+    public TableMigrationPlan plan(
+            DatabasePlatform platform,
+            Table liveTable,
+            Table desiredTable) {
+        Objects.requireNonNull(platform, "platform must not be null");
+        Objects.requireNonNull(liveTable, "liveTable must not be null");
+        Objects.requireNonNull(desiredTable, "desiredTable must not be null");
+        return diffEngine.diff(platform, liveTable, desiredTable);
+    }
+
+    public MigrationArtifact generate(
+            TableMigrationPlan plan,
+            MigrationRenderOptions options) {
+        Objects.requireNonNull(plan, "plan must not be null");
         return new MigrationArtifact(
-                namer.fileName(desiredTable),
+                namer.fileName(plan.desiredTable()),
                 renderer.render(plan, options),
                 plan);
     }

@@ -165,7 +165,8 @@ public final class SchemaCompareExcelWriter {
             writeObjectComparisonSheet(workbook, "FOREIGN_KEYS_COMPARE",
                     foreignKeySnapshots(documentTable), foreignKeySnapshots(databaseTable), styles);
             writeObjectComparisonSheet(workbook, "INDEXES_COMPARE",
-                    indexSnapshots(documentTable, false), indexSnapshots(databaseTable, false), styles);
+                    indexSnapshots(documentTable, false, true),
+                    indexSnapshots(databaseTable, false, false), styles);
             writeObjectComparisonSheet(workbook, "UNIQUE_INDEXES_COMPARE",
                     uniqueSnapshots(documentTable), uniqueSnapshots(databaseTable), styles);
 
@@ -501,9 +502,17 @@ public final class SchemaCompareExcelWriter {
     }
 
     private static List<ObjectSnapshot> indexSnapshots(Table table, boolean uniqueOnly) {
+        return indexSnapshots(table, uniqueOnly, false);
+    }
+
+    private static List<ObjectSnapshot> indexSnapshots(
+            Table table, boolean uniqueOnly, boolean useEffectiveDesiredIndexes) {
         List<ObjectSnapshot> result = new ArrayList<>();
         Set<String> constraintBackedNames = constraintBackedUniqueIndexNames(table);
-        for (Index index : table.indexes()) {
+        List<Index> sourceIndexes = uniqueOnly
+                ? table.indexes()
+                : useEffectiveDesiredIndexes ? effectiveNormalIndexes(table) : table.indexes();
+        for (Index index : sourceIndexes) {
             boolean unique = index.type() == IndexType.UNIQUE;
             if (uniqueOnly != unique) continue;
             if (unique && index.name() != null
@@ -735,8 +744,8 @@ public final class SchemaCompareExcelWriter {
                 .equals(foreignKeyDefinitions(databaseTable, database.name()))) result.add("FOREIGN_KEY");
         if (!uniqueDefinitions(documentTable, document.name())
                 .equals(uniqueDefinitions(databaseTable, database.name()))) result.add("UNIQUE_INDEX");
-        if (!normalIndexDefinitions(documentTable, document.name())
-                .equals(normalIndexDefinitions(databaseTable, database.name()))) result.add("INDEX");
+        if (!normalIndexDefinitions(documentTable, document.name(), true)
+                .equals(normalIndexDefinitions(databaseTable, database.name(), false))) result.add("INDEX");
         if (!checkExpressions(documentTable, document.name())
                 .equals(checkExpressions(databaseTable, database.name()))) result.add("CHECK CONSTRAINT");
 
@@ -953,12 +962,44 @@ public final class SchemaCompareExcelWriter {
         return result;
     }
 
-    private static Set<String> normalIndexDefinitions(Table table, Identifier column) {
-        return table.indexes().stream().filter(index -> index.type() != IndexType.UNIQUE)
+    private static Set<String> normalIndexDefinitions(
+            Table table, Identifier column, boolean useEffectiveDesiredIndexes) {
+        List<Index> sourceIndexes = useEffectiveDesiredIndexes
+                ? effectiveNormalIndexes(table)
+                : table.indexes().stream().filter(index -> index.type() != IndexType.UNIQUE).toList();
+        return sourceIndexes.stream()
                 .filter(index -> index.columns().stream().filter(item -> !item.expressionBased())
                         .map(IndexColumn::column).anyMatch(column::equals))
                 .map(SchemaCompareExcelWriter::indexComparisonSignature)
                 .collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    private static List<Index> effectiveNormalIndexes(Table table) {
+        Set<String> occupied = new TreeSet<>();
+        table.primaryKey().ifPresent(key -> occupied.add(identifierIndexSignature(key.columns())));
+        table.uniqueKeys().forEach(key -> occupied.add(identifierIndexSignature(key.columns())));
+
+        List<Index> result = new ArrayList<>();
+        for (Index index : table.indexes()) {
+            if (index.type() == IndexType.UNIQUE) continue;
+            String signature = effectiveIndexColumnSignature(index);
+            if (occupied.add(signature)) result.add(index);
+        }
+        return List.copyOf(result);
+    }
+
+    private static String identifierIndexSignature(List<Identifier> columns) {
+        return columns.stream()
+                .map(identifier -> identifier.normalized() + ":ASC")
+                .collect(Collectors.joining("|"));
+    }
+
+    private static String effectiveIndexColumnSignature(Index index) {
+        return index.columns().stream()
+                .map(column -> column.expressionBased()
+                        ? "EXPR:" + normalizeExpression(column.expression()) + ":" + column.direction()
+                        : column.column().normalized() + ":" + column.direction())
+                .collect(Collectors.joining("|"));
     }
 
     private static String indexComparisonSignature(Index index) {
@@ -1131,7 +1172,7 @@ public final class SchemaCompareExcelWriter {
         while (normalized.startsWith("(") && normalized.endsWith(")") && normalized.length() > 1) {
             normalized = normalized.substring(1, normalized.length() - 1);
         }
-        return normalized;
+        return normalized.equals("NULL") ? "" : normalized;
     }
 
     private static String normalizeExpression(String value) {

@@ -602,4 +602,44 @@ class SchemaCompareExcelWriterTest {
         }
     }
 
+    @Test
+    void shouldTreatExplicitNullDefaultAsNoDefault() throws Exception {
+        Column documentColumn = new Column(Identifier.of("ID"), DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue(null), Description.empty(), false, 1);
+        Column databaseColumn = new Column(Identifier.of("ID"), DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue("NULL"), Description.empty(), false, 1);
+        Table document = Table.builder("PDL", "EXTENSION").addColumn(documentColumn).build();
+        Table database = Table.builder("PDL", "EXTENSION").addColumn(databaseColumn).build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.ORACLE);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var row = findRow(workbook.getSheet("EXTENSION"), "ID", 2, 12);
+            assertFalse(row.getCell(21).getStringCellValue().contains("DATA_DEFAULT"));
+        }
+    }
+
+    @Test
+    void shouldSuppressNormalIndexAlreadyCoveredByPrimaryKey() throws Exception {
+        Column id = Column.required("ID", DataType.numeric("NUMBER", 19, 0));
+        PrimaryKey pk = new PrimaryKey(Identifier.of("PK_PRODUCT"), List.of(Identifier.of("ID")));
+        Index redundant = new Index(Identifier.of("IX_PRODUCT_ID"),
+                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Table document = Table.builder("PDL", "PRODUCT")
+                .addColumn(id).primaryKey(pk).addIndex(redundant).build();
+        Table database = Table.builder("PDL", "PRODUCT")
+                .addColumn(id).primaryKey(pk).build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.ORACLE);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var row = findRow(workbook.getSheet("PRODUCT"), "ID", 2, 12);
+            assertFalse(row.getCell(21).getStringCellValue().contains("INDEX"));
+            assertEquals(0, workbook.getSheet("INDEXES_COMPARE").getLastRowNum());
+        }
+    }
+
 }

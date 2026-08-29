@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MigrationConvergenceRegressionTest {
@@ -85,4 +86,48 @@ class MigrationConvergenceRegressionTest {
 
         assertTrue(plan.objectChanges().isEmpty());
     }
+    @Test
+    void oracleTreatsExplicitNullDefaultAsNoDefault() {
+        Column live = new Column(Identifier.of("ELIGIBILITY_RULE_ID"),
+                DataType.numeric("NUMBER", 19, 0), false, new DefaultValue("NULL"),
+                Description.empty(), false, 1);
+        Column desired = new Column(Identifier.of("ELIGIBILITY_RULE_ID"),
+                DataType.numeric("NUMBER", 19, 0), false, new DefaultValue(null),
+                Description.empty(), false, 1);
+
+        Table liveTable = Table.builder("PDL", "LOAN_ELIGIBILITY_EXTENSION")
+                .addColumn(live).build();
+        Table desiredTable = Table.builder("PDL", "LOAN_ELIGIBILITY_EXTENSION")
+                .addColumn(desired).build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(
+                DatabasePlatform.ORACLE, liveTable, desiredTable);
+
+        assertTrue(plan.columnChanges().isEmpty(), () -> "NULL default must equal no default: " + plan);
+    }
+
+    @Test
+    void oracleRendersNameOnlyIndexDriftAsRenameInsteadOfDropCreate() {
+        Column id = Column.required("ID", DataType.numeric("NUMBER", 19, 0));
+        Index liveIndex = new Index(Identifier.of("IX_PATTERN_OPERATION_51"),
+                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Index desiredIndex = new Index(Identifier.of("IX_PATTERN_OPERATION__51"),
+                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Table live = Table.builder("PDL", "PATTERN_OPERATION_DETAIL")
+                .addColumn(id).addIndex(liveIndex).build();
+        Table desired = Table.builder("PDL", "PATTERN_OPERATION_DETAIL")
+                .addColumn(id).addIndex(desiredIndex).build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+        assertEquals(1, plan.objectChanges().size());
+        assertEquals(TableObjectChangeKind.RENAME, plan.objectChanges().getFirst().kind());
+
+        String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
+        assertTrue(sql.contains("ALTER INDEX PDL.IX_PATTERN_OPERATION_51 RENAME TO IX_PATTERN_OPERATION__51;"), sql);
+        assertTrue(!sql.contains("DROP INDEX"), sql);
+        assertTrue(!sql.contains("CREATE INDEX"), sql);
+    }
+
 }

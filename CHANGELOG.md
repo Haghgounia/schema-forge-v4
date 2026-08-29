@@ -1,3 +1,11 @@
+## 2026-08-29 - Oracle EA migration convergence / rename sequencing
+
+- Treats an explicit live `DEFAULT NULL` as equivalent to no logical default.
+- Emits Oracle name-only constraint/index drift as metadata `RENAME` instead of destructive DROP+CREATE.
+- Prioritizes rename-bearing Flyway migrations before other table migrations so legacy collapsed names are released before later ADD operations.
+- Aligns Schema Compare (logical and physical index sheets) with Migration by suppressing normal indexes already covered by PK/UK keys.
+- Adds focused regression coverage for NULL-default convergence, Oracle object rename rendering, cross-table Flyway rename ordering, and redundant-index comparison.
+
 ## 2026-08-29 - DB2 LUW FK P7.1 / non-mutating Legacy Unique Key probe
 
 - Added `LegacyUniqueKeyRecoveryProbeIT`, a read-only Word-corpus probe for the P7 `UK/UQ` routing fix.
@@ -1966,3 +1974,8 @@
 - `primaryKeyAsIdentity` no longer infers identity for PK columns that also participate in an FK. This keeps shared-PK extensions such as `PDL.LOAN_ELIGIBILITY_EXTENSION.ELIGIBILITY_RULE_ID` non-identity.
 - Verification against `Final_4(2).xml`: 50 tables, 49 inferred identities, shared PK/FK identity=false, 48 Oracle CREATE INDEX names with zero duplicates, repeated-underscore index names preserved, invalid collateral CHECKs blocked, and the focused Oracle migration convergence plan is empty.
 - Root remains free of `NOTES*` files; naming documentation is under `docs/architecture/`.
+
+## 2026-08-29 - EA Migration Convergence R3
+- Fixed comparison-side index equivalence to be asymmetric: redundant desired indexes covered by PK/UK are suppressed, while extra database indexes remain visible as DROP candidates.
+- Restored explicit index physical-property comparison even when the modeled index is structurally redundant with a PK/UK, so properties such as SQL Server FILLFACTOR remain comparable.
+- Kept R2 migration behavior unchanged: NULL default equivalence, Oracle name-only RENAME rendering, and rename-before-add Flyway ordering.

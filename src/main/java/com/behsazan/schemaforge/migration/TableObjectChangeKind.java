@@ -4,5 +4,6 @@ package com.behsazan.schemaforge.migration;
 public enum TableObjectChangeKind {
     ADD,
     DROP,
-    REPLACE
+    REPLACE,
+    RENAME
 }

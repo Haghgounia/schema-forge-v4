@@ -169,7 +169,11 @@ public final class SchemaDiffEngine {
         boolean sameStructure = primarySignature(before).equals(primarySignature(after));
         boolean sameExplicitName = platform == DatabasePlatform.MYSQL
                 || compatibleName(platform, before.name(), after.name());
-        if (!sameStructure || !sameExplicitName) {
+        if (sameStructure && !sameExplicitName && renameSupported(platform, before.name(), after.name())) {
+            changes.add(objectChange(TableObjectType.PRIMARY_KEY, TableObjectChangeKind.RENAME,
+                    after.name(), before, after, MigrationRisk.REVIEW,
+                    "primary key definition is unchanged; only the physical name differs"));
+        } else if (!sameStructure || !sameExplicitName) {
             changes.add(objectChange(TableObjectType.PRIMARY_KEY, TableObjectChangeKind.REPLACE,
                     chooseName(after.name(), before.name()), before, after, MigrationRisk.DESTRUCTIVE,
                     "primary key definition changes; replacement is emitted as DROP then ADD"));
@@ -199,7 +203,12 @@ public final class SchemaDiffEngine {
             T before = live.get(match);
             boolean sameStructure = signature.apply(before).equals(signature.apply(after));
             boolean sameExplicitName = compatibleName(platform, name.apply(before), afterName);
-            if (!sameStructure || !sameExplicitName) {
+            if (sameStructure && !sameExplicitName
+                    && renameSupported(platform, name.apply(before), afterName)) {
+                changes.add(objectChange(objectType, TableObjectChangeKind.RENAME,
+                        afterName, before, after, MigrationRisk.REVIEW,
+                        objectLabel(objectType) + " definition is unchanged; only the physical name differs"));
+            } else if (!sameStructure || !sameExplicitName) {
                 changes.add(objectChange(objectType, TableObjectChangeKind.REPLACE,
                         chooseName(afterName, name.apply(before)), before, after,
                         replaceObjectRisk(objectType),
@@ -255,6 +264,10 @@ public final class SchemaDiffEngine {
 
     private static String objectLabel(TableObjectType type) {
         return type.name().toLowerCase(Locale.ROOT).replace('_', ' ');
+    }
+
+    private static boolean renameSupported(DatabasePlatform platform, Identifier before, Identifier after) {
+        return platform == DatabasePlatform.ORACLE && before != null && after != null;
     }
 
     private static boolean compatibleName(DatabasePlatform platform, Identifier before, Identifier after) {
@@ -1061,7 +1074,7 @@ public final class SchemaDiffEngine {
 
     private static String normalizeDefault(DatabasePlatform platform, String value) {
         String normalized = normalizeExpression(value);
-        if (normalized == null) return null;
+        if (normalized == null || normalized.equals("NULL")) return null;
         if (platform == DatabasePlatform.POSTGRESQL) {
             Matcher literalCast = Pattern.compile(
                     "^('(?:[^']|'')*'|[-+]?\\d+(?:\\.\\d+)?)::[A-Z0-9_ ]+(?:\\(\\d+(?:,\\d+)?\\))?$")

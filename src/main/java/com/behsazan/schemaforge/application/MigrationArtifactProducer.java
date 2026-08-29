@@ -12,11 +12,16 @@ import com.behsazan.schemaforge.migration.MigrationArtifact;
 import com.behsazan.schemaforge.migration.MigrationFileWriter;
 import com.behsazan.schemaforge.migration.MigrationGenerationService;
 import com.behsazan.schemaforge.migration.MigrationRenderOptions;
+import com.behsazan.schemaforge.migration.TableMigrationPlan;
+import com.behsazan.schemaforge.migration.TableObjectChangeKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -83,6 +88,8 @@ public final class MigrationArtifactProducer {
         }
 
         Path migrationDirectory = output.resolve(artifactNamingPolicy.migrationDirectory(platform));
+        List<PendingMigration> pending = new ArrayList<>();
+        int sourceOrder = 0;
 
         for (Table desiredTable : schema.tables()) {
             String schemaName = desiredTable.qualifiedName().schemaName()
@@ -95,38 +102,59 @@ public final class MigrationArtifactProducer {
                 LOGGER.warn("[{}] Migration metadata connection unavailable; remaining migration artifacts will be skipped.",
                         platform.name());
                 markRemainingSkipped(schema, desiredTable, platform, context);
-                return;
+                break;
             }
             if (liveTable.isEmpty()) {
                 LOGGER.debug("[{}] Migration skipped; live table not found: {}.{}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
                         schemaName + "." + tableName, "MigrationGenerationService");
+                sourceOrder++;
                 continue;
             }
 
-            MigrationArtifact artifact = migrationGenerationService.generate(
-                    platform,
-                    liveTable.get(),
-                    desiredTable,
-                    MigrationRenderOptions.safeDefaults());
-            if (artifact.plan().empty()) {
+            TableMigrationPlan plan = migrationGenerationService.plan(platform, liveTable.get(), desiredTable);
+            if (plan.empty()) {
                 LOGGER.info("[{}] Migration not required; live table already matches desired columns: {}.{}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
                         schemaName + "." + tableName, "MigrationGenerationService");
+                sourceOrder++;
                 continue;
             }
+            pending.add(new PendingMigration(plan, schemaName, tableName, sourceOrder++));
+        }
 
+        // Flyway applies files by version, not by filesystem write order. Generate file names only
+        // after sorting so Oracle name-only RENAME migrations release legacy/collapsed names before
+        // later ADD migrations can claim those names in other tables. Stable source order is retained
+        // within each priority bucket.
+        pending.sort(Comparator
+                .comparingInt((PendingMigration item) -> containsRename(item.plan()) ? 0 : 1)
+                .thenComparingInt(PendingMigration::sourceOrder));
+
+        for (PendingMigration item : pending) {
+            MigrationArtifact artifact = migrationGenerationService.generate(
+                    item.plan(), MigrationRenderOptions.safeDefaults());
             Path written = migrationFileWriter.write(migrationDirectory, artifact);
             context.ledger().generated(context, ArtifactType.MIGRATION, platform,
-                    schemaName + "." + tableName, ArtifactPaths.relative(output, written),
+                    item.schemaName() + "." + item.tableName(), ArtifactPaths.relative(output, written),
                     "application/sql", "MigrationGenerationService");
             LOGGER.info("[{}] Flyway migration generated: {}",
                     platform.name(), output.relativize(written));
         }
+
     }
 
+
+
+    private static boolean containsRename(TableMigrationPlan plan) {
+        return plan.objectChanges().stream()
+                .anyMatch(change -> change.kind() == TableObjectChangeKind.RENAME);
+    }
+
+    private record PendingMigration(
+            TableMigrationPlan plan, String schemaName, String tableName, int sourceOrder) { }
 
     private static void markRemainingSkipped(
             DatabaseSchema schema,

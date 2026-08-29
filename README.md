@@ -534,3 +534,8 @@ Reports are written under `target/legacy-unique-key-probe/<run-id>/` unless
 `schemaforge.uk.probe.outputDir` is supplied. P7.2 executes the probe through a bounded fixed worker pool;
 `schemaforge.uk.probe.threads` controls worker count (default `min(8, availableProcessors)`) and
 `schemaforge.uk.probe.progressEveryDocuments` controls progress output frequency (default `250`).
+
+
+### EA migration convergence: Oracle name-only drift
+
+For an unchanged EA model deployed to Oracle, SchemaForge now treats live `DEFAULT NULL` as equivalent to no default, renders structurally identical constraint/index name drift with Oracle `RENAME`, assigns rename-bearing Flyway files earlier versions than ADD-only files, and suppresses PK/UK-covered normal indexes consistently in both Migration and Comparison output.
