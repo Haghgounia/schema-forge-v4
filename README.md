@@ -1,6 +1,6 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
-SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional Oracle, PostgreSQL, Db2 for z/OS, Microsoft SQL Server, and MySQL metadata connections are used for validation/comparison and live-vs-design migration planning. MySQL has logical DDL, live execution regression coverage, and a JDBC metadata table/column adapter.
+SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Db2 LUW, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional live metadata connections are used for validation/comparison and live-vs-design migration planning.
 
 ```text
 one input.docx -> one JSON model + one SQL file per registered dialect
@@ -19,6 +19,12 @@ The SQL file contains all objects related to that Word specification in one file
 - table and column comments
 - grants
 - parser recovery warnings and generation footer
+
+## Cross-DBMS physical object naming and EA round-trip convergence
+
+Generated/supporting object names (PK/UK/FK/CHECK/INDEX/SEQUENCE and related physical objects) use a DBMS-specific physical naming policy. Logical EA/Word names are preserved, including repeated underscores. Names that exceed the target limit are shortened with a deterministic hash suffix instead of plain truncation; business schema/table/column names are never silently renamed. The current limits are PostgreSQL 63, MySQL 64, and 128 for Oracle, SQL Server, Db2 LUW, and Db2 z/OS. Namespace collision checks follow the target DBMS scope. See [`docs/architecture/DBMS-OBJECT-NAMING-POLICY.md`](docs/architecture/DBMS-OBJECT-NAMING-POLICY.md).
+
+Oracle migration comparison treats SchemaForge sequence-backed identity, default TIMESTAMP precision, and PK/UK-covered redundant indexes as physical equivalents so an unchanged EA model converges to a no-op migration. EA `primaryKeyAsIdentity` inference also excludes PK columns that participate in an FK; shared-PK extensions such as `LOAN_ELIGIBILITY_EXTENSION.ELIGIBILITY_RULE_ID` inherit the parent key and do not receive an independent sequence. CHECK expressions that reference columns missing from their table are reported as `CHECK-COL-001` and are not emitted as executable SQL.
 
 ## ALTER / Flyway-compatible migration foundation
 
@@ -525,4 +531,6 @@ SQL Server catalog CHECK text is normalized for catalog-only formatting (ordinar
 It reparses a source Word corpus directly and reports canonical `UniqueKey` objects without writing to or
 modifying any persisted canonical snapshot corpus. Required property: `schemaforge.uk.probe.wordRoot`.
 Reports are written under `target/legacy-unique-key-probe/<run-id>/` unless
-`schemaforge.uk.probe.outputDir` is supplied.
+`schemaforge.uk.probe.outputDir` is supplied. P7.2 executes the probe through a bounded fixed worker pool;
+`schemaforge.uk.probe.threads` controls worker count (default `min(8, availableProcessors)`) and
+`schemaforge.uk.probe.progressEveryDocuments` controls progress output frequency (default `250`).

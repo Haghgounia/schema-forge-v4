@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
@@ -13,6 +14,9 @@ import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
+import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,6 +36,7 @@ public final class SchemaDiffEngine {
     private static final Pattern TYPE_ARGUMENTS = Pattern.compile("^([A-Z0-9_ ]+)\\((\\d+)(?:,(\\d+))?(?: (?:CHAR|BYTE|CHARACTERS?))?\\)(.*)$");
 
     private final NumericMappingStrategy numericMappingStrategy;
+    private final NumericTypeEquivalenceService typeEquivalenceService = new NumericTypeEquivalenceService();
 
     public SchemaDiffEngine() {
         this(DialectFactory.configuredNumericMappingStrategy());
@@ -73,12 +78,16 @@ public final class SchemaDiffEngine {
 
             String liveType = liveType(platform, dialect, liveTable, live);
             String desiredType = desiredType(dialect, desiredTable, desired);
-            if (!normalizeType(liveType).equals(normalizeType(desiredType))) {
+            if (!typeEquivalenceService.equivalent(
+                    platform.name(), liveType, desiredType, numericMappingStrategy)) {
                 changes.add(new ColumnChange(
                         ColumnChangeKind.ALTER_TYPE, desired.name(), live, desired,
                         typeRisk(liveType, desiredType),
                         "datatype changes from " + liveType + " to " + desiredType));
             }
+
+            boolean sequenceBackedIdentity = sequenceBackedIdentityEquivalent(
+                    desiredTable, desired, live, dialect);
 
             if (live.nullable() != desired.nullable()) {
                 MigrationRisk risk = desired.nullable() ? MigrationRisk.SAFE : MigrationRisk.REVIEW;
@@ -89,13 +98,13 @@ public final class SchemaDiffEngine {
                         ColumnChangeKind.ALTER_NULLABILITY, desired.name(), live, desired, risk, rationale));
             }
 
-            if (!sameDefault(platform, dialect, live, desired)) {
+            if (!sequenceBackedIdentity && !sameDefault(platform, dialect, live, desired)) {
                 changes.add(new ColumnChange(
                         ColumnChangeKind.ALTER_DEFAULT, desired.name(), live, desired, MigrationRisk.REVIEW,
                         "default expression changes from " + defaultLabel(live) + " to " + defaultLabel(desired)));
             }
 
-            if (live.identity() != desired.identity()) {
+            if (!sequenceBackedIdentity && live.identity() != desired.identity()) {
                 changes.add(new ColumnChange(
                         ColumnChangeKind.ALTER_IDENTITY, desired.name(), live, desired, MigrationRisk.REVIEW,
                         "identity property changes; automatic identity transition requires operational review"));
@@ -126,16 +135,16 @@ public final class SchemaDiffEngine {
         List<TableObjectChange> changes = new ArrayList<>();
         diffPrimaryKey(platform, live, desired, changes);
         diffNamedObjects(
-                TableObjectType.UNIQUE_KEY, live.uniqueKeys(), desired.uniqueKeys(),
+                platform, TableObjectType.UNIQUE_KEY, live.uniqueKeys(), desired.uniqueKeys(),
                 UniqueKey::name, this::uniqueSignature, changes);
         diffNamedObjects(
-                TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(), desired.checkConstraints(),
+                platform, TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(), effectiveDesiredChecks(desired),
                 CheckConstraint::name, check -> checkSignature(platform, dialect, check), changes);
         diffNamedObjects(
-                TableObjectType.INDEX, live.indexes(), desired.indexes(),
+                platform, TableObjectType.INDEX, live.indexes(), effectiveDesiredIndexes(dialect, desired),
                 Index::name, index -> indexSignature(dialect, index), changes);
         diffNamedObjects(
-                TableObjectType.FOREIGN_KEY, live.foreignKeys(), desired.foreignKeys(),
+                platform, TableObjectType.FOREIGN_KEY, live.foreignKeys(), desired.foreignKeys(),
                 ForeignKey::name, foreignKey -> foreignKeySignature(desired, foreignKey), changes);
         return List.copyOf(changes);
     }
@@ -159,7 +168,7 @@ public final class SchemaDiffEngine {
         }
         boolean sameStructure = primarySignature(before).equals(primarySignature(after));
         boolean sameExplicitName = platform == DatabasePlatform.MYSQL
-                || compatibleName(before.name(), after.name());
+                || compatibleName(platform, before.name(), after.name());
         if (!sameStructure || !sameExplicitName) {
             changes.add(objectChange(TableObjectType.PRIMARY_KEY, TableObjectChangeKind.REPLACE,
                     chooseName(after.name(), before.name()), before, after, MigrationRisk.DESTRUCTIVE,
@@ -168,6 +177,7 @@ public final class SchemaDiffEngine {
     }
 
     private <T> void diffNamedObjects(
+            DatabasePlatform platform,
             TableObjectType objectType,
             List<T> live,
             List<T> desired,
@@ -188,7 +198,7 @@ public final class SchemaDiffEngine {
             matched.add(match);
             T before = live.get(match);
             boolean sameStructure = signature.apply(before).equals(signature.apply(after));
-            boolean sameExplicitName = compatibleName(name.apply(before), afterName);
+            boolean sameExplicitName = compatibleName(platform, name.apply(before), afterName);
             if (!sameStructure || !sameExplicitName) {
                 changes.add(objectChange(objectType, TableObjectChangeKind.REPLACE,
                         chooseName(afterName, name.apply(before)), before, after,
@@ -247,9 +257,12 @@ public final class SchemaDiffEngine {
         return type.name().toLowerCase(Locale.ROOT).replace('_', ' ');
     }
 
-    private static boolean compatibleName(Identifier before, Identifier after) {
+    private static boolean compatibleName(DatabasePlatform platform, Identifier before, Identifier after) {
         if (after == null) return true;
-        return before != null && before.normalized().equals(after.normalized());
+        if (before == null) return false;
+        Identifier expectedPhysical = PhysicalObjectNamePolicy.physicalIdentifier(platform, after);
+        return before.normalized().equals(expectedPhysical.normalized())
+                || before.normalized().equals(after.normalized());
     }
 
     private static Identifier chooseName(Identifier preferred, Identifier fallback) {
@@ -967,6 +980,64 @@ public final class SchemaDiffEngine {
 
     private static boolean isExactNumericFamily(String base) {
         return base.equals("NUMBER") || base.equals("NUMERIC") || base.equals("DECIMAL") || base.equals("DEC");
+    }
+
+    private static boolean sequenceBackedIdentityEquivalent(
+            Table desiredTable, Column desired, Column live, Dialect dialect) {
+        if (!desired.identity() || live.identity() || !dialect.identityUsesNamedSequence()) return false;
+        if (desired.defaultValue().isPresent() || !live.defaultValue().isPresent()) return false;
+
+        long identityCount = desiredTable.columns().stream().filter(Column::identity).count();
+        QualifiedName logicalSequence = dialect.identitySequenceName(
+                desiredTable.qualifiedName(), desired, identityCount > 1);
+        QualifiedName physicalSequence = new QualifiedName(
+                logicalSequence.schemaName().orElse(null),
+                PhysicalObjectNamePolicy.physicalIdentifier(dialect, logicalSequence.name()));
+        String liveDefault = normalizeSequenceReference(live.defaultValue().expression());
+        String expectedQualified = normalizeSequenceReference(physicalSequence + ".NEXTVAL");
+        String expectedUnqualified = normalizeSequenceReference(physicalSequence.name().value() + ".NEXTVAL");
+        return liveDefault.equals(expectedQualified) || liveDefault.equals(expectedUnqualified);
+    }
+
+    private static String normalizeSequenceReference(String value) {
+        String normalized = normalizeDefault(DatabasePlatform.ORACLE, value);
+        return normalized == null ? "" : normalized.replace("\"", "");
+    }
+
+    private static List<CheckConstraint> effectiveDesiredChecks(Table table) {
+        return table.checkConstraints().stream()
+                .filter(check -> CheckConstraintReferenceAnalyzer.valid(table, check.expression()))
+                .toList();
+    }
+
+    private List<Index> effectiveDesiredIndexes(Dialect dialect, Table table) {
+        Set<String> occupiedSignatures = new LinkedHashSet<>();
+        table.primaryKey().ifPresent(key -> occupiedSignatures.add(identifierIndexSignature(dialect, key.columns())));
+        for (UniqueKey key : table.uniqueKeys()) {
+            occupiedSignatures.add(identifierIndexSignature(dialect, key.columns()));
+        }
+        List<Index> result = new ArrayList<>();
+        for (Index index : table.indexes()) {
+            String signature = effectiveIndexColumnSignature(dialect, index);
+            if (occupiedSignatures.add(signature)) result.add(index);
+        }
+        return List.copyOf(result);
+    }
+
+    private static String effectiveIndexColumnSignature(Dialect dialect, Index index) {
+        return index.columns().stream()
+                .map(column -> column.expressionBased()
+                        ? "EXPR:" + normalizeExpression(column.expression()) + ":" + column.direction()
+                        : dialect.quote(column.column()).toUpperCase(Locale.ROOT) + ":" + column.direction())
+                .reduce((left, right) -> left + "|" + right)
+                .orElse("");
+    }
+
+    private static String identifierIndexSignature(Dialect dialect, List<Identifier> columns) {
+        return columns.stream()
+                .map(identifier -> dialect.quote(identifier).toUpperCase(Locale.ROOT) + ":ASC")
+                .reduce((left, right) -> left + "|" + right)
+                .orElse("");
     }
 
     private static boolean sameDefault(DatabasePlatform platform, Dialect dialect, Column live, Column desired) {

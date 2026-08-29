@@ -136,6 +136,14 @@ public interface Dialect {
 
     String quote(Identifier identifier);
 
+    /**
+     * Renders a generated/supporting object identifier using the target DBMS length policy.
+     * Business table/column identifiers continue to use {@link #quote(Identifier)} directly.
+     */
+    default String quoteObject(Identifier logicalIdentifier) {
+        return quote(PhysicalObjectNamePolicy.physicalIdentifier(this, logicalIdentifier));
+    }
+
     default String name() {
         return getClass().getSimpleName().replace("Dialect", "");
     }

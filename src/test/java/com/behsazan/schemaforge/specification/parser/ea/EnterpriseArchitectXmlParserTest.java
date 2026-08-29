@@ -372,4 +372,100 @@ class EnterpriseArchitectXmlParserTest {
         assertNull(timestampWithTimeZone.scale());
     }
 
+
+    @Test
+    void shouldPreserveRepeatedUnderscoresInEaObjectNames() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="PATTERN_OPERATION_DETAIL" xmi.id="TABLE_1">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="SUB_OPERATION_ID">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="NUMBER"/>
+                                <UML:TaggedValue tag="precision" value="19"/>
+                                <UML:TaggedValue tag="scale" value="0"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="IX_PATTERN_OPERATION__2">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="index"/></UML:ModelElement.stereotype>
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="SUB_OPERATION_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("PDL").parse(
+                "repeated-underscore.xml",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var table = schema.findTable("PATTERN_OPERATION_DETAIL").orElseThrow();
+        assertEquals(1, table.indexes().size());
+        assertEquals("IX_PATTERN_OPERATION__2", table.indexes().getFirst().name().value());
+    }
+
+
+    @Test
+    void shouldNotInferIdentityForSharedPrimaryKeyForeignKeyWhenEnabled() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="LOAN_ELIGIBILITY_EXTENSION" xmi.id="TABLE_EXT">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="ELIGIBILITY_RULE_ID">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="NUMBER"/>
+                                <UML:TaggedValue tag="precision" value="19"/>
+                                <UML:TaggedValue tag="scale" value="0"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_LOAN_ELIGIBILITY_EXTENSION">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype>
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="ELIGIBILITY_RULE_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                            <UML:Operation name="FK_LOAN_ELIGIBILITY_EXTENSION">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype>
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="ELIGIBILITY_RULE_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("PDL", true).parse(
+                "shared-pk-fk.xml", new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var column = schema.findTable("LOAN_ELIGIBILITY_EXTENSION").orElseThrow()
+                .findColumn("ELIGIBILITY_RULE_ID").orElseThrow();
+        assertFalse(column.identity());
+        assertFalse(column.nullable());
+    }
+
 }

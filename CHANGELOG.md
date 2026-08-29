@@ -1946,3 +1946,23 @@
 - Classifies FK blockers/skips as version drift, naming/alias drift, missing generated dependency, or canonical/key evidence gaps.
 - Recognizes historical PK/UNIQUE evidence and unique-index evidence without auto-promoting indexes to constraints.
 - P6 is read-only: no DB2 connection and no DDL/canonical mutation.
+
+## 2026-08-29 - DB2 LUW P7.2 parallel Legacy Unique-Key probe
+- Parallelized `LegacyUniqueKeyRecoveryProbeIT` with a bounded fixed worker pool; the prior P7.1 probe parsed the corpus serially.
+- Added `schemaforge.uk.probe.threads` with a default of `min(8, availableProcessors)` so concurrency is explicit and memory remains bounded for DOC/DOCX parsing.
+- Added `schemaforge.uk.probe.progressEveryDocuments` (default `250`) and concurrent progress reporting.
+- Result aggregation and CSV ordering remain deterministic; worker tasks return immutable per-document results and the main thread owns report aggregation.
+- No production parser, canonical model, DDL generator, or DB2 LUW rendering semantics changed.
+
+## 2026-08-29 - EA naming / migration convergence final merge on 1017 baseline
+
+- Merged the six-DBMS physical object naming policy onto `schema-forge-v4-2026-08-29-1017` without replacing the newer P7 Word-parser work.
+- Preserves logical EA object spelling, including repeated underscores such as `IX_PATTERN_OPERATION__2`; removed underscore collapsing from EA identifier sanitization.
+- Added deterministic hash-based shortening for generated/supporting objects when a target DBMS identifier limit is exceeded: PostgreSQL 63, MySQL 64, Oracle/SQL Server/Db2 LUW/Db2 z/OS 128. Plain truncation is not used.
+- Added target-aware namespace/collision auditing and fail-closed validation for overlength business schema/table/column identifiers.
+- Unified DDL rendering with the physical naming policy for PK/UK/FK/CHECK/INDEX/SEQUENCE objects and Oracle PK backing-index naming.
+- Added `CHECK-COL-001`: CHECK constraints referencing columns absent from the owning table are retained as diagnostics but not emitted as executable SQL.
+- Migration comparison now treats sequence-backed Oracle logical identity, `TIMESTAMP` vs `TIMESTAMP(6)`, PK/UK-covered redundant indexes, and logical-vs-shortened physical object names as equivalent.
+- `primaryKeyAsIdentity` no longer infers identity for PK columns that also participate in an FK. This keeps shared-PK extensions such as `PDL.LOAN_ELIGIBILITY_EXTENSION.ELIGIBILITY_RULE_ID` non-identity.
+- Verification against `Final_4(2).xml`: 50 tables, 49 inferred identities, shared PK/FK identity=false, 48 Oracle CREATE INDEX names with zero duplicates, repeated-underscore index names preserved, invalid collateral CHECKs blocked, and the focused Oracle migration convergence plan is empty.
+- Root remains free of `NOTES*` files; naming documentation is under `docs/architecture/`.

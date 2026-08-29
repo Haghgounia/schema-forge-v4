@@ -477,13 +477,21 @@ public final class EnterpriseArchitectXmlParser {
                         .map(EaParameter::name)
                         .map(value -> value.toUpperCase(Locale.ROOT))
                         .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        Set<String> foreignKeyColumns = eaTable.operations().stream()
+                .filter(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY)
+                .flatMap(operation -> operation.parameters().stream())
+                .map(EaParameter::name)
+                .map(value -> value.toUpperCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         Table.Builder builder = Table.builder(eaTable.schema(), eaTable.name())
                 .persianName(eaTable.persianName())
                 .description(eaTable.description());
         for (EaColumn column : eaTable.columns()) {
+            String normalizedColumnName = column.name().toUpperCase(Locale.ROOT);
             boolean inferredIdentity = primaryKeyAsIdentity
-                    && primaryKeyColumns.contains(column.name().toUpperCase(Locale.ROOT))
+                    && primaryKeyColumns.contains(normalizedColumnName)
+                    && !foreignKeyColumns.contains(normalizedColumnName)
                     && identityInferenceCompatible(column.dataType());
             builder.addColumn(new Column(
                     Identifier.of(column.name()),
@@ -944,7 +952,6 @@ public final class EnterpriseArchitectXmlParser {
                 .replace('-', '_')
                 .replace('/', '_')
                 .replaceAll("[^A-Z0-9_$#]", "_")
-                .replaceAll("_+", "_")
                 .replaceAll("^_+|_+$", "");
         if (candidate.isBlank()) return fallback == null ? "" : fallback;
         if (Character.isDigit(candidate.charAt(0))) candidate = "T_" + candidate;

@@ -15,6 +15,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,6 +36,8 @@ class LegacyUniqueKeyRecoveryProbeIT {
     private static final String FAIL_ON_ERRORS = "schemaforge.uk.probe.failOnErrors";
     private static final String MAX_DOCUMENTS = "schemaforge.uk.probe.maxDocuments";
     private static final String EXPECTED_MIN_DOCUMENTS = "schemaforge.uk.probe.expectedMinDocuments";
+    private static final String THREADS = "schemaforge.uk.probe.threads";
+    private static final String PROGRESS_EVERY_DOCUMENTS = "schemaforge.uk.probe.progressEveryDocuments";
 
     @Test
     void probesRecoveredUniqueKeysWithoutMutatingCanonicalSnapshots() throws Exception {
@@ -43,6 +48,8 @@ class LegacyUniqueKeyRecoveryProbeIT {
         int expectedMinDocuments = nonNegativeInt(EXPECTED_MIN_DOCUMENTS, 1);
 
         LegacyWordSpecificationParser parser = parser();
+        int threads = positiveInt(THREADS, defaultThreadCount());
+        int progressEveryDocuments = positiveInt(PROGRESS_EVERY_DOCUMENTS, 250);
         List<Path> documents;
         try (var paths = Files.walk(inputRoot)) {
             documents = paths.filter(Files::isRegularFile)
@@ -64,37 +71,44 @@ class LegacyUniqueKeyRecoveryProbeIT {
         int uniqueKeys = 0;
         int uniqueKeyColumns = 0;
 
-        for (Path document : documents) {
-            String relative = normalize(inputRoot.relativize(document));
-            try {
-                DatabaseSchema parsed = parser.parse(inputRoot, document, schema);
-                parsedDocuments++;
-                for (Table table : parsed.tables()) {
-                    tables++;
-                    if (!table.uniqueKeys().isEmpty()) {
-                        tablesWithUniqueKeys++;
-                    }
-                    for (UniqueKey uniqueKey : table.uniqueKeys()) {
-                        uniqueKeys++;
-                        uniqueKeyColumns += uniqueKey.columns().size();
-                        rows.add(new ResultRow(
-                                relative,
-                                table.qualifiedName().toString(),
-                                uniqueKey.name().value(),
-                                uniqueKey.columns().stream().map(column -> column.value()).toList()));
-                    }
-                }
-            } catch (IllegalArgumentException exception) {
-                String message = safeMessage(exception);
-                if (message.startsWith("No legacy table definition was accepted")) {
-                    skippedNoTable++;
-                } else {
-                    failures.add(new FailureRow(relative, exception.getClass().getSimpleName(), message));
-                }
-            } catch (Exception exception) {
-                failures.add(new FailureRow(relative, exception.getClass().getSimpleName(), safeMessage(exception)));
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        try {
+            ExecutorCompletionService<DocumentProbeResult> completion = new ExecutorCompletionService<>(executor);
+            for (Path document : documents) {
+                completion.submit(() -> probeDocument(parser, inputRoot, document, schema));
             }
+
+            for (int completed = 1; completed <= documents.size(); completed++) {
+                DocumentProbeResult result = completion.take().get();
+                parsedDocuments += result.parsedDocuments();
+                skippedNoTable += result.skippedNoTable();
+                tables += result.tables();
+                tablesWithUniqueKeys += result.tablesWithUniqueKeys();
+                uniqueKeys += result.uniqueKeys();
+                uniqueKeyColumns += result.uniqueKeyColumns();
+                rows.addAll(result.rows());
+                failures.addAll(result.failures());
+
+                if (completed % progressEveryDocuments == 0 || completed == documents.size()) {
+                    System.out.printf(
+                            Locale.ROOT,
+                            "Legacy UK probe: %,d / %,d completed, parsed=%,d, failures=%,d, uniqueKeys=%,d, threads=%d%n",
+                            completed,
+                            documents.size(),
+                            parsedDocuments,
+                            failures.size(),
+                            uniqueKeys,
+                            threads);
+                }
+            }
+        } finally {
+            executor.shutdownNow();
         }
+
+        rows.sort(Comparator.comparing(ResultRow::source)
+                .thenComparing(ResultRow::table)
+                .thenComparing(ResultRow::uniqueKey));
+        failures.sort(Comparator.comparing(FailureRow::source));
 
         Path reportDirectory = reportDirectory();
         Files.createDirectories(reportDirectory);
@@ -116,6 +130,7 @@ class LegacyUniqueKeyRecoveryProbeIT {
                 Unique keys recovered : %d
                 Unique-key columns    : %d
                 Parser version        : %s
+                Worker threads        : %d
                 Report directory      : %s
                 """.formatted(
                 inputRoot,
@@ -129,6 +144,7 @@ class LegacyUniqueKeyRecoveryProbeIT {
                 uniqueKeys,
                 uniqueKeyColumns,
                 LegacyWordSpecificationParser.PARSER_VERSION,
+                threads,
                 reportDirectory);
         Files.writeString(summary, summaryText, StandardCharsets.UTF_8);
         writeResults(csv, rows);
@@ -141,6 +157,71 @@ class LegacyUniqueKeyRecoveryProbeIT {
         if (failOnErrors) {
             assertTrue(failures.isEmpty(), "Legacy unique-key probe produced parse failures; see " + errorCsv);
         }
+    }
+
+    private static DocumentProbeResult probeDocument(
+            LegacyWordSpecificationParser parser,
+            Path inputRoot,
+            Path document,
+            String schema) {
+        String relative = normalize(inputRoot.relativize(document));
+        try {
+            DatabaseSchema parsed = parser.parse(inputRoot, document, schema);
+            List<ResultRow> rows = new ArrayList<>();
+            int tables = 0;
+            int tablesWithUniqueKeys = 0;
+            int uniqueKeys = 0;
+            int uniqueKeyColumns = 0;
+            for (Table table : parsed.tables()) {
+                tables++;
+                if (!table.uniqueKeys().isEmpty()) {
+                    tablesWithUniqueKeys++;
+                }
+                for (UniqueKey uniqueKey : table.uniqueKeys()) {
+                    uniqueKeys++;
+                    uniqueKeyColumns += uniqueKey.columns().size();
+                    rows.add(new ResultRow(
+                            relative,
+                            table.qualifiedName().toString(),
+                            uniqueKey.name().value(),
+                            uniqueKey.columns().stream().map(column -> column.value()).toList()));
+                }
+            }
+            return new DocumentProbeResult(
+                    1, 0, tables, tablesWithUniqueKeys, uniqueKeys, uniqueKeyColumns, rows, List.of());
+        } catch (IllegalArgumentException exception) {
+            String message = safeMessage(exception);
+            if (message.startsWith("No legacy table definition was accepted")) {
+                return new DocumentProbeResult(0, 1, 0, 0, 0, 0, List.of(), List.of());
+            }
+            return failureResult(relative, exception, message);
+        } catch (Exception exception) {
+            return failureResult(relative, exception, safeMessage(exception));
+        }
+    }
+
+    private static DocumentProbeResult failureResult(String relative, Exception exception, String message) {
+        return new DocumentProbeResult(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                List.of(),
+                List.of(new FailureRow(relative, exception.getClass().getSimpleName(), message)));
+    }
+
+    private static int defaultThreadCount() {
+        return Math.max(1, Math.min(8, Runtime.getRuntime().availableProcessors()));
+    }
+
+    private static int positiveInt(String property, int defaultValue) {
+        String raw = trimToNull(System.getProperty(property));
+        if (raw == null) return defaultValue;
+        int value = Integer.parseInt(raw);
+        if (value <= 0) throw new IllegalArgumentException(property + " must be > 0");
+        return value;
     }
 
     private static LegacyWordSpecificationParser parser() {
@@ -227,6 +308,16 @@ class LegacyUniqueKeyRecoveryProbeIT {
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
+
+    private record DocumentProbeResult(
+            int parsedDocuments,
+            int skippedNoTable,
+            int tables,
+            int tablesWithUniqueKeys,
+            int uniqueKeys,
+            int uniqueKeyColumns,
+            List<ResultRow> rows,
+            List<FailureRow> failures) {}
 
     private record ResultRow(String source, String table, String uniqueKey, List<String> columns) {}
     private record FailureRow(String source, String errorType, String message) {}

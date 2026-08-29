@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.generation;
 
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.DialectFeature;
+import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
@@ -28,6 +29,8 @@ import com.behsazan.schemaforge.physical.PhysicalCommentRendererResolver;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
+import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
+import com.behsazan.schemaforge.validation.naming.PhysicalObjectNamingAnalyzer;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -317,6 +320,7 @@ public final class DdlGenerator {
         List<ValidationIssue> combinedIssues = new ArrayList<>(report.issues());
         combinedIssues.addAll(metadata.issues());
         combinedIssues.addAll(datatypeCompatibilityAnalyzer.analyze(schema, dialect).issues());
+        combinedIssues.addAll(new PhysicalObjectNamingAnalyzer().analyze(schema, dialect));
         ValidationReport combinedReport = new ValidationReport(
                 combinedIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 combinedIssues);
@@ -325,7 +329,7 @@ public final class DdlGenerator {
 
     private String createSequence(Sequence sequence) {
         StringBuilder sql = new StringBuilder("CREATE SEQUENCE ")
-                .append(qualifiedName(sequence.qualifiedName()))
+                .append(qualifiedObjectName(sequence.qualifiedName()))
                 .append(" START WITH ").append(sequence.startWith())
                 .append(" INCREMENT BY ").append(sequence.incrementBy());
         if (sequence.maxValue() != null) sql.append(" MAXVALUE ").append(sequence.maxValue());
@@ -457,14 +461,22 @@ public final class DdlGenerator {
 
     private String primaryKeyDefinition(Table table, PrimaryKey primaryKey) {
         String constraintName = primaryKey.name() == null
-                ? "PK_" + table.qualifiedName().name().normalized()
-                : dialect.quote(primaryKey.name());
+                ? objectName("PK_" + table.qualifiedName().name().normalized())
+                : objectName(primaryKey.name());
         Index physicalIndex = constraintPhysicalIndex(primaryKey.name(), primaryKey.columns(), primaryKey.physicalOptions());
         String indexTablespace = option(physicalIndex, table, "INDEX_TABLESPACE", "PK_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String tableName = qualifiedName(table.qualifiedName());
         String columns = identifiers(primaryKey.columns());
-        String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), constraintName);
+        String primaryKeyColumns = rawIdentifiers(primaryKey.columns());
+        String logicalConstraintName = primaryKey.name() == null
+                ? "PK_" + table.qualifiedName().name().normalized()
+                : primaryKey.name().value();
+        String logicalIndexName = logicalConstraintName.toUpperCase(Locale.ROOT)
+                .endsWith("_" + primaryKeyColumns.toUpperCase(Locale.ROOT))
+                ? logicalConstraintName
+                : logicalConstraintName + "_" + primaryKeyColumns;
+        String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), objectName(logicalIndexName));
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         String physicalIndexComment = physicalCommentRenderer.constraintIndexOptions(
                 table, physicalIndex, primaryKey.columns(), !activeIndexPlacement.isBlank());
@@ -488,11 +500,7 @@ public final class DdlGenerator {
 
     private String enforcingIndexName(Identifier constraintName, String defaultName) {
         String base = constraintName == null ? defaultName : constraintName.value();
-        int maximumBaseLength = 125;
-        if (base.length() > maximumBaseLength) {
-            base = base.substring(0, maximumBaseLength);
-        }
-        return dialect.quote(Identifier.of(base + "_IX"));
+        return objectName(base + "_IX");
     }
 
     private String createEnforcingUniqueIndex(
@@ -513,8 +521,14 @@ public final class DdlGenerator {
 
     private String createCheck(Table table, CheckConstraint check) {
         String name = check.name() == null
-                ? "CHK_" + table.qualifiedName().name().normalized()
-                : dialect.quote(check.name());
+                ? objectName("CHK_" + table.qualifiedName().name().normalized())
+                : objectName(check.name());
+        Set<String> unknownColumns = CheckConstraintReferenceAnalyzer.unknownColumns(table, check.expression());
+        if (!unknownColumns.isEmpty()) {
+            return dialect.warningLine("[BLOCKED CHECK][CHECK-COL-001] " + name
+                    + " references unknown column(s) " + String.join(",", unknownColumns)
+                    + " in " + qualifiedName(table.qualifiedName()) + "; SQL was not emitted.");
+        }
         String tableName = qualifiedName(table.qualifiedName());
         String create = dialect.alterTableAddConstraintPrefix(tableName)
                 + name
@@ -526,8 +540,8 @@ public final class DdlGenerator {
 
     private String createUnique(Table table, UniqueKey unique) {
         String name = unique.name() == null
-                ? "UK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(unique.columns())
-                : dialect.quote(unique.name());
+                ? objectName("UK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(unique.columns()))
+                : objectName(unique.name());
         String columns = identifiers(unique.columns());
         String tableName = qualifiedName(table.qualifiedName());
         Index physicalIndex = constraintPhysicalIndex(unique.name(), unique.columns(), unique.physicalOptions());
@@ -548,8 +562,8 @@ public final class DdlGenerator {
 
     private String createForeignKey(Table table, ForeignKey foreignKey, QualifiedName referencedTable) {
         String name = foreignKey.name() == null
-                ? "FK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(foreignKey.columns())
-                : dialect.quote(foreignKey.name());
+                ? objectName("FK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(foreignKey.columns()))
+                : objectName(foreignKey.name());
         if (!foreignKey.physicalReference()) {
             return dialect.warningLine("[LOGICAL FOREIGN KEY] " + name + ": "
                     + qualifiedName(table.qualifiedName()) + "(" + identifiers(foreignKey.columns()) + ") -> "
@@ -704,8 +718,8 @@ public final class DdlGenerator {
 
     private String createIndex(Table table, Index index) {
         String name = index.name() == null
-                ? "IDX_" + table.qualifiedName().name().normalized() + "_" + rawIndexColumns(index.columns())
-                : dialect.quote(index.name());
+                ? objectName("IX_" + table.qualifiedName().name().normalized() + "_" + rawIndexColumns(index.columns()))
+                : objectName(index.name());
         String unique = index.type() == IndexType.UNIQUE ? "UNIQUE " : "";
         String columns = index.columns().stream().map(this::indexColumn).collect(Collectors.joining(","));
         StringBuilder sql = new StringBuilder("CREATE ").append(unique)
@@ -825,8 +839,9 @@ public final class DdlGenerator {
 
     private QualifiedName identitySequenceName(Table table, Column column) {
         boolean multipleIdentityColumns = identityColumnsWithoutDefault(table).size() > 1;
-        return dialect.identitySequenceName(
+        QualifiedName logical = dialect.identitySequenceName(
                 table.qualifiedName(), column, multipleIdentityColumns);
+        return physicalObjectQualifiedName(logical);
     }
 
     private List<Column> identityColumnsWithoutDefault(Table table) {
@@ -976,6 +991,27 @@ public final class DdlGenerator {
                 .filter(value -> value != null && !value.isBlank())
                 .map(String::trim)
                 .findFirst();
+    }
+
+    private String objectName(String logicalName) {
+        return objectName(Identifier.of(logicalName));
+    }
+
+    private String objectName(Identifier logicalName) {
+        return dialect.quoteObject(logicalName);
+    }
+
+    private QualifiedName physicalObjectQualifiedName(QualifiedName logicalName) {
+        return new QualifiedName(
+                logicalName.schemaName().orElse(null),
+                PhysicalObjectNamePolicy.physicalIdentifier(dialect, logicalName.name()));
+    }
+
+    private String qualifiedObjectName(QualifiedName logicalName) {
+        QualifiedName physical = physicalObjectQualifiedName(logicalName);
+        return physical.schemaName()
+                .map(schema -> dialect.quote(schema) + "." + dialect.quote(physical.name()))
+                .orElseGet(() -> dialect.quote(physical.name()));
     }
 
     private String qualifiedName(QualifiedName name) {
