@@ -27,8 +27,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Orchestrates the shared Standard Word and Legacy Word generation pipeline.
@@ -192,14 +195,17 @@ public final class DocumentGenerationOrchestrator {
         // All normal artifacts in one top-level request share the same timestamp.
         String timestamp = context.generationTimestamp();
 
-        // Metadata is queried once per database output. The same comparison result is
-        // reused by SQL generation and the consolidated JSON validation report.
+        // Metadata is queried once per database output. The same request-scoped repository
+        // is reused by migration, comparison and CRUD so live-table/schema caches survive phases.
+        Map<DatabasePlatform, MetadataRepository> requestRepositories = new EnumMap<>(DatabasePlatform.class);
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
                     platform, metadataRepositoryResolver.resolve(platform));
+            requestRepositories.put(platform, repository);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(
                     dialect, repository).validate(schema);
+            comparisonArtifactProducer.preloadLiveTables(schema, repository, metadata);
             metadata.issues().stream()
                     .map(issue -> new ValidationIssue(
                             issue.severity(),
@@ -226,7 +232,8 @@ public final class DocumentGenerationOrchestrator {
                     schema, repository, metadata, output, timestamp, platform, dialect, context);
         }
 
-        crudArtifactProducer.writeMetadataCrudArtifacts(schema, output, baseName, timestamp, context);
+        crudArtifactProducer.writeMetadataCrudArtifacts(
+                schema, output, baseName, timestamp, context, Set.of(DatabasePlatform.values()), requestRepositories);
         diagramArtifactProducer.writeMermaidArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeGraphvizArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);

@@ -1,3 +1,11 @@
+## 2026-08-29 - EA/REST metadata performance R5.1 regression fix
+
+- Fixed request-cache negative table lookups so a miss under one schema spelling (for example `APP`) does not suppress a valid retry using the catalog-returned spelling (for example `app`).
+- Positive table hits remain case-insensitive and replace earlier case-variant misses.
+- Preserved R5 bulk metadata loading and request-level Comparison/Migration/CRUD cache reuse.
+- Updated the stale EA run-script regression expectation from five to all six supported DBMS platforms.
+- Added focused regression coverage for case-variant negative-cache recovery.
+
 ## 2026-08-29 - EA/REST metadata performance hardening
 
 - Added request-local metadata caching to the failure-isolating repository wrapper.

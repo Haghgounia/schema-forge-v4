@@ -35,6 +35,7 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     private final AtomicBoolean connectionUnavailable = new AtomicBoolean(false);
     private final ConcurrentMap<String, Boolean> schemaExistence = new ConcurrentHashMap<>();
     private final ConcurrentMap<TableKey, Optional<Table>> tables = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ExactTableKey, Boolean> missingTables = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<String>> tableSchemas = new ConcurrentHashMap<>();
 
     private FailureIsolatingMetadataRepository(DatabasePlatform platform, MetadataRepository delegate) {
@@ -81,12 +82,21 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
         }
 
         Optional<Table> cached = tables.get(key);
-        if (cached != null) {
+        if (cached != null && cached.isPresent()) {
             return cached;
+        }
+        ExactTableKey exactKey = ExactTableKey.of(schemaName, tableName);
+        if (exactKey != null && missingTables.containsKey(exactKey)) {
+            return Optional.empty();
         }
         try {
             Optional<Table> result = delegate.findTable(schemaName, tableName);
-            tables.putIfAbsent(key, result);
+            if (result.isPresent()) {
+                tables.put(key, result);
+                missingTables.keySet().removeIf(candidate -> candidate.normalized().equals(key));
+            } else if (exactKey != null) {
+                missingTables.putIfAbsent(exactKey, Boolean.TRUE);
+            }
             return result;
         } catch (RuntimeException exception) {
             if (isolateConnectionFailure("findTable", exception)) {
@@ -94,6 +104,74 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
             }
             throw exception;
         }
+    }
+
+    @Override
+    public Map<String, Table> findTables(String schemaName, Set<String> tableNames) {
+        if (!available() || tableNames == null || tableNames.isEmpty()) {
+            return Map.of();
+        }
+        String normalizedSchema = normalize(schemaName);
+        if (normalizedSchema == null || Boolean.FALSE.equals(schemaExistence.get(normalizedSchema))) {
+            return Map.of();
+        }
+
+        Map<String, String> requested = new java.util.LinkedHashMap<>();
+        for (String tableName : tableNames) {
+            String normalizedTable = normalize(tableName);
+            if (normalizedTable != null) requested.put(normalizedTable, tableName);
+        }
+        Set<String> missing = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, String> entry : requested.entrySet()) {
+            TableKey normalizedKey = new TableKey(normalizedSchema, entry.getKey());
+            Optional<Table> cached = tables.get(normalizedKey);
+            ExactTableKey exactKey = ExactTableKey.of(schemaName, entry.getValue());
+            boolean knownPresent = cached != null && cached.isPresent();
+            boolean knownMissing = exactKey != null && missingTables.containsKey(exactKey);
+            if (!knownPresent && !knownMissing) {
+                missing.add(entry.getValue());
+            }
+        }
+
+        if (!missing.isEmpty()) {
+            try {
+                Map<String, Table> loaded = delegate.findTables(schemaName, missing);
+                Map<String, Table> normalizedLoaded = new java.util.LinkedHashMap<>();
+                loaded.forEach((name, table) -> {
+                    String normalizedName = normalize(name);
+                    if (normalizedName != null && table != null) normalizedLoaded.put(normalizedName, table);
+                });
+                for (String requestedName : missing) {
+                    String normalizedName = normalize(requestedName);
+                    Table table = normalizedLoaded.get(normalizedName);
+                    TableKey normalizedKey = new TableKey(normalizedSchema, normalizedName);
+                    if (table != null) {
+                        tables.put(normalizedKey, Optional.of(table));
+                        missingTables.keySet().removeIf(candidate -> candidate.normalized().equals(normalizedKey));
+                    } else {
+                        ExactTableKey exactKey = ExactTableKey.of(schemaName, requestedName);
+                        if (exactKey != null) missingTables.putIfAbsent(exactKey, Boolean.TRUE);
+                    }
+                }
+            } catch (RuntimeException exception) {
+                if (isolateConnectionFailure("findTables", exception)) {
+                    return Map.of();
+                }
+                throw exception;
+            }
+        }
+
+        Map<String, Table> result = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : requested.entrySet()) {
+            Optional<Table> table = tables.get(new TableKey(normalizedSchema, entry.getKey()));
+            if (table != null && table.isPresent()) result.put(entry.getValue(), table.get());
+        }
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public boolean bulkTableReadOptimized() {
+        return delegate.bulkTableReadOptimized();
     }
 
     @Override
@@ -152,6 +230,52 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     }
 
     @Override
+    public Map<String, List<String>> findTableSchemas(Set<String> tableNames) {
+        if (!available() || tableNames == null || tableNames.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> requested = new java.util.LinkedHashMap<>();
+        for (String tableName : tableNames) {
+            String normalizedTable = normalize(tableName);
+            if (normalizedTable != null) requested.put(normalizedTable, tableName);
+        }
+        Set<String> missing = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, String> entry : requested.entrySet()) {
+            if (!tableSchemas.containsKey(entry.getKey())) missing.add(entry.getValue());
+        }
+        if (!missing.isEmpty()) {
+            try {
+                Map<String, List<String>> loaded = delegate.findTableSchemas(missing);
+                Map<String, List<String>> normalizedLoaded = new java.util.LinkedHashMap<>();
+                loaded.forEach((name, schemas) -> {
+                    String normalizedName = normalize(name);
+                    if (normalizedName != null) normalizedLoaded.put(normalizedName, List.copyOf(schemas));
+                });
+                for (String requestedName : missing) {
+                    String normalizedName = normalize(requestedName);
+                    tableSchemas.putIfAbsent(normalizedName,
+                            normalizedLoaded.getOrDefault(normalizedName, List.of()));
+                }
+            } catch (RuntimeException exception) {
+                if (isolateConnectionFailure("findTableSchemasBulk", exception)) {
+                    return Map.of();
+                }
+                throw exception;
+            }
+        }
+        Map<String, List<String>> result = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : requested.entrySet()) {
+            result.put(entry.getValue(), tableSchemas.getOrDefault(entry.getKey(), List.of()));
+        }
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public boolean bulkTableSchemaReadOptimized() {
+        return delegate.bulkTableSchemaReadOptimized();
+    }
+
+    @Override
     public boolean available() {
         if (connectionUnavailable.get()) {
             return false;
@@ -204,6 +328,21 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
             String schema = normalize(schemaName);
             String table = normalize(tableName);
             return schema == null || table == null ? null : new TableKey(schema, table);
+        }
+    }
+
+    /**
+     * Exact-case negative cache. A miss for APP.T must not suppress a legitimate retry against
+     * a catalog-returned schema spelling such as app.T. Positive hits remain case-insensitive.
+     */
+    private record ExactTableKey(String schemaName, String tableName, TableKey normalized) {
+        static ExactTableKey of(String schemaName, String tableName) {
+            if (schemaName == null || schemaName.isBlank() || tableName == null || tableName.isBlank()) {
+                return null;
+            }
+            TableKey normalized = TableKey.of(schemaName, tableName);
+            if (normalized == null) return null;
+            return new ExactTableKey(schemaName.trim(), tableName.trim(), normalized);
         }
     }
 }

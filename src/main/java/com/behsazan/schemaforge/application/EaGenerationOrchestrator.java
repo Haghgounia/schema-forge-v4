@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -201,6 +202,7 @@ public final class EaGenerationOrchestrator {
         String timestamp = context.generationTimestamp();
 
         DependencyOrder dependencyOrder = dependencyOrder(schema.tables());
+        Map<DatabasePlatform, MetadataRepository> requestRepositories = new EnumMap<>(DatabasePlatform.class);
 
         for (DatabasePlatform platform : DatabasePlatform.values()) {
             if (!platforms.contains(platform)) {
@@ -209,7 +211,9 @@ public final class EaGenerationOrchestrator {
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
                     platform, metadataRepositoryResolver.resolve(platform));
+            requestRepositories.put(platform, repository);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, repository).validate(schema);
+            comparisonArtifactProducer.preloadLiveTables(schema, repository, metadata);
             metadata.issues().stream()
                     .map(issue -> new ValidationIssue(
                             issue.severity(),
@@ -246,7 +250,8 @@ public final class EaGenerationOrchestrator {
             writeEaRunAll(schema, platform, dependencyOrder, baseName, timestamp, output, context);
         }
 
-        crudArtifactProducer.writeMetadataCrudArtifacts(schema, output, baseName, timestamp, context, platforms);
+        crudArtifactProducer.writeMetadataCrudArtifacts(
+                schema, output, baseName, timestamp, context, platforms, requestRepositories);
         diagramArtifactProducer.writeMermaidArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeGraphvizArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);

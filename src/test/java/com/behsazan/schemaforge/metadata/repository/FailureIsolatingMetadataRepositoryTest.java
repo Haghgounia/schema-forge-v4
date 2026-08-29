@@ -100,6 +100,105 @@ class FailureIsolatingMetadataRepositoryTest {
     }
 
     @Test
+    void bulkReadsPopulateRequestCachesForLaterScalarPhases() {
+        AtomicInteger bulkTableCalls = new AtomicInteger();
+        AtomicInteger scalarTableCalls = new AtomicInteger();
+        AtomicInteger bulkSchemaCalls = new AtomicInteger();
+        AtomicInteger scalarSchemaCalls = new AtomicInteger();
+        var table = com.behsazan.schemaforge.domain.model.Table.builder("APP", "CUSTOMERS")
+                .addColumn(com.behsazan.schemaforge.domain.model.Column.required(
+                        "CUSTOMER_ID", com.behsazan.schemaforge.domain.valueobject.DataType.simple("BIGINT")))
+                .build();
+        MetadataRepository delegate = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public Map<String, com.behsazan.schemaforge.domain.model.Table> findTables(
+                    String schemaName, Set<String> tableNames) {
+                bulkTableCalls.incrementAndGet();
+                return Map.of("CUSTOMERS", table);
+            }
+
+            @Override
+            public boolean bulkTableReadOptimized() {
+                return true;
+            }
+
+            @Override
+            public Optional<com.behsazan.schemaforge.domain.model.Table> findTable(
+                    String schemaName, String tableName) {
+                scalarTableCalls.incrementAndGet();
+                return Optional.of(table);
+            }
+
+            @Override
+            public Map<String, List<String>> findTableSchemas(Set<String> tableNames) {
+                bulkSchemaCalls.incrementAndGet();
+                return Map.of("CUSTOMERS", List.of("APP"));
+            }
+
+            @Override
+            public boolean bulkTableSchemaReadOptimized() {
+                return true;
+            }
+
+            @Override
+            public List<String> findTableSchemas(String tableName) {
+                scalarSchemaCalls.incrementAndGet();
+                return List.of("APP");
+            }
+        };
+        MetadataRepository guarded = FailureIsolatingMetadataRepository.wrap(DatabasePlatform.ORACLE, delegate);
+
+        guarded.findTables("APP", Set.of("CUSTOMERS"));
+        assertTrue(guarded.findTable("app", "customers").isPresent());
+        guarded.findTableSchemas(Set.of("CUSTOMERS"));
+        assertEquals(List.of("APP"), guarded.findTableSchemas("customers"));
+
+        assertEquals(1, bulkTableCalls.get());
+        assertEquals(0, scalarTableCalls.get());
+        assertEquals(1, bulkSchemaCalls.get());
+        assertEquals(0, scalarSchemaCalls.get());
+    }
+
+
+    @Test
+    void negativeTableCacheAllowsRetryWhenCatalogReturnsDifferentSchemaCase() {
+        AtomicInteger calls = new AtomicInteger();
+        var table = com.behsazan.schemaforge.domain.model.Table.builder("app", "CUSTOMERS")
+                .addColumn(com.behsazan.schemaforge.domain.model.Column.required(
+                        "CUSTOMER_ID", com.behsazan.schemaforge.domain.valueobject.DataType.simple("BIGINT")))
+                .build();
+        MetadataRepository delegate = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public Optional<com.behsazan.schemaforge.domain.model.Table> findTable(
+                    String schemaName, String tableName) {
+                calls.incrementAndGet();
+                if ("app".equals(schemaName) && "CUSTOMERS".equalsIgnoreCase(tableName)) {
+                    return Optional.of(table);
+                }
+                return Optional.empty();
+            }
+        };
+
+        MetadataRepository guarded = FailureIsolatingMetadataRepository.wrap(DatabasePlatform.ORACLE, delegate);
+
+        assertTrue(guarded.findTable("APP", "CUSTOMERS").isEmpty());
+        assertTrue(guarded.findTable("app", "CUSTOMERS").isPresent());
+        assertTrue(guarded.findTable("APP", "CUSTOMERS").isPresent(),
+                "positive retry must replace the earlier case-variant miss");
+        assertEquals(2, calls.get());
+    }
+
+    @Test
     void sqlStateAuthenticationAndConnectionClassesAreRecognized() {
         assertTrue(MetadataConnectionFailureClassifier.isConnectionFailure(
                 new RuntimeException(new SQLException("authentication failed", "28000"))));

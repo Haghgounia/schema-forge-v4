@@ -13,6 +13,7 @@ import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataColumnProfile;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
@@ -26,11 +27,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CrudArtifactProducerTest {
@@ -103,6 +106,91 @@ class CrudArtifactProducerTest {
                 "reports/customers_" + TIMESTAMP + ".metadata-crud-summary.csv"));
         assertTrue(summary.contains("\"ORACLE\",\"APP\",\"CUSTOMERS\",\"GENERATED\",\"crud/oracle/"));
         assertTrue(summary.contains("\"SQLSERVER\",\"APP\",\"CUSTOMERS\",\"GENERATED\",\"crud/sqlserver/"));
+    }
+
+    @Test
+    void reusesRequestRepositoryCacheAcrossComparisonAndCrud() throws Exception {
+        Table live = oracleLiveTable("APP");
+        AtomicInteger schemaCalls = new AtomicInteger();
+        AtomicInteger tableCalls = new AtomicInteger();
+        MetadataRepository delegate = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public boolean schemaExists(String schemaName) {
+                schemaCalls.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public Optional<Table> findTable(String schemaName, String tableName) {
+                tableCalls.incrementAndGet();
+                return Optional.of(live);
+            }
+        };
+        MetadataRepository requestRepository = FailureIsolatingMetadataRepository.wrap(
+                DatabasePlatform.ORACLE, delegate);
+
+        // Simulate metadata validation + comparison having already populated request-local caches.
+        assertTrue(requestRepository.schemaExists("APP"));
+        assertTrue(requestRepository.findTable("APP", "CUSTOMERS").isPresent());
+
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        ArtifactGenerationContext context = context();
+        new CrudArtifactProducer(new ArtifactNamingPolicy(), resolver, GrantProperties.defaults())
+                .writeMetadataCrudArtifacts(
+                        schema(true), tempDir, "customers", TIMESTAMP, context,
+                        Set.of(DatabasePlatform.ORACLE),
+                        Map.of(DatabasePlatform.ORACLE, requestRepository));
+
+        assertEquals(1, schemaCalls.get());
+        assertEquals(1, tableCalls.get());
+        verifyNoInteractions(resolver);
+        assertTrue(Files.isRegularFile(tempDir.resolve(new ArtifactNamingPolicy().crudRelativePath(
+                "APP.CUSTOMERS", DatabasePlatform.ORACLE, TIMESTAMP))));
+    }
+
+    @Test
+    void skipsMissingSchemaWithoutPerTableCrudLookup() throws Exception {
+        AtomicInteger schemaCalls = new AtomicInteger();
+        AtomicInteger tableCalls = new AtomicInteger();
+        MetadataRepository repository = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public boolean schemaExists(String schemaName) {
+                schemaCalls.incrementAndGet();
+                return false;
+            }
+
+            @Override
+            public Optional<Table> findTable(String schemaName, String tableName) {
+                tableCalls.incrementAndGet();
+                return Optional.empty();
+            }
+        };
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        ArtifactGenerationContext context = context();
+
+        new CrudArtifactProducer(new ArtifactNamingPolicy(), resolver, GrantProperties.defaults())
+                .writeMetadataCrudArtifacts(
+                        schema(true), tempDir, "customers", TIMESTAMP, context,
+                        Set.of(DatabasePlatform.SQLSERVER),
+                        Map.of(DatabasePlatform.SQLSERVER, repository));
+
+        assertEquals(1, schemaCalls.get());
+        assertEquals(0, tableCalls.get());
+        verifyNoInteractions(resolver);
+        String summary = Files.readString(tempDir.resolve(
+                "reports/customers_" + TIMESTAMP + ".metadata-crud-summary.csv"));
+        assertTrue(summary.contains("\"SQLSERVER\",\"APP\",\"CUSTOMERS\",\"SKIPPED_TABLE_NOT_FOUND\""));
+        assertTrue(summary.contains("Live schema was not found"));
     }
 
     @Test

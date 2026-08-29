@@ -18,8 +18,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -49,6 +51,30 @@ public final class ComparisonArtifactProducer {
                 artifactNamingPolicy, "artifactNamingPolicy must not be null");
         this.compareExcelWriter = Objects.requireNonNull(
                 compareExcelWriter, "compareExcelWriter must not be null");
+    }
+
+    /**
+     * Bulk-preloads live tables into a request-scoped repository cache when the repository
+     * has an optimized bulk implementation (currently Oracle). No-op for other repositories.
+     */
+    public void preloadLiveTables(
+            DatabaseSchema schema,
+            MetadataRepository repository,
+            MetadataComparisonResult metadata) {
+        if (!repository.available() || !repository.bulkTableReadOptimized()) {
+            return;
+        }
+        Map<String, Set<String>> tablesBySchema = new LinkedHashMap<>();
+        for (Table table : schema.tables()) {
+            String schemaName = tableSchema(schema, table);
+            if (metadata.schemaKnownToBeMissing(schemaName)) continue;
+            tablesBySchema.computeIfAbsent(schemaName, ignored -> new LinkedHashSet<>())
+                    .add(table.qualifiedName().name().value());
+        }
+        for (Map.Entry<String, Set<String>> entry : tablesBySchema.entrySet()) {
+            repository.findTables(entry.getKey(), entry.getValue());
+            if (!repository.available()) return;
+        }
     }
 
     /** Writes comparison workbooks for all document tables in a prepared schema. */

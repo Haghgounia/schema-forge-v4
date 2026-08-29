@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -98,6 +99,21 @@ public final class CrudArtifactProducer {
             String timestamp,
             ArtifactGenerationContext context,
             Set<DatabasePlatform> platforms) throws IOException {
+        writeMetadataCrudArtifacts(documentSchema, output, baseName, timestamp, context, platforms, Map.of());
+    }
+
+    /**
+     * Writes CRUD artifacts while reusing request-scoped repositories already used by comparison/migration.
+     * This avoids re-reading the same live tables and preserves schema/table existence caches.
+     */
+    public void writeMetadataCrudArtifacts(
+            DatabaseSchema documentSchema,
+            Path output,
+            String baseName,
+            String timestamp,
+            ArtifactGenerationContext context,
+            Set<DatabasePlatform> platforms,
+            Map<DatabasePlatform, MetadataRepository> requestRepositories) throws IOException {
 
         boolean oracleSelected = platforms.contains(DatabasePlatform.ORACLE);
         boolean sqlServerSelected = platforms.contains(DatabasePlatform.SQLSERVER);
@@ -109,10 +125,12 @@ public final class CrudArtifactProducer {
         summary.add("platform,schema,table,status,file,error");
 
         if (oracleSelected) {
-            writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary, context);
+            writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.ORACLE, summary, context,
+                    requestRepositories.get(DatabasePlatform.ORACLE));
         }
         if (sqlServerSelected) {
-            writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary, context);
+            writeForPlatform(documentSchema, output, timestamp, DatabasePlatform.SQLSERVER, summary, context,
+                    requestRepositories.get(DatabasePlatform.SQLSERVER));
         }
 
         Path summaryPath = output.resolve(
@@ -130,10 +148,15 @@ public final class CrudArtifactProducer {
             String timestamp,
             DatabasePlatform platform,
             List<String> summary,
-            ArtifactGenerationContext context) {
+            ArtifactGenerationContext context,
+            MetadataRepository requestRepository) {
 
-        MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
-                platform, metadataRepositoryResolver.resolve(platform));
+        MetadataRepository repository = requestRepository != null
+                ? requestRepository
+                : FailureIsolatingMetadataRepository.wrap(platform, metadataRepositoryResolver.resolve(platform));
+
+        Map<String, Boolean> schemaAvailability = new java.util.LinkedHashMap<>();
+        boolean useSchemaFastPath = requestRepository != null && repository.schemaExistenceAuthoritative();
         for (Table documentTable : documentSchema.tables()) {
             String schemaName = tableSchema(documentSchema, documentTable);
             String tableName = documentTable.qualifiedName().name().value();
@@ -156,6 +179,33 @@ public final class CrudArtifactProducer {
                 context.ledger().skipped(context, ArtifactType.CRUD, platform,
                         schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
                 continue;
+            }
+
+            if (useSchemaFastPath) {
+                String normalizedSchema = schemaName.trim().toUpperCase(Locale.ROOT);
+                Boolean exists = schemaAvailability.get(normalizedSchema);
+                if (exists == null) {
+                    exists = repository.schemaExists(schemaName);
+                    schemaAvailability.put(normalizedSchema, exists);
+                }
+                if (!repository.available()) {
+                    summary.add(csvLine(platform.name(), schemaName, tableName,
+                            "SKIPPED_METADATA_UNAVAILABLE", "",
+                            "Metadata connection became unavailable"));
+                    context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                    continue;
+                }
+                if (Boolean.FALSE.equals(exists)) {
+                    summary.add(csvLine(platform.name(), schemaName, tableName,
+                            "SKIPPED_TABLE_NOT_FOUND", "",
+                            "Live schema was not found"));
+                    LOGGER.info("[{}] REST CRUD artifact skipped; schema not found: {}",
+                            platform.name(), schemaName);
+                    context.ledger().skipped(context, ArtifactType.CRUD, platform,
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                    continue;
+                }
             }
 
             try {

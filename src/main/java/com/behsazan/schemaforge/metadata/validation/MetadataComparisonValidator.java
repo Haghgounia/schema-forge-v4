@@ -61,6 +61,18 @@ public final class MetadataComparisonValidator {
                 : Map.of();
         metadataAvailable = metadataAvailable && repository.available();
 
+        if (metadataAvailable && !allDocumentSchemasVerifiedMissing
+                && repository.bulkTableSchemaReadOptimized()) {
+            Set<String> locationNames = new LinkedHashSet<>();
+            schema.tables().forEach(table -> {
+                locationNames.add(table.qualifiedName().name().value());
+                table.foreignKeys().forEach(foreignKey ->
+                        locationNames.add(foreignKey.referencedTable().name().value()));
+            });
+            repository.findTableSchemas(locationNames);
+            metadataAvailable = repository.available();
+        }
+
         for (Table table : schema.tables()) {
             validateSingularColumnNames(table, issues);
             validateTableNames(table, issues);

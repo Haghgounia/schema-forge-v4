@@ -186,6 +186,27 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
              ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION
             """;
 
+    private static final String TABLES_BULK_SQL = TABLE_SQL
+            .replace("t.TABLE_NAME = :tableName", "t.TABLE_NAME IN (:tableNames)")
+            .replace("WHERE t.OWNER = :owner", "WHERE t.OWNER = :owner");
+
+    private static final String COLUMNS_BULK_SQL = COLUMNS_SQL
+            .replace("SELECT c.COLUMN_ID,", "SELECT c.TABLE_NAME AS OWNER_TABLE_NAME,\n                   c.COLUMN_ID,")
+            .replace("c.TABLE_NAME = :tableName", "c.TABLE_NAME IN (:tableNames)")
+            .replace("ORDER BY c.COLUMN_ID", "ORDER BY c.TABLE_NAME, c.COLUMN_ID");
+
+    private static final String CONSTRAINTS_BULK_SQL = CONSTRAINTS_SQL
+            .replace("SELECT c.CONSTRAINT_NAME,", "SELECT c.TABLE_NAME AS OWNER_TABLE_NAME,\n                   c.CONSTRAINT_NAME,")
+            .replace("c.TABLE_NAME = :tableName", "c.TABLE_NAME IN (:tableNames)")
+            .replace("ORDER BY c.CONSTRAINT_NAME, cc.POSITION",
+                    "ORDER BY c.TABLE_NAME, c.CONSTRAINT_NAME, cc.POSITION");
+
+    private static final String INDEXES_BULK_SQL = INDEXES_SQL
+            .replace("SELECT i.INDEX_NAME,", "SELECT i.TABLE_NAME AS OWNER_TABLE_NAME,\n                   i.INDEX_NAME,")
+            .replace("i.TABLE_NAME = :tableName", "i.TABLE_NAME IN (:tableNames)")
+            .replace("ORDER BY i.INDEX_NAME, ic.COLUMN_POSITION",
+                    "ORDER BY i.TABLE_NAME, i.INDEX_NAME, ic.COLUMN_POSITION");
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public JdbcOracleMetadataRepository(
@@ -304,6 +325,134 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
     }
 
     @Override
+    public Map<String, Table> findTables(String schemaName, Set<String> tableNames) {
+        if (schemaName == null || schemaName.isBlank() || tableNames == null || tableNames.isEmpty()) {
+            return Map.of();
+        }
+        String owner = schemaName.trim().toUpperCase(Locale.ROOT);
+        Set<String> names = MetadataRepositorySupport.normalizeNames(tableNames, true);
+        if (names.isEmpty()) return Map.of();
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("owner", owner)
+                .addValue("tableNames", names);
+
+        Map<String, Table.Builder> builders = new LinkedHashMap<>();
+        List<TableInfo> tableInfos = jdbcTemplate.query(TABLES_BULK_SQL, parameters,
+                (rs, rowNumber) -> new TableInfo(
+                        rs.getString("TABLE_NAME"),
+                        rs.getString("COMMENTS"),
+                        trimToNull(rs.getString("TABLESPACE_NAME")),
+                        nullableInt(rs, "PCT_FREE"),
+                        nullableInt(rs, "PCT_USED"),
+                        nullableInt(rs, "INI_TRANS"),
+                        trimToNull(rs.getString("LOGGING")),
+                        trimToNull(rs.getString("COMPRESSION")),
+                        trimToNull(rs.getString("COMPRESS_FOR")),
+                        trimToNull(rs.getString("DEGREE")),
+                        "YES".equalsIgnoreCase(rs.getString("PARTITIONED"))));
+        for (TableInfo info : tableInfos) {
+            String tableName = info.name().toUpperCase(Locale.ROOT);
+            Table.Builder builder = Table.builder(owner, tableName);
+            String comment = trimToNull(info.comment());
+            if (comment != null) builder.description(comment);
+            oracleTablePhysicalOptions(info).forEach(builder::physicalOption);
+            builders.put(tableName, builder);
+        }
+        if (builders.isEmpty()) return Map.of();
+
+        List<BulkOracleColumnRow> columns = jdbcTemplate.query(COLUMNS_BULK_SQL, parameters,
+                (rs, rowNumber) -> new BulkOracleColumnRow(
+                        rs.getString("OWNER_TABLE_NAME"),
+                        new OracleColumnRow(
+                                nullableInt(rs, "COLUMN_ID"),
+                                rs.getString("COLUMN_NAME"),
+                                rs.getString("DATA_TYPE"),
+                                nullableInt(rs, "DATA_LENGTH"),
+                                nullableInt(rs, "CHAR_LENGTH"),
+                                rs.getString("CHAR_USED"),
+                                nullableInt(rs, "DATA_PRECISION"),
+                                nullableInt(rs, "DATA_SCALE"),
+                                "Y".equalsIgnoreCase(rs.getString("NULLABLE")),
+                                trimToNull(rs.getString("DATA_DEFAULT")),
+                                "YES".equalsIgnoreCase(rs.getString("IDENTITY_COLUMN")),
+                                "YES".equalsIgnoreCase(rs.getString("VIRTUAL_COLUMN")),
+                                trimToNull(rs.getString("COMMENTS")))));
+        for (BulkOracleColumnRow item : columns) {
+            Table.Builder builder = builders.get(item.tableName().toUpperCase(Locale.ROOT));
+            if (builder != null) builder.addColumn(mapColumn(item.row()));
+        }
+
+        Map<String, List<ConstraintRow>> constraintsByTable = new LinkedHashMap<>();
+        List<BulkConstraintRow> constraints = jdbcTemplate.query(CONSTRAINTS_BULK_SQL, parameters,
+                (rs, rowNumber) -> new BulkConstraintRow(
+                        rs.getString("OWNER_TABLE_NAME"),
+                        new ConstraintRow(
+                                rs.getString("CONSTRAINT_NAME"),
+                                rs.getString("CONSTRAINT_TYPE"),
+                                rs.getString("COLUMN_NAME"),
+                                nullableInt(rs, "COLUMN_POSITION"),
+                                trimToNull(rs.getString("EXPRESSION")),
+                                rs.getString("REFERENCED_OWNER"),
+                                rs.getString("REFERENCED_TABLE"),
+                                rs.getString("REFERENCED_COLUMN"),
+                                rs.getString("DELETE_RULE"),
+                                "DEFERRABLE".equalsIgnoreCase(rs.getString("DEFERRABLE")),
+                                "DEFERRED".equalsIgnoreCase(rs.getString("DEFERRED")),
+                                trimToNull(rs.getString("INDEX_TABLESPACE_NAME")),
+                                nullableInt(rs, "INDEX_PCT_FREE"),
+                                nullableInt(rs, "INDEX_INI_TRANS"),
+                                trimToNull(rs.getString("INDEX_LOGGING")),
+                                trimToNull(rs.getString("INDEX_COMPRESSION")),
+                                nullableInt(rs, "INDEX_PREFIX_LENGTH"),
+                                trimToNull(rs.getString("INDEX_DEGREE")))));
+        for (BulkConstraintRow item : constraints) {
+            constraintsByTable.computeIfAbsent(item.tableName().toUpperCase(Locale.ROOT), ignored -> new ArrayList<>())
+                    .add(item.row());
+        }
+        constraintsByTable.forEach((tableName, rows) -> {
+            Table.Builder builder = builders.get(tableName);
+            if (builder != null) mapConstraints(builder, rows);
+        });
+
+        Map<String, List<IndexRow>> indexesByTable = new LinkedHashMap<>();
+        List<BulkIndexRow> indexes = jdbcTemplate.query(INDEXES_BULK_SQL, parameters,
+                (rs, rowNumber) -> new BulkIndexRow(
+                        rs.getString("OWNER_TABLE_NAME"),
+                        new IndexRow(
+                                rs.getString("INDEX_NAME"),
+                                "UNIQUE".equalsIgnoreCase(rs.getString("UNIQUENESS")),
+                                rs.getString("INDEX_TYPE"),
+                                rs.getString("COLUMN_NAME"),
+                                nullableInt(rs, "COLUMN_POSITION"),
+                                rs.getString("DESCEND"),
+                                trimToNull(rs.getString("COLUMN_EXPRESSION")),
+                                trimToNull(rs.getString("TABLESPACE_NAME")),
+                                nullableInt(rs, "PCT_FREE"),
+                                nullableInt(rs, "INI_TRANS"),
+                                trimToNull(rs.getString("LOGGING")),
+                                trimToNull(rs.getString("COMPRESSION")),
+                                nullableInt(rs, "PREFIX_LENGTH"),
+                                trimToNull(rs.getString("DEGREE")))));
+        for (BulkIndexRow item : indexes) {
+            indexesByTable.computeIfAbsent(item.tableName().toUpperCase(Locale.ROOT), ignored -> new ArrayList<>())
+                    .add(item.row());
+        }
+        indexesByTable.forEach((tableName, rows) -> {
+            Table.Builder builder = builders.get(tableName);
+            if (builder != null) mapIndexes(builder, rows);
+        });
+
+        Map<String, Table> result = new LinkedHashMap<>();
+        builders.forEach((tableName, builder) -> result.put(tableName, builder.build()));
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public boolean bulkTableReadOptimized() {
+        return true;
+    }
+
+    @Override
     public boolean schemaExists(String schemaName) {
         if (schemaName == null || schemaName.isBlank()) return false;
         Integer count = jdbcTemplate.getJdbcTemplate().queryForObject(
@@ -319,6 +468,30 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                 "SELECT OWNER FROM ALL_TABLES WHERE TABLE_NAME = ? AND OWNER NOT IN " +
                         "(SELECT USERNAME FROM ALL_USERS WHERE ORACLE_MAINTAINED = 'Y') ORDER BY OWNER",
                 String.class, tableName.toUpperCase(Locale.ROOT));
+    }
+
+    @Override
+    public Map<String, List<String>> findTableSchemas(Set<String> tableNames) {
+        Set<String> names = MetadataRepositorySupport.normalizeNames(tableNames, true);
+        if (names.isEmpty()) return Map.of();
+        String sql = "SELECT TABLE_NAME, OWNER FROM ALL_TABLES "
+                + "WHERE TABLE_NAME IN (:tableNames) AND OWNER NOT IN "
+                + "(SELECT USERNAME FROM ALL_USERS WHERE ORACLE_MAINTAINED = 'Y') "
+                + "ORDER BY TABLE_NAME, OWNER";
+        Map<String, List<String>> result = new LinkedHashMap<>();
+        names.forEach(name -> result.put(name, new ArrayList<>()));
+        jdbcTemplate.query(sql, new MapSqlParameterSource("tableNames", names), rs -> {
+            String tableName = rs.getString("TABLE_NAME").toUpperCase(Locale.ROOT);
+            result.computeIfAbsent(tableName, ignored -> new ArrayList<>()).add(rs.getString("OWNER"));
+        });
+        Map<String, List<String>> immutable = new LinkedHashMap<>();
+        result.forEach((name, schemas) -> immutable.put(name, List.copyOf(schemas)));
+        return Map.copyOf(immutable);
+    }
+
+    @Override
+    public boolean bulkTableSchemaReadOptimized() {
+        return true;
     }
 
     private Column mapColumn(OracleColumnRow row) {
@@ -623,6 +796,12 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                             String direction, String expression, String tablespace, Integer pctFree,
                             Integer iniTrans, String logging, String compression, Integer prefixLength,
                             String degree) { }
+
+    private record BulkOracleColumnRow(String tableName, OracleColumnRow row) { }
+
+    private record BulkConstraintRow(String tableName, ConstraintRow row) { }
+
+    private record BulkIndexRow(String tableName, IndexRow row) { }
 
     private record ProfileRow(String columnName, String typeSignature, long frequency) { }
 }
