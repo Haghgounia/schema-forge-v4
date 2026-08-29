@@ -1,3 +1,10 @@
+# 2026-08-29 - DB2 LUW FK P7.1/P7.2 R7.2 historical snapshot evidence compatibility
+
+- Fixed `Db2LuwFkModelResolutionP7IT` so recovered historical canonical snapshots are read as evidence DTOs instead of being passed through the strict runtime/cache `CanonicalSnapshotMapper.toDomain()` compatibility gate.
+- Historical snapshots are not migrated, rewritten, or accepted for normal cache reuse; P7 reads only table/schema/column identity needed for evidence classification.
+- Added a regression case for the observed `snapshot=1.0`, `model=4`, `word-pipeline-v4-2026-08-17-legacy-metadata-recovery10-final` provenance.
+- No production parser, canonical persistence policy, DDL, migration, naming, or DB2 execution semantics changed.
+
 # 2026-08-29 - R6 Local Runtime Configuration
 
 - Enabled Db2 LUW live metadata by default for the isolated local development environment.
@@ -2004,3 +2011,16 @@
 - Fixed comparison-side index equivalence to be asymmetric: redundant desired indexes covered by PK/UK are suppressed, while extra database indexes remain visible as DROP candidates.
 - Restored explicit index physical-property comparison even when the modeled index is structurally redundant with a PK/UK, so properties such as SQL Server FILLFACTOR remain comparable.
 - Kept R2 migration behavior unchanged: NULL default equivalence, Oracle name-only RENAME rendering, and rename-before-add Flyway ordering.
+
+## 2026-08-29 - DB2 LUW FK P7.1/P7.2 evidence audit
+
+- Added `Db2LuwFkModelResolutionP7IT` for evidence-only resolution of the 104 P7.1 name/alias drift rows and 68 P7.2 missing-parent rows from the accepted P6 baseline.
+- Corroborates P6 evidence against generated DB2 LUW history, recovered canonical snapshots, and offline `SYSIBM.SYSCOLUMNS` metadata.
+- Emits conservative classifications only; no automatic FK target rewrite or parser mutation is performed.
+
+## 2026-08-29 - DB2 LUW FK P7.3 referenced-column evidence audit
+
+- Added `Db2LuwFkColumnReferenceAuditP73IT` for the 75 accepted P6 `COLUMN_REFERENCE_OR_EXTRACTION_GAP` rows.
+- Classifies each row as `COLUMN_RENAMED`, `COLUMN_REMOVED`, `COLUMN_NEVER_EXISTED`, or `MODEL_INCOMPLETE` using generated DB2 LUW columns, recovered canonical snapshots, and exact historical `SYSIBM.SYSCOLUMNS` evidence.
+- Rename candidates require one unique strong name relation (`OLD/NEW` normalization, role-prefix suffix, extended suffix, or <=2-character typo distance); ambiguous candidates are deliberately not resolved.
+- The audit is evidence-only and never rewrites FK targets, canonical snapshots, parser output, or generated SQL.
