@@ -512,7 +512,7 @@ final class ColumnLayoutResolver {
         List<String> keyTokens = new ArrayList<>();
         List<String> indexTokens = new ArrayList<>();
         for (String token : TextNormalizer.splitTokens(keyCell)) {
-            if (token.startsWith("PK") || token.startsWith("FK")) {
+            if (isConstraintKeyToken(token)) {
                 keyTokens.add(token);
             } else if (!indexTokens.contains(token)) {
                 indexTokens.add(token);
@@ -524,6 +524,19 @@ final class ColumnLayoutResolver {
             }
         }
         return new KeyAndIndex(String.join(" ", keyTokens), String.join(" ", indexTokens));
+    }
+
+
+    private static boolean isConstraintKeyToken(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        String normalized = token.trim().toUpperCase(Locale.ROOT);
+        return normalized.startsWith("PK")
+                || normalized.startsWith("PFK")
+                || normalized.startsWith("FK")
+                || normalized.startsWith("UK")
+                || normalized.startsWith("UQ");
     }
 
     private static SqlTypeParts parseSqlType(String raw) {

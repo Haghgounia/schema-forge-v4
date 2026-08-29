@@ -518,3 +518,11 @@ SQL Server can reject `ALTER COLUMN` even when a dependent index or constraint i
 
 ### ALTER/Migration M2-R12 SQL Server CHECK comparison
 SQL Server catalog CHECK text is normalized for catalog-only formatting (ordinary `[IDENTIFIER]` brackets, scalar numeric parentheses such as `(0)`, redundant atomic predicate parentheses, and operator whitespace). Boolean grouping and string literals remain semantically significant.
+
+### P7.1 Legacy Unique-Key recovery probe
+
+`LegacyUniqueKeyRecoveryProbeIT` is a read-only acceptance probe for the legacy Word `UK/UQ` routing fix.
+It reparses a source Word corpus directly and reports canonical `UniqueKey` objects without writing to or
+modifying any persisted canonical snapshot corpus. Required property: `schemaforge.uk.probe.wordRoot`.
+Reports are written under `target/legacy-unique-key-probe/<run-id>/` unless
+`schemaforge.uk.probe.outputDir` is supplied.

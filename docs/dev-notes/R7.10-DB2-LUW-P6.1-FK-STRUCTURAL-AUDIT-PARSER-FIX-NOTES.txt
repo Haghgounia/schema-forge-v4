@@ -1,0 +1,37 @@
+SchemaForge R7.10 - Db2 LUW P6.1 FK Structural Audit Parser Fix
+================================================================
+
+Purpose
+-------
+Correct the offline P6 FK structural auditor so CREATE TABLE statements remain visible when
+SchemaForge inserts an inline issue/review comment between the qualified table name and the table
+body opening parenthesis.
+
+Root cause
+----------
+P6 originally required the lexical form:
+
+  CREATE TABLE <qualified-name> (
+
+The production DDL generator may legally emit:
+
+  CREATE TABLE <qualified-name> /* inline issue metadata */
+  (
+
+P5 intentionally matched only the CREATE TABLE keyword and qualified name, so it discovered 2310
+final table definitions. P6's stricter pattern saw only 382 historical table keys in the same corpus,
+which made its structural evidence classifications incomplete.
+
+Fix
+---
+* CREATE_TABLE now matches the production/P5 prefix contract and does not require an immediate '('.
+* Table-body opening parenthesis discovery now skips line comments, block comments, quoted strings,
+  and quoted identifiers after the table name.
+* Added a regression test containing an inline issue comment with parentheses before the table body.
+* No production DDL generation, canonical model, FK generation, or live database behavior changed.
+
+Acceptance expectation
+----------------------
+Re-running P6 against the same 4693-file corpus should discover historical evidence for roughly the
+same distinct table population represented by P5 (P5 final table defs = 2310), rather than 382.
+The 313 P5 blocker/skip rows must still all receive exactly one classification.

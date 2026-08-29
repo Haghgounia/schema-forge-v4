@@ -1,0 +1,41 @@
+SchemaForge V4 - R7.10 DB2 LUW P6 FK Structural Audit
+======================================================
+
+Purpose
+-------
+Classify the non-executed FK population from P5 without changing DDL semantics.
+
+Input
+-----
+1. Generated DB2 LUW historical SQL corpus.
+2. P5 report directory containing:
+   - db2luw-fk-validation-blockers.csv
+   - db2luw-fk-validation-skipped.csv
+
+Classifications
+---------------
+NAME_OR_ALIAS_DRIFT
+  Referenced table is absent under the exact name, but a generated table has a strong legacy name variant.
+
+MISSING_FROM_GENERATED_CORPUS
+  No generated table or simple legacy alias candidate exists.
+
+COLUMN_VERSION_DRIFT
+  Referenced column is absent from final live state but exists in at least one historical generated revision.
+
+COLUMN_REFERENCE_OR_EXTRACTION_GAP
+  Referenced column is not evidenced by any generated revision of the parent table.
+
+KEY_VERSION_DRIFT
+  Referenced columns were a PK/UNIQUE constraint in an earlier generated revision.
+
+UNIQUE_INDEX_EVIDENCE_ONLY
+  No PK/UNIQUE constraint was found, but a generated unique index exists on the same column list.
+  This is evidence only; P6 does NOT auto-promote an index to a parent key.
+
+KEY_MODEL_OR_EXTRACTION_GAP
+  No generated PK/UNIQUE or unique-index evidence exists for the referenced column list.
+
+Safety
+------
+P6 is offline/read-only. It does not connect to DB2 and does not mutate generated SQL or canonical snapshots.

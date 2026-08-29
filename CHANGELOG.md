@@ -1,4 +1,27 @@
+## 2026-08-29 - DB2 LUW FK P7.1 / non-mutating Legacy Unique Key probe
+
+- Added `LegacyUniqueKeyRecoveryProbeIT`, a read-only Word-corpus probe for the P7 `UK/UQ` routing fix.
+- The probe reparses source Word documents directly, reports recovered canonical `UniqueKey` objects and their member columns, and never writes to the recovered canonical snapshot corpus.
+- Added separate summary, recovered-key CSV, and parse-error CSV reports under `target/legacy-unique-key-probe`.
+- Cleaned the project root: historical `*NOTES*` files are retained under `docs/dev-notes/` instead of the repository root.
+
+
+## 2026-08-29 - DB2 LUW FK P7 / Legacy constraint-key routing
+
+- Fixed legacy Word `ColumnLayoutResolver` routing so `UK`, `UQ`, and `PFK` tokens remain in the constraint-key channel instead of being diverted to the index channel.
+- Preserved `IX`/`UIX` as index tokens; no unique constraint is inferred from FK metadata.
+- Bumped `LegacyWordSpecificationParser.PARSER_VERSION` to `0.7.2`.
+- Bumped canonical Word pipeline parser version so cached Word-derived snapshots are rebuilt under the corrected semantics.
+- Added regression coverage for `UK/UQ/PFK` versus `IX/UIX` routing.
 ## R7.10 DB2 LUW P5 — Final-state FK live validation (2026-08-27)
+
+## R7.10 - Db2 LUW P6.1 FK structural-audit parser fix (2026-08-29)
+
+- Fixed `Db2LuwForeignKeyStructuralAuditTest` CREATE TABLE discovery when generated inline issue comments occur between the table name and body.
+- Aligned the P6 CREATE TABLE prefix contract with the already-proven P5 live FK validator.
+- Added comment-aware table-body parenthesis discovery and a focused regression test.
+- This is audit-only; production DDL, canonical models, and database execution are unchanged.
+
 
 - Added `Db2LuwForeignKeyDirectoryExecutionIT` as a separate live gate for foreign keys intentionally skipped by DB2 LUW HISTORICAL replay.
 - Mirrors the deterministic historical final-state rule: only the final encountered definition of each qualified table contributes FK candidates.
@@ -1917,3 +1940,9 @@
 - Strict mode freezes document/skip/parse counts, per-platform generated/with-issues/failed counts, corpus accounting, and exact structured failure-code counts.
 - Added numeric mapping strategy to the Word multi-database text/console summary for explicit SAFE vs OPTIMIZED evidence.
 - No production parser or DDL semantics changed in R7.3.3.
+
+## R7.10 - DB2 LUW P6 FK Structural Audit
+- Added offline `Db2LuwForeignKeyStructuralAuditTest` for post-P5 classification.
+- Classifies FK blockers/skips as version drift, naming/alias drift, missing generated dependency, or canonical/key evidence gaps.
+- Recognizes historical PK/UNIQUE evidence and unique-index evidence without auto-promoting indexes to constraints.
+- P6 is read-only: no DB2 connection and no DDL/canonical mutation.
