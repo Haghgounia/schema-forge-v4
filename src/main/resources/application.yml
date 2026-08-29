@@ -89,12 +89,13 @@ schemaforge:
       password: ${SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD:}
       driver-class-name: com.ibm.db2.jcc.DB2Driver
 
-    # Disabled by default because IBM JCC is not bundled with the project.
+    # Local isolated development environment. Credentials are intentionally
+    # fixed here so REST/live metadata runs do not depend on shell variables.
     db2luw:
-      enabled: false
+      enabled: true
       url: jdbc:db2://localhost:50000/SFORGE
-      username: ${SCHEMAFORGE_METADATA_DB2LUW_USERNAME:}
-      password: ${SCHEMAFORGE_METADATA_DB2LUW_PASSWORD:}
+      username: db2inst1
+      password: Schemaforge123
       driver-class-name: com.ibm.db2.jcc.DB2Driver
 
     sqlserver:

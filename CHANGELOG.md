@@ -1,3 +1,12 @@
+# 2026-08-29 - R6 Local Runtime Configuration
+
+- Enabled Db2 LUW live metadata by default for the isolated local development environment.
+- Hard-coded the known local Db2 LUW credentials in `application.yml`: `db2inst1` / `Schemaforge123`.
+- Kept Oracle, PostgreSQL, SQL Server, and MySQL local credentials directly in `application.yml`.
+- Changed the `db2luw-live` IBM JCC dependency from test scope to runtime scope so `spring-boot:run` no longer needs `-Dspring-boot.run.useTestClasspath=true`.
+- Db2 z/OS remains disabled and externally configurable because no local z/OS environment/credentials are available yet.
+- No DDL, parser, migration, naming, metadata-comparison, or R5.1 performance semantics changed.
+
 ## 2026-08-29 - EA/REST metadata performance R5.1 regression fix
 
 - Fixed request-cache negative table lookups so a miss under one schema spelling (for example `APP`) does not suppress a valid retry using the catalog-returned spelling (for example `app`).

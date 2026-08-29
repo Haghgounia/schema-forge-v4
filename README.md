@@ -539,3 +539,16 @@ Reports are written under `target/legacy-unique-key-probe/<run-id>/` unless
 ### EA migration convergence: Oracle name-only drift
 
 For an unchanged EA model deployed to Oracle, SchemaForge now treats live `DEFAULT NULL` as equivalent to no default, renders structurally identical constraint/index name drift with Oracle `RENAME`, assigns rename-bearing Flyway files earlier versions than ADD-only files, and suppresses PK/UK-covered normal indexes consistently in both Migration and Comparison output.
+## Local live-metadata runtime
+
+The current isolated development environment keeps known local database credentials directly in `src/main/resources/application.yml`. Db2 LUW is enabled with the local `SFORGE` connection and is started with the IBM JCC runtime profile:
+
+```bat
+cd /d D:\Projects\schema-forge-v4
+
+mvn -Pdb2luw-live ^
+  spring-boot:run
+```
+
+No Db2 LUW username/password environment variables and no Spring Boot test-classpath override are required. Db2 z/OS remains disabled until a real z/OS environment is available.
+

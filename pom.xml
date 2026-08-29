@@ -158,7 +158,11 @@
             </build>
         </profile>
 
-        <!-- Explicit Db2 LUW live integration-test wiring; inactive during normal builds. -->
+        <!--
+          Explicit Db2 LUW live/runtime wiring. The profile remains opt-in so
+          normal builds do not need IBM JCC, but spring-boot:run can use the
+          driver directly without test-classpath workarounds.
+        -->
         <profile>
             <id>db2luw-live</id>
             <dependencies>
@@ -166,7 +170,7 @@
                     <groupId>com.ibm.db2</groupId>
                     <artifactId>jcc</artifactId>
                     <version>${db2.jcc.version}</version>
-                    <scope>test</scope>
+                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>
