@@ -1,0 +1,16 @@
+DB2 LUW P8.2 Post-Resolution Parent-Key Audit
+=============================================
+Generated SQL root       : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Canonical snapshot dir   : D:\Sample-Docs-Scripts\SchemaForge-Recovered-Canonical-R7.2
+Legacy UK probe          : D:\SchemaForge-Runners\LegacyUniqueKeyRecoveryProbe\20260829_151249\reports\20260829_183525_435\legacy-unique-key-probe.csv
+P8.1 live blocker rows   : 12
+P7.5 deferred key rows   : 16
+Distinct parent key refs : 6
+Affected FK references   : 28
+
+  HISTORICAL_GENERATED_AND_CANONICAL_KEY_EVIDENCE      1
+  NO_INDEPENDENT_KEY_EVIDENCE                          5
+
+Mutation policy          : EVIDENCE ONLY; NO TABLE/KEY/FK MUTATION
+Exact-key policy         : ORDERED COLUMN SET MUST MATCH PK/UK/UNIQUE INDEX
+Report directory         : D:\Projects\schema-forge-v4\target\db2luw-p8.2-post-resolution-key-audit\20260830_104609_488

@@ -1,0 +1,11 @@
+SchemaForge DB2 LUW P6 retained evidence baseline
+Source run date        : 2026-08-29
+Original report dir    : target/db2luw-fk-structural-audit/20260829_182000_267
+Rows audited           : 313
+COLUMN_REFERENCE_OR_EXTRACTION_GAP: 75
+KEY_MODEL_OR_EXTRACTION_GAP        : 50
+KEY_VERSION_DRIFT                  : 16
+MISSING_FROM_GENERATED_CORPUS      : 68
+NAME_OR_ALIAS_DRIFT                : 104
+Purpose                : reproducible downstream P7 evidence when ephemeral target reports are absent
+Mutation policy        : immutable test evidence; never used to mutate production data automatically

@@ -1,0 +1,20 @@
+DB2 LUW FK Model Resolution P7.1/P7.2
+====================================
+P6 audit file          : target\db2luw-fk-structural-audit\20260829_182000_267\db2luw-fk-structural-audit.csv
+Generated SQL root     : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Canonical snapshot dir : D:\Sample-Docs-Scripts\SchemaForge-Recovered-Canonical-R7.2
+DB2 SYSCOLUMNS         : D:\SYSCOLUMNS-050511.zip
+Generated table keys   : 2310
+Canonical table keys   : 2670
+DB2 SYSCOLUMNS rows    : 113325
+
+P7.1 Name/Alias Drift rows : 104
+  CONFIRMED_RENAME                 14
+  POSSIBLE_ALIAS                   90
+
+P7.2 Missing Parent rows   : 68
+  CANONICAL_ABSENT                 47
+  EXTERNAL_OR_SHARED_DEPENDENCY    21
+
+Mutation policy         : EVIDENCE ONLY; NO AUTO REWRITE
+Report directory        : D:\Projects\schema-forge-v4\target\db2luw-fk-p7-resolution\20260829_184443_532

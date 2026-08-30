@@ -1,0 +1,3 @@
+Retained from P8.2 post-resolution key audit on 2026-08-30.
+Sources: generated DB2 LUW corpus, recovered canonical snapshots, Legacy Unique Key probe.
+Result: one parent-key with historical+canonical evidence (CTACCOUNTTYPE.ACCTYPE), five with no independent key evidence.

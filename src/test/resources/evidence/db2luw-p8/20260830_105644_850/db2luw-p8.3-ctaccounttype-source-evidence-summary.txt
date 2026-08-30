@@ -1,0 +1,14 @@
+DB2 LUW P8.3 CTACCOUNTTYPE Source Evidence
+==========================================
+Word root                    : D:\Sample-Docs\Legacy-Word
+Candidate documents          : 9
+Parsed CTACCOUNTTYPE rows    : 3
+Current-source candidates    : 6
+Historical-source candidates : 3
+Current ACCTYPE PK evidence  : 0
+Historical ACCTYPE PK evidence: 2
+Parser version               : 0.7.2
+
+Decision                     : CURRENT_SOURCE_DOES_NOT_DECLARE_ACCTYPE_PK__HISTORICAL_KEY_MUST_NOT_BE_FORCED
+Mutation policy              : EVIDENCE ONLY; NO GENERATED/CANONICAL/DB2 MUTATION
+Report directory             : D:\Projects\schema-forge-v4\target\db2luw-p8.3-ctaccounttype-source-evidence\20260830_105644_850

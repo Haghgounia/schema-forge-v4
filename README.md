@@ -552,3 +552,19 @@ mvn -Pdb2luw-live ^
 
 No Db2 LUW username/password environment variables and no Spring Boot test-classpath override are required. Db2 z/OS remains disabled until a real z/OS environment is available.
 
+
+### DB2 LUW P8.1 final-state FK resolution validation
+
+P8.1 validates the evidence-confirmed P7 FK resolutions against the live `SFORGE` catalog without rewriting the generated SQL corpus. The retained evidence plan is: 244 already-valid baseline FKs, 14 confirmed referenced-table renames, 64 confirmed referenced-column renames, 16 key-version-selection defects, and 219 evidence/policy-deferred rows.
+
+```bat
+cd /d D:\Projects\schema-forge-v4
+
+mvnw.cmd ^
+  -Pdb2luw-live ^
+  -Dtest=Db2LuwFinalStateResolutionP8IT ^
+  -Dschemaforge.db2luw.p8.sqlRoot="D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE" ^
+  test
+```
+
+The local DB2 LUW URL/user/password default to the isolated `application.yml` values (`SFORGE`, `db2inst1`, local password). P8.1 drops every FK it creates after validation. Reports are written below `target\db2luw-p8-final-state\<timestamp>`. The 16 P7.5 rows are intentionally not auto-fixed in P8.1; they require correction of final table-version selection before P8 closure.

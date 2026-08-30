@@ -1,0 +1,13 @@
+SchemaForge DB2 LUW P7 retained evidence
+========================================
+P7.1/P7.2 run: 2026-08-29 18:44:43 +03:30
+P7.1 rows: 104 (14 CONFIRMED_RENAME, 90 POSSIBLE_ALIAS)
+P7.2 rows: 68 (47 CANONICAL_ABSENT, 21 EXTERNAL_OR_SHARED_DEPENDENCY)
+
+P7.3 run: 2026-08-29 18:59:06 +03:30
+P7.3 rows: 75 (64 COLUMN_RENAMED, 11 COLUMN_NEVER_EXISTED)
+
+P7.4/P7.5 verified run: 2026-08-30 09:52:40 +03:30
+P7.4 rows: 50 (50 NO_INDEPENDENT_UNIQUE_EVIDENCE)
+P7.5 rows: 16 (16 CANONICAL_KEY_EVIDENCE_PRESENT)
+Mutation policy: evidence only; no automatic corpus rewrite.

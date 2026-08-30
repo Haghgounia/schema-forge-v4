@@ -1,0 +1,5 @@
+Retained evidence from accepted DB2 LUW P7.4/P7.5 candidate-key audit.
+Run: 2026-08-30 09:52:40 +03:30
+P7.4: 50/50 NO_INDEPENDENT_UNIQUE_EVIDENCE
+P7.5: 16/16 CANONICAL_KEY_EVIDENCE_PRESENT
+Mutation policy: evidence only; never invent UNIQUE for FK.

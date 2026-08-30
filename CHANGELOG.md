@@ -1,3 +1,42 @@
+
+## 2026-08-30 - DB2 LUW P9.1.2 replay-state diagnosis
+- Added read-only `Db2LuwCatalogReplayStateDiagnosisP912IT`.
+- Simulates HISTORICAL DB2 LUW file/statement order and applies generated column-shape `ALTER TABLE` mutations (`ADD/DROP/RENAME COLUMN`) after each `CREATE TABLE`.
+- Distinguishes selected-CREATE shape drift from the actual generated replay final state before any generator or database mutation.
+
+## 2026-08-30 - DB2 LUW P9.1.1 Catalog Shape Diagnosis
+
+- Added read-only `Db2LuwCatalogShapeDiagnosisP911IT`.
+- Classifies P9.1 table/column mismatches without mutating DB2 or generated SQL.
+- Distinguishes historical-replay extra columns from unexplained catalog extras, missing final columns, order drift, and mixed set drift.
+- Emits per-extra-column evidence pointing to earlier generated CREATE TABLE versions.
+- P8 closure policy remains unchanged: 310 evidence-valid FK references and 247 explicitly deferred/blocked; no synthetic PK/UK/FK.
+
+## 2026-08-30 - DB2 LUW P8 closure / P9.1 catalog reconciliation
+
+- Retains P8.2 and P8.3 evidence snapshots under `src/test/resources/evidence/db2luw-p8/`.
+- Adds `Db2LuwP8ClosureGateTest`: locks the final 557-FK partition at 310 evidence-valid/live-executable and 247 explicitly deferred/blocked; no synthetic PK/UK/FK.
+- Confirms current `CTACCOUNTTYPE` source uses composite PK `(ACCTYPE, ARZCODE)` while historical sources used single-column `ACCTYPE`; 18 single-column FKs remain historical/model-version conflicts.
+- Adds read-only `Db2LuwCatalogReconciliationP91IT` for P9.1 table/column catalog reconciliation against `SYSCAT.TABLES` and `SYSCAT.COLUMNS`.
+- P9.1 requires the 2310 selected final generated tables to exist with exact ordered column names; extra catalog tables are reported but do not fail by default.
+- Production DDL/parser/migration logic is unchanged.
+# 2026-08-30 - DB2 LUW P8.2.1 key-audit compile fix
+
+- Fixed a malformed newline append in `Db2LuwPostResolutionKeyAuditP82IT` line 398 (`append('\n\n")` -> `append("\n\n")`) that prevented test compilation.
+- No P8.2 evidence classification, key matching, production code, parser, DDL, migration, naming, or generated corpus semantics changed.
+- Retains the P8.2 post-resolution parent-key audit scope and mutation-free policy.
+
+# 2026-08-30 - DB2 LUW P8.1 evidence-confirmed FK final-state live validation
+
+- Added `Db2LuwFinalStateResolutionP8IT` as the first P8 live gate over the 557 final-state FK candidates.
+- Retains the verified P7.1/P7.2/P7.3 evidence snapshots in test resources so P8 is not dependent on ephemeral `target` reports.
+- Applies only 14 `CONFIRMED_RENAME` table targets and 64 `COLUMN_RENAMED` targets in memory; the generated SQL corpus is never rewritten by the test.
+- Keeps 90 possible aliases, 47 canonical-absent parents, 21 external/shared dependencies, 11 never-observed columns, and 50 rows with no independent unique evidence deferred without mutation.
+- Keeps all 16 P7.5 `CTACCOUNTTYPE.ACCTYPE` key-version rows separate as `KEY_VERSION_SELECTION_FIX_REQUIRED`; canonical evidence exists, so these are final-version-selection defects rather than permission to invent a UNIQUE constraint.
+- Live preflight re-checks source/parent tables, columns, and referenced PK/UNIQUE constraints before attempting a resolved FK, executes eligible FKs, and drops them immediately after validation.
+- Produces success, post-resolution blocker, deferred, live-error, cleanup-error, and summary reports under `target/db2luw-p8-final-state`.
+- Production parser, canonical snapshots, DDL rendering, migration, naming, and existing SQL corpus remain unchanged.
+
 # 2026-08-29 - DB2 LUW FK P7.1/P7.2 R7.2 historical snapshot evidence compatibility
 
 - Fixed `Db2LuwFkModelResolutionP7IT` so recovered historical canonical snapshots are read as evidence DTOs instead of being passed through the strict runtime/cache `CanonicalSnapshotMapper.toDomain()` compatibility gate.
@@ -2024,3 +2063,31 @@
 - Classifies each row as `COLUMN_RENAMED`, `COLUMN_REMOVED`, `COLUMN_NEVER_EXISTED`, or `MODEL_INCOMPLETE` using generated DB2 LUW columns, recovered canonical snapshots, and exact historical `SYSIBM.SYSCOLUMNS` evidence.
 - Rename candidates require one unique strong name relation (`OLD/NEW` normalization, role-prefix suffix, extended suffix, or <=2-character typo distance); ambiguous candidates are deliberately not resolved.
 - The audit is evidence-only and never rewrites FK targets, canonical snapshots, parser output, or generated SQL.
+
+## 2026-08-29 - DB2 LUW FK P7.4/P7.5 candidate-key evidence audit
+
+- Added `Db2LuwFkCandidateKeyAuditP74P75IT`.
+- P7.4 checks the 50 `KEY_MODEL_OR_EXTRACTION_GAP` rows only against independent canonical PK/UK/unique-index evidence and the optional Legacy Word UK probe CSV.
+- P7.5 separates canonical key evidence from historical-generated-key-only evidence for the 16 `KEY_VERSION_DRIFT` rows.
+- Exact ordered referenced-column sets are required.
+- Evidence-only: no UNIQUE/PK/FK is created or rewritten.
+
+## 2026-08-30 - DB2 LUW FK P7.4/P7.5 R7.4.1
+- Fixed P7.4/P7.5 dependency on ephemeral `target/` P6 reports.
+- Retained the revalidated 313-row P6 structural-audit baseline under test resources with SHA-256 provenance.
+- Resolution order is now: explicit P6 CSV -> latest fresh `target` P6 report -> retained baseline evidence snapshot.
+- Added regression coverage asserting retained baseline completeness (313 total, 50 P7.4, 16 P7.5).
+- No production parser, DDL, migration, naming, or runtime logic changed.
+
+## 2026-08-30 - DB2 LUW P8.2 post-resolution parent-key evidence audit
+- Retained the accepted P8.1 live evidence: 557 final FK candidates, 310/310 live successes, 12 post-resolution key blockers, zero execution/cleanup failures.
+- Retained the accepted P7.4/P7.5 key-evidence reports used to interpret those blockers.
+- Added `Db2LuwPostResolutionKeyAuditP82IT` to inspect the 12 P8.1 post-resolution blockers plus the 16 P7.5 deferred rows against every generated DB2 LUW table version, recovered canonical PK/UK/unique-index evidence, and optional Legacy Word UK evidence.
+- Reports the lexicographically selected final generated version separately from historical key-bearing versions, so version-selection drift can be distinguished from genuinely absent independent key evidence.
+- Exact ordered key-column sets are required. No PK, UK, index, table, FK, canonical snapshot, parser output, or generated SQL is mutated.
+
+## 2026-08-30 - DB2 LUW P8.3 CTACCOUNTTYPE source-evidence probe
+- Added a read-only targeted Word-source probe for `CTACCOUNTTYPE.ACCTYPE`.
+- Re-parses only CTAccountType `.doc/.docx` sources with the current legacy parser (0.7.2).
+- Distinguishes current-source versus historical-source PK evidence before any final-version/key mutation.
+- No production parser, DDL, canonical snapshot, migration, or live DB2 mutation is performed by this phase.

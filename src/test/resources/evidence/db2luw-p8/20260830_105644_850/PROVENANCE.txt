@@ -1,0 +1,4 @@
+Retained from live P8.3 execution on 2026-08-30.
+Source Word root: D:\Sample-Docs\Legacy-Word
+Parser: 0.7.2
+Decision: current CTACCOUNTTYPE source uses composite PK ACCTYPE|ARZCODE; historical single-column ACCTYPE PK must not be forced.

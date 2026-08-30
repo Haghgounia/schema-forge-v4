@@ -1,0 +1,34 @@
+DB2 LUW P8 Final-State Resolution Validation
+============================================
+Database product          : DB2/LINUXX8664
+Database version          : SQL120150
+Database                  : SFORGE
+Authorization ID          : DB2INST1
+SQL root                  : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Files discovered          : 4693
+Final table defs          : 2310
+Final FK candidates       : 557
+
+P8 baseline eligible      : 244
+P7.1 table rename eligible: 14
+P7.3 column rename eligible: 64
+P7.5 key-version fix req. : 16
+P7.1 possible-alias block: 90
+P7.2 canonical-absent block: 47
+P7.2 external/shared dep. : 21
+P7.3 never-existed block : 11
+P7.4 no-unique-evidence   : 50
+Evidence/policy blocked  : 219
+Total deferred            : 235
+
+Live FK attempted         : 310
+Live FK succeeded         : 310
+Live FK failed            : 0
+Resolution attempted      : 66
+Resolution succeeded      : 66
+Post-resolution blockers  : 12
+Deferred without mutation : 235
+Cleanup failed            : 0
+Mutation policy           : IN-MEMORY VALIDATION ONLY; GENERATED CORPUS UNCHANGED
+Elapsed                   : PT25.5475968S
+Report directory          : D:\Projects\schema-forge-v4\target\db2luw-p8-final-state\20260830_102243_952

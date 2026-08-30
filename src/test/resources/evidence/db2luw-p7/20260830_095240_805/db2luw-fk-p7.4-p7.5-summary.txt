@@ -1,0 +1,17 @@
+DB2 LUW FK Candidate Key Audit P7.4/P7.5
+========================================
+P6 audit file          : D:\Projects\schema-forge-v4\src\test\resources\evidence\db2luw-p6\20260829_182000_267\db2luw-fk-structural-audit.csv
+Canonical snapshot dir : D:\Sample-Docs-Scripts\SchemaForge-Recovered-Canonical-R7.2
+Legacy UK probe        : D:\SchemaForge-Runners\LegacyUniqueKeyRecoveryProbe\20260829_151249\reports\20260829_183525_435\legacy-unique-key-probe.csv
+Canonical target tables: 19
+Legacy UK definitions  : 12
+
+P7.4 candidate-key rows: 50
+  NO_INDEPENDENT_UNIQUE_EVIDENCE         50
+
+P7.5 key-version rows  : 16
+  CANONICAL_KEY_EVIDENCE_PRESENT         16
+
+Mutation policy         : EVIDENCE ONLY; NEVER INVENT UNIQUE FOR FK
+Key matching policy     : EXACT ORDERED COLUMN SET ONLY
+Report directory        : D:\Projects\schema-forge-v4\target\db2luw-fk-p7.4-p7.5-key-audit\20260830_095240_805

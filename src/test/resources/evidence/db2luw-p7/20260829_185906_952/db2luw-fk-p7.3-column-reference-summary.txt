@@ -1,0 +1,18 @@
+DB2 LUW FK Column Reference Audit P7.3
+====================================
+P6 audit file          : target\db2luw-fk-structural-audit\20260829_182000_267\db2luw-fk-structural-audit.csv
+Generated SQL root     : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Canonical snapshot dir : D:\Sample-Docs-Scripts\SchemaForge-Recovered-Canonical-R7.2
+DB2 SYSCOLUMNS         : D:\SYSCOLUMNS-050511.zip
+Target parent tables   : 21
+Generated parents found: 21
+Canonical parents found: 21
+DB2 SYSCOLUMNS rows    : 113325
+
+P7.3 rows              : 75
+  COLUMN_NEVER_EXISTED         11
+  COLUMN_RENAMED               64
+
+Mutation policy         : EVIDENCE ONLY; NO AUTO REWRITE
+Rename candidate policy : UNIQUE STRONG NAME RELATION ONLY
+Report directory        : D:\Projects\schema-forge-v4\target\db2luw-fk-p7.3-column-reference\20260829_185906_952
