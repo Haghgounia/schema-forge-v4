@@ -1,0 +1,25 @@
+DB2 LUW P9.2 Catalog Reconciliation - PK/UK/Indexes
+=================================================
+Database product          : DB2/LINUXX8664
+Database version          : SQL120150
+Database                  : SFORGE
+Authorization ID          : DB2INST1
+SQL root                  : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Files discovered          : 4693
+Expected final tables     : 2310
+Expected PK/UK constraints: 1968
+Catalog PK/UK constraints : 1968
+Exact PK/UK constraints   : 1968
+Missing constraints       : 0
+Mismatched constraints    : 0
+Extra catalog constraints : 0
+Expected explicit indexes : 1233
+Catalog indexes           : 3203
+Exact explicit indexes    : 1233
+Missing explicit indexes  : 0
+Mismatched indexes        : 0
+Extra catalog indexes     : 1970
+Extra-index fail policy   : false
+Mutation policy           : READ ONLY
+Elapsed                   : PT2.968475S
+Report directory          : D:\Projects\schema-forge-v4\target\db2luw-p9.2-keys-indexes-reconciliation\20260830_120358_710

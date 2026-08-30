@@ -1,3 +1,27 @@
+## P10 - DB2 LUW final closure baseline
+
+- Closes the DB2 LUW validation track after successful P8 evidence closure and P9.1/P9.2/P9.3 catalog reconciliation.
+- Retains the accepted P9.3 live FK evidence: 310/310 evidence-valid FKs catalog-exact, zero mismatch/execution/cleanup errors, and persistent FK catalog state preserved.
+- Adds `Db2LuwFinalClosureP10Test`, an evidence-only non-mutating gate that locks the accepted DB2 LUW baseline: 2310 final tables, 47,997 columns, 1,968 PK/UK constraints, 1,233 explicit generated indexes, and the 557-FK partition of 310 evidence-valid plus 247 explicitly blocked/deferred.
+- Final live regression remains explicit: P9.1 tables/columns, P9.2 PK/UK/indexes, and P9.3 FK create/catalog-verify/drop are rerun together with the P10 evidence gate.
+- No production parser, DDL renderer, migration, naming, canonical-model, or generated-corpus logic changed.
+
+## R9.3 - DB2 LUW P9.3 FK catalog reconciliation
+
+- Retains the exact 310 P8.1 live-success FK rows as immutable P9.3 scope evidence.
+- Adds `Db2LuwCatalogForeignKeyReconciliationP93IT` to reconcile source columns, referenced table/columns, referenced key, and DB2 delete/update rules through `SYSCAT.REFERENCES` and `SYSCAT.KEYCOLUSE`.
+- Preserves database state: pre-existing FKs are read-only reconciled; absent FKs are create -> catalog-verify -> drop. Catalog FK count must be unchanged after the run.
+- The 247 P8-closed blocked/deferred FKs remain out of scope; no synthetic PK/UK/FK is introduced.
+- Retains the successful P9.2 live evidence: 1968/1968 PK constraints exact and 1233/1233 explicit indexes exact.
+- No production DDL, generator, migration, naming, or canonical-model logic changed.
+
+
+## R9.2.1 - DB2 LUW P9.2 comment-safe PK/UK parser
+
+- Fixed P9.2 false-positive inline PK/UK detection caused by generated DB2 LUW adaptation comments containing the words `PRIMARY KEY`.
+- Constraint parsing now removes SQL comments while preserving quoted literals/identifiers before recognizing table-level or inline PK/UK syntax.
+- Added a regression test proving DB2 LUW PK-nullability comments cannot create synthetic expected constraints.
+- No production DDL, generated corpus, database objects, or migration logic changed.
 
 ## 2026-08-30 - DB2 LUW P9.1.2 replay-state diagnosis
 - Added read-only `Db2LuwCatalogReplayStateDiagnosisP912IT`.
@@ -2091,3 +2115,18 @@
 - Re-parses only CTAccountType `.doc/.docx` sources with the current legacy parser (0.7.2).
 - Distinguishes current-source versus historical-source PK evidence before any final-version/key mutation.
 - No production parser, DDL, canonical snapshot, migration, or live DB2 mutation is performed by this phase.
+
+## R9.1.3 - DB2 LUW P9 CREATE-body parser diagnosis
+- Adds read-only `Db2LuwCatalogCreateBodyParserDiagnosisP913IT`.
+- Compares legacy P9 CREATE-body column extraction with a comment-aware extraction.
+- Diagnoses whether catalog "extra" columns are real drift or columns skipped because a generated comment precedes the declaration.
+- No production code, generated SQL, canonical snapshot, key, FK, or DB2 catalog mutation.
+
+## R9.2 - DB2 LUW P9.1 closure + P9.2 PK/UK/index reconciliation
+- Promoted the P9.1.3 diagnosis into the P9.1 closure gate: CREATE-body column extraction now strips leading generated comments on each top-level body element before deciding whether it is a column or constraint.
+- The corrected P9.1 logic is expected to reconcile all 2310 selected-final tables and all 47,997 catalog columns observed in the accepted P9.1.3 run; no generated DDL or live DB2 object is mutated.
+- Added read-only `Db2LuwCatalogKeysIndexesReconciliationP92IT`.
+- P9.2 reconciles selected-final PRIMARY KEY and UNIQUE constraints against `SYSCAT.TABCONST` + `SYSCAT.KEYCOLUSE` using exact ordered column sets and generated names when present.
+- P9.2 reconciles explicit final-file `CREATE INDEX` statements against `SYSCAT.INDEXES` + `SYSCAT.INDEXCOLUSE`, including uniqueness and ASC/DESC column order.
+- Extra catalog indexes are reported but do not fail by default because DB2 creates backing indexes for PK/UK constraints; missing or mismatched explicit generated indexes do fail.
+- No synthetic PK/UK/index is introduced. Mutation policy remains read-only catalog verification.

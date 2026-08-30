@@ -1,0 +1,27 @@
+DB2 LUW P9.1.3 CREATE Body Parser Diagnosis
+==========================================
+Database product              : DB2/LINUXX8664
+Database version              : SQL120150
+Database                      : SFORGE
+Authorization ID              : DB2INST1
+SQL root                      : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Files discovered              : 4693
+Selected final tables         : 2310
+Legacy extractor exact tables: 2148
+Legacy extractor mismatches  : 162
+Comment-aware exact tables    : 2310
+Comment-aware mismatches      : 0
+Missing catalog tables        : 0
+Tables with recovered columns : 162
+Columns recovered from comments: 291
+Residual extra catalog columns: 0
+Residual missing final columns: 0
+
+Classifications:
+  LEGACY_EXTRACTOR_ALREADY_EXACT                    2148
+  COMMENT_AWARE_EXTRACTOR_MATCHES_CATALOG           162
+
+Mutation policy                : READ ONLY; DIAGNOSIS ONLY
+Parser comparison policy       : LEGACY VS COMMENT-AWARE TOP-LEVEL CREATE BODY EXTRACTION
+Elapsed                        : PT1.9018272S
+Report directory               : D:\Projects\schema-forge-v4\target\db2luw-p9.1.3-create-body-parser-diagnosis\20260830_114228_955

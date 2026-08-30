@@ -1,0 +1,3 @@
+Retained from live DB2 LUW P9.2 run on 2026-08-30.
+Database: SFORGE / schema TSTSHMA.
+Result: 1968/1968 PK constraints exact; 1233/1233 explicit indexes exact; zero missing or mismatched generated objects.

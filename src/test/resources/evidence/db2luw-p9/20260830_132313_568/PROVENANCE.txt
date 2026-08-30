@@ -1,0 +1,5 @@
+Accepted DB2 LUW P9.3 live FK catalog reconciliation run: 2026-08-30 13:23:13 +03:30.
+Source DB: SFORGE / DB2 12.1.5.0 (SQL120150), schema TSTSHMA.
+Generated corpus: D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE.
+Accepted result: exact P8-success FK scope 310; 310 create/verify/drop validations exact; zero mismatch, execution error, or cleanup error; catalog FK count preserved 0 -> 0.
+These files are retained evidence only; tests must not mutate them.

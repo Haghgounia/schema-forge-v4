@@ -1,0 +1,4 @@
+78eec5930dc87362d4b7e08316280e19ee52ef3074ee69cc92b4eab680313137  db2luw-p9.2-summary.txt
+1ad7f06f37ba0270bd8e9b5ebd50ac0977c1c8f3aebe57fda664fa37f6d8cde9  db2luw-p9.2-constraints.csv
+848bb55be2e304a0fcca2654a211641be07dc1ca2d42bb839606c458e2b5c388  db2luw-p9.2-indexes.csv
+ca11f8b5a78c188a60b06490497387e4c4fb91d7dc292beacd68fb95adc9b367  PROVENANCE.txt

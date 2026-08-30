@@ -1,5 +1,9 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
+## DB2 LUW validation status (P10 closed baseline)
+
+The DB2 LUW live corpus has completed P8 evidence closure and all P9 catalog reconciliation gates. P8 partitions all 557 final FK candidates into 310 evidence-valid/live-executable and 247 explicitly blocked/deferred without inventing keys. P9.1 reconciles all 2310 final tables and 47,997 columns exactly; P9.2 reconciles all 1,968 PK/UK constraints and all 1,233 explicit generated indexes exactly; P9.3 creates, catalog-verifies, and drops the exact 310 P8-success FKs with zero mismatch/error and preserves the pre-existing FK catalog state. `Db2LuwFinalClosureP10Test` locks these accepted results as the DB2 LUW final regression baseline.
+
 SchemaForge parses Word and Enterprise Architect specifications into one canonical model and generates DDL for Oracle, PostgreSQL, Db2 for z/OS, Db2 LUW, Microsoft SQL Server, and MySQL. DDL generation remains offline; optional live metadata connections are used for validation/comparison and live-vs-design migration planning.
 
 ```text
@@ -568,3 +572,23 @@ mvnw.cmd ^
 ```
 
 The local DB2 LUW URL/user/password default to the isolated `application.yml` values (`SFORGE`, `db2inst1`, local password). P8.1 drops every FK it creates after validation. Reports are written below `target\db2luw-p8-final-state\<timestamp>`. The 16 P7.5 rows are intentionally not auto-fixed in P8.1; they require correction of final table-version selection before P8 closure.
+
+### DB2 LUW P9.1.3 CREATE-body parser diagnosis
+Run `Db2LuwCatalogCreateBodyParserDiagnosisP913IT` with `-Pdb2luw-live` and `-Dschemaforge.db2luw.p9.sqlRoot=...` to compare the legacy P9 column extractor with comment-aware CREATE-body extraction against `SYSCAT.COLUMNS`. This gate is read-only.
+
+### DB2 LUW P9.1 closure and P9.2 PK/UK/index reconciliation
+P9.1 uses comment-aware top-level CREATE-body parsing. This closes the false-positive diagnosed by P9.1.3 where 291 real columns in 162 tables were skipped because a generated comment preceded the column declaration.
+
+Run the corrected table/column closure gate together with the P9.2 key/index gate:
+
+```bat
+cd /d D:\Projects\schema-forge-v4
+
+mvnw.cmd ^
+  -Pdb2luw-live ^
+  -Dtest=Db2LuwCatalogReconciliationP91IT,Db2LuwCatalogKeysIndexesReconciliationP92IT ^
+  -Dschemaforge.db2luw.p9.sqlRoot="D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE" ^
+  test
+```
+
+P9.2 is read-only. PK/UK constraints are compared by exact ordered columns and generated constraint name when the DDL provides one. Explicit indexes are compared by name, table, uniqueness, ordered columns, and ASC/DESC direction. Extra catalog indexes are reported but are not a failure by default because DB2 constraint enforcement can create backing indexes.

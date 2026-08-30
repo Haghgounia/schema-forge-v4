@@ -1,0 +1,22 @@
+DB2 LUW P9.3 Catalog Reconciliation - Evidence-Valid Foreign Keys
+=================================================================
+Database product          : DB2/LINUXX8664
+Database version          : SQL120150
+Database                  : SFORGE
+Authorization ID          : DB2INST1
+SQL root                  : D:\Sample-Docs-Scripts\SchemaForge-R7.10-P5-DB2LUW-OBSERVE
+Expected P8-success FKs   : 310
+Catalog FK count before   : 0
+Create attempts           : 310
+Created for validation    : 310
+Pre-existing exact        : 0
+Catalog exact             : 310
+Catalog mismatch          : 0
+Execution errors          : 0
+Cleanup errors            : 0
+Catalog FK count after    : 0
+Persistent state preserved: true
+Validation policy         : PREEXISTING=READ ONLY; ABSENT=CREATE/VERIFY/DROP
+Evidence policy           : EXACT P8 SUCCESS SET ONLY (310); 247 BLOCKED FKs EXCLUDED
+Elapsed                   : PT23.5724116S
+Report directory          : D:\Projects\schema-forge-v4\target\db2luw-p9.3-fk-catalog-reconciliation\20260830_132313_568
