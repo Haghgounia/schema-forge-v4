@@ -1,0 +1,13 @@
+Oracle historical retained execution baseline
+=============================================
+Main historical files            : 4766
+Main statements executed         : 115804
+Main statements succeeded        : 115804
+Main statements failed           : 0
+Main cleanup succeeded           : 4766
+Collision coverage files         : 4
+Collision statements executed    : 86
+Collision statements succeeded   : 86
+Collision statements failed      : 0
+Historical definitions covered   : 4768
+Source                          : docs/release/V4-VALIDATION-EVIDENCE.md + docs/release/V4-FINAL-BASELINE.md

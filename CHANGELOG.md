@@ -1,3 +1,16 @@
+## 2026-08-31 - R11.0 Oracle final closure evidence gate
+
+- Added `OracleFinalClosureTest`, an evidence-only deterministic gate that freezes the retained Oracle R7.2 corpus, historical execution, FK R2, and M2 live results.
+- Oracle V4 status is `CLOSED BASELINE`; structural/dependency FK findings remain reported and no synthetic PK/UK/FK is introduced.
+- Added retained Oracle closure evidence under `src/test/resources/evidence/oracle-final/` and `docs/ORACLE-FINAL-CLOSURE.md`.
+- No production Java, Legacy Word parser, canonical JSON, generated SQL, or Oracle database state is changed.
+
+## R10.8 - Db2 z/OS generated SQL offline corpus gate
+
+- Added `Db2ZosGeneratedSqlCorpusOfflineValidationTest` to validate the already-generated Db2 z/OS SQL corpus without reparsing Legacy Word or regenerating Canonical JSON.
+- The gate is read-only, defaults to the accepted `4693` generated-file baseline, runs the production `Db2ZosOfflineDdlValidator` for every SQL file, checks one `CREATE TABLE` per accepted script, and rejects unresolved executable placeholders.
+- Evidence is written under `target/db2zos-generated-sql-offline-validation/<run-id>/` as summary, detailed issues, and issue-count CSV files.
+
 ## 2026-08-31 - R10.7 MySQL physical placement isolation
 - Fixed a production regression exposed by the full 674-test gate: a generic Legacy/Oracle `TABLESPACE` physical option could be activated as a MySQL general tablespace.
 - Added `Dialect.resolveTableTablespace(Table)` so placement provenance remains a dialect concern rather than DBMS branching inside `DdlGenerator`.
@@ -2190,3 +2203,12 @@
 - Catalog indexes not explicitly emitted by the selected-final file are counted but do not fail by default because PostgreSQL creates backing indexes for PK/UK constraints.
 - Adds `PostgreSqlCatalogKeysIndexesParserP4Test` to guard against PRIMARY KEY/UNIQUE text inside generated comments becoming synthetic expected constraints.
 - No production Java, generated DDL, canonical model, migration logic, or database objects are mutated.
+
+## R10.9 - Db2 z/OS directory live execution runner (2026-08-31)
+
+- Added opt-in `Db2ZosDirectoryExecutionTest` for recursively executing already-generated Db2 z/OS SQL through IBM JCC/JDBC.
+- `HISTORICAL` mode is the default for the 4,693-file accepted corpus: drop-before-create, per-file cleanup, cross-table FK skip, and GRANT skip are enabled by default so historical revisions are validated independently rather than treated as one coherent final schema.
+- `FULL` mode is available for a coherent final-state directory and forbids FK skipping.
+- The runner never reparses Legacy Word and never regenerates Canonical JSON or DDL.
+- CSV evidence includes per-file status plus SQLSTATE/SQLCODE/statement text for failures.
+- Execution requires the existing Db2 z/OS DDL acknowledgement; destructive historical replay additionally requires an explicit drop confirmation.

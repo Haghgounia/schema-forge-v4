@@ -1,0 +1,11 @@
+Oracle FK R2 retained live evidence
+==================================
+Final replay tables             : 5296
+FK attempted                    : 242
+FK succeeded                    : 242
+FK failed                       : 0
+Structural blocked              : 142
+Dependency skipped              : 169
+Cleanup failed                  : 0
+Synthetic key policy            : FORBIDDEN
+Source                          : docs/patches/mysql/PATCH-README.txt + docs/maintenance/2026-08-19-LIVE-REPLAY-RESUME-AND-ORACLE-FK.md
