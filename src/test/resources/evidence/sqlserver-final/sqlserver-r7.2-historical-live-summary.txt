@@ -1,0 +1,20 @@
+SQL Server R7.2 historical live execution retained evidence
+==========================================================
+Database product      : Microsoft SQL Server
+Database version      : 16.00.4265
+Database name         : schemaforge_test
+Expected schema       : TSTSHMA
+Files discovered      : 4703
+Files selected        : 4703
+Statements executed   : 128865
+Statements succeeded  : 128865
+Statements failed     : 0
+Actionable failures   : 0
+Ignored failures      : 0
+Statements skipped    : 2590
+Cleanup attempted     : 4703
+Cleanup succeeded     : 4703
+Cleanup failed        : 0
+Execution mode        : HISTORICAL
+Drop before CREATE    : true
+Source                : user live run 2026-08-31 14:28-17:08 + sqlserver-sql-execution-summary

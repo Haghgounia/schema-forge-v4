@@ -1,3 +1,13 @@
+## 2026-08-31 - R11.1 Db2 z/OS 12 physical baseline activation
+
+- Activates safe, documented Db2 z/OS 12 table defaults in generated `CREATE TABLE`: `AUDIT NONE`, `DATA CAPTURE NONE`, `NOT VOLATILE`, and `APPEND NO`.
+- Activates safe/documented index baseline clauses: `FREEPAGE 0`, `PCTFREE 10`, `GBPCACHE CHANGED`, `COMPRESS NO`, `INCLUDE NULL KEYS`, `CLOSE YES`, and `DEFER NO`; explicit source/profile values override these where supported.
+- Activates explicit index storage evidence (`USING STOGROUP`, `PRIQTY`, `SECQTY`, `ERASE`, `BUFFERPOOL`, `COPY`, `CLUSTER`) instead of leaving it only in comments. Site/capacity/recovery choices remain compact DBA-review comments.
+- Replaces verbose Db2 z/OS physical placeholder blocks with compact `DB2/ZOS DBA PHYSICAL REVIEW` blocks while retaining source issues/reviews.
+- Corrects Db2 z/OS column ordering to `NOT NULL WITH DEFAULT ...`. Other dialects keep their existing default/nullability order.
+- Adds a non-executable post-DDL DBA hint: `REBIND PACKAGE(*)` when dependent packages require rebind.
+- Deliberately defers bare `WITH DEFAULT`, `FOR BIT DATA`, and real enforcing-index name reuse to separate follow-up changes.
+
 ## 2026-08-31 - R11.0 Oracle final closure evidence gate
 
 - Added `OracleFinalClosureTest`, an evidence-only deterministic gate that freezes the retained Oracle R7.2 corpus, historical execution, FK R2, and M2 live results.
@@ -2212,3 +2222,11 @@
 - The runner never reparses Legacy Word and never regenerates Canonical JSON or DDL.
 - CSV evidence includes per-file status plus SQLSTATE/SQLCODE/statement text for failures.
 - Execution requires the existing Db2 z/OS DDL acknowledgement; destructive historical replay additionally requires an explicit drop confirmation.
+
+## R11.2 - SQL Server Final Closure Gate
+
+- Added evidence-only `SqlServerFinalClosureTest`.
+- Retained the current R7.2 SQL Server live replay: 4703/4703 files, 128865/128865 statements, zero failures, 4703/4703 cleanup.
+- Retained integrated FULL FK evidence: 15 tables, 13 resolved FKs, 274 statements, zero failures.
+- Retained SQL Server M2 live evidence: 20 statements, residual zero, data preserved.
+- No production code, generated SQL, Legacy Word, canonical JSON, or database state is changed by the closure gate.

@@ -32,154 +32,244 @@ public final class Db2ZosPhysicalRenderer implements PhysicalCommentRenderer {
     public String tableOptions(Table table, boolean activePlacementPresent) {
         List<String> lines = new ArrayList<>();
         if (!activePlacementPresent) {
-            lines.add("IN <DATABASE>.<TABLESPACE>");
-        }
-        lines.add("-- Table-space attributes belong to CREATE/ALTER TABLESPACE, not CREATE TABLE.");
-        lines.add("-- Candidate profile below is emitted only from explicit source/profile values or review placeholders.");
-
-        lines.add(sourceIdentifierOrPlaceholder(lines, table, "BUFFERPOOL ", "BUFFERPOOL",
-                "DB2_TABLESPACE_BUFFERPOOL", "TABLESPACE_BUFFERPOOL", "DB2_BUFFERPOOL"));
-
-        String dssize = dssize(lines, table);
-        if (dssize != null) {
-            lines.add(dssize);
-        } else {
-            lines.add("DSSIZE <DSSIZE>");
-            lines.add("-- DSSIZE applicability/range depends on PBG/PBR organization and PAGENUM; no organization was inferred.");
+            lines.add("-- DBA SITE PROFILE: TABLE PLACEMENT=<DATABASE>.<TABLESPACE>");
         }
 
-        lines.add(segsize(lines, table));
-        lines.add(PhysicalSourceOptions.integerClause(
-                lines, table, "DB2/ZOS", "FREEPAGE", 0, 0, 255, "FREEPAGE",
-                "DB2_TABLESPACE_FREEPAGE", "TABLESPACE_FREEPAGE"));
+        String explicitProfile = table.physicalOptions().entrySet().stream()
+                .filter(entry -> entry.getKey().toUpperCase(Locale.ROOT).startsWith("DB2_TABLESPACE_"))
+                .sorted(java.util.Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(java.util.stream.Collectors.joining(" | "));
+        if (!explicitProfile.isBlank()) {
+            lines.add("-- SOURCE TABLESPACE PROFILE: " + explicitProfile);
+        }
 
-        addPctfree(lines, table);
+        List<String> diagnostics = new ArrayList<>();
+        sourceIdentifierOrPlaceholder(diagnostics, table, "BUFFERPOOL ", "BUFFERPOOL",
+                "DB2_TABLESPACE_BUFFERPOOL", "TABLESPACE_BUFFERPOOL", "DB2_BUFFERPOOL");
+        dssize(diagnostics, table);
+        segsize(diagnostics, table);
+        PhysicalSourceOptions.integerClause(diagnostics, table, "DB2/ZOS", "FREEPAGE", 0, 0, 255,
+                "FREEPAGE", "DB2_TABLESPACE_FREEPAGE", "TABLESPACE_FREEPAGE");
+        addPctfree(diagnostics, table);
+        PhysicalSourceOptions.enumClause(diagnostics, table, "DB2/ZOS", "TABLESPACE_COMPRESS", "NO",
+                "COMPRESS", COMPRESS, "DB2_TABLESPACE_COMPRESS", "TABLESPACE_COMPRESS");
+        PhysicalSourceOptions.enumClause(diagnostics, table, "DB2/ZOS", "TABLESPACE_GBPCACHE", "CHANGED",
+                "GBPCACHE", GBPCACHE, "DB2_TABLESPACE_GBPCACHE", "TABLESPACE_GBPCACHE");
+        PhysicalSourceOptions.enumClause(diagnostics, table, "DB2/ZOS", "TABLESPACE_CLOSE", "YES",
+                "CLOSE", YES_NO, "DB2_TABLESPACE_CLOSE", "TABLESPACE_CLOSE");
+        String lockSize = PhysicalSourceOptions.enumClause(diagnostics, table, "DB2/ZOS",
+                "TABLESPACE_LOCKSIZE", "<LOCKSIZE>", "LOCKSIZE", LOCKSIZE,
+                "DB2_TABLESPACE_LOCKSIZE", "TABLESPACE_LOCKSIZE");
+        lockmax(diagnostics, table, lockSize);
+        addMemberCluster(diagnostics, table);
+        insertAlgorithm(diagnostics, table);
+        addUsing(diagnostics, table);
+        diagnostics.stream()
+                .filter(line -> line.startsWith("-- [SOURCE PHYSICAL ISSUE]")
+                        || line.startsWith("-- [SOURCE PHYSICAL REVIEW]"))
+                .forEach(lines::add);
 
-        lines.add("COMPRESS " + PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_COMPRESS", "NO", "COMPRESS",
-                COMPRESS, "DB2_TABLESPACE_COMPRESS", "TABLESPACE_COMPRESS"));
-        lines.add("GBPCACHE " + PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_GBPCACHE", "CHANGED", "GBPCACHE",
-                GBPCACHE, "DB2_TABLESPACE_GBPCACHE", "TABLESPACE_GBPCACHE"));
-        lines.add("CLOSE " + PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_CLOSE", "YES", "CLOSE",
-                YES_NO, "DB2_TABLESPACE_CLOSE", "TABLESPACE_CLOSE"));
-        lines.add("DEFINE " + PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_DEFINE", "YES", "DEFINE",
-                YES_NO, "DB2_TABLESPACE_DEFINE", "TABLESPACE_DEFINE"));
-
-        String lockSize = PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_LOCKSIZE", "<LOCKSIZE>", "LOCKSIZE",
-                LOCKSIZE, "DB2_TABLESPACE_LOCKSIZE", "TABLESPACE_LOCKSIZE");
-        lines.add("LOCKSIZE " + lockSize);
-        lines.add(lockmax(lines, table, lockSize));
-
-        lines.add(PhysicalSourceOptions.integerClause(
-                lines, table, "DB2/ZOS", "MAXROWS", 255, 1, 255, "MAXROWS",
-                "DB2_TABLESPACE_MAXROWS", "TABLESPACE_MAXROWS"));
-
-        addMemberCluster(lines, table);
-        lines.add(insertAlgorithm(lines, table));
-        lines.add("TRACKMOD " + PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_TRACKMOD", "<TRACKMOD>", "TRACKMOD",
-                YES_NO, "DB2_TABLESPACE_TRACKMOD", "TABLESPACE_TRACKMOD"));
-        lines.add(PhysicalSourceOptions.enumClause(
-                lines, table, "DB2/ZOS", "TABLESPACE_LOGGING", "LOGGED", "LOGGING",
-                LOGGING, "DB2_TABLESPACE_LOGGING", "TABLESPACE_LOGGING"));
-
-        addUsing(lines, table);
-
-        lines.add("-- MAXPARTITIONS/NUMPARTS/PAGENUM/PARTITION are table-space organization/partitioning choices and remain outside this phase.");
-        lines.add("-- CCSID is logical encoding semantics, not treated as a generic storage tuning parameter here.");
-        return PhysicalCommentBlocks.block("DB2/ZOS TABLE PHYSICAL OPTIONS", lines);
+        lines.add("-- DBA TABLESPACE POLICY: STOGROUP/BUFFERPOOL/DSSIZE/SEGSIZE/LOCKSIZE/space allocation belong to CREATE/ALTER TABLESPACE.");
+        lines.add("-- DBA TABLE ATTRIBUTES: CCSID and WITH RESTRICT ON DROP require explicit source/profile policy.");
+        return PhysicalCommentBlocks.block("DB2/ZOS DBA PHYSICAL REVIEW", lines);
     }
 
     @Override
     public String indexOptions(Table table, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        return renderIndexOptions(table, null, keyColumns, activePlacementPresent);
+        return renderIndexOptions(table, null, keyColumns, activePlacementPresent, false);
     }
 
     @Override
     public String indexOptions(
             Table table, Index index, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        return renderIndexOptions(table, index, keyColumns, activePlacementPresent);
+        return renderIndexOptions(table, index, keyColumns, activePlacementPresent, false);
     }
 
     @Override
     public String indexOptions(
             Table table, Index index, List<Identifier> keyColumns,
             boolean activePlacementPresent, boolean uniqueIndex) {
-        return renderIndexOptions(table, index, keyColumns, activePlacementPresent);
+        return renderIndexOptions(table, index, keyColumns, activePlacementPresent, uniqueIndex);
     }
 
     @Override
     public String constraintIndexOptions(
             Table table, Index index, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        return renderIndexOptions(table, index, keyColumns, activePlacementPresent);
+        return renderIndexOptions(table, index, keyColumns, activePlacementPresent, true);
     }
 
     private String renderIndexOptions(
-            Table table, Index index, List<Identifier> keyColumns, boolean activePlacementPresent) {
-        List<String> lines = new ArrayList<>();
+            Table table, Index index, List<Identifier> keyColumns,
+            boolean activePlacementPresent, boolean uniqueIndex) {
+        String nl = System.lineSeparator();
+        List<String> active = new ArrayList<>();
+        List<String> diagnostics = new ArrayList<>();
+        List<String> dba = new ArrayList<>();
+
         boolean varyingKey = containsVaryingLengthCharacterKey(table, keyColumns);
+        Optional<String> paddingSource = PhysicalSourceOptions.find(index, table,
+                "DB2_INDEX_PADDING", "INDEX_PADDING");
         if (varyingKey) {
-            String padding = PhysicalSourceOptions.enumClause(
-                    lines, index, table, "DB2/ZOS", "PADDED", "<PADDED_OR_NOT_PADDED>",
-                    "PADDED_OR_NOT_PADDED", PADDED,
-                    "DB2_INDEX_PADDING", "INDEX_PADDING");
-            if (padding.startsWith("<")) {
-                lines.add("-- Varying-length key detected - choose according to PADIX/subsystem and DBA policy.");
-                lines.add("<PADDED_OR_NOT_PADDED>");
+            if (paddingSource.isPresent()) {
+                String padding = PhysicalSourceOptions.enumClause(
+                        diagnostics, index, table, "DB2/ZOS", "PADDED", "<PADDED_OR_NOT_PADDED>",
+                        "PADDED_OR_NOT_PADDED", PADDED, "DB2_INDEX_PADDING", "INDEX_PADDING");
+                if (!padding.startsWith("<")) active.add(padding);
             } else {
-                lines.add(padding);
+                dba.add("PADDING=<PADIX/subsystem policy>");
             }
-        } else {
-            PhysicalSourceOptions.find(index, table, "DB2_INDEX_PADDING", "INDEX_PADDING")
-                    .ifPresent(raw -> PhysicalSourceOptions.addSourceIssue(lines, "DB2/ZOS", "INDEX_PADDING="
-                            + raw + " is irrelevant because this index key has no varying-length string column; "
-                            + "Db2 ignores PADDED/NOT PADDED in that case, so it was not emitted."));
         }
 
-        lines.add(PhysicalSourceOptions.sourceOrPlaceholder(
-                lines, index, table, "USING STOGROUP ", "STOGROUP",
-                "DB2_INDEX_STOGROUP", "INDEX_STOGROUP"));
-        lines.add("    " + PhysicalSourceOptions.sourceIntegerOrPlaceholder(
-                lines, index, table, "DB2/ZOS", "PRIQTY ", "PRIQTY",
-                value -> value == -1 || value > 0, "a positive integer or -1",
-                "DB2_INDEX_PRIQTY", "INDEX_PRIQTY"));
-        lines.add("    " + PhysicalSourceOptions.sourceIntegerOrPlaceholder(
-                lines, index, table, "DB2/ZOS", "SECQTY ", "SECQTY",
-                value -> value >= -1, "a positive integer, 0, or -1",
-                "DB2_INDEX_SECQTY", "INDEX_SECQTY"));
-        lines.add("    ERASE " + PhysicalSourceOptions.enumClause(
-                lines, index, table, "DB2/ZOS", "ERASE", "NO", "ERASE", YES_NO,
-                "DB2_INDEX_ERASE", "INDEX_ERASE"));
-        lines.add(PhysicalSourceOptions.integerClause(
-                lines, index, table, "DB2/ZOS", "FREEPAGE", 0, 0, 255, "FREEPAGE",
-                "DB2_INDEX_FREEPAGE", "INDEX_FREEPAGE"));
-        lines.add(PhysicalSourceOptions.integerClause(
-                lines, index, table, "DB2/ZOS", "PCTFREE", 10, 0, 99, "PCTFREE",
-                "DB2_INDEX_PCTFREE", "INDEX_PCTFREE"));
-        lines.add("GBPCACHE " + PhysicalSourceOptions.enumClause(
-                lines, index, table, "DB2/ZOS", "GBPCACHE", "CHANGED", "GBPCACHE", GBPCACHE,
-                "DB2_INDEX_GBPCACHE", "INDEX_GBPCACHE"));
-        lines.add("COMPRESS " + PhysicalSourceOptions.enumClause(
-                lines, index, table, "DB2/ZOS", "COMPRESS", "NO", "COMPRESS", YES_NO,
-                "DB2_INDEX_COMPRESS", "INDEX_COMPRESS"));
-        lines.add(PhysicalSourceOptions.sourceOrPlaceholder(
-                lines, index, table, "BUFFERPOOL ", "BUFFERPOOL",
-                "DB2_INDEX_BUFFERPOOL", "INDEX_BUFFERPOOL"));
-        lines.add("CLOSE " + PhysicalSourceOptions.enumClause(
-                lines, index, table, "DB2/ZOS", "CLOSE", "YES", "CLOSE", YES_NO,
-                "DB2_INDEX_CLOSE", "INDEX_CLOSE"));
-        String pieceSize = pieceSize(lines, index, table);
-        if (pieceSize != null) {
-            lines.add(pieceSize);
+        Optional<String> stogroup = PhysicalSourceOptions.find(index, table,
+                "DB2_INDEX_STOGROUP", "INDEX_STOGROUP");
+        if (stogroup.isPresent()) {
+            String raw = stogroup.get();
+            if (IDENTIFIER.matcher(raw).matches()) {
+                active.add("USING STOGROUP " + raw);
+                String priqty = PhysicalSourceOptions.sourceIntegerOrPlaceholder(
+                        diagnostics, index, table, "DB2/ZOS", "PRIQTY ", "PRIQTY",
+                        value -> value == -1 || value > 0, "a positive integer or -1",
+                        "DB2_INDEX_PRIQTY", "INDEX_PRIQTY");
+                if (!priqty.contains("<")) active.add("  " + priqty);
+                String secqty = PhysicalSourceOptions.sourceIntegerOrPlaceholder(
+                        diagnostics, index, table, "DB2/ZOS", "SECQTY ", "SECQTY",
+                        value -> value >= -1, "a positive integer, 0, or -1",
+                        "DB2_INDEX_SECQTY", "INDEX_SECQTY");
+                if (!secqty.contains("<")) active.add("  " + secqty);
+                String erase = PhysicalSourceOptions.enumClause(
+                        diagnostics, index, table, "DB2/ZOS", "ERASE", "NO", "ERASE", YES_NO,
+                        "DB2_INDEX_ERASE", "INDEX_ERASE");
+                if (!erase.startsWith("<")) active.add("  ERASE " + erase);
+            } else {
+                PhysicalSourceOptions.addSourceIssue(diagnostics, "DB2/ZOS",
+                        "DB2_INDEX_STOGROUP=" + raw + " is not a safe Db2 identifier; value was not emitted.");
+            }
         } else {
-            lines.add("-- PIECESIZE is data-set/table-space capacity specific; source/profile only.");
+            dba.add("STOGROUP/PRIQTY/SECQTY=<site storage policy>");
+            if (PhysicalSourceOptions.find(index, table, "DB2_INDEX_PRIQTY", "INDEX_PRIQTY").isPresent()) {
+                String priqty = PhysicalSourceOptions.sourceIntegerOrPlaceholder(
+                        diagnostics, index, table, "DB2/ZOS", "PRIQTY ", "PRIQTY",
+                        value -> value == -1 || value > 0, "a positive integer or -1",
+                        "DB2_INDEX_PRIQTY", "INDEX_PRIQTY");
+                if (!priqty.contains("<")) {
+                    PhysicalSourceOptions.addSourceReview(diagnostics, "DB2/ZOS",
+                            priqty + " was supplied without STOGROUP evidence and was not emitted.");
+                }
+            }
+            if (PhysicalSourceOptions.find(index, table, "DB2_INDEX_SECQTY", "INDEX_SECQTY").isPresent()) {
+                String secqty = PhysicalSourceOptions.sourceIntegerOrPlaceholder(
+                        diagnostics, index, table, "DB2/ZOS", "SECQTY ", "SECQTY",
+                        value -> value >= -1, "a positive integer, 0, or -1",
+                        "DB2_INDEX_SECQTY", "INDEX_SECQTY");
+                if (!secqty.contains("<")) {
+                    PhysicalSourceOptions.addSourceReview(diagnostics, "DB2/ZOS",
+                            secqty + " was supplied without STOGROUP evidence and was not emitted.");
+                }
+            }
         }
-        lines.add("-- DEFINE/DEFER are operational CREATE INDEX choices and are handled only from explicit Index.buildOptions; COPY is recovery policy and CLUSTER is data-organization design, so neither is auto-selected here.");
-        return PhysicalCommentBlocks.block("DB2/ZOS INDEX PHYSICAL OPTIONS", lines);
+
+        String freepage = PhysicalSourceOptions.integerClause(
+                diagnostics, index, table, "DB2/ZOS", "FREEPAGE", 0, 0, 255, "FREEPAGE",
+                "DB2_INDEX_FREEPAGE", "INDEX_FREEPAGE");
+        if (!freepage.contains("<")) active.add(freepage);
+        String pctfree = PhysicalSourceOptions.integerClause(
+                diagnostics, index, table, "DB2/ZOS", "PCTFREE", 10, 0, 99, "PCTFREE",
+                "DB2_INDEX_PCTFREE", "INDEX_PCTFREE");
+        if (!pctfree.contains("<")) active.add(pctfree);
+        String gbpcache = PhysicalSourceOptions.enumClause(
+                diagnostics, index, table, "DB2/ZOS", "GBPCACHE", "CHANGED", "GBPCACHE", GBPCACHE,
+                "DB2_INDEX_GBPCACHE", "INDEX_GBPCACHE");
+        if (!gbpcache.startsWith("<")) active.add("GBPCACHE " + gbpcache);
+        Optional<String> cluster = PhysicalSourceOptions.find(index, table,
+                "DB2_INDEX_CLUSTER", "INDEX_CLUSTER");
+        if (cluster.isPresent()) {
+            String normalized = PhysicalSourceOptions.normalizedUpper(cluster.get());
+            if (Set.of("YES", "CLUSTER").contains(normalized)) active.add("CLUSTER");
+            else if (Set.of("NO", "NOT CLUSTER").contains(normalized)) active.add("NOT CLUSTER");
+            else PhysicalSourceOptions.addSourceIssue(diagnostics, "DB2/ZOS",
+                    "DB2_INDEX_CLUSTER=" + cluster.get() + " must be YES/NO or CLUSTER/NOT CLUSTER; value was not emitted.");
+        } else {
+            dba.add("CLUSTER=<data-organization policy>");
+        }
+
+        String compress = PhysicalSourceOptions.enumClause(
+                diagnostics, index, table, "DB2/ZOS", "COMPRESS", "NO", "COMPRESS", YES_NO,
+                "DB2_INDEX_COMPRESS", "INDEX_COMPRESS");
+        if (!compress.startsWith("<")) active.add("COMPRESS " + compress);
+
+        Optional<String> nullKeysSource = PhysicalSourceOptions.find(index, table,
+                "DB2_INDEX_NULL_KEYS", "INDEX_NULL_KEYS");
+        String nullKeys = "INCLUDE NULL KEYS";
+        if (nullKeysSource.isPresent()) {
+            String normalized = PhysicalSourceOptions.normalizedUpper(nullKeysSource.get());
+            if (normalized.equals("INCLUDE") || normalized.equals("YES")) normalized = "INCLUDE NULL KEYS";
+            if (normalized.equals("EXCLUDE") || normalized.equals("NO")) normalized = "EXCLUDE NULL KEYS";
+            if (!Set.of("INCLUDE NULL KEYS", "EXCLUDE NULL KEYS").contains(normalized)) {
+                PhysicalSourceOptions.addSourceIssue(diagnostics, "DB2/ZOS",
+                        "DB2_INDEX_NULL_KEYS=" + nullKeysSource.get()
+                                + " must be INCLUDE NULL KEYS or EXCLUDE NULL KEYS; value was not emitted.");
+                nullKeys = null;
+            } else if (uniqueIndex && normalized.equals("EXCLUDE NULL KEYS")) {
+                PhysicalSourceOptions.addSourceIssue(diagnostics, "DB2/ZOS",
+                        "EXCLUDE NULL KEYS is not valid for a UNIQUE enforcing index; value was not emitted.");
+                nullKeys = null;
+            } else {
+                nullKeys = normalized;
+            }
+        }
+        if (nullKeys != null) active.add(nullKeys);
+
+        Optional<String> bufferpool = PhysicalSourceOptions.find(index, table,
+                "DB2_INDEX_BUFFERPOOL", "INDEX_BUFFERPOOL");
+        if (bufferpool.isPresent()) {
+            if (IDENTIFIER.matcher(bufferpool.get()).matches()) active.add("BUFFERPOOL " + bufferpool.get());
+            else PhysicalSourceOptions.addSourceIssue(diagnostics, "DB2/ZOS",
+                    "DB2_INDEX_BUFFERPOOL=" + bufferpool.get() + " is not a safe Db2 identifier; value was not emitted.");
+        } else {
+            dba.add("BUFFERPOOL=<site/workload policy>");
+        }
+
+        String close = PhysicalSourceOptions.enumClause(
+                diagnostics, index, table, "DB2/ZOS", "CLOSE", "YES", "CLOSE", YES_NO,
+                "DB2_INDEX_CLOSE", "INDEX_CLOSE");
+        if (!close.startsWith("<")) active.add("CLOSE " + close);
+
+        String pieceSize = pieceSize(diagnostics, index, table);
+        if (pieceSize != null && !pieceSize.contains("<")) {
+            dba.add("PIECESIZE=" + pieceSize.substring("PIECESIZE ".length()) + " (source; DBA capacity policy)");
+        } else if (pieceSize == null) {
+            dba.add("PIECESIZE=<capacity policy>");
+        }
+
+        Optional<String> copy = PhysicalSourceOptions.find(index, table,
+                "DB2_INDEX_COPY", "INDEX_COPY");
+        if (copy.isPresent()) {
+            String value = PhysicalSourceOptions.enumClause(
+                    diagnostics, index, table, "DB2/ZOS", "COPY", "NO", "COPY", YES_NO,
+                    "DB2_INDEX_COPY", "INDEX_COPY");
+            if (!value.startsWith("<")) active.add("COPY " + value);
+        } else {
+            dba.add("COPY=<recovery policy>");
+        }
+
+        diagnostics.stream()
+                .filter(line -> line.startsWith("-- [SOURCE PHYSICAL ISSUE]")
+                        || line.startsWith("-- [SOURCE PHYSICAL REVIEW]"))
+                .forEach(dba::add);
+
+        StringBuilder out = new StringBuilder();
+        for (String clause : active) {
+            out.append(nl).append("  ").append(clause);
+        }
+        if (!dba.isEmpty()) {
+            List<String> compact = new ArrayList<>();
+            List<String> settings = dba.stream().filter(line -> !line.startsWith("-- [SOURCE")).toList();
+            if (!settings.isEmpty()) compact.add("-- DBA SITE/RECOVERY SETTINGS: " + String.join(" | ", settings));
+            dba.stream().filter(line -> line.startsWith("-- [SOURCE")).forEach(compact::add);
+            out.append(PhysicalCommentBlocks.block("DB2/ZOS DBA PHYSICAL REVIEW", compact));
+        }
+        return out.toString();
     }
 
     private void addPctfree(List<String> lines, Table table) {

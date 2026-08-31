@@ -199,6 +199,11 @@ public interface Dialect {
         return " DEFAULT " + expression(column.defaultValue().expression());
     }
 
+    /** Whether the dialect requires NOT NULL to precede the DEFAULT clause. */
+    default boolean defaultClauseAfterNullability() {
+        return false;
+    }
+
     /** Renders a DBMS-specific scalar expression used by defaults, checks and generated columns. */
     default String expression(String expression) {
         return expression;
@@ -480,6 +485,10 @@ public interface Dialect {
 
     private String escapeLiteral(String value) {
         return value.replace("'", "''");
+    }
+
+    default String scriptPostamble() {
+        return "";
     }
 
     default String scriptPreamble(String source, String schemaName) {

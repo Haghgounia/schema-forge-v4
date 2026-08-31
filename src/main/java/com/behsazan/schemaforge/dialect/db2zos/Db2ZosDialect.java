@@ -70,6 +70,11 @@ public final class Db2ZosDialect implements Dialect {
     }
 
     @Override
+    public boolean defaultClauseAfterNullability() {
+        return true;
+    }
+
+    @Override
     public String generatedColumnClause(Column column) {
         return " GENERATED ALWAYS AS (" + expression(column.generatedExpression()) + ")";
     }
@@ -139,28 +144,37 @@ public final class Db2ZosDialect implements Dialect {
 
     @Override
     public String tableTailWithPhysical(String activePlacementClause, String physicalCommentBlock) {
+        String nl = System.lineSeparator();
         String placement = activePlacementClause == null ? "" : activePlacementClause;
         String physical = physicalCommentBlock == null ? "" : physicalCommentBlock;
-        return placement + physical;
+        return placement
+                + nl + "  AUDIT NONE"
+                + nl + "  DATA CAPTURE NONE"
+                + nl + "  NOT VOLATILE"
+                + nl + "  APPEND NO"
+                + physical;
     }
 
 
     @Override
     public String indexBuildTail(Index index) {
-        if (index == null || index.buildOptions().isEmpty()) return "";
+        if (index == null) return " DEFER NO";
 
         String define = buildOption(index, "DEFINE", "DB2_DEFINE", "DB2_INDEX_DEFINE");
         String defer = buildOption(index, "DEFER", "DB2_DEFER", "DB2_INDEX_DEFER");
         StringBuilder tail = new StringBuilder();
+
+        if (defer.isBlank()) {
+            tail.append(" DEFER NO");
+        } else if (isBooleanToken(defer)) {
+            tail.append(" DEFER " ).append(isYes(defer) ? "YES" : "NO");
+        }
 
         if (!define.isBlank() && isBooleanToken(define)) {
             boolean defineNo = isNo(define);
             if (!defineNo || hasExplicitStogroup(index)) {
                 tail.append(" DEFINE " ).append(isYes(define) ? "YES" : "NO");
             }
-        }
-        if (!defer.isBlank() && isBooleanToken(defer)) {
-            tail.append(" DEFER " ).append(isYes(defer) ? "YES" : "NO");
         }
         return tail.toString();
     }
@@ -230,6 +244,12 @@ public final class Db2ZosDialect implements Dialect {
     private void appendBuildComment(StringBuilder out, String nl, String line) {
         if (out.length() > 0) out.append(nl);
         out.append(line);
+    }
+
+
+    @Override
+    public String scriptPostamble() {
+        return "-- DBA POST-DDL ACTION: Review dependent packages; REBIND PACKAGE(*) if required.";
     }
 
     @Override

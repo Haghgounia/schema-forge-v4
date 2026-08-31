@@ -1,0 +1,13 @@
+SchemaForge SQL Server ALTER/Migration M2 live pilot
+====================================================
+Server              : Microsoft SQL Server 16.00.4265
+Database            : schemaforge_test
+Pilot schema        : TSTSHMA
+Login               : sa
+CREATE generated    : true
+Column changes      : 6
+Object changes      : 6
+Statements executed : 20
+Residual changes    : 0
+Data preserved      : true
+Cleanup             : true

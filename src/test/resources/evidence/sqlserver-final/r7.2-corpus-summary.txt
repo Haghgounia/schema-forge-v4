@@ -1,0 +1,60 @@
+SchemaForge canonical JSON to DDL summary
+=========================================
+Snapshot directory : D:\Sample-Docs-Scripts\SchemaForge-Recovered-Canonical-R7.2
+Output directory   : D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS
+Snapshots discovered: 5321
+Snapshots selected  : 5321
+Exact duplicates    : 0
+Output collisions   : 75
+Snapshot failures   : 0
+Stale parser sources: 0
+Processed snapshots  : 5321
+Numeric mapping       : OPTIMIZED
+Canonical warnings    : 0
+Canonical errors      : 0
+Tables                : 5321
+Columns               : 97261
+Primary keys          : 4514
+Foreign keys          : 1325
+Unique keys           : 0
+Indexes               : 3233
+Checks                : 0
+Sequences             : 0
+Identity columns      : 0
+Defaulted columns     : 14518
+Parser freshness    : provenance warning only for persisted JSON sources; snapshot/model contract remains the DDL eligibility gate
+
+oracle
+  Generated        : 5294
+  With warnings    : 2
+  With errors      : 0
+  Blocked mapping  : 25
+  Failed           : 0
+
+postgresql
+  Generated        : 5321
+  With warnings    : 0
+  With errors      : 0
+  Blocked mapping  : 0
+  Failed           : 0
+
+db2zos
+  Generated        : 4693
+  With warnings    : 0
+  With errors      : 0
+  Blocked mapping  : 628
+  Failed           : 0
+
+sqlserver
+  Generated        : 4703
+  With warnings    : 0
+  With errors      : 0
+  Blocked mapping  : 618
+  Failed           : 0
+
+mysql
+  Generated        : 4704
+  With warnings    : 0
+  With errors      : 0
+  Blocked mapping  : 617
+  Failed           : 0

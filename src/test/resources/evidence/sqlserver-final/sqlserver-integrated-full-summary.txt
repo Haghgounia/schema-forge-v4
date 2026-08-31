@@ -1,0 +1,10 @@
+SQL Server integrated FULL retained execution evidence
+=====================================================
+Pilot tables                 : 15
+Resolved physical FKs        : 13
+FK blockers                  : 0
+Statements executed          : 274
+Statements failed            : 0
+Cleanup existing FKs removed : 13
+Execution mode               : FULL
+Source                       : docs/release/V4-FINAL-BASELINE.md

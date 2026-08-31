@@ -60,8 +60,8 @@ class PhysicalPhase1DdlGeneratorTest {
 
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
         assertTrue(db2.contains(") IN DATA_SPACE"));
-        assertTrue(db2.contains("-- DB2/ZOS TABLE PHYSICAL OPTIONS"));
-        assertTrue(db2.contains("-- DB2/ZOS INDEX PHYSICAL OPTIONS"));
+        assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
+        assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
         assertTrue(db2.contains("FREEPAGE 0"));
         assertTrue(db2.contains("PCTFREE 10"));
         assertTrue(db2.contains("BUFFERPOOL <BUFFERPOOL>"));
@@ -253,10 +253,10 @@ class PhysicalPhase1DdlGeneratorTest {
 
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
         assertTrue(db2.contains("[SOURCE PHYSICAL ISSUE][DB2/ZOS]"));
-        assertTrue(db2.contains("PRIQTY <PRIQTY>"));
-        assertTrue(db2.contains("SECQTY <SECQTY>"));
-        assertTrue(db2.contains("FREEPAGE <FREEPAGE>"));
-        assertTrue(db2.contains("PIECESIZE <PIECESIZE>"));
+        assertTrue(db2.contains("DB2_INDEX_PRIQTY=0"));
+        assertTrue(db2.contains("DB2_INDEX_SECQTY=-2"));
+        assertTrue(db2.contains("DB2_INDEX_FREEPAGE=999"));
+        assertTrue(db2.contains("INDEX_PIECESIZE=3 G"));
         assertTrue(db2.contains("INDEX_PIECESIZE=3 G"));
         assertTrue(db2.contains("INDEX_PADDING=PADDED is irrelevant"));
         assertFalse(db2.contains("FREEPAGE 255"));
@@ -416,10 +416,10 @@ class PhysicalPhase1DdlGeneratorTest {
                 .generate(DatabaseSchema.builder("ACC").addTable(table).build());
 
         assertTrue(db2.contains("[SOURCE PHYSICAL ISSUE][DB2/ZOS]"));
-        assertTrue(db2.contains("SEGSIZE <SEGSIZE>"));
-        assertTrue(db2.contains("PCTFREE <PCTFREE>"));
-        assertTrue(db2.contains("FOR UPDATE <PCTFREE_FOR_UPDATE>"));
-        assertTrue(db2.contains("LOCKMAX <LOCKMAX>"));
+        assertTrue(db2.contains("DB2_TABLESPACE_SEGSIZE=18"));
+        assertTrue(db2.contains("DB2_TABLESPACE_PCTFREE=80"));
+        assertTrue(db2.contains("DB2_TABLESPACE_PCTFREE_FOR_UPDATE=30"));
+        assertTrue(db2.contains("DB2_TABLESPACE_LOCKMAX=SYSTEM"));
         assertFalse(db2.contains("SEGSIZE 18"));
         assertFalse(db2.contains("PCTFREE 80"));
     }

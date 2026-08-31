@@ -761,7 +761,7 @@ class PhysicalPhase1CorpusAuditIT {
             case ORACLE -> "-- ORACLE TABLE PHYSICAL OPTIONS";
             case POSTGRESQL -> "-- POSTGRESQL TABLE PHYSICAL OPTIONS";
             case SQLSERVER -> "-- SQL SERVER TABLE PHYSICAL OPTIONS";
-            case DB2_ZOS -> "-- DB2/ZOS TABLE PHYSICAL OPTIONS";
+            case DB2_ZOS -> "-- DB2/ZOS DBA PHYSICAL REVIEW";
             case DB2_LUW -> "-- DB2/LUW TABLE PHYSICAL OPTIONS";
             case MYSQL -> "-- MYSQL TABLE PHYSICAL OPTIONS";
         };
@@ -772,7 +772,7 @@ class PhysicalPhase1CorpusAuditIT {
             case ORACLE -> "-- ORACLE INDEX PHYSICAL OPTIONS";
             case POSTGRESQL -> "-- POSTGRESQL INDEX PHYSICAL OPTIONS";
             case SQLSERVER -> "-- SQL SERVER INDEX PHYSICAL OPTIONS";
-            case DB2_ZOS -> "-- DB2/ZOS INDEX PHYSICAL OPTIONS";
+            case DB2_ZOS -> "-- DB2/ZOS DBA PHYSICAL REVIEW";
             case DB2_LUW -> "-- DB2/LUW INDEX PHYSICAL OPTIONS";
             case MYSQL -> "-- MYSQL INDEX PHYSICAL OPTIONS";
         };

@@ -28,8 +28,17 @@ class Db2ZosIndexBuildOptionsP7Test {
                 Map.of("DEFINE", "YES", "DEFER", "NO"),
                 Map.of());
 
-        assertTrue(sql.contains(" DEFINE YES DEFER NO;"));
+        assertTrue(sql.contains(" DEFER NO DEFINE YES;"));
         assertFalse(sql.contains("[INDEX BUILD ISSUE][DB2/ZOS]"));
+    }
+
+    @Test
+    void emitsDocumentedDeferNoBaselineWithoutInventingDefinePolicy() {
+        String sql = ddl(Map.of(), Map.of());
+
+        assertTrue(sql.contains(" DEFER NO;"));
+        assertFalse(sql.contains(" DEFINE YES;"));
+        assertFalse(sql.contains(" DEFINE NO;"));
     }
 
     @Test

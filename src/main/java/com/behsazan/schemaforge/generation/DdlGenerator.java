@@ -309,6 +309,10 @@ public final class DdlGenerator {
         if (!body.isBlank()) {
             script.append(NL).append(NL).append(body);
         }
+        String postamble = dialect.scriptPostamble();
+        if (postamble != null && !postamble.isBlank()) {
+            script.append(NL).append(NL).append(postamble);
+        }
         return script.append(NL).append(NL)
                 .append(summary(schema)).append(NL).append(NL)
                 .append(footer(schema))
@@ -427,13 +431,16 @@ public final class DdlGenerator {
             sql.append(" ").append(dialect.sqlType(schemaContext, table, column));
         }
         sql.append(dialect.columnPhysicalClause(column));
+        String deferredDefaultClause = null;
         if (column.generated()) {
             dialect.require(DialectFeature.GENERATED_COLUMN);
             sql.append(dialect.generatedColumnClause(column));
         } else if (column.identity() && column.defaultValue().isPresent()) {
             // Word specifications use IDENTITY as a logical marker. When the parser has
             // supplied a sequence NEXTVAL expression, sequence-based identity is emitted.
-            sql.append(dialect.defaultClause(column));
+            String clause = dialect.defaultClause(column);
+            if (dialect.defaultClauseAfterNullability()) deferredDefaultClause = clause;
+            else sql.append(clause);
         } else if (column.identity() && dialect.identityUsesNamedSequence()) {
             dialect.require(DialectFeature.SEQUENCE);
             sql.append(dialect.identitySequenceClause(identitySequenceName(table, column)));
@@ -441,11 +448,16 @@ public final class DdlGenerator {
             dialect.require(DialectFeature.IDENTITY_COLUMN);
             sql.append(dialect.identityClause(column));
         } else if (column.defaultValue().isPresent()) {
-            sql.append(dialect.defaultClause(column));
+            String clause = dialect.defaultClause(column);
+            if (dialect.defaultClauseAfterNullability()) deferredDefaultClause = clause;
+            else sql.append(clause);
         }
         if (!column.nullable()
                 && (!column.generated() || dialect.generatedColumnIncludesNullability())) {
             sql.append(" NOT NULL");
+        }
+        if (deferredDefaultClause != null) {
+            sql.append(deferredDefaultClause);
         }
         if (!column.description().isEmpty()) {
             sql.append(dialect.inlineColumnCommentClause(column));
@@ -514,7 +526,7 @@ public final class DdlGenerator {
                 + dialect.qualifyIndexName(table.qualifiedName(), indexName)
                 + " ON " + qualifiedName(table.qualifiedName())
                 + "(" + identifiers(columns) + ")"
-                + dialect.indexTailWithPhysical(null, physicalIndexComment, indexTablespace, null)
+                + dialect.indexTailWithPhysical(null, physicalIndexComment, indexTablespace, null, physicalIndex)
                 + dialect.statementTerminator();
     }
 
