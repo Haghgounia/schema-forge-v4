@@ -1,0 +1,12 @@
+PostgreSQL PG-P2 retained live evidence
+=======================================
+Run timestamp : 2026-08-30 13:57:27 +03:30
+Database      : PostgreSQL 16.14 / mydb
+Schema target : TSTSHMA (PostgreSQL catalog name tstshma)
+Corpus        : SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS/postgresql
+Files         : 5321
+Statements    : 134075 succeeded / 0 failed
+Skipped SQL   : 1325 (matches PG-P1 foreign-key occurrence count; HISTORICAL mode intentionally skips FK ALTER statements)
+psql commands : 10642 skipped by JDBC runner
+Cleanup       : 5321 succeeded / 0 failed
+Purpose       : retained evidence for PostgreSQL final-live closure; generated corpus unchanged.

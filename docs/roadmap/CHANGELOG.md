@@ -1,3 +1,12 @@
+## 2026-08-31 - PostgreSQL PG-P6 final closure candidate
+
+- User-verified PG-P5 live FK validation passed `249 / 249` structurally eligible final FKs with exact `pg_catalog` reconciliation, zero execution/catalog/cleanup errors, and persistent FK catalog state preserved (`0 -> 0`).
+- Retained PG-P5 summary, 574-row FK reconciliation, cleanup report, and provenance under `src/test/resources/evidence/postgresql-p5/20260831_091154_399`.
+- Added `PostgreSqlFinalClosureP6Test` as an evidence-only deterministic closure gate over accepted PG-P2, PG-P4, and PG-P5 results; generated SQL and database state remain unchanged.
+- PG-P6 locks `5321` generated files, `134075 / 134075` successful historical SQL statements, `2670` selected-final tables, `2265 / 2265` exact PK/UK constraints, `1372 / 1372` exact explicit indexes, and `249 / 249` exact live-valid FKs.
+- The remaining `325` FK candidates are explicitly structural/policy blockers: `178` referenced-table missing, `81` referenced-column missing, and `66` referenced-columns not unique; synthetic key creation remains forbidden.
+- PG-P6 is `CLOSURE CANDIDATE / PENDING USER MAVEN RUN`; local evidence logic was independently compiled/executed against the retained resources, but Maven itself could not be launched in the assistant sandbox because the wrapper could not download Maven 3.9.9.
+
 ## 2026-08-24 - C11 final consolidation baseline official
 
 - User-verified targeted consolidation gate passed `95 / 0 / 0 / 0`, `BUILD SUCCESS`, finished `2026-08-24T10:54:16+03:30`.

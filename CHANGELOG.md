@@ -1,3 +1,13 @@
+## R10.4 - PostgreSQL PG-P5 final-state FK live validation
+
+- Adds `PostgreSqlForeignKeyLiveValidationP5IT` after the accepted PG-P1/PG-P2/PG-P3/PG-P4 gates.
+- Selects the final generated revision for all 2670 logical PostgreSQL tables and extracts only foreign keys from those selected-final files; the 1325 PG-P1 FK count remains historical-occurrence evidence, not a presumed final baseline.
+- Performs catalog preflight for source/reference table and column existence plus an exact ordered non-partial unique target key before any FK DDL is attempted.
+- Eligible absent FKs are validated with `CREATE -> pg_constraint verify -> DROP`; pre-existing exact FKs are reconciled read-only. Persistent FK catalog count must be unchanged after the run.
+- Reports structural blockers separately (`SOURCE/REFERENCED_*`, `REFERENCED_COLUMNS_NOT_UNIQUE`, external schema) and never synthesizes PK/UK/unique indexes to make an FK pass.
+- Retains the accepted PG-P4 evidence (2265/2265 PK/UK exact and 1372/1372 explicit generated indexes exact) under test resources for later PostgreSQL closure gates.
+- No production parser, DDL renderer, migration logic, canonical model, DB2 LUW baseline, or generated PostgreSQL corpus is modified.
+
 ## P10 - DB2 LUW final closure baseline
 
 - Closes the DB2 LUW validation track after successful P8 evidence closure and P9.1/P9.2/P9.3 catalog reconciliation.
@@ -2130,3 +2140,29 @@
 - P9.2 reconciles explicit final-file `CREATE INDEX` statements against `SYSCAT.INDEXES` + `SYSCAT.INDEXCOLUSE`, including uniqueness and ASC/DESC column order.
 - Extra catalog indexes are reported but do not fail by default because DB2 creates backing indexes for PK/UK constraints; missing or mismatched explicit generated indexes do fail.
 - No synthetic PK/UK/index is introduced. Mutation policy remains read-only catalog verification.
+
+## 2026-08-30 - PostgreSQL PG-P1/P2 final live validation kickoff (R10.1)
+- DB2 LUW remains frozen at the P10 closed baseline; no DB2 production behavior changed.
+- Added `PostgreSqlFinalCorpusInventoryP1Test` as a read-only gate for the accepted R7.2 PostgreSQL corpus.
+- PG-P1 freezes the accepted PostgreSQL script count at 5,321, verifies exactly one CREATE TABLE per script, and reports distinct logical tables/revisions plus FK/index/grant occurrences.
+- PG-P2 intentionally reuses the established `PostgreSqlDirectoryExecutionTest` in HISTORICAL mode against the disposable local PostgreSQL validation schema before any PostgreSQL catalog-closure work.
+- No production Java, generated DDL, canonical snapshots, migrations, or database state are modified by PG-P1.
+
+## 2026-08-31 - R10.2 PostgreSQL PG-P3 final-state catalog reconciliation
+
+- Added `PostgreSqlFinalStateCatalogP3IT`.
+- PG-P3 derives the selected-final PostgreSQL table definition from the same deterministic corpus file order used by the historical runner.
+- Strict baseline: 5,321 accepted PostgreSQL scripts and 2,670 distinct selected-final tables.
+- Read-only live reconciliation against `pg_catalog.pg_class`, `pg_namespace`, and `pg_attribute`.
+- Compares table existence plus exact ordered column names; PostgreSQL identifier folding and quoted identifiers are handled explicitly.
+- Retained PG-P2 live evidence: 134,075/134,075 non-FK statements succeeded, 0 errors, 5,321/5,321 cleanup succeeded; 1,325 skipped statements match PG-P1 FK occurrences.
+- No production code, generated SQL, database object, or DB2 LUW closed baseline changed.
+
+## 2026-08-31 - R10.3 PostgreSQL PG-P4 PK/UK and explicit-index catalog reconciliation
+
+- Adds read-only `PostgreSqlCatalogKeysIndexesP4IT` over the selected-final 2,670-table PostgreSQL state proven by PG-P3.
+- Expected PK/UK definitions are collected from both CREATE TABLE bodies and selected-final-file `ALTER TABLE ... ADD CONSTRAINT` statements; SQL comments are stripped before key classification.
+- Explicit CREATE INDEX reconciliation compares index name/table, uniqueness, access method, ordered key terms (including expression terms and ASC/DESC), INCLUDE columns, and partial-index presence against `pg_catalog.pg_index`/`pg_class`/`pg_am` via `pg_get_indexdef`.
+- Catalog indexes not explicitly emitted by the selected-final file are counted but do not fail by default because PostgreSQL creates backing indexes for PK/UK constraints.
+- Adds `PostgreSqlCatalogKeysIndexesParserP4Test` to guard against PRIMARY KEY/UNIQUE text inside generated comments becoming synthetic expected constraints.
+- No production Java, generated DDL, canonical model, migration logic, or database objects are mutated.

@@ -1,0 +1,32 @@
+PostgreSQL SQL execution summary
+================================
+Database product      : PostgreSQL
+Database version      : 16.14 (Debian 16.14-1.pgdg13+1)
+Database name         : mydb
+Current user          : postgres
+Current schema        : public
+Expected schema       : TSTSHMA
+Expected schema status: absent before run; scripts may create it
+Root directory        : D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS\postgresql
+File suffix           : .postgresql.sql
+Files discovered      : 5321
+Start file number     : 1
+Files selected        : 5321
+Statements executed   : 134075
+Statements succeeded  : 134075
+Statements failed     : 0
+Actionable failures   : 0
+Ignored failures      : 0
+Statements skipped    : 1325
+psql commands skipped : 10642
+Cleanup attempted     : 5321
+Cleanup succeeded     : 5321
+Cleanup failed        : 0
+Execution mode        : HISTORICAL
+Stop after CREATE err : true
+Drop before CREATE    : true
+Elapsed               : PT1H17M57.5926332S
+
+Errors by SQLSTATE
+------------------
+No PostgreSQL errors.

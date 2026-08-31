@@ -1,0 +1,31 @@
+PostgreSQL PG-P5 Final-State FK Live Validation
+=============================================
+Database product          : PostgreSQL
+Database version          : 16.14 (Debian 16.14-1.pgdg13+1)
+Database                  : mydb
+Authorization ID          : postgres
+Schema                    : tstshma
+SQL root                  : D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS\postgresql
+Files discovered          : 5321
+Selected final tables     : 2670
+Final FK candidates       : 574
+Structurally eligible     : 249
+Structural blockers       : 325
+Blocker classifications:
+  REFERENCED_TABLE_MISSING            178
+  REFERENCED_COLUMN_MISSING           81
+  REFERENCED_COLUMNS_NOT_UNIQUE       66
+Catalog FK count before   : 0
+Create attempts           : 249
+Created for validation    : 249
+Pre-existing exact        : 0
+Catalog exact             : 249
+Catalog mismatch          : 0
+Execution errors          : 0
+Cleanup errors            : 0
+Catalog FK count after    : 0
+Persistent state preserved: true
+Blocker fail policy       : false
+Mutation policy           : ABSENT FK = CREATE / VERIFY / DROP; NO KEY SYNTHESIS
+Elapsed                   : PT44.2596381S
+Report directory          : target\postgresql-p5-fk-live-validation\20260831_091154_399

@@ -1,5 +1,10 @@
 # SchemaForge v4 - Multi-dialect schema generation
 
+## PostgreSQL final live validation status
+
+PostgreSQL has closed PG-P1 through PG-P4 on the accepted 5321-file corpus: PG-P1 inventory found 2670 logical tables with zero CREATE anomalies; PG-P2 executed 134,075 non-FK statements with zero failures and 5321/5321 cleanup; PG-P3 reconciled 2670/2670 tables and 55,476/55,476 columns exactly; PG-P4 reconciled 2265/2265 PK/UK constraints and 1372/1372 explicit indexes exactly. PG-P5 now validates selected-final foreign keys with structural preflight and a create/catalog-verify/drop lifecycle without inventing keys or leaving successful validation FKs behind.
+
+
 ## DB2 LUW validation status (P10 closed baseline)
 
 The DB2 LUW live corpus has completed P8 evidence closure and all P9 catalog reconciliation gates. P8 partitions all 557 final FK candidates into 310 evidence-valid/live-executable and 247 explicitly blocked/deferred without inventing keys. P9.1 reconciles all 2310 final tables and 47,997 columns exactly; P9.2 reconciles all 1,968 PK/UK constraints and all 1,233 explicit generated indexes exactly; P9.3 creates, catalog-verifies, and drops the exact 310 P8-success FKs with zero mismatch/error and preserves the pre-existing FK catalog state. `Db2LuwFinalClosureP10Test` locks these accepted results as the DB2 LUW final regression baseline.
@@ -592,3 +597,32 @@ mvnw.cmd ^
 ```
 
 P9.2 is read-only. PK/UK constraints are compared by exact ordered columns and generated constraint name when the DDL provides one. Explicit indexes are compared by name, table, uniqueness, ordered columns, and ASC/DESC direction. Extra catalog indexes are reported but are not a failure by default because DB2 constraint enforcement can create backing indexes.
+
+### PostgreSQL final live validation (R10.1)
+DB2 LUW is closed at P10. PostgreSQL is now the active mainline. `PostgreSqlFinalCorpusInventoryP1Test` inventories the accepted 5,321-script R7.2 PostgreSQL corpus; `PostgreSqlDirectoryExecutionTest` remains the PG-P2 live historical replay runner. See generated test reports under `target/postgresql-p1-final-corpus-inventory/` and `target/postgresql-sql-execution-report/`.
+
+### PostgreSQL final-live closure: PG-P3 table/column catalog gate
+
+After PG-P2 historical replay succeeds, run PG-P3 while the validation database still contains the replayed final state. PG-P3 is read-only and reconciles the selected-final 2,670 PostgreSQL tables and exact ordered column names with `pg_catalog`.
+
+```bat
+mvnw.cmd ^
+  -Dtest=PostgreSqlFinalStateCatalogP3IT ^
+  -Dschemaforge.postgresql.p3.sqlRoot="D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS\postgresql" ^
+  test
+```
+
+Local defaults used by PG-P3 are `jdbc:postgresql://localhost:5433/mydb`, user `postgres`, password `123456`, database `mydb`, and schema `TSTSHMA` (catalog name `tstshma`). These can be overridden with `schemaforge.postgresql.p3.*` system properties.
+
+### PostgreSQL final-live closure: PG-P4 PK/UK and explicit indexes
+
+After PG-P3 proves the 2,670 selected-final tables and 55,476 columns match PostgreSQL, PG-P4 reconciles selected-final PK/UK constraints and explicit generated indexes with `pg_catalog`. The gate is read-only. It understands PostgreSQL UNIQUE constraints emitted as `ALTER TABLE ... ADD CONSTRAINT`, expression/index direction terms, INCLUDE columns, and partial-index presence. Extra catalog indexes are reported but are not failures by default because PK/UK constraints own backing indexes.
+
+```bat
+mvnw.cmd ^
+  -Dtest=PostgreSqlCatalogKeysIndexesParserP4Test,PostgreSqlCatalogKeysIndexesP4IT ^
+  -Dschemaforge.postgresql.p4.sqlRoot="D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS\postgresql" ^
+  test
+```
+
+Reports are written below `target/postgresql-p4-keys-indexes-catalog/<timestamp>/`.

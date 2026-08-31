@@ -1,0 +1,26 @@
+PostgreSQL PG-P4 Catalog Reconciliation - PK/UK/Explicit Indexes
+================================================================
+Database product          : PostgreSQL
+Database version          : 16.14 (Debian 16.14-1.pgdg13+1)
+Database                  : mydb
+Authorization ID          : postgres
+Schema                    : tstshma
+SQL root                  : D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS\postgresql
+Files discovered          : 5321
+Expected final tables     : 2670
+Expected PK/UK constraints: 2265
+Catalog PK/UK constraints : 2265
+Exact PK/UK constraints   : 2265
+Missing constraints       : 0
+Mismatched constraints    : 0
+Extra catalog constraints : 0
+Expected explicit indexes : 1372
+Catalog indexes           : 3637
+Exact explicit indexes    : 1372
+Missing explicit indexes  : 0
+Mismatched indexes        : 0
+Extra catalog indexes     : 2265
+Extra-index fail policy   : false
+Mutation policy           : READ ONLY
+Elapsed                   : PT1.5780838S
+Report directory          : D:\Projects\schema-forge-v4\target\postgresql-p4-keys-indexes-catalog\20260831_085530_341

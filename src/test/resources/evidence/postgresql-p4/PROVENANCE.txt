@@ -1,0 +1,7 @@
+PostgreSQL PG-P4 retained live evidence
+===================================
+Run: 2026-08-31 08:55:30 +03:30
+Database: PostgreSQL 16.14 / mydb / tstshma
+Corpus: SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS/postgresql
+Accepted result: 2265/2265 PK/UK exact; 1372/1372 explicit indexes exact; zero missing/mismatched constraints or explicit indexes.
+Mutation policy: read only.

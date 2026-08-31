@@ -1,0 +1,11 @@
+PostgreSQL PG-P5 retained live evidence
+=======================================
+Run: 2026-08-31 09:11:54 +03:30
+Database: PostgreSQL 16.14 / mydb / tstshma
+Corpus: SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS/postgresql
+Final FK candidates: 574
+Structurally eligible: 249
+Accepted result: 249/249 eligible FKs created and reconciled exactly in pg_catalog; zero catalog mismatches, execution errors, or cleanup errors.
+Structural blockers: 325 = 178 referenced table missing + 81 referenced column missing + 66 referenced columns not unique.
+Mutation policy: absent FK = CREATE / VERIFY / DROP; no synthetic PK/UK/key synthesis.
+Persistent state: catalog FK count 0 before / 0 after; preserved=true.
