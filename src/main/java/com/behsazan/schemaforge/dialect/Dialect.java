@@ -260,6 +260,25 @@ public interface Dialect {
         return null;
     }
 
+    /**
+     * Resolves the table placement value that is valid for this target dialect.
+     * The default preserves the historical generic TABLESPACE contract and then
+     * falls back to the dialect-derived schema default. Dialects whose source
+     * placement is target-specific may override this hook to prevent cross-DBMS
+     * physical-option leakage.
+     */
+    default String resolveTableTablespace(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        String explicit = table.physicalOptions().entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase("TABLESPACE"))
+                .map(java.util.Map.Entry::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .findFirst()
+                .orElse(null);
+        return explicit != null ? explicit : defaultTableTablespace(table.qualifiedName());
+    }
+
     default String tableTablespaceClause(String tablespace) {
         return tablespace == null || tablespace.isBlank() ? "" : " TABLESPACE " + tablespace.trim();
     }

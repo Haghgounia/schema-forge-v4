@@ -90,8 +90,9 @@ class MySqlDdlGeneratorTest {
         assertTrue(sql.contains("ADD CONSTRAINT `CK_CUSTOMERS_STATUS` CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("ADD CONSTRAINT `FK_CUSTOMERS_BRANCH` FOREIGN KEY (`BRANCH_ID`)"
                 + " REFERENCES `CRM`.`BRANCHES`(`BRANCH_ID`) ON DELETE CASCADE ON UPDATE RESTRICT;"));
-        assertTrue(sql.contains("CREATE INDEX `IX_CUSTOMERS_STATUS` ON `CRM`.`CUSTOMERS`(`STATUS` DESC);"));
-        assertTrue(sql.contains(") COMMENT='Customer''s master';"));
+        assertTrue(sql.contains("CREATE INDEX `IX_CUSTOMERS_STATUS` ON `CRM`.`CUSTOMERS`(`STATUS` DESC)"));
+        assertTrue(sql.contains("-- MYSQL INDEX PHYSICAL OPTIONS"));
+        assertTrue(sql.contains("COMMENT='Customer''s master';"));
         assertTrue(sql.contains(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON `CRM`.`CUSTOMERS` TO U_DEVELOPER;"));
         assertFalse(sql.contains("ORACLE_DATA_TS"));

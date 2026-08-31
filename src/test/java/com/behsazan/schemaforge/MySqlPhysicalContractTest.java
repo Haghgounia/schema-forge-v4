@@ -17,9 +17,24 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MySqlPhysicalContractTest {
+    @Test
+    void doesNotActivateAmbiguousGenericTablespaceFromAnotherDialect() {
+        Table table = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.required("ID", DataType.simple("INTEGER")))
+                .physicalOption("TABLESPACE", "ORACLE_DATA_TS")
+                .build();
+
+        String sql = new DdlGenerator(new MySqlDialect()).generate(
+                DatabaseSchema.builder("APP").addTable(table).build());
+
+        assertFalse(sql.contains("ORACLE_DATA_TS"));
+        assertTrue(sql.contains("TABLESPACE <GENERAL_TABLESPACE>"));
+    }
+
     @Test
     void rendersMySqlPhysicalTableAndIndexReviewBlocksAndKeepsExplicitTablespaceActive() {
         Table table = Table.builder("APP", "CUSTOMER")
@@ -29,7 +44,7 @@ class MySqlPhysicalContractTest {
                         List.of(new IndexColumn(Identifier.of("CODE"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty(), List.of(), null,
                         Map.of("MYSQL_INDEX_TYPE", "BTREE")))
-                .physicalOption("TABLESPACE", "TS_APP")
+                .physicalOption("MYSQL_TABLESPACE", "TS_APP")
                 .physicalOption("MYSQL_ENGINE", "InnoDB")
                 .physicalOption("MYSQL_COLLATION", "utf8mb4_0900_ai_ci")
                 .physicalOption("MYSQL_ROW_FORMAT", "DYNAMIC")

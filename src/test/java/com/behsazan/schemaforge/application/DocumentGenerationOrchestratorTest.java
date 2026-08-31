@@ -35,7 +35,7 @@ class DocumentGenerationOrchestratorTest {
     Path temp;
 
     @Test
-    void standardWordGenerationPreservesFiveDdlAndCanonicalJsonArtifacts() throws Exception {
+    void standardWordGenerationPreservesAllDdlAndCanonicalJsonArtifacts() throws Exception {
         Fixture fixture = fixture();
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.STANDARD_WORD,
@@ -62,7 +62,7 @@ class DocumentGenerationOrchestratorTest {
                 .filter(descriptor -> descriptor.type() == ArtifactType.CANONICAL_JSON)
                 .filter(descriptor -> descriptor.status() == ArtifactStatus.GENERATED)
                 .count();
-        assertEquals(5, generatedDdl);
+        assertEquals(DatabasePlatform.values().length, generatedDdl);
         assertEquals(1, generatedJson);
     }
 
@@ -85,8 +85,8 @@ class DocumentGenerationOrchestratorTest {
                 .filter(descriptor -> descriptor.type() == ArtifactType.COMPARISON_WORKBOOK)
                 .filter(descriptor -> descriptor.status() == ArtifactStatus.SKIPPED)
                 .count();
-        assertEquals(5, migrationSkips);
-        assertEquals(5, comparisonSkips);
+        assertEquals(DatabasePlatform.values().length, migrationSkips);
+        assertEquals(DatabasePlatform.values().length, comparisonSkips);
     }
 
     @Test

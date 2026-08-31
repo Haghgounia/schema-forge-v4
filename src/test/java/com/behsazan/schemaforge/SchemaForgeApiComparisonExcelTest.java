@@ -51,6 +51,8 @@ class SchemaForgeApiComparisonExcelTest {
             "comparison/postgresql/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.compare\\.xlsx");
     private static final Pattern DB2_ZOS_COMPARE = Pattern.compile(
             "comparison/db2zos/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.compare\\.xlsx");
+    private static final Pattern DB2_LUW_COMPARE = Pattern.compile(
+            "comparison/db2luw/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.db2luw\\.compare\\.xlsx");
     private static final Pattern SQLSERVER_COMPARE = Pattern.compile(
             "comparison/sqlserver/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.compare\\.xlsx");
     private static final Pattern MYSQL_COMPARE = Pattern.compile(
@@ -99,7 +101,7 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(24, entries.size());
+        assertEquals(DatabasePlatform.values().length * 3 + 9, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "crud/oracle/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
@@ -121,6 +123,7 @@ class SchemaForgeApiComparisonExcelTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".oracle.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".postgresql.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".db2zos.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".db2luw.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".sqlserver.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
 
@@ -140,6 +143,8 @@ class SchemaForgeApiComparisonExcelTest {
                 .findFirst().orElseThrow();
         String db2ZosName = entries.keySet().stream().filter(name -> DB2_ZOS_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();
+        String db2LuwName = entries.keySet().stream().filter(name -> DB2_LUW_COMPARE.matcher(name).matches())
+                .findFirst().orElseThrow();
         String sqlServerName = entries.keySet().stream().filter(name -> SQLSERVER_COMPARE.matcher(name).matches())
                 .findFirst().orElseThrow();
         String mysqlName = entries.keySet().stream().filter(name -> MYSQL_COMPARE.matcher(name).matches())
@@ -148,6 +153,7 @@ class SchemaForgeApiComparisonExcelTest {
         verifyWorkbook(entries.get(oracleName));
         verifyWorkbook(entries.get(postgresqlName));
         verifyWorkbook(entries.get(db2ZosName));
+        verifyWorkbook(entries.get(db2LuwName));
         verifyWorkbook(entries.get(sqlServerName));
         verifyWorkbook(entries.get(mysqlName));
     }

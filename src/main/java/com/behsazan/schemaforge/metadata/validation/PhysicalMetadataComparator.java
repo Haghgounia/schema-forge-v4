@@ -281,7 +281,7 @@ public final class PhysicalMetadataComparator {
                     property("ENGINE", "MYSQL_ENGINE", "ENGINE"),
                     property("COLLATION", "MYSQL_COLLATION", "TABLE_COLLATION", "COLLATION"),
                     property("ROW_FORMAT", "MYSQL_ROW_FORMAT", "ROW_FORMAT"),
-                    identifier("TABLESPACE", "TABLESPACE", "MYSQL_TABLESPACE"));
+                    identifier("TABLESPACE", "MYSQL_TABLESPACE", "TABLESPACE"));
             case "DB2_LUW" -> List.of(
                     identifier("TABLESPACE", "TABLESPACE"),
                     identifier("INDEX_TABLESPACE", "DB2_LUW_INDEX_TABLESPACE", "TABLE_INDEX_TABLESPACE"),

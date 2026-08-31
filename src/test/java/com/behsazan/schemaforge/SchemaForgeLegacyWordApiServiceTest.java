@@ -55,7 +55,7 @@ class SchemaForgeLegacyWordApiServiceTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromLegacyWord(file, "DPS"));
 
-        assertEquals(12, entries.size());
+        assertEquals(DatabasePlatform.values().length + 7, entries.size());
         String oracleName = entries.keySet().stream()
                 .filter(name -> name.endsWith(".oracle.sql"))
                 .findFirst().orElseThrow();

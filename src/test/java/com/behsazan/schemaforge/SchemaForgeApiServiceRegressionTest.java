@@ -45,6 +45,8 @@ class SchemaForgeApiServiceRegressionTest {
             "ddl/postgresql/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.postgresql\\.sql");
     private static final Pattern DB2_ZOS_NAME = Pattern.compile(
             "ddl/db2zos/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.db2zos\\.sql");
+    private static final Pattern DB2_LUW_NAME = Pattern.compile(
+            "ddl/db2luw/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.db2luw\\.sql");
     private static final Pattern SQLSERVER_NAME = Pattern.compile(
             "ddl/sqlserver/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.sql");
     private static final Pattern MYSQL_NAME = Pattern.compile(
@@ -72,7 +74,7 @@ class SchemaForgeApiServiceRegressionTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(12, entries.size());
+        assertEquals(DatabasePlatform.values().length + 7, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.mmd")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
@@ -87,6 +89,8 @@ class SchemaForgeApiServiceRegressionTest {
                 .findFirst().orElseThrow();
         String db2ZosName = entries.keySet().stream().filter(name -> DB2_ZOS_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();
+        String db2LuwName = entries.keySet().stream().filter(name -> DB2_LUW_NAME.matcher(name).matches())
+                .findFirst().orElseThrow();
         String sqlServerName = entries.keySet().stream().filter(name -> SQLSERVER_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();
         String mysqlName = entries.keySet().stream().filter(name -> MYSQL_NAME.matcher(name).matches())
@@ -97,6 +101,7 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(oracleName.contains("_" + sharedTimestamp + ".oracle.sql"));
         assertTrue(postgresqlName.contains("_" + sharedTimestamp + ".postgresql.sql"));
         assertTrue(db2ZosName.contains("_" + sharedTimestamp + ".db2zos.sql"));
+        assertTrue(db2LuwName.contains("_" + sharedTimestamp + ".db2luw.sql"));
         assertTrue(sqlServerName.contains("_" + sharedTimestamp + ".sqlserver.sql"));
         assertTrue(mysqlName.contains("_" + sharedTimestamp + ".mysql.sql"));
 

@@ -1,3 +1,27 @@
+## 2026-08-31 - R10.7 MySQL physical placement isolation
+- Fixed a production regression exposed by the full 674-test gate: a generic Legacy/Oracle `TABLESPACE` physical option could be activated as a MySQL general tablespace.
+- Added `Dialect.resolveTableTablespace(Table)` so placement provenance remains a dialect concern rather than DBMS branching inside `DdlGenerator`.
+- MySQL now activates table placement only from the target-specific `MYSQL_TABLESPACE` key; ambiguous generic `TABLESPACE` remains non-executable and the DBA review placeholder stays visible.
+- Updated MySQL physical comparison precedence and focused regressions. Other dialects preserve the historical generic `TABLESPACE` behavior unchanged.
+
+## R10.6 - MySQL table-comment regression contract alignment
+
+- Fixes the last remaining targeted regression failure in `MySqlDdlGeneratorTest`.
+- The MySQL table physical-review block is intentionally rendered between the closing table definition `)` and the inline `COMMENT=...` clause, so the test no longer requires those tokens to be adjacent.
+- Keeps explicit assertions for the table comment, MySQL table/index physical review blocks, and generated MySQL DDL semantics.
+- Production code and generated DDL are unchanged.
+- Trigger: R10.5 targeted regression rerun passed 17/18 tests; only the stale adjacency assertion at `MySqlDdlGeneratorTest:95` remained.
+
+## R10.5 - Full regression contract alignment after six-platform expansion
+
+- Aligns stale regression expectations with the six supported database platforms after DB2 LUW became part of the standard aggregate output path.
+- Replaces hard-coded five-platform DDL/migration/comparison counts with `DatabasePlatform.values().length`-based assertions.
+- Adds DB2 LUW DDL/comparison/timestamp coverage to the aggregate API regression tests.
+- Updates metadata connection-failure acceptance fixtures so the first current metadata probe (`schemaExists`) fails and verifies request-scoped failure isolation still performs only one delegate connection attempt.
+- Updates the MySQL index regression to account for the established `MYSQL INDEX PHYSICAL OPTIONS` review block without weakening the actual index-shape assertion.
+- Production code, canonical parsing, generated DDL semantics, DB2 LUW P10 baseline, and PostgreSQL PG-P6 baseline are unchanged.
+- Trigger: full `mvnw.cmd clean test` on 2026-08-31 executed 674 tests and exposed 8 stale-contract failures with 0 errors; this change addresses exactly those eight failures.
+
 ## R10.4 - PostgreSQL PG-P5 final-state FK live validation
 
 - Adds `PostgreSqlForeignKeyLiveValidationP5IT` after the accepted PG-P1/PG-P2/PG-P3/PG-P4 gates.

@@ -392,8 +392,7 @@ public final class DdlGenerator {
                 .append("(").append(NL)
                 .append(String.join(NL, definitions)).append(NL)
                 .append(")");
-        String tablespace = option(table, "TABLESPACE")
-                .orElseGet(() -> dialect.defaultTableTablespace(table.qualifiedName()));
+        String tablespace = dialect.resolveTableTablespace(table);
         String activePlacement = dialect.tableTablespaceClause(tablespace);
         String physicalComment = physicalCommentRenderer.tableOptions(
                 table, !activePlacement.isBlank());

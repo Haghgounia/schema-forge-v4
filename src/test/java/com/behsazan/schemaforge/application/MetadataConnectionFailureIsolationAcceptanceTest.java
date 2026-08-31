@@ -105,12 +105,21 @@ class MetadataConnectionFailureIsolationAcceptanceTest {
             AtomicInteger calls) {
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         MetadataRepository failing = new MetadataRepository() {
-            @Override
-            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+            private CannotGetJdbcConnectionException connectionFailure() {
                 calls.incrementAndGet();
-                throw new CannotGetJdbcConnectionException(
+                return new CannotGetJdbcConnectionException(
                         "metadata connection failed",
                         new SQLException("Access denied / connection unavailable", "28000"));
+            }
+
+            @Override
+            public boolean schemaExists(String schemaName) {
+                throw connectionFailure();
+            }
+
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                throw connectionFailure();
             }
         };
         when(resolver.resolve(any(DatabasePlatform.class))).thenAnswer(invocation ->

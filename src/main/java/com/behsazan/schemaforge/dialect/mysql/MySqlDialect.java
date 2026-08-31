@@ -301,6 +301,18 @@ public final class MySqlDialect implements Dialect {
     }
 
     @Override
+    public String resolveTableTablespace(Table table) {
+        Objects.requireNonNull(table, "table must not be null");
+        return table.physicalOptions().entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase("MYSQL_TABLESPACE"))
+                .map(java.util.Map.Entry::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .findFirst()
+                .orElse(null);
+    }
+
+    @Override
     public String tableTablespaceClause(String tablespace) {
         if (tablespace == null || tablespace.isBlank()) return "";
         return " TABLESPACE " + quote(Identifier.of(tablespace.trim()));
