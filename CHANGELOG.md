@@ -1,3 +1,52 @@
+## 2026-09-01 - R11.4.2 Legacy default and artifact-outcome hardening
+
+- Preserves explicit Legacy Word defaults written as `Value = <expression>` / `VALUE: <expression>` instead of dropping them as unrecognized natural language; compatibility validation remains fail-closed and no value is inferred.
+- Surfaces `LEGACY_DEFAULT_DROPPED` and `LEGACY_DEFAULT_NORMALIZED` recovery findings in generated SQL headers and inline column hints (`DEFAULT-DROP` / `DEFAULT-NORM`).
+- Adds additive manifest `outcomeReason` metadata for SKIPPED artifact outcomes and records precise reasons in comparison, migration, and CRUD producers.
+- Trigger evidence: real Legacy Word package for `HAGH.CTLEGALCOSTDRAFT` contained explicit `Value = 0` defaults for `LEGALCOSTAMOUNT` and `ALLOWEDDAY` that were previously dropped.
+- Keeps No-Guess/Fail-Closed policy, all DBMS closure baselines, and deferred Db2 z/OS items unchanged.
+
+## 2026-09-01 - R11.4 Cross-DBMS semantic contract freeze
+
+
+## R11.4.1 - Default runtime startup / optional Db2 LUW JCC alignment
+
+- Fixed default Spring Boot startup failure caused by `schemaforge.metadata.db2luw.enabled=true` while IBM JCC is only supplied by the opt-in `db2luw-live` Maven profile.
+- Db2 LUW metadata is now disabled by default and can be enabled explicitly with `SCHEMAFORGE_METADATA_DB2LUW_ENABLED=true` together with `-Pdb2luw-live`.
+- Added `DefaultRuntimeStartupContractTest` to guarantee normal runtime startup does not require `com.ibm.db2.jcc.DB2Driver`.
+- No DDL/canonical/dialect/migration/artifact/API contract changes.
+
+- Adds `CrossDbmsContractFreezeTest` as a production-neutral semantic gate across all six registered platforms.
+- Freezes deterministic platform registration/factory resolution, core PK/UK/CHECK/FK/index/comment/grant preservation, dialect-owned DEFAULT/NOT NULL ordering, fixed-clock deterministic DDL, fail-closed unresolved datatypes, deterministic target-bounded generated object names, and M2 convergence/no-rename-guess safety.
+- Records the entering R11.3.2 GREEN baseline: 681 tests, 0 failures, 0 errors, 9 skipped.
+- Keeps Oracle, PostgreSQL, DB2 LUW, SQL Server and MySQL at CLOSED BASELINE; DB2 z/OS remains OFFLINE CLOSED / LIVE DEFERRED.
+- Does not promote deferred Db2 z/OS evidence (`WITH DEFAULT`, `FOR BIT DATA`, enforcing-index source-name reuse, live execution).
+- No production Java, parser, canonical model, generated corpus, database state, or DBMS-specific DDL behavior changed.
+
+## 2026-09-01 - R11.3.2 Db2 z/OS regression GREEN completion
+
+- Closes the final four stale Physical Phase 1 assertions left after R11.3.1 without changing production Java.
+- Distinguishes executable `WITH RESTRICT ON DROP` from the DBA review comment, aligns the Db2 z/OS table-placement placeholder contract, and fixes uppercase comparison expectations for `PADDING=<PADIX/SUBSYSTEM POLICY>`.
+- User-verified targeted gate: 21 tests, 0 failures, 0 errors.
+- User-verified full baseline: 681 tests, 0 failures, 0 errors, 9 skipped, BUILD SUCCESS.
+
+## 2026-09-01 - R11.3.1 Db2 z/OS R11.1 regression contract alignment
+
+- Aligns stale Physical Phase 1 regression expectations with the already-active R11.1 Db2 z/OS 12 contract.
+- Freezes dialect-specific `NOT NULL WITH DEFAULT ...` ordering, active table baseline attributes, executable safe index defaults, compact `PADDING=<PADIX/subsystem policy>` review, and review-only `PIECESIZE` capacity policy.
+- Keeps TABLESPACE infrastructure values review-only in table DDL; explicit `DB2_TABLESPACE_*` evidence remains visible in the compact source profile instead of being incorrectly asserted as table-level executable clauses.
+- Updates the optional corpus-audit PADDED marker accounting to the R11.1 compact/active representation.
+- No production Java, canonical model, parser, generated corpus, or DBMS closure evidence changed.
+- Trigger: full `mvn clean test` on 2026-09-01 ran 681 tests and exposed exactly 10 stale Db2 z/OS/Physical Phase 1 assertions, with 0 errors.
+
+## 2026-09-01 - R11.3 MySQL final closure evidence gate
+
+- Added `MySqlFinalClosureTest`, an evidence-only deterministic gate for the accepted MySQL R7.2 corpus, current 4,704-file MySQL 8.4.11 historical replay, and retained M2 live migration pilot.
+- Freezes the user-verified current replay at 12,354/12,354 executable statements succeeded, 0 failures, and 4,704/4,704 cleanup succeeded.
+- Records the 1,295 historical cross-table FK statements skipped by design and retains M2 live structural coverage for PK/FK/UK/CHECK/INDEX replacement with residual diff 0 and data preserved.
+- The 617 evidence-blocked mappings remain fail-closed; no canonical mutation or guessed repair is introduced.
+- No production Java or generated SQL semantics changed.
+
 ## 2026-08-31 - R11.1 Db2 z/OS 12 physical baseline activation
 
 - Activates safe, documented Db2 z/OS 12 table defaults in generated `CREATE TABLE`: `AUDIT NONE`, `DATA CAPTURE NONE`, `NOT VOLATILE`, and `APPEND NO`.

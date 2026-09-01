@@ -94,7 +94,8 @@ class Db2ZosDdlGeneratorTest {
         assertTrue(sql.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
         assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE);"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX BIM.UK_CUSTOMERS_CODE_IX ON BIM.CUSTOMERS(CUSTOMER_CODE)"));
-        assertTrue(sql.contains("<PADDED_OR_NOT_PADDED>"));
+        assertTrue(sql.contains("PADDING=<PADIX/subsystem policy>"));
+        assertFalse(sql.contains("<PADDED_OR_NOT_PADDED>"));
         assertTrue(sql.contains("CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("REFERENCES BIM.BRANCHES(BRANCH_ID) ON DELETE CASCADE;"));
         assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_STATUS ON BIM.CUSTOMERS(STATUS DESC)"));

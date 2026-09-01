@@ -1,0 +1,11 @@
+src/main/java/com/behsazan/schemaforge/application/BatchArchiveSupport.java
+src/main/java/com/behsazan/schemaforge/application/ComparisonArtifactProducer.java
+src/main/java/com/behsazan/schemaforge/application/CrudArtifactProducer.java
+src/main/java/com/behsazan/schemaforge/application/MigrationArtifactProducer.java
+src/main/java/com/behsazan/schemaforge/artifact/ArtifactDescriptor.java
+src/main/java/com/behsazan/schemaforge/artifact/ArtifactLedger.java
+src/main/java/com/behsazan/schemaforge/artifact/manifest/ArtifactManifestArtifact.java
+src/main/java/com/behsazan/schemaforge/artifact/manifest/ArtifactManifestAssembler.java
+src/main/java/com/behsazan/schemaforge/generation/issue/InlineIssueRenderer.java
+src/main/java/com/behsazan/schemaforge/generation/issue/SqlIssueCatalog.java
+src/main/java/com/behsazan/schemaforge/specification/parser/legacy/LegacyDefaultValueNormalizer.java
