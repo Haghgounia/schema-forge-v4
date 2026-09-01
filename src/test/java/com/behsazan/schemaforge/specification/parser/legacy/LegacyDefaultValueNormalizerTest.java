@@ -28,6 +28,17 @@ class LegacyDefaultValueNormalizerTest {
     }
 
     @Test
+    void normalizesLegacyEnglishValueAssignmentLabel() {
+        var equals = normalize("Value = 0", DataType.numeric("NUMBER", 15, 0));
+        assertEquals("0", equals.expression());
+        assertTrue(equals.changed());
+        assertFalse(equals.dropped());
+
+        assertEquals("0", normalize("VALUE: 0", DataType.numeric("NUMBER", 15, 0)).expression());
+        assertEquals("20", normalize("Value=20", DataType.numeric("NUMBER", 2, 0)).expression());
+    }
+
+    @Test
     void normalizesQuotesAndCurrentTimestampPhrases() {
         assertEquals("''", normalize("‘’ می باشد", DataType.varchar("VARCHAR2", 20)).expression());
         assertEquals("CURRENT_TIMESTAMP",

@@ -34,7 +34,8 @@ class ArtifactManifestWriterTest {
         context.ledger().generated(context, ArtifactType.DDL, DatabasePlatform.ORACLE,
                 "T", "ddl/oracle/T.sql", "application/sql", "DdlGenerator");
         context.ledger().skipped(context, ArtifactType.CRUD, DatabasePlatform.ORACLE,
-                "T", "OracleCrudGenerationService");
+                "T", "OracleCrudGenerationService",
+                "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
 
         ArtifactManifest manifest = new ArtifactManifestWriter(new ObjectMapper()).write(
                 temp, context, "sample", List.of(), Map.of());
@@ -58,6 +59,8 @@ class ArtifactManifestWriterTest {
                 .findFirst().orElseThrow();
         assertNull(skipped.path());
         assertNull(skipped.mediaType());
+        assertEquals("METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable",
+                skipped.outcomeReason());
         assertNull(skipped.integrity());
 
         var self = manifest.artifacts().stream()

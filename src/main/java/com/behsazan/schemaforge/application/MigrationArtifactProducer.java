@@ -82,7 +82,8 @@ public final class MigrationArtifactProducer {
             for (Table table : schema.tables()) {
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
                         tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
-                        "MigrationGenerationService");
+                        "MigrationGenerationService",
+                        "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
             }
             return;
         }
@@ -108,7 +109,8 @@ public final class MigrationArtifactProducer {
                 LOGGER.debug("[{}] Migration skipped; live table not found: {}.{}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
-                        schemaName + "." + tableName, "MigrationGenerationService");
+                        schemaName + "." + tableName, "MigrationGenerationService",
+                        "LIVE_TABLE_NOT_FOUND: Live table was not found");
                 sourceOrder++;
                 continue;
             }
@@ -118,7 +120,8 @@ public final class MigrationArtifactProducer {
                 LOGGER.info("[{}] Migration not required; live table already matches desired columns: {}.{}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
-                        schemaName + "." + tableName, "MigrationGenerationService");
+                        schemaName + "." + tableName, "MigrationGenerationService",
+                        "NO_SCHEMA_DIFF: Live table already matches desired schema");
                 sourceOrder++;
                 continue;
             }
@@ -169,7 +172,8 @@ public final class MigrationArtifactProducer {
             if (currentReached) {
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
                         tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
-                        "MigrationGenerationService");
+                        "MigrationGenerationService",
+                        "METADATA_UNAVAILABLE: Metadata connection became unavailable");
             }
         }
     }

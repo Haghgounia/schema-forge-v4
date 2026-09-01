@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  */
 public final class LegacyDefaultValueNormalizer {
     private static final Pattern LEADING_DEFAULT_LABEL = Pattern.compile(
-            "(?iu)^(?:(?:WITH\\s+)?DEFAULT(?:\\s+VALUE)?|(?:مقدار\\s*)?پیش\\s*فرض)\\s*[:=]?\\s*");
+            "(?iu)^(?:(?:(?:WITH\\s+)?DEFAULT(?:\\s+VALUE)?|(?:مقدار\\s*)?پیش\\s*فرض)\\s*[:=]?\\s*|VALUE\\s*[:=]\\s*)");
     private static final Pattern TRAILING_NULLABILITY = Pattern.compile(
             "(?iu)\\s+NOT\\s+NULL\\s*$");
     private static final Pattern NUMERIC_LITERAL = Pattern.compile(

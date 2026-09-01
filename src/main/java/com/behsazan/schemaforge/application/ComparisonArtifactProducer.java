@@ -92,7 +92,7 @@ public final class ComparisonArtifactProducer {
             for (Table table : schema.tables()) {
                 context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
                         tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
-                        PRODUCER);
+                        PRODUCER, "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
             }
             return;
         }
@@ -104,7 +104,8 @@ public final class ComparisonArtifactProducer {
                 LOGGER.info("[{}] Comparison workbook skipped; schema not found: {}",
                         platform.name(), schemaName);
                 context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
-                        schemaName + "." + tableName, PRODUCER);
+                        schemaName + "." + tableName, PRODUCER,
+                        "LIVE_SCHEMA_NOT_FOUND: Live schema was not found");
                 continue;
             }
             Optional<Table> databaseTable = findTable(repository, schemaName, tableName);
@@ -112,14 +113,16 @@ public final class ComparisonArtifactProducer {
                 LOGGER.warn("[{}] Comparison workbook skipped; metadata connection unavailable: {}.{}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
-                        schemaName + "." + tableName, PRODUCER);
+                        schemaName + "." + tableName, PRODUCER,
+                        "METADATA_UNAVAILABLE: Metadata connection became unavailable");
                 continue;
             }
             if (databaseTable.isEmpty()) {
                 LOGGER.warn("[{}] Comparison workbook skipped; table not found. requestedSchema={}, requestedTable={}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
-                        schemaName + "." + tableName, PRODUCER);
+                        schemaName + "." + tableName, PRODUCER,
+                        "LIVE_TABLE_NOT_FOUND: Live table was not found");
                 continue;
             }
             LOGGER.info("[{}] Comparison table resolved. requested={}.{}, actual={}",
@@ -159,7 +162,7 @@ public final class ComparisonArtifactProducer {
         if (!repository.available()) {
             context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
                     tableSchema(schema, documentTable) + "." + documentTable.qualifiedName().name().value(),
-                    PRODUCER);
+                    PRODUCER, "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
             return null;
         }
 
@@ -169,7 +172,8 @@ public final class ComparisonArtifactProducer {
             LOGGER.info("[{}] EA comparison workbook skipped; schema not found: {}",
                     platform.name(), schemaName);
             context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
-                    schemaName + "." + tableName, PRODUCER);
+                    schemaName + "." + tableName, PRODUCER,
+                    "LIVE_SCHEMA_NOT_FOUND: Live schema was not found");
             return null;
         }
         Optional<Table> databaseTable = findTable(repository, schemaName, tableName);
@@ -177,14 +181,16 @@ public final class ComparisonArtifactProducer {
             LOGGER.warn("[{}] EA comparison workbook skipped; metadata connection unavailable: {}.{}",
                     platform.name(), schemaName, tableName);
             context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
-                    schemaName + "." + tableName, PRODUCER);
+                    schemaName + "." + tableName, PRODUCER,
+                    "METADATA_UNAVAILABLE: Metadata connection became unavailable");
             return null;
         }
         if (databaseTable.isEmpty()) {
             LOGGER.warn("[{}] EA comparison workbook skipped; table not found. requestedSchema={}, requestedTable={}",
                     platform.name(), schemaName, tableName);
             context.ledger().skipped(context, ArtifactType.COMPARISON_WORKBOOK, platform,
-                    schemaName + "." + tableName, PRODUCER);
+                    schemaName + "." + tableName, PRODUCER,
+                    "LIVE_TABLE_NOT_FOUND: Live table was not found");
             return null;
         }
 

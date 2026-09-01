@@ -112,7 +112,8 @@ public final class BatchArchiveSupport {
                     descriptor.mediaType(),
                     descriptor.generationId(),
                     descriptor.status(),
-                    descriptor.provenance()));
+                    descriptor.provenance(),
+                    descriptor.outcomeReason()));
         }
     }
 

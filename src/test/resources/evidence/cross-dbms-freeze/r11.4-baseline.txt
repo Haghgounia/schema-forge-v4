@@ -1,0 +1,38 @@
+SchemaForge V4 - R11.4 Cross-DBMS Contract Freeze baseline
+===========================================================
+Baseline source: R11.3.2
+Full regression before freeze: 681 tests, 0 failures, 0 errors, 9 skipped, BUILD SUCCESS
+Verified on: 2026-09-01
+
+Registered DBMS platforms (deterministic order):
+1. oracle
+2. postgresql
+3. db2zos
+4. db2luw
+5. sqlserver
+6. mysql
+
+Closure state entering R11.4:
+- Oracle      : CLOSED BASELINE
+- PostgreSQL  : CLOSED BASELINE
+- DB2 LUW     : CLOSED BASELINE
+- SQL Server  : CLOSED BASELINE
+- MySQL       : CLOSED BASELINE
+- DB2 z/OS    : OFFLINE CLOSED / LIVE DEFERRED
+
+Frozen semantic policies:
+- canonical PK/UK/FK/CHECK/INDEX semantics are retained by every registered dialect
+- required/default column semantics are retained with dialect-owned clause ordering
+- unresolved canonical datatype fails closed for every registered dialect
+- generated object names are deterministic and target-length bounded
+- same-model M2 diff converges to zero residual changes
+- column rename is never inferred from add/drop similarity
+- destructive M2 SQL remains review-only under safe defaults
+- no synthetic PK/UK/FK and no guessed datatype repair
+
+Explicitly NOT promoted by this freeze:
+- DB2 z/OS live validation
+- DB2 z/OS bare WITH DEFAULT recovery
+- DB2 z/OS FOR BIT DATA recovery
+- DB2 z/OS source/catalog enforcing-index name reuse
+- artifact/API/ZIP contract freeze (next stage)

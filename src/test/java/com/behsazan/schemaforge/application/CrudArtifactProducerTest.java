@@ -58,10 +58,14 @@ class CrudArtifactProducerTest {
 
         List<ArtifactDescriptor> artifacts = context.ledger().snapshot();
         assertEquals(3, artifacts.size());
-        assertEquals(2, artifacts.stream()
+        List<ArtifactDescriptor> skippedCrud = artifacts.stream()
                 .filter(descriptor -> descriptor.type() == ArtifactType.CRUD)
                 .filter(descriptor -> descriptor.status() == ArtifactStatus.SKIPPED)
-                .count());
+                .toList();
+        assertEquals(2, skippedCrud.size());
+        assertTrue(skippedCrud.stream().allMatch(descriptor ->
+                "DOCUMENT_NO_PRIMARY_KEY: Document table has no primary key"
+                        .equals(descriptor.outcomeReason())));
         ArtifactDescriptor summaryDescriptor = artifacts.get(2);
         assertEquals(ArtifactType.SUMMARY_REPORT, summaryDescriptor.type());
         assertEquals("SchemaForgeApiService", summaryDescriptor.provenance().producer());
@@ -191,6 +195,11 @@ class CrudArtifactProducerTest {
                 "reports/customers_" + TIMESTAMP + ".metadata-crud-summary.csv"));
         assertTrue(summary.contains("\"SQLSERVER\",\"APP\",\"CUSTOMERS\",\"SKIPPED_TABLE_NOT_FOUND\""));
         assertTrue(summary.contains("Live schema was not found"));
+        ArtifactDescriptor skipped = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.CRUD)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.SKIPPED)
+                .findFirst().orElseThrow();
+        assertEquals("LIVE_SCHEMA_NOT_FOUND: Live schema was not found", skipped.outcomeReason());
     }
 
     @Test

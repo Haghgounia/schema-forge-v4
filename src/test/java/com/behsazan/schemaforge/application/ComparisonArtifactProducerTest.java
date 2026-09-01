@@ -63,6 +63,8 @@ class ComparisonArtifactProducerTest {
         assertEquals(ArtifactStatus.SKIPPED, descriptor.status());
         assertEquals("APP.CUSTOMERS", descriptor.logicalName());
         assertEquals("SchemaCompareExcelWriter", descriptor.provenance().producer());
+        assertEquals("METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable",
+                descriptor.outcomeReason());
         try (var paths = Files.walk(tempDir)) {
             assertTrue(paths.noneMatch(Files::isRegularFile));
         }
@@ -156,6 +158,8 @@ class ComparisonArtifactProducerTest {
         assertNull(relative);
         assertEquals(0, tableLookups.get(), "known-missing schema must skip live table lookup");
         assertEquals(ArtifactStatus.SKIPPED, context.ledger().snapshot().get(0).status());
+        assertEquals("LIVE_SCHEMA_NOT_FOUND: Live schema was not found",
+                context.ledger().snapshot().get(0).outcomeReason());
     }
 
     private static DatabaseSchema schema() {

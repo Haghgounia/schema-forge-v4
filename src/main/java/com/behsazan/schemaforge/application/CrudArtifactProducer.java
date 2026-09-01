@@ -168,7 +168,8 @@ public final class CrudArtifactProducer {
                 LOGGER.info("[{}] REST CRUD artifact skipped; document table has no primary key: {}.{}",
                         platform.name(), schemaName, tableName);
                 context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                        schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                        schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                        "DOCUMENT_NO_PRIMARY_KEY: Document table has no primary key");
                 continue;
             }
 
@@ -177,7 +178,8 @@ public final class CrudArtifactProducer {
                         "SKIPPED_METADATA_UNAVAILABLE", "",
                         "Metadata repository is disabled or unavailable"));
                 context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                        schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                        schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                        "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
                 continue;
             }
 
@@ -193,7 +195,8 @@ public final class CrudArtifactProducer {
                             "SKIPPED_METADATA_UNAVAILABLE", "",
                             "Metadata connection became unavailable"));
                     context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                            "METADATA_UNAVAILABLE: Metadata connection became unavailable");
                     continue;
                 }
                 if (Boolean.FALSE.equals(exists)) {
@@ -203,7 +206,8 @@ public final class CrudArtifactProducer {
                     LOGGER.info("[{}] REST CRUD artifact skipped; schema not found: {}",
                             platform.name(), schemaName);
                     context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                            "LIVE_SCHEMA_NOT_FOUND: Live schema was not found");
                     continue;
                 }
             }
@@ -217,7 +221,8 @@ public final class CrudArtifactProducer {
                     LOGGER.warn("[{}] REST CRUD artifact skipped; metadata connection unavailable: {}.{}",
                             platform.name(), schemaName, tableName);
                     context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                            "METADATA_UNAVAILABLE: Metadata connection became unavailable");
                     continue;
                 }
                 if (liveTable.isEmpty()) {
@@ -227,7 +232,8 @@ public final class CrudArtifactProducer {
                     LOGGER.warn("[{}] REST CRUD artifact skipped; live table not found: {}.{}",
                             platform.name(), schemaName, tableName);
                     context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                            "LIVE_TABLE_NOT_FOUND: Live table was not found");
                     continue;
                 }
                 if (liveTable.get().primaryKey().isEmpty()) {
@@ -237,7 +243,8 @@ public final class CrudArtifactProducer {
                     LOGGER.info("[{}] REST CRUD artifact skipped; live table has no primary key: {}.{}",
                             platform.name(), schemaName, tableName);
                     context.ledger().skipped(context, ArtifactType.CRUD, platform,
-                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER);
+                            schemaName + "." + tableName, ORCHESTRATION_PRODUCER,
+                            "LIVE_TABLE_NO_PRIMARY_KEY: Live table has no primary key");
                     continue;
                 }
 

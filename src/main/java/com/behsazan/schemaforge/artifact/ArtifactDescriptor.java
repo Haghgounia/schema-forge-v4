@@ -15,6 +15,10 @@ import java.util.Optional;
  *
  * <p>{@code relativePath} is a portable package-relative identity and therefore uses forward
  * slashes. It is not required to match the host operating system's path separator.</p>
+ *
+ * <p>{@code outcomeReason} is optional for generated artifacts and captures a human-readable,
+ * deterministic reason for skipped/failed outcomes so package consumers do not need to infer the
+ * reason from logs or a separate report.</p>
  */
 public record ArtifactDescriptor(
         ArtifactType type,
@@ -24,7 +28,20 @@ public record ArtifactDescriptor(
         String mediaType,
         String generationId,
         ArtifactStatus status,
-        ArtifactProvenance provenance) {
+        ArtifactProvenance provenance,
+        String outcomeReason) {
+
+    public ArtifactDescriptor(
+            ArtifactType type,
+            DatabasePlatform platform,
+            String logicalName,
+            String relativePath,
+            String mediaType,
+            String generationId,
+            ArtifactStatus status,
+            ArtifactProvenance provenance) {
+        this(type, platform, logicalName, relativePath, mediaType, generationId, status, provenance, "");
+    }
 
     public ArtifactDescriptor {
         Objects.requireNonNull(type, "type must not be null");
@@ -34,6 +51,7 @@ public record ArtifactDescriptor(
         generationId = requireNonBlank(generationId, "generationId");
         relativePath = normalizeOptional(relativePath);
         mediaType = normalizeOptional(mediaType);
+        outcomeReason = normalizeOptional(outcomeReason);
 
         if (!relativePath.isEmpty()) {
             validateRelativePath(relativePath);

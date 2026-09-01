@@ -85,6 +85,23 @@ public final class SqlIssueCatalog {
                 String message = "Persian column name/description is missing for column " + column
                         + " in Word row " + values.getOrDefault("row", "?") + ".";
                 target.add(new ValidationIssue("WARNING", "COLUMN_DESCRIPTION_MISSING", path, message));
+            } else if (warning.startsWith("LEGACY_DEFAULT_DROPPED|")) {
+                Map<String, String> values = parseWarning(warning);
+                String column = values.getOrDefault("column", "UNKNOWN");
+                String path = resolveColumnPath(schema, column);
+                String message = "Legacy default was dropped because it could not be normalized safely"
+                        + "; raw=" + values.getOrDefault("raw", "")
+                        + "; reason=" + values.getOrDefault("reason", "UNKNOWN") + ".";
+                target.add(new ValidationIssue("WARNING", "LEGACY_DEFAULT_DROPPED", path, message));
+            } else if (warning.startsWith("LEGACY_DEFAULT_NORMALIZED|")) {
+                Map<String, String> values = parseWarning(warning);
+                String column = values.getOrDefault("column", "UNKNOWN");
+                String path = resolveColumnPath(schema, column);
+                String message = "Legacy default was normalized from source evidence"
+                        + "; raw=" + values.getOrDefault("raw", "")
+                        + "; normalized=" + values.getOrDefault("normalized", "")
+                        + "; reason=" + values.getOrDefault("reason", "UNKNOWN") + ".";
+                target.add(new ValidationIssue("INFO", "LEGACY_DEFAULT_NORMALIZED", path, message));
             }
         }
     }

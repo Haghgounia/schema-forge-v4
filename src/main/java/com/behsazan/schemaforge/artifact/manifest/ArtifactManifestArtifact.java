@@ -13,6 +13,7 @@ public record ArtifactManifestArtifact(
         String path,
         String mediaType,
         ArtifactStatus status,
+        String outcomeReason,
         Provenance provenance,
         ArtifactIntegrity integrity) {
 

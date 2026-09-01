@@ -24,6 +24,8 @@ public final class InlineIssueRenderer {
             Map.entry("METADATA_SCALE_MISMATCH", "SCALE"),
             Map.entry("METADATA_NULLABILITY_MISMATCH", "NULL"),
             Map.entry("INVALID_DEFAULT_VALUE", "DEFAULT"),
+            Map.entry("LEGACY_DEFAULT_DROPPED", "DEFAULT-DROP"),
+            Map.entry("LEGACY_DEFAULT_NORMALIZED", "DEFAULT-NORM"),
             Map.entry("INVALID_CHECK", "CHECK"),
             Map.entry("FK_PARENT_NOT_FOUND", "FK"),
             Map.entry("RESERVED_WORD", "RESERVED"),

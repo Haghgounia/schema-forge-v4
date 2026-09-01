@@ -78,7 +78,7 @@ class PhysicalPhase1GoldenCorpusTest {
         assertTrue(db2.contains("CREATE UNIQUE INDEX ACC.UK_VTHR_02_IX"));
         assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
         assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
-        assertTrue(db2.contains("IN <DATABASE>.<TABLESPACE>"));
+        assertTrue(db2.contains("TABLE PLACEMENT=<DATABASE>.<TABLESPACE>"));
         assertFalse(db2.contains("SPACE_FREE_NAME"));
     }
 

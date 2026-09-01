@@ -67,7 +67,8 @@ class PhysicalPhase1DdlGeneratorTest {
         assertTrue(db2.contains("BUFFERPOOL <BUFFERPOOL>"));
         assertTrue(db2.contains("AUDIT NONE"));
         assertTrue(db2.contains("DATA CAPTURE NONE"));
-        assertFalse(db2.contains("WITH RESTRICT ON DROP"));
+        assertFalse(db2.contains(System.lineSeparator() + "  WITH RESTRICT ON DROP"));
+        assertTrue(db2.contains("WITH RESTRICT ON DROP require explicit source/profile policy"));
         assertFalse(db2.contains("CCSID UNICODE"));
         assertTrue(db2.contains("NOT VOLATILE"));
         assertTrue(db2.contains("APPEND NO"));

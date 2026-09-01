@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
+import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
@@ -18,6 +19,7 @@ import java.util.List;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertColumnContains;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertInlineIssues;
 import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertValidationHeaderBeforeDdl;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the behavior and regression expectations of DDL Issue Rendering.
@@ -27,6 +29,35 @@ import static com.behsazan.schemaforge.testsupport.SqlAssertionHelper.assertVali
  * @since 4.1
  */
 class DdlIssueRenderingTest {
+
+    @Test
+    void shouldSurfaceLegacyDefaultRecoveryFindingsInsideSql() {
+        Column recovered = new Column(Identifier.of("LEGALCOSTAMOUNT"),
+                DataType.numeric("NUMBER", 15, 0), false,
+                new DefaultValue("0"), Description.empty(), false, 1);
+        Column dropped = new Column(Identifier.of("UNSAFE_DEFAULT"),
+                DataType.numeric("NUMBER", 15, 0), true,
+                new DefaultValue(null), Description.empty(), false, 2);
+        Table table = Table.builder("HAGH", "CTLEGALCOSTDRAFT")
+                .addColumn(recovered)
+                .addColumn(dropped)
+                .build();
+        DatabaseSchema schema = DatabaseSchema.builder("HAGH")
+                .metadata("recovery.warnings", String.join(System.lineSeparator(),
+                        "LEGACY_DEFAULT_NORMALIZED|column=LEGALCOSTAMOUNT|reason=TRIMMED|raw=Value = 0|normalized=0",
+                        "LEGACY_DEFAULT_DROPPED|column=UNSAFE_DEFAULT|reason=UNRECOGNIZED_DEFAULT_EXPRESSION|raw=unknown text|normalized="))
+                .addTable(table)
+                .build();
+
+        String sql = new DdlGenerator(new OracleDialect()).generate(
+                schema, new ValidationReport(true, List.of()));
+
+        assertTrue(sql.contains("LEGACY_DEFAULT_NORMALIZED"), sql);
+        assertTrue(sql.contains("LEGACY_DEFAULT_DROPPED"), sql);
+        assertTrue(sql.contains("raw=Value = 0"), sql);
+        assertTrue(sql.contains("LEGALCOSTAMOUNT NUMBER(15,0) DEFAULT 0 NOT NULL, -- I:DEFAULT-NORM"), sql);
+        assertTrue(sql.contains("UNSAFE_DEFAULT NUMBER(15,0) -- W:DEFAULT-DROP"), sql);
+    }
 
     @Test
     void shouldConsolidateTopFindingsAndRenderMultipleInlineIssuesAfterComma() {

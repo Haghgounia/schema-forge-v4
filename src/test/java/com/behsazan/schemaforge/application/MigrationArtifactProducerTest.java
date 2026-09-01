@@ -60,6 +60,8 @@ class MigrationArtifactProducerTest {
         assertEquals("APP.CUSTOMER", descriptor.logicalName());
         assertEquals(ArtifactStatus.SKIPPED, descriptor.status());
         assertEquals("MigrationGenerationService", descriptor.provenance().producer());
+        assertEquals("METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable",
+                descriptor.outcomeReason());
     }
 
     @Test
@@ -75,6 +77,8 @@ class MigrationArtifactProducerTest {
         assertFalse(Files.exists(tempDir.resolve("migration/oracle")));
         assertEquals(1, context.ledger().snapshot().size());
         assertEquals(ArtifactStatus.SKIPPED, context.ledger().snapshot().get(0).status());
+        assertEquals("NO_SCHEMA_DIFF: Live table already matches desired schema",
+                context.ledger().snapshot().get(0).outcomeReason());
     }
 
     @Test

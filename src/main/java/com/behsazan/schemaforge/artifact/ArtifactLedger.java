@@ -28,7 +28,7 @@ public final class ArtifactLedger {
             String mediaType,
             String producer) {
         add(descriptor(context, type, platform, logicalName, relativePath, mediaType,
-                ArtifactStatus.GENERATED, producer));
+                ArtifactStatus.GENERATED, producer, ""));
     }
 
     public void skipped(
@@ -37,8 +37,18 @@ public final class ArtifactLedger {
             DatabasePlatform platform,
             String logicalName,
             String producer) {
+        skipped(context, type, platform, logicalName, producer, "SKIPPED_BY_PRODUCER");
+    }
+
+    public void skipped(
+            ArtifactGenerationContext context,
+            ArtifactType type,
+            DatabasePlatform platform,
+            String logicalName,
+            String producer,
+            String outcomeReason) {
         add(descriptor(context, type, platform, logicalName, "", "",
-                ArtifactStatus.SKIPPED, producer));
+                ArtifactStatus.SKIPPED, producer, outcomeReason));
     }
 
     public void failed(
@@ -48,7 +58,7 @@ public final class ArtifactLedger {
             String logicalName,
             String producer) {
         add(descriptor(context, type, platform, logicalName, "", "",
-                ArtifactStatus.FAILED, producer));
+                ArtifactStatus.FAILED, producer, ""));
     }
 
     public List<ArtifactDescriptor> snapshot() {
@@ -63,7 +73,8 @@ public final class ArtifactLedger {
             String relativePath,
             String mediaType,
             ArtifactStatus status,
-            String producer) {
+            String producer,
+            String outcomeReason) {
         Objects.requireNonNull(context, "context must not be null");
         return new ArtifactDescriptor(
                 type,
@@ -73,6 +84,7 @@ public final class ArtifactLedger {
                 mediaType,
                 context.generationId(),
                 status,
-                context.provenance(producer));
+                context.provenance(producer),
+                outcomeReason);
     }
 }

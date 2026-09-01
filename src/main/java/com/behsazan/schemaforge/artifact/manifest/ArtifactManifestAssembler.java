@@ -144,6 +144,7 @@ public final class ArtifactManifestAssembler {
                 blankToNull(descriptor.relativePath()),
                 blankToNull(descriptor.mediaType()),
                 descriptor.status(),
+                blankToNull(descriptor.outcomeReason()),
                 new ArtifactManifestArtifact.Provenance(
                         descriptor.provenance().origin(),
                         descriptor.provenance().sourceName(),
