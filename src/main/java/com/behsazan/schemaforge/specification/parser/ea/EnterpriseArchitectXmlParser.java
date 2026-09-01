@@ -18,6 +18,7 @@ import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -163,7 +164,7 @@ public final class EnterpriseArchitectXmlParser {
             if (!duplicateTables.isBlank()) {
                 schema.metadata("source.eaDuplicateTables", duplicateTables);
             }
-            return schema.build();
+            return new SpecificationNormalizer().normalize(schema.build());
         } catch (IllegalArgumentException exception) {
             throw exception;
         } catch (Exception exception) {

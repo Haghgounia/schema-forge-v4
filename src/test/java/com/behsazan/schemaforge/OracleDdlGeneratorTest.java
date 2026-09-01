@@ -141,7 +141,7 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("INITRANS 1"));
 
         // 3. Primary key
-        assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS_CUSTOMER_ID PRIMARY KEY (CUSTOMER_ID)"));
+        assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY (CUSTOMER_ID)"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX BIM.PK_CUSTOMERS_CUSTOMER_ID ON BIM.CUSTOMERS(CUSTOMER_ID)"));
         assertTrue(sql.contains("TABLESPACE ITS_BIM"));
 
@@ -156,7 +156,8 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("ALTER TABLE BIM.CUSTOMERS ADD CONSTRAINT FK_CUSTOMERS_BRANCH_ID FOREIGN KEY (BRANCH_ID) REFERENCES BIM.BRANCHES(BRANCH_ID) ENABLE;"));
 
         // 7. Index
-        assertTrue(sql.contains("CREATE INDEX BIM.IDX_CUSTOMERS_NAME ON BIM.CUSTOMERS(NAME)"));
+        assertTrue(sql.contains("CREATE INDEX BIM.IX_CUSTOMERS_NAME ON BIM.CUSTOMERS(NAME)"));
+        assertFalse(sql.contains("IDX_CUSTOMERS_NAME"));
         assertTrue(sql.contains("-- ORACLE INDEX PHYSICAL OPTIONS"));
         assertTrue(sql.contains("TABLESPACE ITS_BIM;"));
 
@@ -325,8 +326,8 @@ class OracleDdlGeneratorTest {
         assertTrue(sql.contains("TABLESPACE TS_DPS;"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.PK_DEPOSITS_DEPOSIT_ID ON DPS.DEPOSITS(DEPOSIT_ID)"));
         assertTrue(sql.contains("TABLESPACE ITS_DPS"));
-        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.UK_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID)"));
-        assertFalse(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_PRODUCT ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID)"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX DPS.UK_DEPOSITS_DEPOSIT_PRODUCT_ID ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID)"));
+        assertFalse(sql.contains("CREATE INDEX DPS.IX_DEPOSITS_DEPOSIT_PRODUCT_ID ON DPS.DEPOSITS(DEPOSIT_PRODUCT_ID)"));
     }
 
 
@@ -380,7 +381,7 @@ class OracleDdlGeneratorTest {
         String sql = new DdlGenerator(new OracleDialect()).generate(
                 DatabaseSchema.builder("TSTSHMA").addTable(table).build());
 
-        assertTrue(sql.contains("CREATE INDEX TSTSHMA.IX_LOCK_CHQ ON TSTSHMA.LOCK_CHQ(UNBLOCKID)"));
+        assertTrue(sql.contains("CREATE INDEX TSTSHMA.IX_LOCK_CHQ_UNBLOCKID ON TSTSHMA.LOCK_CHQ(UNBLOCKID)"));
         assertFalse(sql.contains("UNBLOCKID,UNBLOCKID"));
     }
 

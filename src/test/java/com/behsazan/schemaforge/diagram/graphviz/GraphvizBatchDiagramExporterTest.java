@@ -40,8 +40,8 @@ class GraphvizBatchDiagramExporterTest {
         assertTrue(result.clusteredDependency().contains("label=\"BIM\""));
         assertTrue(result.clusteredDependency().contains("label=\"ARCHIVE\""));
         assertFalse(result.compactDependency().contains("ARCHIVE.CUSTOMER"));
-        assertTrue(result.compactDependency().contains("FK_ACCOUNT_CUSTOMER"));
-        assertFalse(result.overviewDependency().contains("FK_ACCOUNT_CUSTOMER"));
+        assertTrue(result.compactDependency().contains("FK_ACCOUNT_CUSTOMER_ID"));
+        assertFalse(result.overviewDependency().contains("FK_ACCOUNT_CUSTOMER_ID"));
         assertTrue(result.overviewDependency().contains("\"BIM.ACCOUNT\" -> \"BIM.CUSTOMER\";"));
     }
 
@@ -68,7 +68,7 @@ class GraphvizBatchDiagramExporterTest {
         assertEquals(1, result.physicalForeignKeys());
         assertEquals(0, result.resolvedPhysicalForeignKeys());
         assertTrue(result.issues().stream().anyMatch(issue -> issue.code().equals("MISSING_REFERENCED_TABLE")));
-        assertTrue(result.dependency().contains("// unresolved FK: BIM.ACCOUNT.FK_ACCOUNT_CUSTOMER -> CUSTOMER"));
+        assertTrue(result.dependency().contains("// unresolved FK: BIM.ACCOUNT.FK_ACCOUNT_CUSTOMER_ID -> CUSTOMER"));
     }
 
     @Test

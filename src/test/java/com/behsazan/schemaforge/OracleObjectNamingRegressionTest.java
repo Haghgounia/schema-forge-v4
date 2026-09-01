@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OracleObjectNamingRegressionTest {
 
     @Test
-    void preservesRepeatedUnderscoresAndDoesNotCreateNormalizedIndexCollision() {
+    void ignoresSourceIndexNamesAndUsesOneStructuralFormula() {
         Table operation = Table.builder("PDL", "PATTERN_OPERATION")
                 .addColumn(Column.required("OPERATION_ID", DataType.numeric("NUMBER", 19, 0)))
                 .addIndex(index("IX_PATTERN_OPERATION_2", "OPERATION_ID"))
@@ -38,9 +38,11 @@ class OracleObjectNamingRegressionTest {
         String sql = new DdlGenerator(new OracleDialect()).generate(
                 DatabaseSchema.builder("PDL").addTable(operation).addTable(detail).build());
 
-        assertTrue(sql.contains("CREATE INDEX PDL.IX_PATTERN_OPERATION_2 ON PDL.PATTERN_OPERATION(OPERATION_ID)"));
-        assertTrue(sql.contains("CREATE INDEX PDL.IX_PATTERN_OPERATION__2 ON PDL.PATTERN_OPERATION_DETAIL(SUB_OPERATION_ID)"));
-        assertTrue(sql.contains("CREATE INDEX PDL.IX_PATTERN_OPERATION__51 ON PDL.PATTERN_OPERATION_DETAIL(DETAIL_ID)"));
+        assertTrue(sql.contains("CREATE INDEX PDL.IX_PATTERN_OPERATION_OPERATION_ID ON PDL.PATTERN_OPERATION(OPERATION_ID)"));
+        assertTrue(sql.contains("CREATE INDEX PDL.IX_PATTERN_OPERATION_DETAIL_SUB_OPERATION_ID ON PDL.PATTERN_OPERATION_DETAIL(SUB_OPERATION_ID)"));
+        assertTrue(sql.contains("CREATE INDEX PDL.IX_PATTERN_OPERATION_DETAIL_DETAIL_ID ON PDL.PATTERN_OPERATION_DETAIL(DETAIL_ID)"));
+        assertFalse(sql.contains("IX_PATTERN_OPERATION__2"));
+        assertFalse(sql.contains("IX_PATTERN_OPERATION__51"));
         assertFalse(sql.contains("[ERROR][PHYSICAL_NAME_COLLISION]"));
     }
 
@@ -56,7 +58,8 @@ class OracleObjectNamingRegressionTest {
                 DatabaseSchema.builder("PDL").addTable(table).build());
 
         assertTrue(sql.contains("CHECK-COL-001"));
-        assertFalse(sql.contains("ADD CONSTRAINT CHK_PCR_COUNT_RANGE CHECK("));
+        assertFalse(sql.contains("CHK_PCR_COUNT_RANGE"));
+        assertFalse(sql.contains("ADD CONSTRAINT"));
     }
 
     @Test
@@ -74,8 +77,11 @@ class OracleObjectNamingRegressionTest {
         String sql = new DdlGenerator(new OracleDialect()).generate(
                 DatabaseSchema.builder("PDL").addTable(plain).addTable(alreadySuffixed).build());
 
+        assertTrue(sql.contains("CONSTRAINT PK_PRODUCT PRIMARY KEY"));
+        assertTrue(sql.contains("CONSTRAINT PK_CUSTOMERS PRIMARY KEY"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX PDL.PK_PRODUCT_PRODUCT_ID ON PDL.PRODUCT(PRODUCT_ID)"));
         assertTrue(sql.contains("CREATE UNIQUE INDEX PDL.PK_CUSTOMERS_CUSTOMER_ID ON PDL.CUSTOMERS(CUSTOMER_ID)"));
+        assertFalse(sql.contains("CONSTRAINT PK_CUSTOMERS_CUSTOMER_ID PRIMARY KEY"));
         assertFalse(sql.contains("PK_CUSTOMERS_CUSTOMER_ID_CUSTOMER_ID"));
     }
 

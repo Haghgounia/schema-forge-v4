@@ -89,6 +89,7 @@ public final class SchemaPreparationService {
             current = Objects.requireNonNull(enricher.enrich(current),
                     "schema enricher returned null: " + enricher.getClass().getName());
         }
+        current = normalizer.normalize(current);
         return new PreparedSchema(current, validator.validate(current));
     }
 
@@ -99,6 +100,7 @@ public final class SchemaPreparationService {
             current = Objects.requireNonNull(enricher.enrich(current),
                     "schema enricher returned null: " + enricher.getClass().getName());
         }
+        current = normalizer.normalize(current);
         return new PreparedSchema(current, validator.validate(current));
     }
 }

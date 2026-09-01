@@ -62,8 +62,8 @@ class SqlServerPhysicalP4Test {
                 .build();
         String sql = new DdlGenerator(new SqlServerDialect())
                 .generate(DatabaseSchema.builder("dbo").addTable(table).build());
-        assertTrue(sql.contains("CREATE CLUSTERED INDEX IX_CLUSTERED"));
-        assertTrue(sql.contains("CREATE UNIQUE NONCLUSTERED INDEX IX_UNIQUE_NONCLUSTERED"));
+        assertTrue(sql.contains("CREATE CLUSTERED INDEX IX_ORDERS_CODE"));
+        assertTrue(sql.contains("CREATE UNIQUE NONCLUSTERED INDEX IX_ORDERS_CREATED"));
     }
 
     @Test

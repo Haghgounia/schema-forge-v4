@@ -97,7 +97,7 @@ class EnterpriseArchitectFkAssociationRecoveryTest {
         var child = schema.findTable("DEPOSIT_PRODUCT_ALLOWED_TERM").orElseThrow();
         assertEquals(1, child.foreignKeys().size());
         var foreignKey = child.foreignKeys().getFirst();
-        assertEquals("FK_DEPOSIT_PRODUCT_AL_1", foreignKey.name().value());
+        assertEquals("FK_DEPOSIT_PRODUCT_ALLOWED_TERM_TERM_RULE_ID", foreignKey.name().value());
         assertEquals("TERM_RULE_ID", foreignKey.columns().getFirst().value());
         assertEquals("PDL.DEPOSIT_PRODUCT_TERM_RULE", foreignKey.referencedTable().toString());
         assertEquals("TERM_RULE_ID", foreignKey.referencedColumns().getFirst().value());

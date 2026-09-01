@@ -9,6 +9,7 @@ import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -37,6 +38,7 @@ public final class IntegratedSchemaDeploymentPlanner {
     /** Validates foreign keys and builds the ordered four-phase integrated deployment plan. */
     public IntegratedSchemaDeploymentPlan plan(DatabaseSchema schema) {
         Objects.requireNonNull(schema, "schema must not be null");
+        schema = new SpecificationNormalizer().normalize(schema);
         ForeignKeyAnalysisResult analysis = foreignKeyAnalyzer.analyze(schema);
         if (!analysis.deployable()) {
             String blockers = analysis.issues().stream()

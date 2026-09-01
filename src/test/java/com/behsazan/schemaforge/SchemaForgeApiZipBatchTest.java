@@ -50,6 +50,7 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/postgresql/") && name.endsWith(".postgresql.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/db2zos/") && name.endsWith(".db2zos.sql")));
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/db2luw/") && name.endsWith(".db2luw.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/sqlserver/") && name.endsWith(".sqlserver.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/mysql/") && name.endsWith(".mysql.sql")));
         assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("model/") && name.endsWith(".schema.json")));
@@ -76,6 +77,17 @@ class SchemaForgeApiZipBatchTest {
         assertTrue(text(output, "diagram/graphviz/batch/schema-clustered.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
         assertTrue(text(output, "diagram/graphviz/batch/schema-compact.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
         assertTrue(text(output, "diagram/graphviz/batch/schema-overview.dot").startsWith("digraph SchemaForge_Clustered_Dependency"));
+
+        String oracleDdlName = output.keySet().stream()
+                .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))
+                .findFirst()
+                .orElseThrow();
+        String oracleDdl = text(output, oracleDdlName);
+        assertTrue(oracleDdl.contains("PK_PROVINCES"), oracleDdl);
+        assertTrue(oracleDdl.contains("UK_PROVINCES_PROVINCE_CODE"), oracleDdl);
+        assertTrue(oracleDdl.contains("FK_PROVINCES_LANGUAGE_ID"), oracleDdl);
+        assertTrue(oracleDdl.contains("FK_PROVINCES_COUNTRY_ID"), oracleDdl);
+        assertFalse(oracleDdl.contains("UK_PROVINCES_U1"), oracleDdl);
 
         String summary = text(output, "reports/batch-generation-summary.csv");
         assertTrue(summary.contains("MCB.BIM.TBL.PROVINCES.V1.2.docx\",\"SUCCESS"));

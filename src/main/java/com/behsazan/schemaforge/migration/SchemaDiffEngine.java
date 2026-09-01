@@ -16,6 +16,7 @@ import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
 
 import java.util.ArrayList;
@@ -52,11 +53,12 @@ public final class SchemaDiffEngine {
         Objects.requireNonNull(liveTable, "liveTable must not be null");
         Objects.requireNonNull(desiredTable, "desiredTable must not be null");
         requireSameTable(liveTable, desiredTable);
+        Table normalizedDesired = new SpecificationNormalizer().normalize(desiredTable);
 
         Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
-        List<ColumnChange> columnChanges = diffColumns(platform, dialect, liveTable, desiredTable);
-        List<TableObjectChange> objectChanges = diffObjects(platform, dialect, liveTable, desiredTable);
-        return new TableMigrationPlan(platform, liveTable, desiredTable, columnChanges, objectChanges);
+        List<ColumnChange> columnChanges = diffColumns(platform, dialect, liveTable, normalizedDesired);
+        List<TableObjectChange> objectChanges = diffObjects(platform, dialect, liveTable, normalizedDesired);
+        return new TableMigrationPlan(platform, liveTable, normalizedDesired, columnChanges, objectChanges);
     }
 
     private List<ColumnChange> diffColumns(

@@ -11,6 +11,7 @@ import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -166,7 +167,7 @@ public final class MermaidDiagramExporter implements DiagramExporter {
                         .append("--o{ ")
                         .append(childId)
                         .append(" : \"")
-                        .append(escapeLabel(relationLabel(relation.foreignKey())))
+                        .append(escapeLabel(relationLabel(relation.child(), relation.foreignKey())))
                         .append("\"\n");
             }
         }
@@ -203,7 +204,7 @@ public final class MermaidDiagramExporter implements DiagramExporter {
                         .append(' ')
                         .append(childId)
                         .append(" : \"")
-                        .append(escapeLabel(relationLabel(relation.foreignKey())))
+                        .append(escapeLabel(relationLabel(relation.child(), relation.foreignKey())))
                         .append("\"\n");
             }
         }
@@ -280,7 +281,7 @@ public final class MermaidDiagramExporter implements DiagramExporter {
                 out.append("    ")
                         .append(childId)
                         .append(relation.foreignKey().physicalReference() ? " -->|" : " -.->|")
-                        .append(escapeLabel(relationLabel(relation.foreignKey())))
+                        .append(escapeLabel(relationLabel(relation.child(), relation.foreignKey())))
                         .append("| ")
                         .append(parentId)
                         .append('\n');
@@ -304,7 +305,7 @@ public final class MermaidDiagramExporter implements DiagramExporter {
         relations.sort(Comparator
                 .comparing((Relation relation) -> key(relation.child().qualifiedName()))
                 .thenComparing(relation -> key(relation.parent().qualifiedName()))
-                .thenComparing(relation -> relationLabel(relation.foreignKey())));
+                .thenComparing(relation -> relationLabel(relation.child(), relation.foreignKey())));
         return relations;
     }
 
@@ -322,7 +323,7 @@ public final class MermaidDiagramExporter implements DiagramExporter {
                             .append("%% unresolved FK: ")
                             .append(child.qualifiedName())
                             .append('.')
-                            .append(relationLabel(fk))
+                            .append(relationLabel(child, fk))
                             .append(" -> ")
                             .append(fk.referencedTable())
                             .append('\n');
@@ -414,11 +415,8 @@ public final class MermaidDiagramExporter implements DiagramExporter {
                 .orElseGet(() -> key(referenced));
     }
 
-    private String relationLabel(ForeignKey fk) {
-        if (fk.name() != null) {
-            return fk.name().value();
-        }
-        return fk.columns().stream().map(Identifier::value).collect(Collectors.joining(","));
+    private String relationLabel(Table child, ForeignKey fk) {
+        return LogicalObjectNamingPolicy.foreignKey(child, fk).value();
     }
 
     private String sanitizeToken(String value) {

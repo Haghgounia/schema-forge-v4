@@ -137,7 +137,7 @@ class SqlServerLiveIT {
                 .primaryKey(new PrimaryKey(
                         Identifier.of("PK_" + childName), List.of(Identifier.of("ID"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_" + childName + "_ACTIVE"), "ACTIVE IN (0, 1)"))
+                        Identifier.of("CHK_" + childName + "_ACTIVE"), "ACTIVE IN (0, 1)"))
                 .addForeignKey(new ForeignKey(
                         Identifier.of("FK_" + childName + "_PARENT"),
                         List.of(Identifier.of("PARENT_ID")),

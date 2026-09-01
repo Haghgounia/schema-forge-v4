@@ -19,6 +19,7 @@ import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -48,7 +49,7 @@ class CanonicalSnapshotMapperTest {
                 .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMER_PARENT"), List.of(Identifier.of("ID")),
                         QualifiedName.of("TSTSHMA", "PARENT"), List.of(Identifier.of("ID")),
                         ReferentialAction.CASCADE, ReferentialAction.NO_ACTION, true, false, true, true))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMER_ID"), "ID >= 0"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMER_ID"), "ID >= 0"))
                 .addIndex(new Index(Identifier.of("IX_CUSTOMER_NAME"),
                         List.of(new IndexColumn(Identifier.of("NAME"), SortDirection.DESC)),
                         IndexType.NORMAL, new Description("lookup"), List.of(Identifier.of("ID")), "NAME IS NOT NULL",
@@ -76,16 +77,17 @@ class CanonicalSnapshotMapperTest {
         assertEquals(original.sequences(), restored.sequences());
         assertEquals(1, restored.tables().size());
         Table actual = restored.tables().getFirst();
-        assertEquals(table.qualifiedName(), actual.qualifiedName());
-        assertEquals(table.persianName(), actual.persianName());
-        assertEquals(table.description(), actual.description());
-        assertEquals(table.columns(), actual.columns());
-        assertEquals(table.primaryKey(), actual.primaryKey());
-        assertEquals(table.uniqueKeys(), actual.uniqueKeys());
-        assertEquals(table.foreignKeys(), actual.foreignKeys());
-        assertEquals(table.checkConstraints(), actual.checkConstraints());
-        assertEquals(table.indexes(), actual.indexes());
-        assertEquals(table.physicalOptions(), actual.physicalOptions());
+        Table expected = new SpecificationNormalizer().normalize(table);
+        assertEquals(expected.qualifiedName(), actual.qualifiedName());
+        assertEquals(expected.persianName(), actual.persianName());
+        assertEquals(expected.description(), actual.description());
+        assertEquals(expected.columns(), actual.columns());
+        assertEquals(expected.primaryKey(), actual.primaryKey());
+        assertEquals(expected.uniqueKeys(), actual.uniqueKeys());
+        assertEquals(expected.foreignKeys(), actual.foreignKeys());
+        assertEquals(expected.checkConstraints(), actual.checkConstraints());
+        assertEquals(expected.indexes(), actual.indexes());
+        assertEquals(expected.physicalOptions(), actual.physicalOptions());
         assertTrue(CanonicalSnapshotVersions.cacheCompatible(snapshot));
     }
     @Test

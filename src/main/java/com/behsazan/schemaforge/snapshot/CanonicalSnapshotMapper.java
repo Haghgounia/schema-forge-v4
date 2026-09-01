@@ -19,6 +19,7 @@ import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ public final class CanonicalSnapshotMapper {
 
         Objects.requireNonNull(schema, "schema must not be null");
         Objects.requireNonNull(source, "source must not be null");
+        DatabaseSchema normalized = new SpecificationNormalizer().normalize(schema);
         return new CanonicalSchemaSnapshot(
                 CanonicalSnapshotVersions.SNAPSHOT_VERSION,
                 CanonicalSnapshotVersions.MODEL_VERSION,
@@ -47,11 +49,11 @@ public final class CanonicalSnapshotMapper {
                 generatedAtUtc,
                 source,
                 new CanonicalSchemaSnapshot.SchemaSnapshot(
-                        schema.name().value(),
-                        schema.description().value(),
-                        schema.metadata(),
-                        schema.tables().stream().map(this::tableSnapshot).toList(),
-                        schema.sequences().stream().map(this::sequenceSnapshot).toList()));
+                        normalized.name().value(),
+                        normalized.description().value(),
+                        normalized.metadata(),
+                        normalized.tables().stream().map(this::tableSnapshot).toList(),
+                        normalized.sequences().stream().map(this::sequenceSnapshot).toList()));
     }
 
     /** Reconstructs a validated canonical domain model from a current-parser cache snapshot. */
@@ -80,7 +82,7 @@ public final class CanonicalSnapshotMapper {
         safeMap(value.metadata()).forEach(builder::metadata);
         safeList(value.tables()).stream().map(this::table).forEach(builder::addTable);
         safeList(value.sequences()).stream().map(this::sequence).forEach(builder::addSequence);
-        return builder.build();
+        return new SpecificationNormalizer().normalize(builder.build());
     }
 
     private CanonicalSchemaSnapshot.TableSnapshot tableSnapshot(Table table) {

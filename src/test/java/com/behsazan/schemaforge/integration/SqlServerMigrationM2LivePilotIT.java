@@ -241,7 +241,7 @@ class SqlServerMigrationM2LivePilotIT {
                       LEGACY_NOTE VARCHAR(20) NULL,
                       CONSTRAINT PK_SF_M2_CHILD PRIMARY KEY (ID),
                       CONSTRAINT UK_SF_M2_CHILD_CODE UNIQUE (CODE),
-                      CONSTRAINT CK_SF_M2_CHILD_STATUS CHECK (ID > 0),
+                      CONSTRAINT CHK_SF_M2_CHILD_STATUS CHECK (ID > 0),
                       CONSTRAINT FK_SF_M2_CHILD_PARENT FOREIGN KEY (PARENT_ID)
                         REFERENCES %s.%s (ID)
                     )
@@ -279,7 +279,7 @@ class SqlServerMigrationM2LivePilotIT {
                         Identifier.of("UK_SF_M2_CHILD_CODE"),
                         List.of(Identifier.of("CODE"), Identifier.of("STATUS")), false, false))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_SF_M2_CHILD_STATUS"),
+                        Identifier.of("CHK_SF_M2_CHILD_STATUS"),
                         "(ID > 0) AND (PARENT_ID > 0)"))
                 .addIndex(index("IX_SF_M2_CHILD_PARENT", "PARENT_ID"))
                 .addIndex(index("IX_SF_M2_CHILD_CODE", "CODE"))

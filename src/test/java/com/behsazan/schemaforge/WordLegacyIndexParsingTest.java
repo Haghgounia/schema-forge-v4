@@ -56,7 +56,7 @@ class WordLegacyIndexParsingTest {
 
         assertEquals(1, table.indexes().size());
         Index index = table.indexes().getFirst();
-        assertEquals("IX_PROVINCES_I1", index.name().normalized());
+        assertEquals("IX_PROVINCES_PROVINCE_ENGLISH_NAME_CREATION_DATE", index.name().normalized());
         assertEquals(2, index.columns().size());
         assertEquals("PROVINCE_ENGLISH_NAME", index.columns().get(0).column().normalized());
         assertEquals("CREATION_DATE", index.columns().get(1).column().normalized());

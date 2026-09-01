@@ -10,6 +10,7 @@ import com.behsazan.schemaforge.domain.model.Sequence;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 
 import java.util.ArrayList;
@@ -54,44 +55,36 @@ public final class PhysicalObjectNamingAnalyzer {
                     "COLUMN", column.name(), sourceLimit, dialect));
 
             table.primaryKey().ifPresent(pk -> {
-                String logicalConstraint = logicalPrimaryKeyName(table, pk);
+                String logicalConstraint = LogicalObjectNamingPolicy.primaryKey(table, pk).value();
                 auditObject(issues, occupied, dialect, table, "PRIMARY_KEY", logicalConstraint,
                         constraintScope(dialect, table, "PRIMARY_KEY"));
-                String logicalIndex = logicalPrimaryKeyIndexName(dialect, table, pk);
-                if (logicalIndex != null) {
+                if (hasEnforcingIndex(dialect)) {
+                    String logicalIndex = LogicalObjectNamingPolicy.primaryKeyIndex(table, pk).value();
                     auditObject(issues, occupied, dialect, table, "INDEX", logicalIndex,
                             indexScope(dialect, table));
                 }
             });
             for (UniqueKey key : table.uniqueKeys()) {
-                String logical = key.name() == null
-                        ? "UK_" + table.qualifiedName().name().normalized() + "_" + identifiers(key.columns())
-                        : key.name().value();
+                String logical = LogicalObjectNamingPolicy.uniqueKey(table, key).value();
                 auditObject(issues, occupied, dialect, table, "UNIQUE_KEY", logical,
                         constraintScope(dialect, table, "UNIQUE_KEY"));
-                // Oracle sample convention uses the UK constraint name for its enforcing index.
-                if (dialect.name().toUpperCase(Locale.ROOT).contains("ORACLE")) {
-                    auditObject(issues, occupied, dialect, table, "INDEX", logical, indexScope(dialect, table));
+                if (hasEnforcingIndex(dialect)) {
+                    String logicalIndex = LogicalObjectNamingPolicy.uniqueKeyIndex(table, key).value();
+                    auditObject(issues, occupied, dialect, table, "INDEX", logicalIndex, indexScope(dialect, table));
                 }
             }
             table.checkConstraints().forEach(check -> {
-                String logical = check.name() == null
-                        ? "CHK_" + table.qualifiedName().name().normalized()
-                        : check.name().value();
+                String logical = LogicalObjectNamingPolicy.checkConstraint(table, check).value();
                 auditObject(issues, occupied, dialect, table, "CHECK", logical,
                         constraintScope(dialect, table, "CHECK"));
             });
             for (ForeignKey fk : table.foreignKeys()) {
-                String logical = fk.name() == null
-                        ? "FK_" + table.qualifiedName().name().normalized() + "_" + identifiers(fk.columns())
-                        : fk.name().value();
+                String logical = LogicalObjectNamingPolicy.foreignKey(table, fk).value();
                 auditObject(issues, occupied, dialect, table, "FOREIGN_KEY", logical,
                         constraintScope(dialect, table, "FOREIGN_KEY"));
             }
             for (Index index : table.indexes()) {
-                String logical = index.name() == null
-                        ? "IX_" + table.qualifiedName().name().normalized() + "_" + indexColumns(index)
-                        : index.name().value();
+                String logical = LogicalObjectNamingPolicy.index(table, index).value();
                 auditObject(issues, occupied, dialect, table, "INDEX", logical, indexScope(dialect, table));
             }
         }
@@ -124,12 +117,6 @@ public final class PhysicalObjectNamingAnalyzer {
                     "TABLE logical name '" + logicalName + "' shares target namespace " + scope
                             + " with " + previous + "."));
         }
-    }
-
-    private static String indexColumns(Index index) {
-        return index.columns().stream()
-                .map(column -> column.expressionBased() ? "EXPR" : column.column().normalized())
-                .collect(Collectors.joining("_"));
     }
 
     private static void validateSourceIdentifier(
@@ -168,27 +155,9 @@ public final class PhysicalObjectNamingAnalyzer {
         }
     }
 
-    private static String logicalPrimaryKeyName(Table table, PrimaryKey pk) {
-        return pk.name() == null ? "PK_" + table.qualifiedName().name().normalized() : pk.name().value();
-    }
-
-    private static String logicalPrimaryKeyIndexName(Dialect dialect, Table table, PrimaryKey pk) {
+    private static boolean hasEnforcingIndex(Dialect dialect) {
         String db = dialect.name().toUpperCase(Locale.ROOT);
-        if (db.contains("ORACLE")) {
-            String constraint = logicalPrimaryKeyName(table, pk);
-            String columns = identifiers(pk.columns());
-            return constraint.toUpperCase(Locale.ROOT).endsWith("_" + columns.toUpperCase(Locale.ROOT))
-                    ? constraint
-                    : constraint + "_" + columns;
-        }
-        if (db.contains("DB2ZOS")) {
-            return logicalPrimaryKeyName(table, pk) + "_IX";
-        }
-        return null;
-    }
-
-    private static String identifiers(List<Identifier> values) {
-        return values.stream().map(Identifier::normalized).collect(Collectors.joining("_"));
+        return db.contains("ORACLE") || dialect.requiresExplicitConstraintIndexes();
     }
 
     private static String indexScope(Dialect dialect, Table table) {

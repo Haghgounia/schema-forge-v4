@@ -224,7 +224,7 @@ class MySqlMigrationM2LivePilotIT {
                       `LEGACY_NOTE` VARCHAR(20) NULL,
                       CONSTRAINT `PK_SF_M2_CHILD` PRIMARY KEY (`ID`),
                       CONSTRAINT `UK_SF_M2_CHILD_CODE` UNIQUE (`CODE`),
-                      CONSTRAINT `CK_SF_M2_CHILD_STATUS` CHECK (`STATUS` IN ('A','I')),
+                      CONSTRAINT `CHK_SF_M2_CHILD_STATUS` CHECK (`STATUS` IN ('A','I')),
                       INDEX `IX_SF_M2_CHILD_PARENT` (`PARENT_ID` ASC),
                       INDEX `IX_SF_M2_CHILD_STATUS` (`STATUS` ASC),
                       CONSTRAINT `FK_SF_M2_CHILD_PARENT` FOREIGN KEY (`PARENT_ID`)
@@ -259,7 +259,7 @@ class MySqlMigrationM2LivePilotIT {
                         Identifier.of("UK_SF_M2_CHILD_CODE"),
                         List.of(Identifier.of("CODE"), Identifier.of("STATUS"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_SF_M2_CHILD_STATUS"),
+                        Identifier.of("CHK_SF_M2_CHILD_STATUS"),
                         "STATUS IN ('A','I','S')"))
                 .addIndex(new Index(
                         Identifier.of("IX_SF_M2_CHILD_PARENT"),

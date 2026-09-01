@@ -24,8 +24,10 @@ import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonValidator;
+import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 import com.behsazan.schemaforge.physical.PhysicalCommentRenderer;
 import com.behsazan.schemaforge.physical.PhysicalCommentRendererResolver;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
@@ -97,6 +99,7 @@ public final class DdlGenerator {
      */
     public List<String> renderIntegratedPreTableStatements(DatabaseSchema schema) {
         Objects.requireNonNull(schema, "schema must not be null");
+        schema = new SpecificationNormalizer().normalize(schema);
         List<String> statements = new ArrayList<>();
         generatedObjectSchemas(schema).stream()
                 .map(dialect::schemaBootstrapStatement)
@@ -116,6 +119,7 @@ public final class DdlGenerator {
     /** Renders only CREATE TABLE (including the primary key) for integrated phase 1. */
     public String renderIntegratedCreateTable(Table table) {
         Objects.requireNonNull(table, "table must not be null");
+        table = new SpecificationNormalizer().normalize(table);
         DatabaseSchema singleTableSchema = DatabaseSchema.builder(
                         table.qualifiedName().schemaName().map(Identifier::value).orElse("INTEGRATED"))
                 .addTable(table)
@@ -133,19 +137,22 @@ public final class DdlGenerator {
      */
     public List<String> renderIntegratedTableLocalStatements(Table table) {
         Objects.requireNonNull(table, "table must not be null");
+        Table normalizedTable = new SpecificationNormalizer().normalize(table);
         List<String> statements = new ArrayList<>();
         if (dialect.requiresExplicitConstraintIndexes()) {
-            table.primaryKey().map(primaryKey -> createPrimaryKeyIndex(table, primaryKey))
+            normalizedTable.primaryKey().map(primaryKey -> createPrimaryKeyIndex(normalizedTable, primaryKey))
                     .ifPresent(statements::add);
         }
-        table.checkConstraints().stream().map(check -> createCheck(table, check)).forEach(statements::add);
-        for (UniqueKey unique : table.uniqueKeys()) {
-            statements.add(createUnique(table, unique));
+        normalizedTable.checkConstraints().stream()
+                .map(check -> createCheck(normalizedTable, check)).forEach(statements::add);
+        for (UniqueKey unique : normalizedTable.uniqueKeys()) {
+            statements.add(createUnique(normalizedTable, unique));
             if (dialect.requiresExplicitConstraintIndexes()) {
-                statements.add(createUniqueKeyIndex(table, unique));
+                statements.add(createUniqueKeyIndex(normalizedTable, unique));
             }
         }
-        emittedIndexes(table).stream().map(index -> createIndex(table, index)).forEach(statements::add);
+        emittedIndexes(normalizedTable).stream()
+                .map(index -> createIndex(normalizedTable, index)).forEach(statements::add);
         return List.copyOf(statements);
     }
 
@@ -214,6 +221,7 @@ public final class DdlGenerator {
     /** Renders comments/descriptions and grants for integrated phase 4. */
     public List<String> renderIntegratedMetadataStatements(Table table) {
         Objects.requireNonNull(table, "table must not be null");
+        table = new SpecificationNormalizer().normalize(table);
         List<String> statements = new ArrayList<>();
         addComments(statements, table);
         addGrants(statements, table);
@@ -233,8 +241,9 @@ public final class DdlGenerator {
     /** Generates SQL enriched with metadata frequencies and metadata type mismatch findings. */
     public String generate(DatabaseSchema schema, ValidationReport report, MetadataRepository metadataRepository) {
         Objects.requireNonNull(metadataRepository, "metadataRepository must not be null");
-        MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, metadataRepository).validate(schema);
-        return generate(schema, report, metadata);
+        DatabaseSchema normalized = new SpecificationNormalizer().normalize(schema);
+        MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, metadataRepository).validate(normalized);
+        return generate(normalized, report, metadata);
     }
 
     /** Generates SQL using an already calculated metadata comparison result. */
@@ -242,6 +251,7 @@ public final class DdlGenerator {
         Objects.requireNonNull(schema, "schema must not be null");
         Objects.requireNonNull(report, "report must not be null");
         Objects.requireNonNull(metadata, "metadata must not be null");
+        schema = new SpecificationNormalizer().normalize(schema);
         SqlIssueCatalog issueCatalog = issueCatalog(schema, report, metadata);
         DatabaseSchema mappingContext = effectiveTypeMappingContext(schema);
 
@@ -471,22 +481,16 @@ public final class DdlGenerator {
     }
 
     private String primaryKeyDefinition(Table table, PrimaryKey primaryKey) {
-        String constraintName = primaryKey.name() == null
-                ? objectName("PK_" + table.qualifiedName().name().normalized())
-                : objectName(primaryKey.name());
-        Index physicalIndex = constraintPhysicalIndex(primaryKey.name(), primaryKey.columns(), primaryKey.physicalOptions());
+        Identifier logicalConstraint = LogicalObjectNamingPolicy.primaryKey(table, primaryKey);
+        String constraintName = objectName(logicalConstraint);
+        Index physicalIndex = constraintPhysicalIndex(
+                LogicalObjectNamingPolicy.primaryKeyIndex(table, primaryKey),
+                primaryKey.columns(), primaryKey.physicalOptions());
         String indexTablespace = option(physicalIndex, table, "INDEX_TABLESPACE", "PK_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String tableName = qualifiedName(table.qualifiedName());
         String columns = identifiers(primaryKey.columns());
-        String primaryKeyColumns = rawIdentifiers(primaryKey.columns());
-        String logicalConstraintName = primaryKey.name() == null
-                ? "PK_" + table.qualifiedName().name().normalized()
-                : primaryKey.name().value();
-        String logicalIndexName = logicalConstraintName.toUpperCase(Locale.ROOT)
-                .endsWith("_" + primaryKeyColumns.toUpperCase(Locale.ROOT))
-                ? logicalConstraintName
-                : logicalConstraintName + "_" + primaryKeyColumns;
+        String logicalIndexName = LogicalObjectNamingPolicy.primaryKeyIndex(table, primaryKey).value();
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), objectName(logicalIndexName));
         String activeIndexPlacement = dialect.indexTablespaceClause(indexTablespace);
         String physicalIndexComment = physicalCommentRenderer.constraintIndexOptions(
@@ -497,21 +501,13 @@ public final class DdlGenerator {
     }
 
     private String createPrimaryKeyIndex(Table table, PrimaryKey primaryKey) {
-        String defaultName = "PK_" + table.qualifiedName().name().normalized();
-        String indexName = enforcingIndexName(primaryKey.name(), defaultName);
+        String indexName = objectName(LogicalObjectNamingPolicy.primaryKeyIndex(table, primaryKey));
         return createEnforcingUniqueIndex(table, indexName, primaryKey.columns(), primaryKey.physicalOptions());
     }
 
     private String createUniqueKeyIndex(Table table, UniqueKey unique) {
-        String defaultName = "UK_" + table.qualifiedName().name().normalized()
-                + "_" + rawIdentifiers(unique.columns());
-        String indexName = enforcingIndexName(unique.name(), defaultName);
+        String indexName = objectName(LogicalObjectNamingPolicy.uniqueKeyIndex(table, unique));
         return createEnforcingUniqueIndex(table, indexName, unique.columns(), unique.physicalOptions());
-    }
-
-    private String enforcingIndexName(Identifier constraintName, String defaultName) {
-        String base = constraintName == null ? defaultName : constraintName.value();
-        return objectName(base + "_IX");
     }
 
     private String createEnforcingUniqueIndex(
@@ -531,9 +527,7 @@ public final class DdlGenerator {
     }
 
     private String createCheck(Table table, CheckConstraint check) {
-        String name = check.name() == null
-                ? objectName("CHK_" + table.qualifiedName().name().normalized())
-                : objectName(check.name());
+        String name = objectName(LogicalObjectNamingPolicy.checkConstraint(table, check));
         Set<String> unknownColumns = CheckConstraintReferenceAnalyzer.unknownColumns(table, check.expression());
         if (!unknownColumns.isEmpty()) {
             return dialect.warningLine("[BLOCKED CHECK][CHECK-COL-001] " + name
@@ -550,12 +544,12 @@ public final class DdlGenerator {
     }
 
     private String createUnique(Table table, UniqueKey unique) {
-        String name = unique.name() == null
-                ? objectName("UK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(unique.columns()))
-                : objectName(unique.name());
+        String name = objectName(LogicalObjectNamingPolicy.uniqueKey(table, unique));
         String columns = identifiers(unique.columns());
         String tableName = qualifiedName(table.qualifiedName());
-        Index physicalIndex = constraintPhysicalIndex(unique.name(), unique.columns(), unique.physicalOptions());
+        Index physicalIndex = constraintPhysicalIndex(
+                LogicalObjectNamingPolicy.uniqueKeyIndex(table, unique),
+                unique.columns(), unique.physicalOptions());
         String indexTablespace = option(physicalIndex, table, "INDEX_TABLESPACE", "UK_TABLESPACE")
                 .orElseGet(() -> dialect.defaultIndexTablespace(table.qualifiedName()));
         String qualifiedIndexName = dialect.qualifyIndexName(table.qualifiedName(), name);
@@ -572,9 +566,7 @@ public final class DdlGenerator {
     }
 
     private String createForeignKey(Table table, ForeignKey foreignKey, QualifiedName referencedTable) {
-        String name = foreignKey.name() == null
-                ? objectName("FK_" + table.qualifiedName().name().normalized() + "_" + rawIdentifiers(foreignKey.columns()))
-                : objectName(foreignKey.name());
+        String name = objectName(LogicalObjectNamingPolicy.foreignKey(table, foreignKey));
         if (!foreignKey.physicalReference()) {
             return dialect.warningLine("[LOGICAL FOREIGN KEY] " + name + ": "
                     + qualifiedName(table.qualifiedName()) + "(" + identifiers(foreignKey.columns()) + ") -> "
@@ -728,9 +720,7 @@ public final class DdlGenerator {
     }
 
     private String createIndex(Table table, Index index) {
-        String name = index.name() == null
-                ? objectName("IX_" + table.qualifiedName().name().normalized() + "_" + rawIndexColumns(index.columns()))
-                : objectName(index.name());
+        String name = objectName(LogicalObjectNamingPolicy.index(table, index));
         String unique = index.type() == IndexType.UNIQUE ? "UNIQUE " : "";
         String columns = index.columns().stream().map(this::indexColumn).collect(Collectors.joining(","));
         StringBuilder sql = new StringBuilder("CREATE ").append(unique)

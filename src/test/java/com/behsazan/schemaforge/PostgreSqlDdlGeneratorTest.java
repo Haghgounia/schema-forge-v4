@@ -88,13 +88,13 @@ class PostgreSqlDdlGeneratorTest {
         assertTrue(sql.contains("source_timestamp TIMESTAMP(6), -- W:TYPE-TIME"));
         assertTrue(sql.contains("POSTGRESQL_TEMPORAL_PRECISION_BOUNDED"));
         assertTrue(sql.contains("CONSTRAINT pk_customers PRIMARY KEY (customer_id)"));
-        assertTrue(sql.contains("ADD CONSTRAINT uk_customers_code UNIQUE(customer_code)"));
+        assertTrue(sql.contains("ADD CONSTRAINT uk_customers_customer_code UNIQUE(customer_code)"));
         assertTrue(sql.contains("-- POSTGRESQL INDEX PHYSICAL OPTIONS"));
         assertTrue(sql.contains("USING INDEX TABLESPACE its_bim;"));
         assertTrue(sql.contains("CHECK(STATUS IN (0, 1));"));
         assertTrue(sql.contains("USING INDEX TABLESPACE its_bim"));
         assertTrue(sql.contains("REFERENCES bim.branches(branch_id) ON DELETE CASCADE ON UPDATE RESTRICT;"));
-        assertTrue(sql.contains("CREATE INDEX idx_customers_status ON bim.customers(status DESC)"));
+        assertTrue(sql.contains("CREATE INDEX ix_customers_status ON bim.customers(status DESC)"));
         assertTrue(sql.contains("TABLESPACE its_bim;"));
         assertTrue(sql.contains("COMMENT ON TABLE bim.customers IS 'Customer master';"));
         assertTrue(sql.contains("Dialect      : PostgreSql"));
@@ -134,11 +134,11 @@ class PostgreSqlDdlGeneratorTest {
                 DatabaseSchema.builder("BIM").addTable(table).build());
 
         assertTrue(sql.contains("CONSTRAINT pk_country_languages PRIMARY KEY (country_id,language_id)"));
-        assertTrue(sql.contains("ADD CONSTRAINT uk_country_language_priority UNIQUE(country_id,priority)"));
+        assertTrue(sql.contains("ADD CONSTRAINT uk_country_languages_country_id_priority UNIQUE(country_id,priority)"));
         assertTrue(sql.contains("-- POSTGRESQL INDEX PHYSICAL OPTIONS"));
         assertTrue(sql.contains("ON DELETE SET NULL ON UPDATE SET DEFAULT;"));
-        assertTrue(sql.contains("CREATE UNIQUE INDEX idx_country_languages_order ON bim.country_languages(country_id,priority DESC)"));
-        assertFalse(sql.contains("CREATE UNIQUE INDEX bim.idx_country_languages_order"));
+        assertTrue(sql.contains("CREATE UNIQUE INDEX ix_country_languages_country_id_priority ON bim.country_languages(country_id,priority DESC)"));
+        assertFalse(sql.contains("CREATE UNIQUE INDEX bim.ix_country_languages_country_id_priority"));
     }
 
     @Test

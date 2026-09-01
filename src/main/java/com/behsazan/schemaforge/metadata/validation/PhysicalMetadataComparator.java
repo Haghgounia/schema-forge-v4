@@ -7,6 +7,7 @@ import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +28,7 @@ public final class PhysicalMetadataComparator {
             Table expectedTable, Table actualTable, String databaseType) {
         Objects.requireNonNull(expectedTable, "expectedTable must not be null");
         Objects.requireNonNull(actualTable, "actualTable must not be null");
+        expectedTable = new SpecificationNormalizer().normalize(expectedTable);
         String platform = normalizePlatform(databaseType);
         List<PhysicalComparisonRow> rows = new ArrayList<>();
         compareOptionMaps(rows, "TABLE", expectedTable.qualifiedName().toString(),
@@ -44,6 +46,7 @@ public final class PhysicalMetadataComparator {
             Table expectedTable, Table actualTable, String databaseType) {
         Objects.requireNonNull(expectedTable, "expectedTable must not be null");
         Objects.requireNonNull(actualTable, "actualTable must not be null");
+        expectedTable = new SpecificationNormalizer().normalize(expectedTable);
         String platform = normalizePlatform(databaseType);
         if (!"POSTGRESQL".equals(platform)) return List.of();
 
@@ -68,6 +71,7 @@ public final class PhysicalMetadataComparator {
             Table expectedTable, Table actualTable, String databaseType) {
         Objects.requireNonNull(expectedTable, "expectedTable must not be null");
         Objects.requireNonNull(actualTable, "actualTable must not be null");
+        expectedTable = new SpecificationNormalizer().normalize(expectedTable);
         String platform = normalizePlatform(databaseType);
         List<PropertySpec> specs = indexProperties(platform);
         List<PhysicalComparisonRow> rows = new ArrayList<>();

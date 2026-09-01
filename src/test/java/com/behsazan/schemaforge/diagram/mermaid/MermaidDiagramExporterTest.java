@@ -37,7 +37,7 @@ class MermaidDiagramExporterTest {
         assertTrue(mermaid.contains("NUMBER_19_0 CUSTOMER_ID PK"), mermaid);
         assertTrue(mermaid.contains("VARCHAR_100_CHAR NAME"), mermaid);
         assertTrue(mermaid.contains("NUMBER_19_0 CUSTOMER_ID FK"), mermaid);
-        assertTrue(mermaid.contains("SF_TSTSHMA_CUSTOMER ||--o{ SF_TSTSHMA_ACCOUNT : \"FK_ACCOUNT_CUSTOMER\""), mermaid);
+        assertTrue(mermaid.contains("SF_TSTSHMA_CUSTOMER ||--o{ SF_TSTSHMA_ACCOUNT : \"FK_ACCOUNT_CUSTOMER_ID\""), mermaid);
     }
 
     @Test
@@ -66,8 +66,8 @@ class MermaidDiagramExporterTest {
         assertTrue(mermaid.contains("TSTSHMA.ACCOUNT"), mermaid);
         assertTrue(mermaid.contains("TSTSHMA.TXN"), mermaid);
         assertFalse(mermaid.contains("TSTSHMA.TXN_DETAIL"), mermaid);
-        assertTrue(mermaid.contains("SF_TSTSHMA_ACCOUNT -->|FK_ACCOUNT_CUSTOMER| SF_TSTSHMA_CUSTOMER"), mermaid);
-        assertTrue(mermaid.contains("SF_TSTSHMA_TXN -->|FK_TXN_ACCOUNT| SF_TSTSHMA_ACCOUNT"), mermaid);
+        assertTrue(mermaid.contains("SF_TSTSHMA_ACCOUNT -->|FK_ACCOUNT_CUSTOMER_ID| SF_TSTSHMA_CUSTOMER"), mermaid);
+        assertTrue(mermaid.contains("SF_TSTSHMA_TXN -->|FK_TXN_ACCOUNT_ID| SF_TSTSHMA_ACCOUNT"), mermaid);
     }
 
     @Test
@@ -82,7 +82,7 @@ class MermaidDiagramExporterTest {
         String mermaid = exporter.export(sampleTables(), options);
 
         assertTrue(mermaid.contains("TSTSHMA.TXN_DETAIL"), mermaid);
-        assertTrue(mermaid.contains("SF_TSTSHMA_TXN_DETAIL -->|FK_DETAIL_TXN| SF_TSTSHMA_TXN"), mermaid);
+        assertTrue(mermaid.contains("SF_TSTSHMA_TXN_DETAIL -->|FK_TXN_DETAIL_TXN_ID| SF_TSTSHMA_TXN"), mermaid);
     }
 
     @Test
@@ -134,14 +134,14 @@ class MermaidDiagramExporterTest {
                 .type(DiagramType.DEPENDENCY)
                 .build();
         String defaultDiagram = exporter.export(List.of(parent, child), defaultOptions);
-        assertFalse(defaultDiagram.contains("LFK_CUSTOMER"), defaultDiagram);
+        assertFalse(defaultDiagram.contains("FK_LOGICAL_CHILD_CUSTOMER_ID"), defaultDiagram);
 
         DiagramExportOptions includeLogical = DiagramExportOptions.builder()
                 .type(DiagramType.DEPENDENCY)
                 .includeLogicalForeignKeys(true)
                 .build();
         String logicalDiagram = exporter.export(List.of(parent, child), includeLogical);
-        assertTrue(logicalDiagram.contains("SF_TSTSHMA_LOGICAL_CHILD -.->|LFK_CUSTOMER| SF_TSTSHMA_CUSTOMER"), logicalDiagram);
+        assertTrue(logicalDiagram.contains("SF_TSTSHMA_LOGICAL_CHILD -.->|FK_LOGICAL_CHILD_CUSTOMER_ID| SF_TSTSHMA_CUSTOMER"), logicalDiagram);
     }
 
 
@@ -171,7 +171,7 @@ class MermaidDiagramExporterTest {
 
         assertTrue(mermaid.startsWith("erDiagram\n"), mermaid);
         assertTrue(mermaid.contains(
-                "SF_TSTSHMA_CUSTOMER ||--o| SF_TSTSHMA_CUSTOMER_PROFILE : \"FK_PROFILE_CUSTOMER\""),
+                "SF_TSTSHMA_CUSTOMER ||--o| SF_TSTSHMA_CUSTOMER_PROFILE : \"FK_CUSTOMER_PROFILE_CUSTOMER_ID\""),
                 mermaid);
         assertFalse(mermaid.contains("NUMBER_19_0"), mermaid);
         assertFalse(mermaid.contains("CUSTOMER_ID PK"), mermaid);
@@ -188,7 +188,7 @@ class MermaidDiagramExporterTest {
 
         String mermaid = exporter.export(List.of(orphan), DiagramExportOptions.erAll());
 
-        assertTrue(mermaid.contains("%% unresolved FK: TSTSHMA.ORPHAN.FK_ORPHAN_PARENT -> MISSING_PARENT"), mermaid);
+        assertTrue(mermaid.contains("%% unresolved FK: TSTSHMA.ORPHAN.FK_ORPHAN_PARENT_ID -> MISSING_PARENT"), mermaid);
     }
 
     @Test

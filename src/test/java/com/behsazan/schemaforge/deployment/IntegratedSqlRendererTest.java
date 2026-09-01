@@ -51,8 +51,8 @@ class IntegratedSqlRendererTest {
 
         assertCommonPhases(script);
         String phase2 = String.join("\n", script.phase2TableLocalStatements());
-        assertTrue(phase2.contains("CREATE INDEX ix_child_parent ON tstshma.child"), phase2);
-        assertFalse(phase2.contains("CREATE INDEX tstshma.ix_child_parent"), phase2);
+        assertTrue(phase2.contains("CREATE INDEX ix_child_parent_id ON tstshma.child"), phase2);
+        assertFalse(phase2.contains("CREATE INDEX tstshma.ix_child_parent_id"), phase2);
     }
 
     @Test

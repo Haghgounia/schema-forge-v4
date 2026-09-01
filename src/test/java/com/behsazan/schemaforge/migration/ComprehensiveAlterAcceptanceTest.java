@@ -127,16 +127,16 @@ class ComprehensiveAlterAcceptanceTest {
     private static Table fullStructure(String variant) {
         boolean b = "B".equals(variant);
         return baseStructureBuilder()
-                .primaryKey(new PrimaryKey(Identifier.of("PK_R75"),
+                .primaryKey(new PrimaryKey(Identifier.of("PK_R75_MATRIX"),
                         b ? List.of(Identifier.of("ID"), Identifier.of("CODE")) : List.of(Identifier.of("ID"))))
-                .addUniqueKey(new UniqueKey(Identifier.of("UK_R75_CODE"),
-                        b ? List.of(Identifier.of("CODE"), Identifier.of("STATUS")) : List.of(Identifier.of("CODE"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_R75_STATUS"),
+                .addUniqueKey(new UniqueKey(Identifier.of("UK_R75_MATRIX_CODE"),
+                        List.of(Identifier.of("CODE")), b, b))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_R75_MATRIX_STATUS"),
                         b ? "STATUS IN ('A','I','S')" : "STATUS IN ('A','I')"))
-                .addIndex(new Index(Identifier.of("IX_R75_STATUS"),
-                        List.of(new IndexColumn(b ? Identifier.of("CODE") : Identifier.of("STATUS"), SortDirection.ASC)),
+                .addIndex(new Index(Identifier.of("IX_R75_MATRIX_STATUS"),
+                        List.of(new IndexColumn(Identifier.of("STATUS"), b ? SortDirection.DESC : SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))
-                .addForeignKey(new ForeignKey(Identifier.of("FK_R75_PARENT"),
+                .addForeignKey(new ForeignKey(Identifier.of("FK_R75_MATRIX_PARENT_ID"),
                         List.of(Identifier.of("PARENT_ID")), QualifiedName.of("APP", "R75_MATRIX"),
                         List.of(Identifier.of("ID")),
                         b ? ReferentialAction.CASCADE : ReferentialAction.NO_ACTION,

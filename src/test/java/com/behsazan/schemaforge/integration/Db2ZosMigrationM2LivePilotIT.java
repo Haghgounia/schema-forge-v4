@@ -243,7 +243,7 @@ class Db2ZosMigrationM2LivePilotIT {
                 .addUniqueKey(new UniqueKey(
                         Identifier.of("UK_SF_M2_CHILD_CODE"), List.of(Identifier.of("CODE"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_SF_M2_CHILD_STATUS"), "ID > 0"))
+                        Identifier.of("CHK_SF_M2_CHILD_STATUS"), "ID > 0"))
                 .addIndex(index("IX_SF_M2_CHILD_PARENT", "PARENT_ID"))
                 .addIndex(index("IX_SF_M2_CHILD_STATUS", "STATUS"))
                 .addForeignKey(new ForeignKey(
@@ -274,7 +274,7 @@ class Db2ZosMigrationM2LivePilotIT {
                         Identifier.of("UK_SF_M2_CHILD_CODE"),
                         List.of(Identifier.of("CODE"), Identifier.of("STATUS"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_SF_M2_CHILD_STATUS"),
+                        Identifier.of("CHK_SF_M2_CHILD_STATUS"),
                         "(ID > 0) AND (PARENT_ID > 0)"))
                 .addIndex(index("IX_SF_M2_CHILD_PARENT", "PARENT_ID"))
                 .addIndex(index("IX_SF_M2_CHILD_CODE", "CODE"))

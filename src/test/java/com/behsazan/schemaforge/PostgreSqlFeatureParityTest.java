@@ -84,12 +84,13 @@ class PostgreSqlFeatureParityTest {
         assertTrue(sql.contains("total_amount NUMERIC(18,2) GENERATED ALWAYS AS (AMOUNT + TAX_AMOUNT) STORED"));
         assertTrue(sql.contains("PRIMARY KEY (order_id)"));
         assertTrue(sql.contains("USING INDEX TABLESPACE its_bim DEFERRABLE INITIALLY IMMEDIATE"));
-        assertTrue(sql.contains("UNIQUE(reference_code)"));
+        assertTrue(sql.contains("ADD CONSTRAINT uk_orders_reference_code UNIQUE(reference_code)"));
         assertTrue(sql.contains("USING INDEX TABLESPACE its_bim DEFERRABLE INITIALLY DEFERRED;"));
+        assertTrue(sql.contains("ADD CONSTRAINT fk_orders_customer_id FOREIGN KEY (customer_id)"));
         assertTrue(sql.contains("REFERENCES bim.customers(customer_id) DEFERRABLE INITIALLY DEFERRED;"));
-        assertTrue(sql.contains("CREATE INDEX idx_orders_active_customer ON bim.orders(customer_id) INCLUDE (reference_code,total_amount)"));
+        assertTrue(sql.contains("CREATE INDEX ix_orders_customer_id ON bim.orders(customer_id) INCLUDE (reference_code,total_amount)"));
         assertTrue(sql.contains("TABLESPACE its_bim WHERE STATUS = 'OPEN';"));
-        assertTrue(sql.contains("CREATE INDEX idx_orders_reference_lower ON bim.orders((LOWER(REFERENCE_CODE)))"));
+        assertTrue(sql.contains("CREATE INDEX ix_orders_expr_42fa04bf ON bim.orders((LOWER(REFERENCE_CODE)))"));
         assertTrue(sql.contains("TABLESPACE its_bim;"));
     }
 }

@@ -233,7 +233,7 @@ class OracleMigrationM2LivePilotIT {
                       LEGACY_NOTE VARCHAR2(20 CHAR),
                       CONSTRAINT PK_SF_M2_CHILD PRIMARY KEY (ID),
                       CONSTRAINT UK_SF_M2_CHILD_CODE UNIQUE (CODE),
-                      CONSTRAINT CK_SF_M2_CHILD_STATUS CHECK (STATUS IN ('A','I')),
+                      CONSTRAINT CHK_SF_M2_CHILD_STATUS CHECK (STATUS IN ('A','I')),
                       CONSTRAINT FK_SF_M2_CHILD_PARENT FOREIGN KEY (PARENT_ID)
                         REFERENCES %s.%s (ID)
                     )
@@ -276,7 +276,7 @@ class OracleMigrationM2LivePilotIT {
                         List.of(Identifier.of("CODE"), Identifier.of("STATUS")),
                         false, false, indexPhysical(tablespace)))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_SF_M2_CHILD_STATUS"),
+                        Identifier.of("CHK_SF_M2_CHILD_STATUS"),
                         "STATUS IN ('A','I','S')"))
                 .addIndex(index("IX_SF_M2_CHILD_PARENT", "PARENT_ID", tablespace))
                 .addIndex(index("IX_SF_M2_CHILD_CODE", "CODE", tablespace))

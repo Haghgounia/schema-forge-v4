@@ -26,7 +26,7 @@ public final class PhysicalObjectNamePolicy {
     private static final int DEFAULT_MAX = 128;
     private static final int POSTGRESQL_MAX = 63;
     private static final int MYSQL_MAX = 64;
-    private static final int HASH_HEX_LENGTH = 10;
+    private static final int HASH_HEX_LENGTH = 12;
 
     private PhysicalObjectNamePolicy() {
     }
@@ -73,8 +73,6 @@ public final class PhysicalObjectNamePolicy {
             throw new IllegalArgumentException("identifier maximum length is too small: " + maximumLength);
         }
         String stem = value.substring(0, stemLength);
-        while (stem.endsWith("_")) stem = stem.substring(0, stem.length() - 1);
-        if (stem.isEmpty()) stem = value.substring(0, stemLength);
         return stem + "_" + hash;
     }
 

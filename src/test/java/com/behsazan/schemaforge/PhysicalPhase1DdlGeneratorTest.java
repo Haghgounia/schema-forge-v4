@@ -99,8 +99,8 @@ class PhysicalPhase1DdlGeneratorTest {
         DatabaseSchema schema = schemaWithPlacementAndForeignKeys();
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
 
-        assertFalse(db2.contains("Foreign key FK_PARENT has no supporting index"));
-        assertTrue(db2.contains("Foreign key FK_BIC has no supporting index"));
+        assertFalse(db2.contains("Foreign key FK_PHYSICAL_TESTS_PARENT_ID has no supporting index"));
+        assertTrue(db2.contains("Foreign key FK_PHYSICAL_TESTS_BIC has no supporting index"));
         assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
         assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
     }
@@ -300,8 +300,8 @@ class PhysicalPhase1DdlGeneratorTest {
         String sql = new DdlGenerator(new OracleDialect())
                 .generate(DatabaseSchema.builder("ACC").addTable(table).build());
 
-        assertFalse(sql.contains("Foreign key FK_AB has no supporting index"));
-        assertTrue(sql.contains("Foreign key FK_XY has no supporting index"));
+        assertFalse(sql.contains("Foreign key FK_COMPOSITE_FK_TESTS_A_B has no supporting index"));
+        assertTrue(sql.contains("Foreign key FK_COMPOSITE_FK_TESTS_X_Y has no supporting index"));
     }
 
     @Test

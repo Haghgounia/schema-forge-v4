@@ -123,7 +123,7 @@ class Db2ZosLiveIT {
                 .addUniqueKey(new UniqueKey(
                         Identifier.of("UK_" + tableName), List.of(Identifier.of("CODE"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_" + tableName), "ACTIVE IN (0, 1)"))
+                        Identifier.of("CHK_" + tableName), "ACTIVE IN (0, 1)"))
                 .build();
         Sequence sequence = new Sequence(
                 QualifiedName.of(schema, sequenceName),

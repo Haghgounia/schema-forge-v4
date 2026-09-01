@@ -140,7 +140,7 @@ class IntegratedSchemaDeploymentPlannerTest {
     }
 
     @Test
-    void ordersForeignKeysDeterministicallyByOwnerAndConstraintName() {
+    void ordersForeignKeysDeterministicallyByOwnerAndFormulaName() {
         Table parent = tableWithPrimaryKey("TSTSHMA", "PARENT");
         Table child = Table.builder("TSTSHMA", "CHILD")
                 .addColumn(column("ID"))
@@ -157,7 +157,7 @@ class IntegratedSchemaDeploymentPlannerTest {
 
         IntegratedSchemaDeploymentPlan plan = planner.plan(schema(parent, child));
 
-        assertEquals(List.of("FK_A", "FK_Z"), plan.phase3ForeignKeys().stream()
+        assertEquals(List.of("FK_CHILD_P1_ID", "FK_CHILD_P2_ID"), plan.phase3ForeignKeys().stream()
                 .map(deployment -> deployment.foreignKey().name().value()).toList());
     }
 

@@ -80,8 +80,11 @@ class Db2LuwLiveAcceptanceIT {
         String suffix = Long.toString(Instant.now().toEpochMilli(), 36).toUpperCase(Locale.ROOT);
         String tableName = "SFV_" + suffix;
         String sequenceName = "SFS_" + suffix;
-        String indexName = "IX_" + suffix;
-        DatabaseSchema model = smokeModel(schema, tableName, sequenceName, indexName);
+        String sourceIndexName = "SOURCE_IX_" + suffix;
+        String uniqueKeyName = "UK_" + tableName + "_CODE";
+        String checkName = "CHK_" + tableName + "_ACTIVE";
+        String indexName = "IX_" + tableName + "_ACTIVE";
+        DatabaseSchema model = smokeModel(schema, tableName, sequenceName, sourceIndexName);
 
         String sql = new DdlGenerator(new Db2LuwDialect()).generate(
                 model, new ValidationReport(true, List.of()), repository);
@@ -113,9 +116,9 @@ class Db2LuwLiveAcceptanceIT {
                 assertEquals(3, live.columns().size());
                 assertNotNull(live.primaryKey().orElse(null));
                 assertTrue(live.uniqueKeys().stream().anyMatch(key -> key.name() != null
-                        && key.name().value().equals("UK_" + tableName)));
+                        && key.name().value().equals(uniqueKeyName)));
                 assertTrue(live.checkConstraints().stream().anyMatch(check -> check.name() != null
-                        && check.name().value().equals("CK_" + tableName)));
+                        && check.name().value().equals(checkName)));
                 assertTrue(live.indexes().stream().anyMatch(index -> index.name().value().equals(indexName)));
                 assertTrue(live.physicalOptions().containsKey("TABLESPACE"),
                         "Db2 LUW physical metadata must expose the catalog tablespace.");
@@ -132,7 +135,7 @@ class Db2LuwLiveAcceptanceIT {
         }
     }
 
-    private DatabaseSchema smokeModel(String schema, String tableName, String sequenceName, String indexName) {
+    private DatabaseSchema smokeModel(String schema, String tableName, String sequenceName, String sourceIndexName) {
         Column id = new Column(
                 Identifier.of("ID"),
                 DataType.numeric("NUMBER", 9, 0),
@@ -164,13 +167,13 @@ class Db2LuwLiveAcceptanceIT {
                 .addColumn(code)
                 .addColumn(active)
                 .primaryKey(new PrimaryKey(
-                        Identifier.of("PK_" + tableName), List.of(Identifier.of("ID"))))
+                        Identifier.of("SOURCE_PK_NAME"), List.of(Identifier.of("ID"))))
                 .addUniqueKey(new UniqueKey(
-                        Identifier.of("UK_" + tableName), List.of(Identifier.of("CODE"))))
+                        Identifier.of("SOURCE_UK_NAME"), List.of(Identifier.of("CODE"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_" + tableName), "ACTIVE IN (0, 1)"))
+                        Identifier.of("SOURCE_CHECK_NAME"), "ACTIVE IN (0, 1)"))
                 .addIndex(new Index(
-                        Identifier.of(indexName),
+                        Identifier.of(sourceIndexName),
                         List.of(new IndexColumn(Identifier.of("ACTIVE"), SortDirection.ASC)),
                         IndexType.NORMAL,
                         Description.empty()))

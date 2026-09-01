@@ -508,7 +508,10 @@ public final class MigrationSqlRenderer {
     private List<String> renderObjectDrop(
             TableMigrationPlan plan, Dialect dialect, TableObjectChange change) {
         String tableName = qualifiedName(dialect, plan.desiredTable().qualifiedName());
-        Identifier name = change.objectName();
+        // DROP/REPLACE must address the actual live object name. The desired/formula name belongs
+        // to the ADD/RENAME side and may not exist yet in the database.
+        Identifier name = objectName(change.before(), change.objectType());
+        if (name == null) name = change.objectName();
         if (change.objectType() != TableObjectType.PRIMARY_KEY && name == null) {
             throw new UnsupportedOperationException("live object has no resolvable name");
         }

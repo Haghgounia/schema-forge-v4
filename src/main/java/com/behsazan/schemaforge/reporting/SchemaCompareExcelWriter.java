@@ -18,6 +18,7 @@ import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
 import com.behsazan.schemaforge.metadata.validation.PhysicalComparisonRow;
 import com.behsazan.schemaforge.metadata.validation.PhysicalComparisonStatus;
 import com.behsazan.schemaforge.metadata.validation.PhysicalMetadataComparator;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -129,6 +130,10 @@ public final class SchemaCompareExcelWriter {
         Objects.requireNonNull(databaseTable, "databaseTable must not be null");
         Objects.requireNonNull(databaseType, "databaseType must not be null");
         Objects.requireNonNull(dialect, "dialect must not be null");
+
+        // Design/source object names are never authoritative. Normalize only the expected/document
+        // side; database metadata names must remain untouched so comparison can report/rename them.
+        documentTable = new SpecificationNormalizer().normalize(documentTable);
 
         Map<String, Long> usageCounts = normalizeUsage(columnUsageCounts);
 

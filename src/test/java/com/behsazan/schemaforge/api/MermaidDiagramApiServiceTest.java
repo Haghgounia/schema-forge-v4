@@ -54,7 +54,7 @@ class MermaidDiagramApiServiceTest {
         GeneratedMermaidDiagram artifact = new MermaidDiagramApiService().generate(zip, options);
 
         assertEquals(2, artifact.inputTableCount());
-        assertTrue(artifact.content().contains("FK_ACCOUNT_CUSTOMER"), artifact.content());
+        assertTrue(artifact.content().contains("FK_ACCOUNT_CUSTOMER_ID"), artifact.content());
         assertEquals(ArtifactType.MERMAID_DIAGRAM, artifact.artifact().type());
         assertEquals(ArtifactStatus.GENERATED, artifact.artifact().status());
         assertTrue(artifact.artifact().platformNeutral());

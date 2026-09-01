@@ -56,9 +56,9 @@ class RunAllOrderingAcceptanceTest {
                 plan.phase1Tables().stream().map(table -> table.qualifiedName().toString()).toList());
 
         assertEquals(List.of(
-                        "FK_LEAF_AUX",
-                        "FK_LEAF_MID",
-                        "FK_MID_ROOT"),
+                        "FK_LEAF_CHILD_AUX_ID",
+                        "FK_LEAF_CHILD_MID_ID",
+                        "FK_MID_PARENT_ROOT_ID1_ROOT_ID2"),
                 plan.phase3ForeignKeys().stream()
                         .map(deployment -> deployment.foreignKey().name().value())
                         .toList());

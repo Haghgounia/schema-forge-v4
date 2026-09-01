@@ -109,6 +109,13 @@ class SchemaForgeApiServiceRegressionTest {
         JsonNode table = json.path("schema").path("tables").get(0);
         assertEquals(20, table.path("columns").size());
         assertEquals(3, table.path("foreignKeys").size());
+        assertEquals("PK_PROVINCES", table.path("primaryKey").path("name").asText());
+        assertEquals("UK_PROVINCES_PROVINCE_CODE",
+                table.path("uniqueKeys").get(0).path("name").asText());
+        assertTrue(table.path("foreignKeys").toString().contains("FK_PROVINCES_LANGUAGE_ID"));
+        assertTrue(table.path("foreignKeys").toString().contains("FK_PROVINCES_COUNTRY_ID"));
+        assertTrue(table.path("foreignKeys").toString().contains("FK_PROVINCES_CALENDAR_ID"));
+        assertFalse(table.path("uniqueKeys").toString().contains("_U1"));
         assertTrue(table.path("columns").toString().contains("LANGUAGE_ID"));
         assertTrue(table.path("columns").toString().contains("COUNTRY_ID"));
         assertTrue(table.path("columns").toString().contains("CALENDAR_ID"));
@@ -118,6 +125,9 @@ class SchemaForgeApiServiceRegressionTest {
         String db2ZosSql = new String(entries.get(db2ZosName));
         String sqlServerSql = new String(entries.get(sqlServerName));
         String mysqlSql = new String(entries.get(mysqlName));
+        assertTrue(oracleSql.contains("PK_PROVINCES"));
+        assertTrue(oracleSql.contains("UK_PROVINCES_PROVINCE_CODE"));
+        assertFalse(oracleSql.contains("UK_PROVINCES_U1"));
         assertTrue(oracleSql.contains("FK_PROVINCES_LANGUAGE_ID"));
         assertTrue(oracleSql.contains("FK_PROVINCES_COUNTRY_ID"));
         assertTrue(oracleSql.contains("[LOGICAL FOREIGN KEY] FK_PROVINCES_CALENDAR_ID"));

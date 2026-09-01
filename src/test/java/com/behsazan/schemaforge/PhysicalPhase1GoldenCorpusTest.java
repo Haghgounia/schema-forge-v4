@@ -75,7 +75,7 @@ class PhysicalPhase1GoldenCorpusTest {
         assertTrue(db2.contains("IS_MANDATORY DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
         assertTrue(db2.contains("IS_REPEATABLE DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
         assertTrue(db2.contains("IS_ACTIVE DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
-        assertTrue(db2.contains("CREATE UNIQUE INDEX ACC.UK_VTHR_02_IX"));
+        assertTrue(db2.contains("CREATE UNIQUE INDEX ACC.UK_VOUCHER_TEMPLATE_HEADER_ROWS_VOUCHER_TEMPLATE_HEADER_ROW_NAME"));
         assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
         assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
         assertTrue(db2.contains("TABLE PLACEMENT=<DATABASE>.<TABLESPACE>"));
@@ -95,8 +95,8 @@ class PhysicalPhase1GoldenCorpusTest {
         assertFalse(db2.contains("PERMIT_AMNT DECIMAL(20,5) WITH DEFAULT"));
         assertFalse(db2.contains("USED_AMNT DECIMAL(20,5) WITH DEFAULT"));
 
-        assertFalse(db2.contains("Foreign key FK_SOURCE_PERMISSION has no supporting index"));
-        assertTrue(db2.contains("Foreign key FK_CORRESPONDENT has no supporting index"));
+        assertFalse(db2.contains("Foreign key FK_CTM_SOURCE_PERMISSION_DETAIL_PERMIT_NO has no supporting index"));
+        assertTrue(db2.contains("Foreign key FK_CTM_SOURCE_PERMISSION_DETAIL_BIC has no supporting index"));
         assertTrue(db2.contains("[PHYS-FK-INDEX-001]"));
 
         assertTrue(db2.contains("BIC VARCHAR(11) FOR MIXED DATA"));
@@ -156,10 +156,10 @@ class PhysicalPhase1GoldenCorpusTest {
                                 Identifier.of("VOUCHER_TEMPLATE_HEADER_ROW_CODE"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_VTHR_02"),
                         List.of(Identifier.of("VOUCHER_TEMPLATE_HEADER_ROW_NAME"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_VTHR_MANDATORY"), "IS_MANDATORY IN (0,1)"))
-                .addCheck(new CheckConstraint(Identifier.of("CK_VTHR_REPEATABLE"), "IS_REPEATABLE IN (0,1)"))
-                .addCheck(new CheckConstraint(Identifier.of("CK_VTHR_ARTICLE_NATURE"), "ARTICLE_NATURE IN (1,2)"))
-                .addCheck(new CheckConstraint(Identifier.of("CK_VTHR_ACTIVE"), "IS_ACTIVE IN (0,1)"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_VTHR_MANDATORY"), "IS_MANDATORY IN (0,1)"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_VTHR_REPEATABLE"), "IS_REPEATABLE IN (0,1)"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_VTHR_ARTICLE_NATURE"), "ARTICLE_NATURE IN (1,2)"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_VTHR_ACTIVE"), "IS_ACTIVE IN (0,1)"))
                 .addIndex(new Index(Identifier.of("IX_VTHR_01"),
                         List.of(new IndexColumn(Identifier.of("VOUCHER_TEMPLATE_HEADER_ID"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))

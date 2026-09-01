@@ -3,6 +3,7 @@ package com.behsazan.schemaforge.specification.json;
 import com.behsazan.schemaforge.domain.model.*;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,12 +20,13 @@ public final class JsonExporter {
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     public void write(Path output, DatabaseSchema schema, ValidationReport validation) throws IOException {
+        DatabaseSchema normalized = new SpecificationNormalizer().normalize(schema);
         List<ValidationIssue> issues =
-                SqlIssueCatalog.from(schema, validation).all();
+                SqlIssueCatalog.from(normalized, validation).all();
         ValidationReport completeValidation = new ValidationReport(
                 issues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 issues);
-        mapper.writeValue(output.toFile(), document(schema, completeValidation));
+        mapper.writeValue(output.toFile(), document(normalized, completeValidation));
     }
 
     private Map<String, Object> document(DatabaseSchema schema, ValidationReport validation) {

@@ -49,7 +49,7 @@ class EnterpriseArchitectXmlParserTest {
             assertEquals("PK_REGULATORY_RULE", rule.primaryKey().orElseThrow().name().value());
             assertEquals(1, rule.foreignKeys().size());
             var foreignKey = rule.foreignKeys().get(0);
-            assertEquals("FK_RULE_FEE_VERSION", foreignKey.name().value());
+            assertEquals("FK_REGULATORY_RULE_FEE_VERSION_ID", foreignKey.name().value());
             assertEquals("FEE.FEE_VERSION", foreignKey.referencedTable().toString());
             assertEquals("FEE_VERSION_ID", foreignKey.referencedColumns().get(0).value());
             assertEquals(ReferentialAction.CASCADE, foreignKey.onDelete());
@@ -101,7 +101,7 @@ class EnterpriseArchitectXmlParserTest {
                                 <UML:Parameter name="ID" kind="in"/>
                               </UML:BehavioralFeature.parameter>
                             </UML:Operation>
-                            <UML:Operation name="CK_SAMPLE_TABLE_ID">
+                            <UML:Operation name="CHK_SAMPLE_TABLE_ID">
                               <UML:ModelElement.stereotype>
                                 <UML:Stereotype name="check"/>
                               </UML:ModelElement.stereotype>
@@ -258,7 +258,7 @@ class EnterpriseArchitectXmlParserTest {
         var child = schema.findTable("CHILD_TABLE").orElseThrow();
         assertEquals(1, child.foreignKeys().size());
         var foreignKey = child.foreignKeys().getFirst();
-        assertEquals("FK_CHILD_PARENT", foreignKey.name().value());
+        assertEquals("FK_CHILD_TABLE_PARENT_ID", foreignKey.name().value());
         assertEquals("PARENT_ID", foreignKey.columns().getFirst().value());
         assertEquals("FEE.PARENT_TABLE", foreignKey.referencedTable().toString());
         assertEquals("PARENT_ID", foreignKey.referencedColumns().getFirst().value());
@@ -374,7 +374,7 @@ class EnterpriseArchitectXmlParserTest {
 
 
     @Test
-    void shouldPreserveRepeatedUnderscoresInEaObjectNames() {
+    void shouldIgnoreEaIndexNameAndApplyCrossServiceFormula() {
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
@@ -414,7 +414,7 @@ class EnterpriseArchitectXmlParserTest {
 
         var table = schema.findTable("PATTERN_OPERATION_DETAIL").orElseThrow();
         assertEquals(1, table.indexes().size());
-        assertEquals("IX_PATTERN_OPERATION__2", table.indexes().getFirst().name().value());
+        assertEquals("IX_PATTERN_OPERATION_DETAIL_SUB_OPERATION_ID", table.indexes().getFirst().name().value());
     }
 
 

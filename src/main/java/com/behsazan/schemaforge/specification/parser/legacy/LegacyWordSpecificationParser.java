@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.specification.parser.legacy;
 
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
@@ -178,7 +179,7 @@ public final class LegacyWordSpecificationParser {
         } else {
             schema.metadata("recovery.warningCount", "0");
         }
-        return schema.build();
+        return new SpecificationNormalizer().normalize(schema.build());
     }
 
     private CanonicalColumn toCanonicalColumn(

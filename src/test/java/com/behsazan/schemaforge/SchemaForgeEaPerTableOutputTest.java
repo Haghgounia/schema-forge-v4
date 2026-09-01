@@ -101,6 +101,29 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("ddl/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
         assertTrue(entries.containsKey("ddl/mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.sql"));
 
+        String oracleRegulatoryRule = new String(
+                entries.get("ddl/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.sql"),
+                StandardCharsets.UTF_8);
+        assertTrue(oracleRegulatoryRule.contains("PK_REGULATORY_RULE"), oracleRegulatoryRule);
+        assertTrue(oracleRegulatoryRule.contains("FK_REGULATORY_RULE_FEE_VERSION_ID"), oracleRegulatoryRule);
+        assertTrue(oracleRegulatoryRule.contains(
+                "IX_REGULATORY_RULE_FEE_VERSION_ID_RULE_DESCRIPTION"), oracleRegulatoryRule);
+        assertFalse(oracleRegulatoryRule.contains("FK_RULE_FEE_VERSION"), oracleRegulatoryRule);
+        assertFalse(oracleRegulatoryRule.contains("IX_RULE_FEE_VERSION"), oracleRegulatoryRule);
+
+        JsonNode canonical = objectMapper.readTree(entries.get(modelName));
+        boolean regulatoryRuleFound = false;
+        for (JsonNode table : canonical.path("schema").path("tables")) {
+            if (!"REGULATORY_RULE".equals(table.path("name").asText())) continue;
+            regulatoryRuleFound = true;
+            assertEquals("PK_REGULATORY_RULE", table.path("primaryKey").path("name").asText());
+            assertEquals("FK_REGULATORY_RULE_FEE_VERSION_ID",
+                    table.path("foreignKeys").get(0).path("name").asText());
+            assertEquals("IX_REGULATORY_RULE_FEE_VERSION_ID_RULE_DESCRIPTION",
+                    table.path("indexes").get(0).path("name").asText());
+        }
+        assertTrue(regulatoryRuleFound, "REGULATORY_RULE missing from canonical JSON");
+
         String oracleRunAllName = "scripts/oracle/ea-sample_" + timestamp + ".oracle.run-all.sql";
         String postgresqlRunAllName = "scripts/postgresql/ea-sample_" + timestamp + ".postgresql.run-all.sql";
         String db2ZosRunAllName = "scripts/db2zos/ea-sample_" + timestamp + ".db2zos.run-all.sql";

@@ -2,7 +2,9 @@ package com.behsazan.schemaforge.validation.constraint;
 
 import com.behsazan.schemaforge.domain.model.Table;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -41,6 +43,23 @@ public final class CheckConstraintReferenceAnalyzer {
             unknown.add(token);
         }
         return Set.copyOf(unknown);
+    }
+
+    /** Returns referenced table columns in first-occurrence order. */
+    public static List<String> referencedColumns(Table table, String expression) {
+        if (expression == null || expression.isBlank()) return List.of();
+        Set<String> columns = new LinkedHashSet<>();
+        table.columns().forEach(column -> columns.add(column.name().normalized()));
+
+        String source = maskStringLiterals(expression);
+        Matcher matcher = TOKEN.matcher(source);
+        Set<String> referenced = new LinkedHashSet<>();
+        while (matcher.find()) {
+            String token = matcher.group().toUpperCase(Locale.ROOT);
+            if (!columns.contains(token)) continue;
+            referenced.add(token);
+        }
+        return List.copyOf(new ArrayList<>(referenced));
     }
 
     public static boolean valid(Table table, String expression) {

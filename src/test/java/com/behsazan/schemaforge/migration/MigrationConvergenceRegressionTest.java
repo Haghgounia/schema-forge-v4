@@ -14,6 +14,7 @@ import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
+import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -68,19 +69,18 @@ class MigrationConvergenceRegressionTest {
     }
 
     @Test
-    void recognizesShortenedPhysicalObjectNameAsSameDesiredIndex() {
-        String logicalName = "IX_PRODUCT_WITH_A_VERY_LONG_BUSINESS_NAME_AND_A_VERY_LONG_COLUMN_NAME_FOR_LOOKUP";
-        Identifier physical = PhysicalObjectNamePolicy.physicalIdentifier(
-                DatabasePlatform.POSTGRESQL, Identifier.of(logicalName));
-        Column id = Column.required("ID", DataType.numeric("NUMERIC", 19, 0));
-        Index liveIndex = new Index(physical,
-                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+    void recognizesShortenedPhysicalObjectNameAsSameDesiredFormulaIndex() {
+        String tableName = "PRODUCT_WITH_A_VERY_LONG_BUSINESS_NAME_AND_LOOKUP_SUFFIX";
+        String columnName = "REFERENCE_COLUMN_WITH_AN_EXTREMELY_LONG_NAME";
+        Column column = Column.required(columnName, DataType.numeric("NUMERIC", 19, 0));
+        Index desiredIndex = new Index(Identifier.of("SOURCE_INDEX_NAME_MUST_BE_IGNORED"),
+                List.of(new IndexColumn(Identifier.of(columnName), SortDirection.ASC)),
                 IndexType.NORMAL, Description.empty());
-        Index desiredIndex = new Index(Identifier.of(logicalName),
-                List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
-                IndexType.NORMAL, Description.empty());
-        Table live = Table.builder("APP", "PRODUCT").addColumn(id).addIndex(liveIndex).build();
-        Table desired = Table.builder("APP", "PRODUCT").addColumn(id).addIndex(desiredIndex).build();
+        Table desired = Table.builder("APP", tableName).addColumn(column).addIndex(desiredIndex).build();
+        Identifier logical = LogicalObjectNamingPolicy.index(desired, desiredIndex);
+        Identifier physical = PhysicalObjectNamePolicy.physicalIdentifier(DatabasePlatform.POSTGRESQL, logical);
+        Index liveIndex = new Index(physical, desiredIndex.columns(), IndexType.NORMAL, Description.empty());
+        Table live = Table.builder("APP", tableName).addColumn(column).addIndex(liveIndex).build();
 
         TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.POSTGRESQL, live, desired);
 
@@ -107,7 +107,7 @@ class MigrationConvergenceRegressionTest {
     }
 
     @Test
-    void oracleRendersNameOnlyIndexDriftAsRenameInsteadOfDropCreate() {
+    void oracleRenamesLiveNonstandardIndexToTheFormulaName() {
         Column id = Column.required("ID", DataType.numeric("NUMBER", 19, 0));
         Index liveIndex = new Index(Identifier.of("IX_PATTERN_OPERATION_51"),
                 List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
@@ -125,7 +125,8 @@ class MigrationConvergenceRegressionTest {
         assertEquals(TableObjectChangeKind.RENAME, plan.objectChanges().getFirst().kind());
 
         String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
-        assertTrue(sql.contains("ALTER INDEX PDL.IX_PATTERN_OPERATION_51 RENAME TO IX_PATTERN_OPERATION__51;"), sql);
+        assertTrue(sql.contains("ALTER INDEX PDL.IX_PATTERN_OPERATION_51 RENAME TO IX_PATTERN_OPERATION_DETAIL_ID;"), sql);
+        assertTrue(!sql.contains("IX_PATTERN_OPERATION__51"), sql);
         assertTrue(!sql.contains("DROP INDEX"), sql);
         assertTrue(!sql.contains("CREATE INDEX"), sql);
     }

@@ -91,14 +91,14 @@ class SchemaCompareExcelWriterTest {
         Table document = Table.builder("BIM", "FLAGS")
                 .addColumn(Column.required("IS_ACTIVE", DataType.numeric("NUMBER", 1, null)))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_FLAGS_IS_ACTIVE"),
+                        Identifier.of("CHK_FLAGS_IS_ACTIVE"),
                         "IS_ACTIVE IN (0, 1)"))
                 .build();
 
         Table database = Table.builder("BIM", "FLAGS")
                 .addColumn(Column.required("IS_ACTIVE", DataType.numeric("NUMBER", 1, 0)))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_FLAGS_IS_ACTIVE"),
+                        Identifier.of("CHK_FLAGS_IS_ACTIVE"),
                         "IS_ACTIVE IN (1, 0)"))
                 .build();
 
@@ -116,7 +116,7 @@ class SchemaCompareExcelWriterTest {
         Table document = Table.builder("BIM", "FLAGS")
                 .addColumn(Column.required("IS_ACTIVE", DataType.numeric("NUMBER", 1, null)))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_FLAGS_IS_ACTIVE"),
+                        Identifier.of("CHK_FLAGS_IS_ACTIVE"),
                         "IS_ACTIVE IN (0, 1)"))
                 .build();
 
@@ -270,12 +270,12 @@ class SchemaCompareExcelWriterTest {
             assertEquals("اطلاعات مشتریان", metadata.getRow(1).getCell(2).getStringCellValue());
             assertEquals("مشتریان", metadata.getRow(1).getCell(3).getStringCellValue());
             assertEquals("SAME", metadata.getRow(1).getCell(4).getStringCellValue());
-            assertObjectStatus(workbook, "PRIMARY_KEY_COMPARE", "PK_CUSTOMERS_NEW", "MODIFY");
+            assertObjectStatus(workbook, "PRIMARY_KEY_COMPARE", "PK_CUSTOMERS", "MODIFY");
             assertObjectStatus(workbook, "FOREIGN_KEYS_COMPARE", "FK_CUSTOMERS_F2", "ADD");
             assertObjectStatus(workbook, "INDEXES_COMPARE", "IX_CUSTOMERS_F2_F3", "ADD");
             assertObjectStatus(workbook, "INDEXES_COMPARE", "IX_CUSTOMERS_OLD", "DROP");
             assertObjectStatus(workbook, "UNIQUE_INDEXES_COMPARE", "UK_CUSTOMERS_F2", "ADD");
-            assertObjectStatus(workbook, "UNIQUE_INDEXES_COMPARE", "UIX_CUSTOMERS_F3", "ADD");
+            assertObjectStatus(workbook, "UNIQUE_INDEXES_COMPARE", "IX_CUSTOMERS_F3", "ADD");
 
             var columns = workbook.getSheet("CUSTOMERS");
             assertEquals(BorderStyle.THIN, columns.getRow(0).getCell(0).getCellStyle().getBorderTop());

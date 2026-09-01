@@ -9,6 +9,7 @@ import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
 import com.behsazan.schemaforge.metadata.repository.MetadataColumnProfile;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataTypeFrequency;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 
 import java.util.ArrayList;
@@ -40,18 +41,19 @@ public final class MetadataComparisonValidator {
 
     public MetadataComparisonResult validate(DatabaseSchema schema) {
         Objects.requireNonNull(schema, "schema must not be null");
+        DatabaseSchema normalizedSchema = new SpecificationNormalizer().normalize(schema);
         List<ValidationIssue> issues = new ArrayList<>();
         Map<String, Long> frequencies = new LinkedHashMap<>();
         Map<String, String> resolvedForeignKeySchemas = new LinkedHashMap<>();
         Map<String, Boolean> schemaExistence = new LinkedHashMap<>();
-        Set<String> columnNames = schema.tables().stream()
+        Set<String> columnNames = normalizedSchema.tables().stream()
                 .flatMap(table -> table.columns().stream())
                 .map(column -> column.name().value().toUpperCase(Locale.ROOT))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         boolean metadataAvailable = repository.available();
         if (metadataAvailable && repository.schemaExistenceAuthoritative()) {
-            metadataAvailable = inspectSchemaExistence(schema, schemaExistence);
+            metadataAvailable = inspectSchemaExistence(normalizedSchema, schemaExistence);
         }
         boolean allDocumentSchemasVerifiedMissing = repository.schemaExistenceAuthoritative()
                 && !schemaExistence.isEmpty()
@@ -64,7 +66,7 @@ public final class MetadataComparisonValidator {
         if (metadataAvailable && !allDocumentSchemasVerifiedMissing
                 && repository.bulkTableSchemaReadOptimized()) {
             Set<String> locationNames = new LinkedHashSet<>();
-            schema.tables().forEach(table -> {
+            normalizedSchema.tables().forEach(table -> {
                 locationNames.add(table.qualifiedName().name().value());
                 table.foreignKeys().forEach(foreignKey ->
                         locationNames.add(foreignKey.referencedTable().name().value()));
@@ -73,7 +75,7 @@ public final class MetadataComparisonValidator {
             metadataAvailable = repository.available();
         }
 
-        for (Table table : schema.tables()) {
+        for (Table table : normalizedSchema.tables()) {
             validateSingularColumnNames(table, issues);
             validateTableNames(table, issues);
             if (metadataAvailable) {
@@ -89,7 +91,7 @@ public final class MetadataComparisonValidator {
                 if (metadataAvailable) frequencies.put(path, profile == null ? 0L : profile.totalFrequency());
                 if (profile == null) continue;
                 String documentType = MetadataTypeFrequency.normalize(
-                        dialect.sqlType(schema, table, column));
+                        dialect.sqlType(normalizedSchema, table, column));
                 boolean knownType = profile.typeFrequencies().stream().anyMatch(item ->
                         typeEquivalence.equivalent(
                                 dialect.name(), documentType, item.typeSignature(),

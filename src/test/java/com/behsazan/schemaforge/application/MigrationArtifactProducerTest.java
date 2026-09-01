@@ -144,8 +144,9 @@ class MigrationArtifactProducerTest {
                 "migration/oracle/V20260823020000001__APP_PATTERN_OPERATION_ALTER.sql");
         assertTrue(Files.isRegularFile(rename));
         assertTrue(Files.isRegularFile(add));
-        assertTrue(Files.readString(rename).contains("RENAME TO IX_PATTERN_OPERATION__2"));
-        assertTrue(Files.readString(add).contains("CREATE INDEX APP.IX_PATTERN_OPERATION_2"));
+        assertTrue(Files.readString(rename).contains("RENAME TO IX_PATTERN_OPERATION_DETAIL_ID"));
+        assertFalse(Files.readString(rename).contains("IX_PATTERN_OPERATION__2"));
+        assertTrue(Files.readString(add).contains("CREATE INDEX APP.IX_PATTERN_OPERATION_ID"));
     }
 
     private static MigrationArtifactProducer producer() {

@@ -80,10 +80,10 @@ class PhysicalMetadataComparatorTest {
         List<PhysicalComparisonRow> rows = new PhysicalMetadataComparator()
                 .compareIndexes(expected, actual, "SQLSERVER");
 
-        assertEquals(PhysicalComparisonStatus.MATCH, status(rows, "INDEX", "IX_CUSTOMER_CODE", "ORGANIZATION"));
-        assertEquals(PhysicalComparisonStatus.MATCH, status(rows, "INDEX", "IX_CUSTOMER_CODE", "FILEGROUP_OR_DATA_SPACE"));
-        assertEquals(PhysicalComparisonStatus.MISMATCH, status(rows, "INDEX", "IX_CUSTOMER_CODE", "FILLFACTOR"));
-        assertEquals(PhysicalComparisonStatus.NOT_SPECIFIED, status(rows, "INDEX", "IX_CUSTOMER_CODE", "PAD_INDEX"));
+        assertEquals(PhysicalComparisonStatus.MATCH, status(rows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "ORGANIZATION"));
+        assertEquals(PhysicalComparisonStatus.MATCH, status(rows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "FILEGROUP_OR_DATA_SPACE"));
+        assertEquals(PhysicalComparisonStatus.MISMATCH, status(rows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "FILLFACTOR"));
+        assertEquals(PhysicalComparisonStatus.NOT_SPECIFIED, status(rows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "PAD_INDEX"));
 
         Table expectedDefaultFill = baseTable("dbo", "CUSTOMERS")
                 .addIndex(index("IX_DEFAULT_FILL", Map.of("SQLSERVER_INDEX_FILLFACTOR", "100"))).build();
@@ -92,7 +92,7 @@ class PhysicalMetadataComparatorTest {
         var defaultFillRows = new PhysicalMetadataComparator()
                 .compareIndexes(expectedDefaultFill, actualDefaultFill, "SQLSERVER");
         assertEquals(PhysicalComparisonStatus.MATCH,
-                status(defaultFillRows, "INDEX", "IX_DEFAULT_FILL", "FILLFACTOR"));
+                status(defaultFillRows, "INDEX", "IX_CUSTOMERS_ID <-> IX_DEFAULT_FILL", "FILLFACTOR"));
     }
 
     @Test
@@ -163,7 +163,7 @@ class PhysicalMetadataComparatorTest {
 
         var indexRows = new PhysicalMetadataComparator().compareIndexes(expected, actual, "MYSQL");
         assertEquals(PhysicalComparisonStatus.MATCH,
-                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "ACCESS_METHOD"));
+                status(indexRows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "ACCESS_METHOD"));
     }
 
     @Test
@@ -211,11 +211,11 @@ class PhysicalMetadataComparatorTest {
 
         var indexRows = new PhysicalMetadataComparator().compareIndexes(expected, actual, "db2luw");
         assertEquals(PhysicalComparisonStatus.MATCH,
-                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "TABLESPACE"));
+                status(indexRows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "TABLESPACE"));
         assertEquals(PhysicalComparisonStatus.MATCH,
-                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "PCTFREE"));
+                status(indexRows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "PCTFREE"));
         assertEquals(PhysicalComparisonStatus.MISMATCH,
-                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "COMPRESSION"));
+                status(indexRows, "INDEX", "IX_CUSTOMERS_ID <-> IX_CUSTOMER_CODE", "COMPRESSION"));
     }
 
     private static PhysicalComparisonStatus status(List<PhysicalComparisonRow> rows, String property) {

@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ public final class ForeignKeyAnalyzer {
     /** Analyzes all foreign keys in a canonical schema. */
     public ForeignKeyAnalysisResult analyze(DatabaseSchema schema) {
         Objects.requireNonNull(schema, "schema must not be null");
+        schema = new SpecificationNormalizer().normalize(schema);
         Map<String, Table> tables = new LinkedHashMap<>();
         schema.tables().forEach(table -> tables.put(key(table.qualifiedName()), table));
 

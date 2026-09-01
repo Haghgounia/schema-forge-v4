@@ -7,6 +7,7 @@ import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -69,6 +70,51 @@ class SchemaForgeLegacyWordApiServiceTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mmd")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.dot")));
+
+        String modelName = entries.keySet().stream()
+                .filter(name -> name.endsWith(".schema.json"))
+                .findFirst().orElseThrow();
+        assertCanonicalObjectNaming(new ObjectMapper().readTree(entries.get(modelName)));
+    }
+
+    private static void assertCanonicalObjectNaming(JsonNode root) {
+        for (JsonNode table : root.path("schema").path("tables")) {
+            String tableName = table.path("name").asText().toUpperCase();
+            JsonNode primaryKey = table.path("primaryKey");
+            if (!primaryKey.isMissingNode() && !primaryKey.isNull()) {
+                assertEquals("PK_" + tableName, primaryKey.path("name").asText().toUpperCase());
+            }
+            for (JsonNode key : table.path("uniqueKeys")) {
+                assertEquals("UK_" + tableName + "_" + joinedColumns(key.path("columns")),
+                        key.path("name").asText().toUpperCase());
+            }
+            for (JsonNode key : table.path("foreignKeys")) {
+                assertEquals("FK_" + tableName + "_" + joinedColumns(key.path("columns")),
+                        key.path("name").asText().toUpperCase());
+            }
+            for (JsonNode index : table.path("indexes")) {
+                StringBuilder columns = new StringBuilder();
+                for (JsonNode column : index.path("columns")) {
+                    if (!columns.isEmpty()) columns.append('_');
+                    columns.append(column.path("name").asText().toUpperCase());
+                }
+                assertEquals("IX_" + tableName + "_" + columns,
+                        index.path("name").asText().toUpperCase());
+            }
+            for (JsonNode check : table.path("checkConstraints")) {
+                assertTrue(check.path("name").asText().toUpperCase().startsWith("CHK_" + tableName + "_"),
+                        check.toString());
+            }
+        }
+    }
+
+    private static String joinedColumns(JsonNode columns) {
+        StringBuilder result = new StringBuilder();
+        for (JsonNode column : columns) {
+            if (!result.isEmpty()) result.append('_');
+            result.append(column.asText().toUpperCase());
+        }
+        return result.toString();
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {

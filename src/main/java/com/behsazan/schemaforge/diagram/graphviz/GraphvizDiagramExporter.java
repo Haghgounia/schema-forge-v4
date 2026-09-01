@@ -11,6 +11,7 @@ import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
+import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -221,7 +222,7 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
                 attributes.add("dir=none");
                 attributes.add("taillabel=" + quote(cardinality.parentEnd().label()));
                 attributes.add("headlabel=" + quote(cardinality.childEnd().label()));
-                attributes.add("label=" + quote(relationLabel(relation.foreignKey())));
+                attributes.add("label=" + quote(relationLabel(relation.child(), relation.foreignKey())));
                 attributes.add("labeldistance=2.0");
                 if (!relation.foreignKey().physicalReference()) {
                     attributes.add("style=dashed");
@@ -354,7 +355,7 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
 
             List<String> attributes = new ArrayList<>(2);
             if (renderOptions.showFkLabels()) {
-                attributes.add("label=" + quote(relationLabel(relation.foreignKey())));
+                attributes.add("label=" + quote(relationLabel(relation.child(), relation.foreignKey())));
             }
             if (!relation.foreignKey().physicalReference()) {
                 attributes.add("style=dashed");
@@ -385,7 +386,7 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
         relations.sort(Comparator
                 .comparing((Relation relation) -> key(relation.child().qualifiedName()))
                 .thenComparing(relation -> key(relation.parent().qualifiedName()))
-                .thenComparing(relation -> relationLabel(relation.foreignKey())));
+                .thenComparing(relation -> relationLabel(relation.child(), relation.foreignKey())));
         return relations;
     }
 
@@ -419,14 +420,14 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
             DiagramExportOptions options) {
         for (Table child : selected.stream().sorted(tableComparator()).toList()) {
             for (ForeignKey fk : eligibleForeignKeys(child, options).stream()
-                    .sorted(Comparator.comparing(this::relationLabel))
+                    .sorted(Comparator.comparing(fk -> relationLabel(child, fk)))
                     .toList()) {
                 String target = referencedKey(child, fk);
                 if (!catalog.containsKey(target)) {
                     out.append("  // unresolved FK: ")
                             .append(child.qualifiedName())
                             .append('.')
-                            .append(relationLabel(fk))
+                            .append(relationLabel(child, fk))
                             .append(" -> ")
                             .append(fk.referencedTable())
                             .append('\n');
@@ -471,11 +472,8 @@ public final class GraphvizDiagramExporter implements DiagramExporter {
                 .orElseGet(() -> key(referenced));
     }
 
-    private String relationLabel(ForeignKey fk) {
-        if (fk.name() != null) {
-            return fk.name().value();
-        }
-        return fk.columns().stream().map(Identifier::value).collect(Collectors.joining(","));
+    private String relationLabel(Table child, ForeignKey fk) {
+        return LogicalObjectNamingPolicy.foreignKey(child, fk).value();
     }
 
     private LinkedHashSet<Table> orderedSet(Collection<Table> values) {

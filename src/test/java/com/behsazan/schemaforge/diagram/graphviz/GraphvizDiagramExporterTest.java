@@ -32,7 +32,7 @@ class GraphvizDiagramExporterTest {
         assertTrue(dot.contains("<B>TSTSHMA.CUSTOMER</B>"), dot);
         assertTrue(dot.contains(">PK</TD><TD ALIGN=\"LEFT\">CUSTOMER_ID</TD><TD ALIGN=\"LEFT\">NUMBER(19,0)</TD>"), dot);
         assertTrue(dot.contains(">FK</TD><TD ALIGN=\"LEFT\">CUSTOMER_ID</TD>"), dot);
-        assertTrue(dot.contains("\"TSTSHMA.ACCOUNT\" -> \"TSTSHMA.CUSTOMER\" [label=\"FK_ACCOUNT_CUSTOMER\"]"), dot);
+        assertTrue(dot.contains("\"TSTSHMA.ACCOUNT\" -> \"TSTSHMA.CUSTOMER\" [label=\"FK_ACCOUNT_CUSTOMER_ID\"]"), dot);
     }
 
     @Test
@@ -42,7 +42,7 @@ class GraphvizDiagramExporterTest {
 
         assertTrue(dot.startsWith("digraph SchemaForge_Dependency {\n"), dot);
         assertTrue(dot.contains("\"TSTSHMA.ACCOUNT\" [label=\"TSTSHMA.ACCOUNT\"]"), dot);
-        assertTrue(dot.contains("\"TSTSHMA.TXN\" -> \"TSTSHMA.ACCOUNT\" [label=\"FK_TXN_ACCOUNT\"]"), dot);
+        assertTrue(dot.contains("\"TSTSHMA.TXN\" -> \"TSTSHMA.ACCOUNT\" [label=\"FK_TXN_ACCOUNT_ID\"]"), dot);
     }
 
     @Test
@@ -132,13 +132,13 @@ class GraphvizDiagramExporterTest {
 
         String defaultDot = exporter.export(List.of(parent, child),
                 DiagramExportOptions.builder().type(DiagramType.DEPENDENCY).build());
-        assertFalse(defaultDot.contains("LFK_CUSTOMER"), defaultDot);
+        assertFalse(defaultDot.contains("FK_LOGICAL_CHILD_CUSTOMER_ID"), defaultDot);
 
         String logicalDot = exporter.export(List.of(parent, child), DiagramExportOptions.builder()
                 .type(DiagramType.DEPENDENCY)
                 .includeLogicalForeignKeys(true)
                 .build());
-        assertTrue(logicalDot.contains("label=\"LFK_CUSTOMER\", style=dashed"), logicalDot);
+        assertTrue(logicalDot.contains("label=\"FK_LOGICAL_CHILD_CUSTOMER_ID\", style=dashed"), logicalDot);
     }
 
     @Test
@@ -158,8 +158,8 @@ class GraphvizDiagramExporterTest {
         assertTrue(dot.contains(
                 "\"TSTSHMA.CUSTOMER\" -> \"TSTSHMA.CUSTOMER_PROFILE\" "
                         + "[dir=none, taillabel=\"1\", headlabel=\"0..1\", "
-                        + "label=\"FK_PROFILE_CUSTOMER\", labeldistance=2.0]"), dot);
-        assertFalse(dot.contains("CUSTOMER_ID"), dot);
+                        + "label=\"FK_CUSTOMER_PROFILE_CUSTOMER_ID\", labeldistance=2.0]"), dot);
+        assertFalse(dot.contains(">CUSTOMER_ID</TD>"), dot);
         assertFalse(dot.contains("NUMBER(19,0)"), dot);
     }
 
@@ -173,7 +173,7 @@ class GraphvizDiagramExporterTest {
                 .build();
 
         String dot = exporter.export(List.of(orphan), DiagramExportOptions.erAll());
-        assertTrue(dot.contains("// unresolved FK: TSTSHMA.ORPHAN.FK_ORPHAN_PARENT -> MISSING_PARENT"), dot);
+        assertTrue(dot.contains("// unresolved FK: TSTSHMA.ORPHAN.FK_ORPHAN_PARENT_ID -> MISSING_PARENT"), dot);
     }
 
     @Test
@@ -215,7 +215,7 @@ class GraphvizDiagramExporterTest {
                 GraphvizRenderOptions.overview());
 
         assertTrue(dot.contains("\"TSTSHMA.ACCOUNT\" -> \"TSTSHMA.CUSTOMER\";"), dot);
-        assertFalse(dot.contains("FK_ACCOUNT_CUSTOMER"), dot);
+        assertFalse(dot.contains("FK_ACCOUNT_CUSTOMER_ID"), dot);
     }
 
     @Test
@@ -229,7 +229,7 @@ class GraphvizDiagramExporterTest {
                 GraphvizRenderOptions.fullClustered());
 
         assertTrue(dot.contains("ARCHIVE.CUSTOMER"), dot);
-        assertTrue(dot.contains("FK_ACCOUNT_CUSTOMER"), dot);
+        assertTrue(dot.contains("FK_ACCOUNT_CUSTOMER_ID"), dot);
         assertTrue(dot.contains("subgraph cluster_ARCHIVE_1"), dot);
     }
 

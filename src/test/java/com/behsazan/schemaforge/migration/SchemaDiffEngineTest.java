@@ -106,11 +106,11 @@ class SchemaDiffEngineTest {
                 .addColumn(id).addColumn(parentId).addColumn(code).addColumn(status)
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"), List.of(Identifier.of("ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMER_CODE"), List.of(Identifier.of("CODE"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMER_STATUS"), "STATUS IN ('A','I')"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMER_STATUS"), "STATUS IN ('A','I')"))
                 .addIndex(new Index(Identifier.of("IX_CUSTOMER_STATUS"),
                         List.of(new IndexColumn(Identifier.of("STATUS"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))
-                .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMER_PARENT"),
+                .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMER_PARENT_ID"),
                         List.of(Identifier.of("PARENT_ID")), QualifiedName.of("APP", "CUSTOMER"),
                         List.of(Identifier.of("ID")), ReferentialAction.NO_ACTION, ReferentialAction.NO_ACTION))
                 .build();
@@ -120,20 +120,26 @@ class SchemaDiffEngineTest {
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"), List.of(Identifier.of("ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMER_CODE"),
                         List.of(Identifier.of("CODE"), Identifier.of("STATUS"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMER_STATUS"), "STATUS IN ('A','I','S')"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMER_STATUS"), "STATUS IN ('A','I','S')"))
                 .addIndex(new Index(Identifier.of("IX_CUSTOMER_CODE"),
                         List.of(new IndexColumn(Identifier.of("CODE"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))
-                .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMER_PARENT"),
+                .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMER_PARENT_ID"),
                         List.of(Identifier.of("PARENT_ID")), QualifiedName.of("APP", "CUSTOMER"),
                         List.of(Identifier.of("ID")), ReferentialAction.CASCADE, ReferentialAction.NO_ACTION))
                 .build();
 
         TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
 
-        assertEquals(5, plan.objectChanges().size());
+        assertEquals(6, plan.objectChanges().size());
         assertTrue(plan.objectChanges().stream().anyMatch(change ->
-                change.objectType() == TableObjectType.UNIQUE_KEY && change.kind() == TableObjectChangeKind.REPLACE));
+                change.objectType() == TableObjectType.UNIQUE_KEY
+                        && change.kind() == TableObjectChangeKind.ADD
+                        && change.objectName().normalized().equals("UK_CUSTOMER_CODE_STATUS")));
+        assertTrue(plan.objectChanges().stream().anyMatch(change ->
+                change.objectType() == TableObjectType.UNIQUE_KEY
+                        && change.kind() == TableObjectChangeKind.DROP
+                        && change.objectName().normalized().equals("UK_CUSTOMER_CODE")));
         assertTrue(plan.objectChanges().stream().anyMatch(change ->
                 change.objectType() == TableObjectType.CHECK_CONSTRAINT && change.kind() == TableObjectChangeKind.REPLACE));
         assertTrue(plan.objectChanges().stream().anyMatch(change ->
@@ -151,13 +157,13 @@ class SchemaDiffEngineTest {
         Table live = Table.builder("APP", "CUSTOMER")
                 .addColumn(status)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        Identifier.of("CHK_CUSTOMER_STATUS"),
                         "(`STATUS` in (_utf8mb4'A',_utf8mb4'I',_utf8mb4'S'))"))
                 .build();
         Table desired = Table.builder("APP", "CUSTOMER")
                 .addColumn(status)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        Identifier.of("CHK_CUSTOMER_STATUS"),
                         "STATUS IN ('A','I','S')"))
                 .build();
 
@@ -173,13 +179,13 @@ class SchemaDiffEngineTest {
         Table live = Table.builder("APP", "CUSTOMER")
                 .addColumn(status)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        Identifier.of("CHK_CUSTOMER_STATUS"),
                         "((`STATUS` in (_utf8mb4'A', _utf8mb4'I', _utf8mb4'S')))"))
                 .build();
         Table desired = Table.builder("APP", "CUSTOMER")
                 .addColumn(status)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        Identifier.of("CHK_CUSTOMER_STATUS"),
                         "STATUS IN ( 'A' , 'I' , 'S' )"))
                 .build();
 
@@ -195,13 +201,13 @@ class SchemaDiffEngineTest {
         Table live = Table.builder("APP", "CUSTOMER")
                 .addColumn(status)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        Identifier.of("CHK_CUSTOMER_STATUS"),
                         "(`STATUS` in (_utf8mb4\\'A\\',_utf8mb4\\'I\\',_utf8mb4\\'S\\'))"))
                 .build();
         Table desired = Table.builder("APP", "CUSTOMER")
                 .addColumn(status)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CUSTOMER_STATUS"),
+                        Identifier.of("CHK_CUSTOMER_STATUS"),
                         "STATUS IN ('A','I','S')"))
                 .build();
 
@@ -241,13 +247,13 @@ class SchemaDiffEngineTest {
         Table live = Table.builder("APP", "CHILD")
                 .addColumn(id).addColumn(parentId)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CHILD_POSITIVE"),
+                        Identifier.of("CHK_CHILD_ID_PARENT_ID"),
                         "id > 0 AND parent_id > 0"))
                 .build();
         Table desired = Table.builder("APP", "CHILD")
                 .addColumn(id).addColumn(parentId)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CHILD_POSITIVE"),
+                        Identifier.of("CHK_CHILD_ID_PARENT_ID"),
                         "(ID > 0) AND (PARENT_ID > 0)"))
                 .build();
 
@@ -265,13 +271,13 @@ class SchemaDiffEngineTest {
         Table live = Table.builder("APP", "T_RULE")
                 .addColumn(a).addColumn(b).addColumn(c)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_RULE"),
+                        Identifier.of("CHK_T_RULE_A_B_C"),
                         "A = 1 OR B = 2 AND C = 3"))
                 .build();
         Table desired = Table.builder("APP", "T_RULE")
                 .addColumn(a).addColumn(b).addColumn(c)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_RULE"),
+                        Identifier.of("CHK_T_RULE_A_B_C"),
                         "(A = 1 OR B = 2) AND C = 3"))
                 .build();
 
@@ -297,13 +303,13 @@ class SchemaDiffEngineTest {
         Table live = Table.builder("APP", "CHILD")
                 .addColumn(id).addColumn(parentId)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CHILD_POSITIVE"),
+                        Identifier.of("CHK_CHILD_ID_PARENT_ID"),
                         "([ID]>(0) AND [PARENT_ID]>(0))"))
                 .build();
         Table desired = Table.builder("APP", "CHILD")
                 .addColumn(id).addColumn(parentId)
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CHILD_POSITIVE"),
+                        Identifier.of("CHK_CHILD_ID_PARENT_ID"),
                         "(ID > 0) AND (PARENT_ID > 0)"))
                 .build();
 

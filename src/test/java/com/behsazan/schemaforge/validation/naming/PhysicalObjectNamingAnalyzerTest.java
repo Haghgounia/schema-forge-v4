@@ -28,17 +28,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PhysicalObjectNamingAnalyzerTest {
 
     @Test
-    void detectsSchemaWideIndexCollisionWhereRequiredButNotForTableLocalIndexNamespaces() {
+    void ignoresSourceIndexNameCollisionBecauseFormulaIncludesOwningTable() {
         DatabaseSchema schema = DatabaseSchema.builder("APP")
                 .addTable(tableWithIndex("T1", "IX_SHARED"))
                 .addTable(tableWithIndex("T2", "IX_SHARED"))
                 .build();
         PhysicalObjectNamingAnalyzer analyzer = new PhysicalObjectNamingAnalyzer();
 
-        assertTrue(hasCollision(analyzer.analyze(schema, new OracleDialect())));
-        assertTrue(hasCollision(analyzer.analyze(schema, new PostgreSqlDialect())));
-        assertTrue(hasCollision(analyzer.analyze(schema, new Db2LuwDialect())));
-        assertTrue(hasCollision(analyzer.analyze(schema, new Db2ZosDialect())));
+        assertFalse(hasCollision(analyzer.analyze(schema, new OracleDialect())));
+        assertFalse(hasCollision(analyzer.analyze(schema, new PostgreSqlDialect())));
+        assertFalse(hasCollision(analyzer.analyze(schema, new Db2LuwDialect())));
+        assertFalse(hasCollision(analyzer.analyze(schema, new Db2ZosDialect())));
         assertFalse(hasCollision(analyzer.analyze(schema, new SqlServerDialect())));
         assertFalse(hasCollision(analyzer.analyze(schema, new MySqlDialect())));
     }

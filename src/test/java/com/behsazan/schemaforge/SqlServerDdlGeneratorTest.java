@@ -61,7 +61,7 @@ class SqlServerDdlGeneratorTest {
                 .addColumn(sourceTimestamp)
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"), List.of(Identifier.of("CUSTOMER_ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMERS_CODE"), List.of(Identifier.of("CUSTOMER_CODE"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMERS_STATUS"), "STATUS IN (0, 1)"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMERS_STATUS"), "STATUS IN (0, 1)"))
                 .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMERS_BRANCH"),
                         List.of(Identifier.of("CUSTOMER_ID")), QualifiedName.of("CRM", "BRANCHES"),
                         List.of(Identifier.of("BRANCH_ID")), ReferentialAction.CASCADE, ReferentialAction.NO_ACTION))
@@ -104,13 +104,13 @@ class SqlServerDdlGeneratorTest {
         assertTrue(sql.contains(") ON DATA_FG"));
         assertTrue(sql.contains("-- SQL SERVER TABLE PHYSICAL OPTIONS"));
         assertTrue(sql.contains("WITH (DATA_COMPRESSION = NONE)"));
-        assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CODE UNIQUE(CUSTOMER_CODE)"));
-        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS WITH CHECK ADD CONSTRAINT CK_CUSTOMERS_STATUS"
+        assertTrue(sql.contains("ADD CONSTRAINT UK_CUSTOMERS_CUSTOMER_CODE UNIQUE(CUSTOMER_CODE)"));
+        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS WITH CHECK ADD CONSTRAINT CHK_CUSTOMERS_STATUS"
                 + " CHECK(STATUS IN (0, 1));"));
-        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS CHECK CONSTRAINT CK_CUSTOMERS_STATUS;"));
-        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS WITH CHECK ADD CONSTRAINT FK_CUSTOMERS_BRANCH"));
+        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS CHECK CONSTRAINT CHK_CUSTOMERS_STATUS;"));
+        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS WITH CHECK ADD CONSTRAINT FK_CUSTOMERS_CUSTOMER_ID"));
         assertTrue(sql.contains("REFERENCES CRM.BRANCHES(BRANCH_ID) ON DELETE CASCADE;"));
-        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS CHECK CONSTRAINT FK_CUSTOMERS_BRANCH;"));
+        assertTrue(sql.contains("ALTER TABLE CRM.CUSTOMERS CHECK CONSTRAINT FK_CUSTOMERS_CUSTOMER_ID;"));
         assertTrue(sql.contains("CREATE INDEX IX_CUSTOMERS_STATUS ON CRM.CUSTOMERS(STATUS DESC)"
                 + " INCLUDE (CUSTOMER_CODE) WHERE STATUS = 1"));
         assertTrue(sql.contains("DATA_COMPRESSION = NONE"));
@@ -118,7 +118,7 @@ class SqlServerDdlGeneratorTest {
                 + " @value=N'Customer''s master'"));
         assertTrue(sql.contains("@level2type=N'COLUMN', @level2name=N'CUSTOMER_CODE';"));
         assertTrue(sql.indexOf("EXEC sys.sp_addextendedproperty")
-                < sql.indexOf("FK_CUSTOMERS_BRANCH"));
+                < sql.indexOf("FK_CUSTOMERS_CUSTOMER_ID"));
         assertTrue(sql.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON CRM.CUSTOMERS TO U_DEVELOPER;"));
         assertTrue(sql.contains("Dialect      : SqlServer"));
         assertFalse(sql.contains("COMMENT ON TABLE"));

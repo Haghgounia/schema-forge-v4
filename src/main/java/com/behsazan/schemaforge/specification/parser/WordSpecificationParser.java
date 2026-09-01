@@ -24,6 +24,7 @@ import com.behsazan.schemaforge.specification.normalization.NumericRangeParser;
 import com.behsazan.schemaforge.specification.validation.IdentifierValidator;
 import com.behsazan.schemaforge.specification.recovery.DataTypeNormalizer;
 import com.behsazan.schemaforge.specification.recovery.RecoveryResult;
+import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.specification.parser.legacy.LegacyDefaultValueNormalizer;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
@@ -106,7 +107,7 @@ public final class WordSpecificationParser implements SpecificationParser {
                 schema.metadata("recovery.warnings",
                         String.join(System.lineSeparator(), actionableRecoveryWarnings));
             }
-            return schema.build();
+            return new SpecificationNormalizer().normalize(schema.build());
         } catch (IOException exception) {
             throw new IllegalArgumentException("Unable to read DOCX specification: " + source.fileName(), exception);
         }
@@ -249,7 +250,7 @@ public final class WordSpecificationParser implements SpecificationParser {
 
     private void addCheck(Table.Builder table, String tableName, String columnName, String expression) {
         table.addCheck(new CheckConstraint(
-                identifierValidator.toIdentifier("CK_" + tableName + "_" + columnName, "check constraint"),
+                identifierValidator.toIdentifier("CHK_" + tableName + "_" + columnName, "check constraint"),
                 expression));
     }
 

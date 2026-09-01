@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,20 +74,23 @@ class MigrationSqlRendererTest {
                 .build();
 
         TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired);
-        assertTrue(plan.objectChanges().isEmpty(), "unchanged index must not be reported as semantic drift");
+        assertEquals(1, plan.objectChanges().size(),
+                "live non-standard index name must converge to the SchemaForge formula name");
+        assertEquals(TableObjectChangeKind.REPLACE, plan.objectChanges().getFirst().kind());
+        assertEquals("IX_CHILD_PARENT_ID", plan.objectChanges().getFirst().objectName().value());
 
         String confirmed = new MigrationSqlRenderer().render(plan, new MigrationRenderOptions(true));
         int drop = confirmed.indexOf("DROP INDEX IX_CHILD_PARENT ON APP.CHILD;");
         int alter = confirmed.indexOf("ALTER TABLE APP.CHILD ALTER COLUMN PARENT_ID BIGINT NOT NULL;");
-        int recreate = confirmed.indexOf("CREATE INDEX IX_CHILD_PARENT ON APP.CHILD(PARENT_ID)");
-        assertTrue(drop >= 0, "dependency index must be dropped before ALTER COLUMN");
+        int recreate = confirmed.indexOf("CREATE INDEX IX_CHILD_PARENT_ID ON APP.CHILD(PARENT_ID)");
+        assertTrue(drop >= 0, "live dependency index must be dropped by its actual database name");
         assertTrue(alter > drop, "ALTER COLUMN must run after dependency DROP");
-        assertTrue(recreate > alter, "dependency index must be recreated after ALTER COLUMN");
+        assertTrue(recreate > alter, "dependency index must be recreated with the formula name after ALTER COLUMN");
 
         String safe = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
-        assertTrue(safe.contains("-- DROP INDEX IX_CHILD_PARENT ON APP.CHILD;"));
-        assertTrue(safe.contains("-- ALTER TABLE APP.CHILD ALTER COLUMN PARENT_ID BIGINT NOT NULL;"));
-        assertTrue(safe.contains("-- CREATE INDEX IX_CHILD_PARENT ON APP.CHILD(PARENT_ID)"));
+        assertTrue(safe.contains("DROP INDEX IX_CHILD_PARENT ON APP.CHILD;"));
+        assertTrue(safe.contains("ALTER TABLE APP.CHILD ALTER COLUMN PARENT_ID BIGINT NOT NULL;"));
+        assertTrue(safe.contains("CREATE INDEX IX_CHILD_PARENT_ID ON APP.CHILD(PARENT_ID)"));
     }
 
     @Test
@@ -156,16 +160,16 @@ class MigrationSqlRendererTest {
         String oracle = renderStructuralAdds(DatabasePlatform.ORACLE);
         assertTrue(oracle.contains("ALTER TABLE APP.CUSTOMER ADD CONSTRAINT PK_CUSTOMER PRIMARY KEY"));
         assertTrue(oracle.contains("ADD CONSTRAINT UK_CUSTOMER_CODE UNIQUE(CODE)"));
-        assertTrue(oracle.contains("ADD CONSTRAINT CK_CUSTOMER_STATUS CHECK("));
+        assertTrue(oracle.contains("ADD CONSTRAINT CHK_CUSTOMER_STATUS CHECK("));
         assertTrue(oracle.contains("CREATE INDEX APP.IX_CUSTOMER_STATUS ON APP.CUSTOMER(STATUS)"));
-        assertTrue(oracle.contains("ADD CONSTRAINT FK_CUSTOMER_PARENT FOREIGN KEY (PARENT_ID)"));
+        assertTrue(oracle.contains("ADD CONSTRAINT FK_CUSTOMER_PARENT_ID FOREIGN KEY (PARENT_ID)"));
 
         String mysql = renderStructuralAdds(DatabasePlatform.MYSQL);
         assertTrue(mysql.contains("ALTER TABLE `APP`.`CUSTOMER` ADD CONSTRAINT `PK_CUSTOMER` PRIMARY KEY"));
         assertTrue(mysql.contains("ADD CONSTRAINT `UK_CUSTOMER_CODE` UNIQUE(`CODE`)"));
-        assertTrue(mysql.contains("ADD CONSTRAINT `CK_CUSTOMER_STATUS` CHECK("));
+        assertTrue(mysql.contains("ADD CONSTRAINT `CHK_CUSTOMER_STATUS` CHECK("));
         assertTrue(mysql.contains("CREATE INDEX `IX_CUSTOMER_STATUS` ON `APP`.`CUSTOMER`(`STATUS`)"));
-        assertTrue(mysql.contains("ADD CONSTRAINT `FK_CUSTOMER_PARENT` FOREIGN KEY (`PARENT_ID`)"));
+        assertTrue(mysql.contains("ADD CONSTRAINT `FK_CUSTOMER_PARENT_ID` FOREIGN KEY (`PARENT_ID`)"));
     }
 
     @Test
@@ -184,7 +188,7 @@ class MigrationSqlRendererTest {
         assertTrue(mysql.contains("-- ALTER TABLE `APP`.`CUSTOMER` DROP PRIMARY KEY;"));
         assertTrue(mysql.contains("-- ALTER TABLE `APP`.`CUSTOMER` DROP FOREIGN KEY `FK_CUSTOMER_PARENT`;"));
         assertTrue(mysql.contains("-- ALTER TABLE `APP`.`CUSTOMER` DROP INDEX `UK_CUSTOMER_CODE`;"));
-        assertTrue(mysql.contains("-- ALTER TABLE `APP`.`CUSTOMER` DROP CHECK `CK_CUSTOMER_STATUS`;"));
+        assertTrue(mysql.contains("-- ALTER TABLE `APP`.`CUSTOMER` DROP CHECK `CHK_CUSTOMER_STATUS`;"));
         assertTrue(mysql.contains("ALTER TABLE `APP`.`CUSTOMER` DROP INDEX `IX_CUSTOMER_STATUS`;"));
 
         String sqlServer = new MigrationSqlRenderer().render(
@@ -204,7 +208,7 @@ class MigrationSqlRendererTest {
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"),
                         java.util.List.of(Identifier.of("ID"), Identifier.of("CODE"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMER_CODE"), java.util.List.of(Identifier.of("CODE"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMER_STATUS"), "STATUS IN ('A','I')"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMER_STATUS"), "STATUS IN ('A','I')"))
                 .addIndex(new Index(Identifier.of("IX_CUSTOMER_STATUS"),
                         java.util.List.of(new IndexColumn(Identifier.of("STATUS"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))
@@ -251,7 +255,7 @@ class MigrationSqlRendererTest {
                 .addColumn(Column.nullable("STATUS", DataType.varchar("VARCHAR2", 1)))
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"), java.util.List.of(Identifier.of("ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMER_CODE"), java.util.List.of(Identifier.of("CODE"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMER_STATUS"), "STATUS IN ('A','I')"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMER_STATUS"), "STATUS IN ('A','I')"))
                 .addIndex(new Index(Identifier.of("IX_CUSTOMER_STATUS"),
                         java.util.List.of(new IndexColumn(Identifier.of("STATUS"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))

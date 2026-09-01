@@ -45,7 +45,7 @@ class MermaidDiagramGenerationServiceTest {
         assertEquals("TSTSHMA_ACCOUNT__dependency-table-with-dependencies-depth-1.mmd", artifact.fileName());
         assertEquals(2, artifact.inputTableCount());
         assertTrue(artifact.content().startsWith("flowchart LR\n"), artifact.content());
-        assertTrue(artifact.content().contains("FK_ACCOUNT_CUSTOMER"), artifact.content());
+        assertTrue(artifact.content().contains("FK_ACCOUNT_CUSTOMER_ID"), artifact.content());
         assertTrue(artifact.utf8().length > 0);
     }
 

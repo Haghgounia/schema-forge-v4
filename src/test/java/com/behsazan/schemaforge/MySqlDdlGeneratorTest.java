@@ -57,7 +57,7 @@ class MySqlDdlGeneratorTest {
                 .addColumn(branchId)
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMERS"), List.of(Identifier.of("CUSTOMER_ID"))))
                 .addUniqueKey(new UniqueKey(Identifier.of("UK_CUSTOMERS_CODE"), List.of(Identifier.of("CUSTOMER_CODE"))))
-                .addCheck(new CheckConstraint(Identifier.of("CK_CUSTOMERS_STATUS"), "STATUS IN (0, 1)"))
+                .addCheck(new CheckConstraint(Identifier.of("CHK_CUSTOMERS_STATUS"), "STATUS IN (0, 1)"))
                 .addForeignKey(new ForeignKey(Identifier.of("FK_CUSTOMERS_BRANCH"),
                         List.of(Identifier.of("BRANCH_ID")), QualifiedName.of("CRM", "BRANCHES"),
                         List.of(Identifier.of("BRANCH_ID")), ReferentialAction.CASCADE, ReferentialAction.RESTRICT))
@@ -86,9 +86,9 @@ class MySqlDdlGeneratorTest {
         assertTrue(sql.contains("`CREATED_AT` DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL"));
         assertTrue(sql.contains("`EFFECTIVE_STATUS` DECIMAL(1) GENERATED ALWAYS AS (COALESCE(STATUS, 0)) STORED"));
         assertTrue(sql.contains("CONSTRAINT `PK_CUSTOMERS` PRIMARY KEY (`CUSTOMER_ID`)"));
-        assertTrue(sql.contains("ADD CONSTRAINT `UK_CUSTOMERS_CODE` UNIQUE(`CUSTOMER_CODE`);"));
-        assertTrue(sql.contains("ADD CONSTRAINT `CK_CUSTOMERS_STATUS` CHECK(STATUS IN (0, 1));"));
-        assertTrue(sql.contains("ADD CONSTRAINT `FK_CUSTOMERS_BRANCH` FOREIGN KEY (`BRANCH_ID`)"
+        assertTrue(sql.contains("ADD CONSTRAINT `UK_CUSTOMERS_CUSTOMER_CODE` UNIQUE(`CUSTOMER_CODE`);"));
+        assertTrue(sql.contains("ADD CONSTRAINT `CHK_CUSTOMERS_STATUS` CHECK(STATUS IN (0, 1));"));
+        assertTrue(sql.contains("ADD CONSTRAINT `FK_CUSTOMERS_BRANCH_ID` FOREIGN KEY (`BRANCH_ID`)"
                 + " REFERENCES `CRM`.`BRANCHES`(`BRANCH_ID`) ON DELETE CASCADE ON UPDATE RESTRICT;"));
         assertTrue(sql.contains("CREATE INDEX `IX_CUSTOMERS_STATUS` ON `CRM`.`CUSTOMERS`(`STATUS` DESC)"));
         assertTrue(sql.contains("-- MYSQL INDEX PHYSICAL OPTIONS"));

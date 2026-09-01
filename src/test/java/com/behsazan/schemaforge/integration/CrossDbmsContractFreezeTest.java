@@ -96,7 +96,23 @@ class CrossDbmsContractFreezeTest {
             assertTrue(upper.contains("CHECK"), platform + " CHECK missing");
             assertTrue(upper.contains("FOREIGN KEY"), platform + " FK missing");
             assertTrue(upper.contains("REFERENCES"), platform + " FK reference missing");
-            assertTrue(upper.contains("CREATE INDEX"), platform + " index missing");
+            assertTrue(upper.contains("CREATE INDEX") || upper.contains("CREATE UNIQUE INDEX"),
+                    platform + " index missing");
+            assertTrue(upper.contains("PK_CONTRACT_PARENT"), platform + " formula PK name missing");
+            assertTrue(upper.contains("PK_CONTRACT_PARENT_PARENT_ID") || !dialect.requiresExplicitConstraintIndexes(),
+                    platform + " formula PK backing-index name missing when explicit index is required");
+            assertTrue(upper.contains("UK_CONTRACT_PARENT_CODE"), platform + " formula UK name missing");
+            assertTrue(upper.contains("CHK_CONTRACT_PARENT_STATUS"), platform + " formula CHECK name missing");
+            assertTrue(upper.contains("FK_CONTRACT_CHILD_PARENT_ID"), platform + " formula FK name missing");
+            assertTrue(upper.contains("IX_CONTRACT_PARENT_STATUS"), platform + " formula index name missing");
+            assertTrue(upper.contains("IX_CONTRACT_PARENT_EXTERNAL_CODE"),
+                    platform + " formula unique-index name missing");
+            assertFalse(upper.contains("SOURCE_PK_NAME"), platform + " leaked input PK name");
+            assertFalse(upper.contains("SOURCE_UK_NAME"), platform + " leaked input UK name");
+            assertFalse(upper.contains("SOURCE_CHECK_NAME"), platform + " leaked input CHECK name");
+            assertFalse(upper.contains("SOURCE_FK_NAME"), platform + " leaked input FK name");
+            assertFalse(upper.contains("SOURCE_INDEX_NAME"), platform + " leaked input index name");
+            assertFalse(upper.contains("SOURCE_UNIQUE_INDEX_NAME"), platform + " leaked input unique-index name");
             assertTrue(upper.contains("GRANT SELECT"), platform + " grant missing");
             assertTrue(upper.contains("CONTRACT PARENT"), platform + " table description/comment missing");
             assertTrue(upper.contains("PARENT IDENTIFIER"), platform + " column description/comment missing");
@@ -164,6 +180,100 @@ class CrossDbmsContractFreezeTest {
         }
     }
 
+
+    @Test
+    void migrationObjectNamingIgnoresSourceNamesAcrossAllSixDialects() {
+        Table live = Table.builder("APP", "NAMING_CHILD")
+                .addColumn(Column.required("ID", DataType.numeric("NUMBER", 18, 0)))
+                .addColumn(Column.required("PARENT_ID", DataType.numeric("NUMBER", 18, 0)))
+                .addColumn(Column.required("CODE", DataType.varchar("VARCHAR2", 30)))
+                .addColumn(Column.required("STATUS", DataType.numeric("NUMBER", 1, 0)))
+                .addColumn(Column.required("EXTERNAL_CODE", DataType.varchar("VARCHAR2", 40)))
+                .build();
+
+        Table desired = Table.builder("APP", "NAMING_CHILD")
+                .addColumn(Column.required("ID", DataType.numeric("NUMBER", 18, 0)))
+                .addColumn(Column.required("PARENT_ID", DataType.numeric("NUMBER", 18, 0)))
+                .addColumn(Column.required("CODE", DataType.varchar("VARCHAR2", 30)))
+                .addColumn(Column.required("STATUS", DataType.numeric("NUMBER", 1, 0)))
+                .addColumn(Column.required("EXTERNAL_CODE", DataType.varchar("VARCHAR2", 40)))
+                .primaryKey(new PrimaryKey(Identifier.of("BAD_INPUT_PK"), List.of(Identifier.of("ID"))))
+                .addUniqueKey(new UniqueKey(Identifier.of("BAD_INPUT_UK"), List.of(Identifier.of("CODE"))))
+                .addCheck(new CheckConstraint(Identifier.of("BAD_INPUT_CHECK"), "STATUS IN (0, 1)"))
+                .addIndex(new Index(
+                        Identifier.of("BAD_INPUT_INDEX"),
+                        List.of(new IndexColumn(Identifier.of("STATUS"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .addIndex(new Index(
+                        Identifier.of("BAD_INPUT_UNIQUE_INDEX"),
+                        List.of(new IndexColumn(Identifier.of("EXTERNAL_CODE"), SortDirection.ASC)),
+                        IndexType.UNIQUE, Description.empty()))
+                .addForeignKey(new ForeignKey(
+                        Identifier.of("BAD_INPUT_FK"),
+                        List.of(Identifier.of("PARENT_ID")),
+                        QualifiedName.of("APP", "NAMING_PARENT"),
+                        List.of(Identifier.of("ID")),
+                        ReferentialAction.NO_ACTION,
+                        ReferentialAction.NO_ACTION))
+                .build();
+
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, live, desired);
+            String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
+            String upper = sql.toUpperCase(Locale.ROOT);
+
+            assertTrue(upper.contains("PK_NAMING_CHILD"), platform + " migration PK formula missing");
+            assertTrue(upper.contains("UK_NAMING_CHILD_CODE"), platform + " migration UK formula missing");
+            assertTrue(upper.contains("CHK_NAMING_CHILD_STATUS"), platform + " migration CHECK formula missing");
+            assertTrue(upper.contains("FK_NAMING_CHILD_PARENT_ID"), platform + " migration FK formula missing");
+            assertTrue(upper.contains("IX_NAMING_CHILD_STATUS"), platform + " migration index formula missing");
+            assertTrue(upper.contains("IX_NAMING_CHILD_EXTERNAL_CODE"),
+                    platform + " migration unique-index formula missing");
+
+            for (String forbidden : List.of(
+                    "BAD_INPUT_PK", "BAD_INPUT_UK", "BAD_INPUT_CHECK", "BAD_INPUT_FK",
+                    "BAD_INPUT_INDEX", "BAD_INPUT_UNIQUE_INDEX")) {
+                assertFalse(upper.contains(forbidden), platform + " migration leaked input name " + forbidden);
+            }
+        }
+    }
+
+    @Test
+    void generatedDdlUsesPhysicalTruncateHashAtTargetBoundary() {
+        String tableName = "VERY_LONG_SCHEMAFORGE_NAMING_CONTRACT_TABLE";
+        String columnName = "VERY_LONG_BUSINESS_REFERENCE_COLUMN_IDENTIFIER";
+        Table table = Table.builder("APP", tableName)
+                .addColumn(Column.required(columnName, DataType.numeric("NUMBER", 18, 0)))
+                .addIndex(new Index(
+                        Identifier.of("IGNORED_SOURCE_INDEX_NAME"),
+                        List.of(new IndexColumn(Identifier.of(columnName), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+        DatabaseSchema schema = DatabaseSchema.builder("APP").addTable(table).build();
+        Identifier logical = Identifier.of("IX_" + tableName + "_" + columnName);
+
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            Identifier physical = PhysicalObjectNamePolicy.physicalIdentifier(platform, logical);
+            String sql = new DdlGenerator(DialectFactory.create(platform), FIXED_CLOCK).generate(schema);
+            assertTrue(sql.toUpperCase(Locale.ROOT).contains(physical.normalized()),
+                    platform + " DDL does not use the target physical object name");
+            assertTrue(physical.value().length() <= PhysicalObjectNamePolicy.maximumLength(platform));
+            if (logical.value().length() > PhysicalObjectNamePolicy.maximumLength(platform)) {
+                assertTrue(physical.value().matches(".*_[0-9A-F]{12}$"),
+                        platform + " long physical name must end with the stable 12-hex hash");
+                String executableCreateIndex = sql.lines()
+                        .filter(line -> line.toUpperCase(Locale.ROOT).startsWith("CREATE INDEX ")
+                                || line.toUpperCase(Locale.ROOT).startsWith("CREATE UNIQUE INDEX "))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError(platform + " CREATE INDEX missing"));
+                assertFalse(executableCreateIndex.toUpperCase(Locale.ROOT).contains(logical.normalized()),
+                        platform + " executable DDL leaked an over-length logical object name");
+            } else {
+                assertEquals(logical, physical, platform + " representable logical name must be preserved");
+            }
+        }
+    }
+
     @Test
     void migrationRemainsConvergentAndNeverInfersColumnRename() {
         Table stable = Table.builder("APP", "CONTRACT_M2")
@@ -215,22 +325,30 @@ class CrossDbmsContractFreezeTest {
         Column status = new Column(
                 Identifier.of("STATUS"), DataType.numeric("NUMBER", 1, 0), false,
                 new DefaultValue("1"), new Description("Status flag"), false, 3);
+        Column externalCode = new Column(
+                Identifier.of("EXTERNAL_CODE"), DataType.varchar("VARCHAR2", 40), true,
+                null, new Description("External code"), false, 4);
 
         Table parent = Table.builder("APP", "CONTRACT_PARENT")
                 .description("Contract parent")
                 .addColumn(parentId)
                 .addColumn(code)
                 .addColumn(status)
+                .addColumn(externalCode)
                 .primaryKey(new PrimaryKey(
-                        Identifier.of("PK_CONTRACT_PARENT"), List.of(Identifier.of("PARENT_ID"))))
+                        Identifier.of("SOURCE_PK_NAME"), List.of(Identifier.of("PARENT_ID"))))
                 .addUniqueKey(new UniqueKey(
-                        Identifier.of("UK_CONTRACT_PARENT_CODE"), List.of(Identifier.of("CODE"))))
+                        Identifier.of("SOURCE_UK_NAME"), List.of(Identifier.of("CODE"))))
                 .addCheck(new CheckConstraint(
-                        Identifier.of("CK_CONTRACT_PARENT_STATUS"), "STATUS IN (0, 1)"))
+                        Identifier.of("SOURCE_CHECK_NAME"), "STATUS IN (0, 1)"))
                 .addIndex(new Index(
-                        Identifier.of("IX_CONTRACT_PARENT_STATUS"),
+                        Identifier.of("SOURCE_INDEX_NAME"),
                         List.of(new IndexColumn(Identifier.of("STATUS"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))
+                .addIndex(new Index(
+                        Identifier.of("SOURCE_UNIQUE_INDEX_NAME"),
+                        List.of(new IndexColumn(Identifier.of("EXTERNAL_CODE"), SortDirection.ASC)),
+                        IndexType.UNIQUE, Description.empty()))
                 .physicalOption("GRANTS", "SELECT, INSERT, UPDATE, DELETE TO APP_ROLE")
                 .build();
 
@@ -246,16 +364,16 @@ class CrossDbmsContractFreezeTest {
                 .addColumn(childId)
                 .addColumn(childParentId)
                 .primaryKey(new PrimaryKey(
-                        Identifier.of("PK_CONTRACT_CHILD"), List.of(Identifier.of("CHILD_ID"))))
+                        Identifier.of("SOURCE_CHILD_PK"), List.of(Identifier.of("CHILD_ID"))))
                 .addForeignKey(new ForeignKey(
-                        Identifier.of("FK_CONTRACT_CHILD_PARENT"),
+                        Identifier.of("SOURCE_FK_NAME"),
                         List.of(Identifier.of("PARENT_ID")),
                         QualifiedName.of("APP", "CONTRACT_PARENT"),
                         List.of(Identifier.of("PARENT_ID")),
                         ReferentialAction.CASCADE,
                         ReferentialAction.NO_ACTION))
                 .addIndex(new Index(
-                        Identifier.of("IX_CONTRACT_CHILD_PARENT"),
+                        Identifier.of("SOURCE_CHILD_INDEX"),
                         List.of(new IndexColumn(Identifier.of("PARENT_ID"), SortDirection.ASC)),
                         IndexType.NORMAL, Description.empty()))
                 .build();
