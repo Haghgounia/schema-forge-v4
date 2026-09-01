@@ -97,7 +97,7 @@ public final class MySqlTypeMapper {
 
     private String decimal(DataType type) {
         if (type.precision() == null) {
-            throw unsupported(type, "exact numeric precision is required for a lossless MySQL DECIMAL mapping");
+            return "DECIMAL(" + MAX_DECIMAL_PRECISION + ",0)";
         }
         int precision = type.precision();
         int scale = type.scale() == null ? 0 : type.scale();

@@ -73,8 +73,7 @@ public final class Db2ZosTypeMapper {
     private String mapExactNumber(DataType type) {
         Integer precision = type.precision();
         if (precision == null) {
-            throw new IllegalArgumentException(
-                    "Db2 z/OS requires an explicit precision for lossless NUMBER mapping");
+            return "DECIMAL(" + MAX_DECIMAL_PRECISION + ",0)";
         }
         if (precision > MAX_DECIMAL_PRECISION) {
             throw new IllegalArgumentException(

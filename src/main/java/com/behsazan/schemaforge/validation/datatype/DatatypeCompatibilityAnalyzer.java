@@ -87,6 +87,9 @@ public final class DatatypeCompatibilityAnalyzer {
 
     private void analyzeOracle(
             DataType type, String sourceName, String path, List<ValidationIssue> issues) {
+        if (EXACT_NUMERIC.contains(sourceName) && type.precision() == null) {
+            unspecifiedNumericPrecision(issues, path, sourceName, "Oracle NUMBER");
+        }
         if (EXACT_NUMERIC.contains(sourceName)
                 && type.precision() != null
                 && type.precision() > OracleDialect.MAX_NUMBER_PRECISION) {
@@ -116,6 +119,9 @@ public final class DatatypeCompatibilityAnalyzer {
 
     private void analyzePostgreSql(
             DataType type, String sourceName, String path, List<ValidationIssue> issues) {
+        if (EXACT_NUMERIC.contains(sourceName) && type.precision() == null) {
+            unspecifiedNumericPrecision(issues, path, sourceName, "PostgreSQL NUMERIC");
+        }
         if (ORACLE_TIMESTAMP.contains(sourceName)
                 && type.precision() != null
                 && type.precision() > PostgreSqlTypeMapper.MAX_TEMPORAL_PRECISION) {
@@ -131,10 +137,9 @@ public final class DatatypeCompatibilityAnalyzer {
     private void analyzeSqlServer(
             DataType type, String sourceName, String path, List<ValidationIssue> issues) {
         if (EXACT_NUMERIC.contains(sourceName) && type.precision() == null) {
-            error(issues, "SQLSERVER_EXACT_NUMERIC_PRECISION_REQUIRED", path,
-                    "Canonical " + sourceName
-                            + " has no explicit precision/scale; SQL Server DECIMAL/NUMERIC requires a fixed "
-                            + "precision and scale, so no lossless target mapping is selected.");
+            unspecifiedNumericPrecision(
+                    issues, path, sourceName,
+                    "SQL Server DECIMAL(" + SqlServerTypeMapper.MAX_DECIMAL_PRECISION + ",0)");
         }
         if (EXACT_NUMERIC.contains(sourceName)
                 && type.precision() != null
@@ -157,15 +162,13 @@ public final class DatatypeCompatibilityAnalyzer {
         }
     }
 
-
     private void analyzeMySql(
             DataType type, String sourceName, String path, List<ValidationIssue> issues) {
         if (EXACT_NUMERIC.contains(sourceName)) {
             if (type.precision() == null) {
-                error(issues, "MYSQL_EXACT_NUMERIC_PRECISION_REQUIRED", path,
-                        "Canonical " + sourceName
-                                + " has no explicit precision/scale; MySQL DECIMAL/NUMERIC has fixed precision "
-                                + "and scale semantics, so no lossless target mapping is selected.");
+                unspecifiedNumericPrecision(
+                        issues, path, sourceName,
+                        "MySQL DECIMAL(" + MySqlTypeMapper.MAX_DECIMAL_PRECISION + ",0)");
                 return;
             }
             if (type.precision() > MySqlTypeMapper.MAX_DECIMAL_PRECISION) {
@@ -242,9 +245,9 @@ public final class DatatypeCompatibilityAnalyzer {
             DataType type, String sourceName, String path, List<ValidationIssue> issues) {
         if (EXACT_NUMERIC.contains(sourceName)) {
             if (type.precision() == null) {
-                error(issues, "DB2_NUMBER_PRECISION_REQUIRED", path,
-                        "Canonical " + sourceName
-                                + " has no explicit precision; Db2 for z/OS cannot map it losslessly to DECIMAL.");
+                unspecifiedNumericPrecision(
+                        issues, path, sourceName,
+                        "Db2 z/OS DECIMAL(" + Db2ZosTypeMapper.MAX_DECIMAL_PRECISION + ",0)");
             } else if (type.precision() > Db2ZosTypeMapper.MAX_DECIMAL_PRECISION) {
                 error(issues, "DB2_DECIMAL_PRECISION_UNSUPPORTED", path,
                         "Canonical " + renderType(sourceName, type)
@@ -267,9 +270,9 @@ public final class DatatypeCompatibilityAnalyzer {
             DataType type, String sourceName, String path, List<ValidationIssue> issues) {
         if (EXACT_NUMERIC.contains(sourceName)) {
             if (type.precision() == null) {
-                error(issues, "DB2_LUW_NUMBER_PRECISION_REQUIRED", path,
-                        "Canonical " + sourceName
-                                + " has no explicit precision; Db2 LUW cannot map it losslessly to DECIMAL.");
+                unspecifiedNumericPrecision(
+                        issues, path, sourceName,
+                        "Db2 LUW DECIMAL(" + Db2LuwTypeMapper.MAX_DECIMAL_PRECISION + ",0)");
             } else if (type.precision() > Db2LuwTypeMapper.MAX_DECIMAL_PRECISION) {
                 error(issues, "DB2_LUW_DECIMAL_PRECISION_UNSUPPORTED", path,
                         "Canonical " + renderType(sourceName, type)
@@ -329,6 +332,16 @@ public final class DatatypeCompatibilityAnalyzer {
                             + limit + " and is rendered as " + target
                             + "; this datatype-class change requires review.");
         }
+    }
+
+    private static void unspecifiedNumericPrecision(
+            List<ValidationIssue> issues, String path, String sourceName, String renderedTarget) {
+        warning(issues, "NUMERIC_PRECISION_UNSPECIFIED", path,
+                "Canonical " + sourceName
+                        + " has no explicit precision/scale. SchemaForge keeps canonical precision unspecified "
+                        + "and uses " + renderedTarget
+                        + " as the non-blocking dialect rendering. Review the source specification and set "
+                        + "an explicit precision when the intended numeric range is known.");
     }
 
     private static void warning(

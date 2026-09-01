@@ -81,9 +81,7 @@ public final class SqlServerTypeMapper {
         int scale = type.scale() == null ? 0 : type.scale();
 
         if (precision == null) {
-            throw new IllegalArgumentException(
-                    "SQL Server lossless exact numeric mapping requires explicit precision/scale: "
-                            + renderSource(type));
+            return "DECIMAL(" + MAX_DECIMAL_PRECISION + ",0)";
         }
         if (precision < 1) {
             throw new IllegalArgumentException(
