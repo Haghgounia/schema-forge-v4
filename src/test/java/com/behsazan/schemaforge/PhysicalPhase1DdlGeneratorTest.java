@@ -29,7 +29,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Regression coverage for the comment-only Physical Phase 1 contract. */
+/** Regression coverage for Physical Phase 1, including the active Db2 z/OS R11.1 baseline. */
 class PhysicalPhase1DdlGeneratorTest {
 
     @Test
@@ -65,12 +65,12 @@ class PhysicalPhase1DdlGeneratorTest {
         assertTrue(db2.contains("FREEPAGE 0"));
         assertTrue(db2.contains("PCTFREE 10"));
         assertTrue(db2.contains("BUFFERPOOL <BUFFERPOOL>"));
-        assertFalse(db2.contains("AUDIT NONE"));
-        assertFalse(db2.contains("DATA CAPTURE NONE"));
+        assertTrue(db2.contains("AUDIT NONE"));
+        assertTrue(db2.contains("DATA CAPTURE NONE"));
         assertFalse(db2.contains("WITH RESTRICT ON DROP"));
         assertFalse(db2.contains("CCSID UNICODE"));
-        assertFalse(db2.contains("NOT VOLATILE"));
-        assertFalse(db2.contains("APPEND NO"));
+        assertTrue(db2.contains("NOT VOLATILE"));
+        assertTrue(db2.contains("APPEND NO"));
     }
 
     @Test
@@ -100,7 +100,8 @@ class PhysicalPhase1DdlGeneratorTest {
 
         assertFalse(db2.contains("Foreign key FK_PARENT has no supporting index"));
         assertTrue(db2.contains("Foreign key FK_BIC has no supporting index"));
-        assertTrue(db2.contains("<PADDED_OR_NOT_PADDED>"));
+        assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
+        assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
     }
 
     @Test
@@ -174,7 +175,8 @@ class PhysicalPhase1DdlGeneratorTest {
         assertTrue(db2.contains("SECQTY 0"));
         assertTrue(db2.contains("FREEPAGE 7"));
         assertTrue(db2.contains("PCTFREE 15"));
-        assertTrue(db2.contains("PIECESIZE 1 G"));
+        assertTrue(db2.contains("PIECESIZE=1 G (source; DBA capacity policy)"));
+        assertFalse(db2.contains(System.lineSeparator() + "  PIECESIZE 1 G"));
         assertTrue(db2.contains("PIECESIZE applicability/default depends on table-space size"));
         assertTrue(db2.contains("NOT PADDED"));
     }
@@ -258,7 +260,8 @@ class PhysicalPhase1DdlGeneratorTest {
         assertTrue(db2.contains("DB2_INDEX_FREEPAGE=999"));
         assertTrue(db2.contains("INDEX_PIECESIZE=3 G"));
         assertTrue(db2.contains("INDEX_PIECESIZE=3 G"));
-        assertTrue(db2.contains("INDEX_PADDING=PADDED is irrelevant"));
+        assertTrue(db2.contains("  PADDED"));
+        assertFalse(db2.contains("INDEX_PADDING=PADDED is irrelevant"));
         assertFalse(db2.contains("FREEPAGE 255"));
     }
 
@@ -378,27 +381,31 @@ class PhysicalPhase1DdlGeneratorTest {
                 .generate(DatabaseSchema.builder("ACC").addTable(table).build());
 
         assertTrue(db2.contains("IN DBACC.TSACC"));
-        assertTrue(db2.contains("BUFFERPOOL BP8K0"));
-        assertTrue(db2.contains("DSSIZE 8 G"));
-        assertTrue(db2.contains("SEGSIZE 32"));
-        assertTrue(db2.contains("FREEPAGE 7"));
-        assertTrue(db2.contains("PCTFREE 15"));
-        assertTrue(db2.contains("FOR UPDATE 10"));
-        assertTrue(db2.contains("COMPRESS YES HUFFMAN"));
-        assertTrue(db2.contains("GBPCACHE ALL"));
-        assertTrue(db2.contains("CLOSE NO"));
-        assertTrue(db2.contains("DEFINE NO"));
-        assertTrue(db2.contains("LOCKSIZE ROW"));
-        assertTrue(db2.contains("LOCKMAX SYSTEM"));
-        assertTrue(db2.contains("MAXROWS 64"));
-        assertTrue(db2.contains("MEMBER CLUSTER"));
-        assertTrue(db2.contains("INSERT ALGORITHM 2"));
-        assertTrue(db2.contains("TRACKMOD NO"));
-        assertTrue(db2.contains("NOT LOGGED"));
-        assertTrue(db2.contains("USING STOGROUP SGACC"));
-        assertTrue(db2.contains("PRIQTY 52"));
-        assertTrue(db2.contains("SECQTY 20"));
-        assertTrue(db2.contains("ERASE NO"));
+        assertTrue(db2.contains("-- SOURCE TABLESPACE PROFILE:"));
+        assertTrue(db2.contains("DB2_TABLESPACE_BUFFERPOOL=BP8K0"));
+        assertTrue(db2.contains("DB2_TABLESPACE_DSSIZE=8 G"));
+        assertTrue(db2.contains("DB2_TABLESPACE_SEGSIZE=32"));
+        assertTrue(db2.contains("DB2_TABLESPACE_FREEPAGE=7"));
+        assertTrue(db2.contains("DB2_TABLESPACE_PCTFREE=15"));
+        assertTrue(db2.contains("DB2_TABLESPACE_PCTFREE_FOR_UPDATE=10"));
+        assertTrue(db2.contains("DB2_TABLESPACE_COMPRESS=YES HUFFMAN"));
+        assertTrue(db2.contains("DB2_TABLESPACE_GBPCACHE=ALL"));
+        assertTrue(db2.contains("DB2_TABLESPACE_CLOSE=NO"));
+        assertTrue(db2.contains("DB2_TABLESPACE_DEFINE=NO"));
+        assertTrue(db2.contains("DB2_TABLESPACE_LOCKSIZE=ROW"));
+        assertTrue(db2.contains("DB2_TABLESPACE_LOCKMAX=SYSTEM"));
+        assertTrue(db2.contains("DB2_TABLESPACE_MAXROWS=64"));
+        assertTrue(db2.contains("DB2_TABLESPACE_MEMBER_CLUSTER=YES"));
+        assertTrue(db2.contains("DB2_TABLESPACE_INSERT_ALGORITHM=2"));
+        assertTrue(db2.contains("DB2_TABLESPACE_TRACKMOD=NO"));
+        assertTrue(db2.contains("DB2_TABLESPACE_LOGGING=NOT LOGGED"));
+        assertTrue(db2.contains("DB2_TABLESPACE_STOGROUP=SGACC"));
+        assertTrue(db2.contains("DB2_TABLESPACE_PRIQTY=52"));
+        assertTrue(db2.contains("DB2_TABLESPACE_SECQTY=20"));
+        assertTrue(db2.contains("DB2_TABLESPACE_ERASE=NO"));
+        assertTrue(db2.contains("TABLESPACE POLICY: STOGROUP/BUFFERPOOL/DSSIZE/SEGSIZE/LOCKSIZE/space allocation"));
+        assertFalse(db2.contains(System.lineSeparator() + "  BUFFERPOOL BP8K0"));
+        assertFalse(db2.contains(System.lineSeparator() + "  USING STOGROUP SGACC"));
     }
 
     @Test

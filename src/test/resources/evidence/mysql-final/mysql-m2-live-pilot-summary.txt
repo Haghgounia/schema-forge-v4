@@ -1,0 +1,11 @@
+SchemaForge MySQL ALTER/Migration M2 live pilot
+================================================
+Server              : MySQL 8.4.11
+Pilot database      : SCHEMAFORGE_M2_PILOT
+CREATE generated    : true
+Column changes      : 6
+Object changes      : 6
+Statements executed : 14
+Residual changes    : 0
+Data preserved      : true
+Cleanup             : true

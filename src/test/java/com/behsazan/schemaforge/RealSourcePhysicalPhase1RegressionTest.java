@@ -44,7 +44,8 @@ class RealSourcePhysicalPhase1RegressionTest {
         assertTrue(db2.contains("COUNTRY_ISO_CODE CHAR(3) FOR MIXED DATA"));
         assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
         assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
-        assertTrue(db2.contains("<PADDED_OR_NOT_PADDED>"));
+        assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
+        assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
 
         assertTrue(out.postgresql().contains("-- POSTGRESQL TABLE PHYSICAL OPTIONS"));
         assertTrue(out.sqlServer().contains("-- SQL SERVER TABLE PHYSICAL OPTIONS"));
@@ -65,7 +66,8 @@ class RealSourcePhysicalPhase1RegressionTest {
 
         String db2 = upper(out.db2());
         assertTrue(db2.contains("VOUCHER_TEMPLATE_HEADER_ROW_NAME VARCHAR(255) FOR MIXED DATA"));
-        assertTrue(db2.contains("<PADDED_OR_NOT_PADDED>"));
+        assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
+        assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
         assertTrue(db2.contains("FREEPAGE 0"));
         assertTrue(db2.contains("PCTFREE 10"));
     }
@@ -99,7 +101,7 @@ class RealSourcePhysicalPhase1RegressionTest {
         Outputs out = render(schema);
 
         String db2 = upper(out.db2());
-        assertTrue(db2.contains("SOURCEAMNT DECIMAL(20,5) WITH DEFAULT 0"));
+        assertTrue(db2.contains("SOURCEAMNT DECIMAL(20,5) NOT NULL WITH DEFAULT 0"));
         assertFalse(db2.contains("REQUESTAMNT DECIMAL(20,5) WITH DEFAULT"));
         assertFalse(db2.contains("PERMITAMNT DECIMAL(20,5) WITH DEFAULT"));
         assertFalse(db2.contains("USEDAMNT DECIMAL(20,5) WITH DEFAULT"));

@@ -72,11 +72,12 @@ class PhysicalPhase1GoldenCorpusTest {
 
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
         assertTrue(db2.contains("VOUCHER_TEMPLATE_HEADER_ROW_NAME VARCHAR(255) FOR MIXED DATA NOT NULL"));
-        assertTrue(db2.contains("IS_MANDATORY DECIMAL(1,0) WITH DEFAULT 0 NOT NULL"));
-        assertTrue(db2.contains("IS_REPEATABLE DECIMAL(1,0) WITH DEFAULT 0 NOT NULL"));
-        assertTrue(db2.contains("IS_ACTIVE DECIMAL(1,0) WITH DEFAULT 0 NOT NULL"));
+        assertTrue(db2.contains("IS_MANDATORY DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
+        assertTrue(db2.contains("IS_REPEATABLE DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
+        assertTrue(db2.contains("IS_ACTIVE DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
         assertTrue(db2.contains("CREATE UNIQUE INDEX ACC.UK_VTHR_02_IX"));
-        assertTrue(db2.contains("<PADDED_OR_NOT_PADDED>"));
+        assertTrue(db2.contains("PADDING=<PADIX/subsystem policy>"));
+        assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
         assertTrue(db2.contains("IN <DATABASE>.<TABLESPACE>"));
         assertFalse(db2.contains("SPACE_FREE_NAME"));
     }

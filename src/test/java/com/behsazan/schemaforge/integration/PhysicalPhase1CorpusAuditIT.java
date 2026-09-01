@@ -209,8 +209,9 @@ class PhysicalPhase1CorpusAuditIT {
             actualTableBlocks = countOccurrences(sql, tableTitle);
             actualIndexBlocks = countOccurrences(sql, indexTitle);
             actualFkRecommendations = countOccurrences(sql, "[PHYS-FK-INDEX-001]");
-            actualPaddedReviews = countOccurrences(sql, "<PADDED_OR_NOT_PADDED>")
-                    + countOccurrences(sql, "[SOURCE PHYSICAL] DB2_INDEX_PADDING=");
+            actualPaddedReviews = countOccurrences(sql, "PADDING=<PADIX/subsystem policy>")
+                    + countOccurrences(sql, System.lineSeparator() + "  PADDED")
+                    + countOccurrences(sql, System.lineSeparator() + "  NOT PADDED");
 
             verifyCount(snapshotName, source, platform, "PHYS-TABLE-BLOCK-001", "TABLE",
                     "Physical table comment block count differs from canonical table count",
@@ -310,8 +311,9 @@ class PhysicalPhase1CorpusAuditIT {
             }
             if (platform == DatabasePlatform.DB2_ZOS) {
                 boolean expectedPadded = containsVaryingLengthCharacterKey(table, keyColumns);
-                boolean renderedPadded = indexBlock.contains("<PADDED_OR_NOT_PADDED>")
-                        || indexBlock.contains("[SOURCE PHYSICAL] DB2_INDEX_PADDING=");
+                boolean renderedPadded = indexBlock.contains("PADDING=<PADIX/subsystem policy>")
+                        || indexBlock.contains(System.lineSeparator() + "  PADDED")
+                        || indexBlock.contains(System.lineSeparator() + "  NOT PADDED");
                 if (expectedPadded) {
                     expected.paddedReviews++;
                 }
@@ -734,7 +736,7 @@ class PhysicalPhase1CorpusAuditIT {
     private List<String> physicalPlaceholderTokens() {
         return List.of("<TABLE_TABLESPACE>", "<INDEX_TABLESPACE>", "<TABLE_FILEGROUP>", "<INDEX_FILEGROUP>",
                 "<DATABASE>", "<TABLESPACE>", "<STOGROUP>", "<PRIQTY>", "<SECQTY>", "<BUFFERPOOL>",
-                "<PADDED_OR_NOT_PADDED>", "<PCTFREE>", "<PCTUSED>", "<INITRANS>",
+                "<PADIX/subsystem policy>", "<PCTFREE>", "<PCTUSED>", "<INITRANS>",
                 "<INDEX_PCTFREE>", "<INDEX_INITRANS>", "<TABLE_COMPRESSION>",
                 "<INDEX_COMPRESSION>", "<TABLE_FILLFACTOR>", "<INDEX_FILLFACTOR>",
                 "<INDEX_DEDUPLICATE_ITEMS>", "<TABLE_DATA_COMPRESSION>", "<PAD_INDEX>",

@@ -1,0 +1,34 @@
+MySQL SQL execution summary
+===========================
+Database product      : MySQL
+Database version      : 8.4.11
+Current database      : TSTSHMA
+Current user          : root@%
+Expected database     : TSTSHMA
+Expected db status    : exists
+Root directory        : D:\Sample-Docs-Scripts\SchemaForge-R7.2-RECOVERED-OPTIMIZED-STRICT-5DBMS\mysql
+File suffix           : .mysql.sql
+Files discovered      : 4704
+Start file number     : 1
+File number filter    :
+Files selected        : 4704
+Statements executed   : 12354
+Statements succeeded  : 12354
+Statements failed     : 0
+Actionable failures   : 0
+Statements skipped    : 1295
+Cleanup attempted     : 4704
+Cleanup succeeded     : 4704
+Cleanup failed        : 0
+Execution mode        : HISTORICAL
+Stop after CREATE err : true
+Drop before CREATE    : true
+Elapsed               : PT2H11M36.047585S
+
+Errors by SQLSTATE
+------------------
+No MySQL errors.
+
+Errors by MySQL code
+--------------------
+No MySQL errors.
