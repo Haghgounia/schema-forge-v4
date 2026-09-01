@@ -61,9 +61,12 @@ public final class ArtifactManifestAssembler {
                         context.generationId(),
                         context.generationTimestamp(),
                         context.generatedAt().toString()),
-                new ArtifactManifest.Source(context.origin(), context.sourceName()),
+                new ArtifactManifest.Source(
+                        context.origin(),
+                        context.sourceName()),
                 models,
                 validation,
+                outcomes.requestStatus(),
                 outcomes,
                 artifacts,
                 extensions);
@@ -123,11 +126,30 @@ public final class ArtifactManifestAssembler {
         }
     }
 
-    private static ArtifactManifestOutcomes outcomes(List<ArtifactDescriptor> descriptors) {
-        long generated = descriptors.stream().filter(d -> d.status() == ArtifactStatus.GENERATED).count();
-        long skipped = descriptors.stream().filter(d -> d.status() == ArtifactStatus.SKIPPED).count();
-        long failed = descriptors.stream().filter(d -> d.status() == ArtifactStatus.FAILED).count();
-        return new ArtifactManifestOutcomes(generated, skipped, failed);
+    private static ArtifactManifestOutcomes outcomes(
+            List<ArtifactDescriptor> descriptors) {
+
+        long generated = descriptors.stream()
+                .filter(d -> d.status() == ArtifactStatus.GENERATED)
+                .count();
+
+        long blocked = descriptors.stream()
+                .filter(d -> d.status() == ArtifactStatus.BLOCKED)
+                .count();
+
+        long skipped = descriptors.stream()
+                .filter(d -> d.status() == ArtifactStatus.SKIPPED)
+                .count();
+
+        long failed = descriptors.stream()
+                .filter(d -> d.status() == ArtifactStatus.FAILED)
+                .count();
+
+        return new ArtifactManifestOutcomes(
+                generated,
+                blocked,
+                skipped,
+                failed);
     }
 
     private static ArtifactManifestArtifact toArtifact(Path artifactRoot, ArtifactDescriptor descriptor)

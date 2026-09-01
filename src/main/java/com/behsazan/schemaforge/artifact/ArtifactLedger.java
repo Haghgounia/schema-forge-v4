@@ -61,6 +61,31 @@ public final class ArtifactLedger {
                 ArtifactStatus.FAILED, producer, ""));
     }
 
+    public void blocked(
+            ArtifactGenerationContext context,
+            ArtifactType type,
+            DatabasePlatform platform,
+            String logicalName,
+            String producer,
+            String outcomeReason) {
+
+        if (outcomeReason == null || outcomeReason.isBlank()) {
+            throw new IllegalArgumentException(
+                    "outcomeReason is required for blocked artifacts");
+        }
+
+        add(descriptor(
+                context,
+                type,
+                platform,
+                logicalName,
+                "",
+                "",
+                ArtifactStatus.BLOCKED,
+                producer,
+                outcomeReason.trim()));
+    }
+
     public List<ArtifactDescriptor> snapshot() {
         return List.copyOf(descriptors);
     }
