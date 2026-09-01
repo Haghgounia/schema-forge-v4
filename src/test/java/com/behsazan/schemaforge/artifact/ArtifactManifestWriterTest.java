@@ -117,6 +117,106 @@ class ArtifactManifestWriterTest {
                         temp, context, "sample", List.of(), Map.of()));
     }
 
+    @Test
+    void writesPartialSuccessWhenArtifactIsBlocked() throws Exception {
+        ArtifactGenerationContext context = context();
+
+        Path ddl = temp.resolve("ddl/oracle/T.sql");
+        Files.createDirectories(ddl.getParent());
+        Files.writeString(
+                ddl,
+                "CREATE TABLE T (ID NUMBER);\n",
+                StandardCharsets.UTF_8);
+
+        context.ledger().generated(
+                context,
+                ArtifactType.DDL,
+                DatabasePlatform.ORACLE,
+                "T",
+                "ddl/oracle/T.sql",
+                "application/sql",
+                "DdlGenerator");
+
+        context.ledger().blocked(
+                context,
+                ArtifactType.DDL,
+                DatabasePlatform.DB2_ZOS,
+                "T",
+                "DdlGenerator",
+                "DB2_ZOS_DDL_BLOCKED: validation environment unavailable");
+
+        ArtifactManifest manifest =
+                new ArtifactManifestWriter(new ObjectMapper()).write(
+                        temp,
+                        context,
+                        "sample",
+                        List.of(),
+                        Map.of());
+
+        assertEquals(
+                ArtifactRequestStatus.PARTIAL_SUCCESS,
+                manifest.requestStatus());
+
+        assertEquals(
+                2,
+                manifest.artifactOutcomes().generated());
+
+        assertEquals(
+                1,
+                manifest.artifactOutcomes().blocked());
+
+        assertEquals(
+                0,
+                manifest.artifactOutcomes().failed());
+
+        var blocked = manifest.artifacts().stream()
+                .filter(entry -> entry.status() == ArtifactStatus.BLOCKED)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(
+                DatabasePlatform.DB2_ZOS,
+                blocked.platform());
+
+        assertEquals(
+                "DB2_ZOS_DDL_BLOCKED: validation environment unavailable",
+                blocked.outcomeReason());
+
+        assertNull(blocked.path());
+        assertNull(blocked.mediaType());
+        assertNull(blocked.integrity());
+
+        assertTrue(
+                Files.isRegularFile(
+                        temp.resolve("manifest.json")));
+
+        JsonNode json =
+                new ObjectMapper().readTree(
+                        temp.resolve("manifest.json").toFile());
+
+        assertEquals(
+                "PARTIAL_SUCCESS",
+                json.path("requestStatus").asText());
+
+        assertEquals(
+                2,
+                json.path("artifactOutcomes")
+                        .path("generated")
+                        .asLong());
+
+        assertEquals(
+                1,
+                json.path("artifactOutcomes")
+                        .path("blocked")
+                        .asLong());
+
+        assertEquals(
+                0,
+                json.path("artifactOutcomes")
+                        .path("failed")
+                        .asLong());
+    }
+
     private static ArtifactGenerationContext context() {
         return new ArtifactGenerationContext(
                 "gen-1",

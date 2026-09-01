@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactOrigin;
 import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.artifact.ArtifactRequestStatus;
 import com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocator;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
@@ -244,8 +245,19 @@ public final class BatchGenerationOrchestrator {
                     "failedCount", failedCount,
                     "skippedCount", skippedCount));
 
+            ArtifactRequestStatus batchRequestStatus =
+                    failedCount > 0
+                            ? ArtifactRequestStatus.PARTIAL_SUCCESS
+                            : null;
+
             artifactManifestWriter.write(
-                    outputDir, context, logicalName, manifestModels, manifestExtensions);
+                    outputDir,
+                    context,
+                    logicalName,
+                    manifestModels,
+                    manifestExtensions,
+                    batchRequestStatus);
+
             return artifactPackageBuilder.zipDirectory(outputDir);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
