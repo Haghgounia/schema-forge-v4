@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 
 /** Compares document definitions against database metadata. */
 public final class MetadataComparisonValidator {
+    private static final int METADATA_PROFILE_BATCH_SIZE = 500;
     private static final Set<String> S_ENDING_WORDS = Set.of(
             "STATUS", "SUCCESS", "ADDRESS", "PROCESS", "CLASS", "BUSINESS", "ACCESS",
             "ANALYSIS", "BASIS", "CRISIS", "DIAGNOSIS", "EMPHASIS", "THESIS");
@@ -59,7 +60,7 @@ public final class MetadataComparisonValidator {
                 && !schemaExistence.isEmpty()
                 && schemaExistence.values().stream().noneMatch(Boolean.TRUE::equals);
         Map<String, MetadataColumnProfile> profiles = metadataAvailable && !allDocumentSchemasVerifiedMissing
-                ? repository.loadColumnProfiles(columnNames)
+                ? loadColumnProfiles(columnNames)
                 : Map.of();
         metadataAvailable = metadataAvailable && repository.available();
 
@@ -104,6 +105,22 @@ public final class MetadataComparisonValidator {
         }
         return new MetadataComparisonResult(issues, frequencies, resolvedForeignKeySchemas,
                 schemaExistence, metadataAvailable);
+    }
+
+    private Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+        if (columnNames.isEmpty()) return Map.of();
+
+        List<String> orderedNames = new ArrayList<>(columnNames);
+        Map<String, MetadataColumnProfile> profiles = new LinkedHashMap<>();
+        for (int start = 0; start < orderedNames.size(); start += METADATA_PROFILE_BATCH_SIZE) {
+            int end = Math.min(start + METADATA_PROFILE_BATCH_SIZE, orderedNames.size());
+            Set<String> batch = new LinkedHashSet<>(orderedNames.subList(start, end));
+            profiles.putAll(repository.loadColumnProfiles(batch));
+            if (!repository.available()) {
+                break;
+            }
+        }
+        return Map.copyOf(profiles);
     }
 
     private boolean inspectSchemaExistence(DatabaseSchema schema, Map<String, Boolean> schemaExistence) {
