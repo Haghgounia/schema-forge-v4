@@ -14,7 +14,7 @@ class MySqlDatatypeCompatibilityAnalyzerTest {
     private final DatatypeCompatibilityAnalyzer analyzer = new DatatypeCompatibilityAnalyzer();
 
     @Test
-    void reportsEveryBlockingColumnInsteadOfStoppingAtFirstGenerationFailure() {
+    void reportsUnspecifiedPrecisionAsWarningAndKeepsOtherBlockingFindings() {
         Table table = Table.builder("TSTSHMA", "LEGACY_NUMBERS")
                 .addColumn(Column.required("NO_PRECISION", DataType.simple("NUMBER")))
                 .addColumn(Column.required("TOO_WIDE", DataType.numeric("NUMBER", 77, 0)))
@@ -27,7 +27,8 @@ class MySqlDatatypeCompatibilityAnalyzerTest {
         assertTrue(result.blocking());
         assertEquals(3, result.issues().size());
         assertTrue(result.issues().stream().anyMatch(issue ->
-                issue.code().equals("MYSQL_EXACT_NUMERIC_PRECISION_REQUIRED")
+                issue.code().equals("NUMERIC_PRECISION_UNSPECIFIED")
+                        && issue.severity().equals("WARNING")
                         && issue.path().equals("tables.LEGACY_NUMBERS.columns.NO_PRECISION")));
         assertTrue(result.issues().stream().anyMatch(issue ->
                 issue.code().equals("MYSQL_DECIMAL_PRECISION_UNSUPPORTED")

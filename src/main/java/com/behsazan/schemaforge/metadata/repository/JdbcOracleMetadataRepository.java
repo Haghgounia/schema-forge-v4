@@ -462,6 +462,16 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
     }
 
     @Override
+    public List<String> findTableNames(String schemaName) {
+        if (schemaName == null || schemaName.isBlank()) return List.of();
+        return jdbcTemplate.getJdbcTemplate().queryForList(
+                "SELECT TABLE_NAME FROM ALL_TABLES "
+                        + "WHERE UPPER(OWNER) = UPPER(?) "
+                        + "ORDER BY TABLE_NAME",
+                String.class, schemaName);
+    }
+
+    @Override
     public List<String> findTableSchemas(String tableName) {
         if (tableName == null || tableName.isBlank()) return List.of();
         return jdbcTemplate.getJdbcTemplate().queryForList(

@@ -33,6 +33,9 @@ public interface MetadataRepository {
 
     default boolean schemaExists(String schemaName) { return false; }
 
+    /** Returns deterministic non-system table names for one live schema. */
+    default List<String> findTableNames(String schemaName) { return List.of(); }
+
     /**
      * Whether {@link #schemaExists(String)} can distinguish a verified missing schema from an
      * implementation that simply has no schema catalog. Runtime JDBC repositories are

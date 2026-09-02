@@ -26,6 +26,34 @@ class ArtifactNamingPolicyTest {
     }
 
     @Test
+    void apiArchiveNamesUseOneCentralSafeGrammar() {
+        ArtifactNamingPolicy policy = new ArtifactNamingPolicy(
+                Clock.fixed(Instant.parse("2026-08-23T01:02:03.456Z"), ZoneOffset.UTC));
+
+        assertEquals("schemaforge-word-20260823-010203-456.zip",
+                policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.WORD));
+        assertEquals("schemaforge-legacy-word-20260823-010203-456.zip",
+                policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD));
+        assertEquals("schemaforge-batch-20260823-010203-456.zip",
+                policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.BATCH));
+        assertEquals("schemaforge-ea-20260823-010203-456.zip",
+                policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.EA));
+    }
+
+    @Test
+    void apiArchiveNamesContainOnlyPortableSafeCharacters() {
+        ArtifactNamingPolicy policy = new ArtifactNamingPolicy(
+                Clock.fixed(Instant.parse("2026-08-23T01:02:03.456Z"), ZoneOffset.UTC));
+
+        for (ArtifactNamingPolicy.ArchiveKind kind : ArtifactNamingPolicy.ArchiveKind.values()) {
+            String fileName = policy.archiveFileName(kind);
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    fileName.matches("[a-z0-9.-]+\\.zip"),
+                    fileName);
+        }
+    }
+
+    @Test
     void artifactFirstLayoutCoversCoreArtifactFamilies() {
         ArtifactNamingPolicy policy = new ArtifactNamingPolicy();
 

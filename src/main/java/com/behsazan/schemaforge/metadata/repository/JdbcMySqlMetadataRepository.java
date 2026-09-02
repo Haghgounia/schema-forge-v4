@@ -254,6 +254,17 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
     }
 
     @Override
+    public List<String> findTableNames(String schemaName) {
+        if (schemaName == null || schemaName.isBlank()) return List.of();
+        return jdbcTemplate.getJdbcTemplate().queryForList(
+                "SELECT table_name FROM information_schema.tables "
+                        + "WHERE table_type='BASE TABLE' "
+                        + "AND table_schema NOT IN ('mysql','information_schema','performance_schema','sys') "
+                        + "AND LOWER(table_schema)=LOWER(?) ORDER BY table_name",
+                String.class, schemaName);
+    }
+
+    @Override
     public List<String> findTableSchemas(String tableName) {
         if (tableName == null || tableName.isBlank()) return List.of();
         return jdbcTemplate.getJdbcTemplate().queryForList(

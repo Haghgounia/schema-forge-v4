@@ -56,6 +56,16 @@ public final class InMemoryMetadataRepository implements MetadataRepository {
     }
 
     @Override
+    public java.util.List<String> findTableNames(String schemaName) {
+        String prefix = (schemaName == null ? "" : schemaName.trim().toUpperCase(Locale.ROOT)) + ".";
+        return tables.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix))
+                .map(entry -> entry.getValue().qualifiedName().name().value())
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
+    @Override
     public boolean schemaExistenceAuthoritative() {
         return false;
     }

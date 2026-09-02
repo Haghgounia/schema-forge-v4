@@ -37,6 +37,7 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     private final ConcurrentMap<TableKey, Optional<Table>> tables = new ConcurrentHashMap<>();
     private final ConcurrentMap<ExactTableKey, Boolean> missingTables = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<String>> tableSchemas = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, List<String>> schemaTableNames = new ConcurrentHashMap<>();
 
     private FailureIsolatingMetadataRepository(DatabasePlatform platform, MetadataRepository delegate) {
         this.platform = Objects.requireNonNull(platform, "platform must not be null");
@@ -194,6 +195,31 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
         } catch (RuntimeException exception) {
             if (isolateConnectionFailure("schemaExists", exception)) {
                 return false;
+            }
+            throw exception;
+        }
+    }
+
+    @Override
+    public List<String> findTableNames(String schemaName) {
+        if (!available()) {
+            return List.of();
+        }
+        String key = normalize(schemaName);
+        if (key == null || Boolean.FALSE.equals(schemaExistence.get(key))) {
+            return List.of();
+        }
+        List<String> cached = schemaTableNames.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            List<String> result = List.copyOf(delegate.findTableNames(schemaName));
+            schemaTableNames.putIfAbsent(key, result);
+            return result;
+        } catch (RuntimeException exception) {
+            if (isolateConnectionFailure("findTableNames", exception)) {
+                return List.of();
             }
             throw exception;
         }

@@ -429,6 +429,17 @@ public class JdbcDb2ZosMetadataRepository implements Db2ZosMetadataRepository {
     }
 
     @Override
+    public List<String> findTableNames(String schemaName) {
+        if (schemaName == null || schemaName.isBlank()) return List.of();
+        return jdbcTemplate.getJdbcTemplate().queryForList(
+                "SELECT NAME FROM SYSIBM.SYSTABLES "
+                        + "WHERE TYPE IN ('T','M','H') "
+                        + "AND CREATOR NOT IN ('SYSIBM','SYSFUN','SYSPROC','SYSSTAT','SYSTOOLS') "
+                        + "AND UPPER(CREATOR)=UPPER(?) ORDER BY NAME WITH UR",
+                String.class, schemaName);
+    }
+
+    @Override
     public List<String> findTableSchemas(String tableName) {
         if (tableName == null || tableName.isBlank()) return List.of();
         return jdbcTemplate.getJdbcTemplate().queryForList(

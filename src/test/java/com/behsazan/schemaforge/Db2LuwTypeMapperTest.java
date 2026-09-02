@@ -48,13 +48,10 @@ class Db2LuwTypeMapperTest {
     }
 
     @Test
-    void rejectsMappingsThatWouldInventOrDiscardSemantics() {
+    void usesNonBlockingFallbackForUnspecifiedNumberButRejectsUnsupportedMappings() {
         Db2LuwTypeMapper mapper = new Db2LuwTypeMapper();
 
-        IllegalArgumentException unbounded = assertThrows(
-                IllegalArgumentException.class,
-                () -> mapper.map(DataType.simple("NUMBER")));
-        assertTrue(unbounded.getMessage().contains("explicit precision"));
+        assertEquals("DECIMAL(31,0)", mapper.map(DataType.simple("NUMBER")));
 
         IllegalArgumentException excessivePrecision = assertThrows(
                 IllegalArgumentException.class,

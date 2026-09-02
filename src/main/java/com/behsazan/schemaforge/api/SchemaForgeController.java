@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.api;
 
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ContentDisposition;
@@ -14,10 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Exposes REST endpoints for schema forge operations.
@@ -28,12 +26,12 @@ import java.util.Locale;
 @RequestMapping("/api/v1/generate")
 @Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, Db2 for z/OS, Db2 LUW, SQL Server, and MySQL DDL from Word, legacy Word, ZIP, or Enterprise Architect XML/XMI")
 public class SchemaForgeController {
-    private static final DateTimeFormatter ARCHIVE_TIME =
-            DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss_SSS", Locale.ROOT);
     private final SchemaForgeApiService service;
+    private final ArtifactNamingPolicy archiveNamingPolicy;
 
     public SchemaForgeController(SchemaForgeApiService service) {
         this.service = service;
+        this.archiveNamingPolicy = new ArtifactNamingPolicy();
     }
 
     @PostMapping(value = "/word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
@@ -44,7 +42,7 @@ public class SchemaForgeController {
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
         return zip(service.generateFromWord(file, includeAuditFields, auditProfile),
-                archiveName("schemaforge-word-output"));
+                archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.WORD));
     }
 
     @PostMapping(value = "/legacy-word", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
@@ -56,7 +54,7 @@ public class SchemaForgeController {
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
         return zip(service.generateFromLegacyWord(file, schema, includeAuditFields, auditProfile),
-                archiveName("schemaforge-legacy-word-output"));
+                archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD));
     }
 
     @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
@@ -67,7 +65,7 @@ public class SchemaForgeController {
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
         return zip(service.generateFromZip(file, includeAuditFields, auditProfile),
-                archiveName("schemaforge-batch-output"));
+                archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.BATCH));
     }
 
     @PostMapping(value = "/ea-xml", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
@@ -80,11 +78,7 @@ public class SchemaForgeController {
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
         return zip(service.generateFromEaXml(file, schema, includeAuditFields, auditProfile, platforms),
-                archiveName("schemaforge-ea-output"));
-    }
-
-    private static String archiveName(String baseName) {
-        return baseName + "_" + LocalDateTime.now().format(ARCHIVE_TIME) + ".zip";
+                archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.EA));
     }
 
     private static ResponseEntity<byte[]> zip(byte[] content, String fileName) {

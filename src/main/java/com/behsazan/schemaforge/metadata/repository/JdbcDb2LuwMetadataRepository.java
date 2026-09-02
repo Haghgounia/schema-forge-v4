@@ -348,6 +348,17 @@ public class JdbcDb2LuwMetadataRepository implements Db2LuwMetadataRepository {
     }
 
     @Override
+    public List<String> findTableNames(String schemaName) {
+        if (schemaName == null || schemaName.isBlank()) return List.of();
+        return jdbcTemplate.getJdbcTemplate().queryForList(
+                "SELECT TABNAME FROM SYSCAT.TABLES "
+                        + "WHERE TYPE IN ('T','U') "
+                        + "AND TABSCHEMA NOT IN ('SYSIBM','SYSCAT','SYSSTAT','SYSFUN','SYSPROC','SYSTOOLS') "
+                        + "AND UPPER(TABSCHEMA)=UPPER(?) ORDER BY TABNAME",
+                String.class, schemaName);
+    }
+
+    @Override
     public List<String> findTableSchemas(String tableName) {
         if (tableName == null || tableName.isBlank()) return List.of();
         return jdbcTemplate.getJdbcTemplate().queryForList(

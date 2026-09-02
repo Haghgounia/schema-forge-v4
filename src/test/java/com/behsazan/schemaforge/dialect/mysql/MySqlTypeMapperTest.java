@@ -43,9 +43,8 @@ class MySqlTypeMapperTest {
     }
 
     @Test
-    void shouldRejectLossyOrUnsupportedMappings() {
-        assertThrows(IllegalArgumentException.class,
-                () -> mapper.map(DataType.simple("NUMBER")));
+    void shouldUseNonBlockingFallbackForUnspecifiedNumberAndRejectUnsupportedMappings() {
+        assertEquals("DECIMAL(65,0)", mapper.map(DataType.simple("NUMBER")));
         assertThrows(IllegalArgumentException.class,
                 () -> mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
         assertThrows(IllegalArgumentException.class,

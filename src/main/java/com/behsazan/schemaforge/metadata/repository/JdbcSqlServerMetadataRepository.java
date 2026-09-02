@@ -527,6 +527,16 @@ public class JdbcSqlServerMetadataRepository implements SqlServerMetadataReposit
     }
 
     @Override
+    public List<String> findTableNames(String schemaName) {
+        if (schemaName == null || schemaName.isBlank()) return List.of();
+        return jdbcTemplate.getJdbcTemplate().queryForList(
+                "SELECT T.name FROM sys.tables T JOIN sys.schemas S ON S.schema_id = T.schema_id "
+                        + "WHERE LOWER(S.name) = LOWER(?) "
+                        + "AND S.name NOT IN ('sys','INFORMATION_SCHEMA') ORDER BY T.name",
+                String.class, schemaName);
+    }
+
+    @Override
     public List<String> findTableSchemas(String tableName) {
         if (tableName == null || tableName.isBlank()) return List.of();
         return jdbcTemplate.getJdbcTemplate().queryForList(

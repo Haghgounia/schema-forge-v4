@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Authoritative package-relative naming and layout policy for generated SchemaForge artifacts.
+ * Authoritative naming and layout policy for generated SchemaForge artifacts and API archives.
  *
  * <p>Flyway migration file names remain owned by the migration subsystem; this policy owns only
  * their canonical package directory.</p>
@@ -40,6 +40,19 @@ public final class ArtifactNamingPolicy {
 
     public String timestamp() {
         return sqlNamer.timestamp();
+    }
+
+    /**
+     * Returns the safe outer ZIP file name used by REST generation endpoints.
+     *
+     * <p>The archive grammar intentionally uses only lowercase ASCII letters, digits, hyphens
+     * and the final dot before {@code zip}. Source file names are never embedded in the response
+     * archive name.</p>
+     */
+    public String archiveFileName(ArchiveKind kind) {
+        Objects.requireNonNull(kind, "kind must not be null");
+        String safeTimestamp = timestamp().replace('_', '-');
+        return "schemaforge-" + kind.token() + "-" + safeTimestamp + ".zip";
     }
 
     /** Formats one captured request time with the authoritative C5 timestamp grammar. */
@@ -173,6 +186,23 @@ public final class ArtifactNamingPolicy {
             name.append("-depth-").append(options.dependencyDepth());
         }
         return name.append(".mmd").toString();
+    }
+
+    public enum ArchiveKind {
+        WORD("word"),
+        LEGACY_WORD("legacy-word"),
+        BATCH("batch"),
+        EA("ea");
+
+        private final String token;
+
+        ArchiveKind(String token) {
+            this.token = token;
+        }
+
+        public String token() {
+            return token;
+        }
     }
 
     public enum BatchMermaidArtifact {
