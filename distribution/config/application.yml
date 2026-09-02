@@ -1,0 +1,104 @@
+# SchemaForge V4 4.0.0 external runtime configuration.
+# Safe distribution defaults: all live metadata repositories are disabled.
+# No production credentials belong in the distribution package.
+
+server:
+  port: ${SCHEMAFORGE_SERVER_PORT:9090}
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+schemaforge:
+  numeric-mapping:
+    strategy: ${SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY:SAFE}
+
+  ea:
+    default-schema: ${SCHEMAFORGE_EA_DEFAULT_SCHEMA:COL}
+
+  standards:
+    audit:
+      enabled: ${SCHEMAFORGE_AUDIT_ENABLED:true}
+      columns:
+        - name: CREATED_BY
+          dataType: VARCHAR2(50)
+          nullable: false
+          comment: "Creation user"
+        - name: CREATED_DATE
+          dataType: TIMESTAMP
+          nullable: false
+          comment: "Creation timestamp"
+        - name: LAST_MODIFIED_BY
+          dataType: VARCHAR2(50)
+          nullable: false
+          comment: "Last modification user"
+        - name: LAST_MODIFIED_DATE
+          dataType: TIMESTAMP
+          nullable: false
+          comment: "Last modification timestamp"
+    grants: []
+
+  spell-check:
+    enabled: ${SCHEMAFORGE_SPELL_CHECK_ENABLED:false}
+    endpoint: ${SCHEMAFORGE_SPELL_CHECK_ENDPOINT:https://api.languagetool.org/v2/check}
+    language: ${SCHEMAFORGE_SPELL_CHECK_LANGUAGE:en-US}
+    connect-timeout: ${SCHEMAFORGE_SPELL_CHECK_CONNECT_TIMEOUT:3s}
+    request-timeout: ${SCHEMAFORGE_SPELL_CHECK_REQUEST_TIMEOUT:5s}
+    maximum-suggestions: ${SCHEMAFORGE_SPELL_CHECK_MAXIMUM_SUGGESTIONS:3}
+    fail-open: ${SCHEMAFORGE_SPELL_CHECK_FAIL_OPEN:true}
+    technical-terms:
+      - MEPS
+      - BEHSAZAN
+      - MELLAT
+      - BNCP
+
+  metadata:
+    oracle:
+      enabled: ${SCHEMAFORGE_METADATA_ORACLE_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_ORACLE_URL:}
+      username: ${SCHEMAFORGE_METADATA_ORACLE_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_ORACLE_PASSWORD:}
+      driver-class-name: oracle.jdbc.OracleDriver
+
+    postgresql:
+      enabled: ${SCHEMAFORGE_METADATA_POSTGRESQL_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_POSTGRESQL_URL:}
+      username: ${SCHEMAFORGE_METADATA_POSTGRESQL_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_POSTGRESQL_PASSWORD:}
+      driver-class-name: org.postgresql.Driver
+
+    db2zos:
+      enabled: ${SCHEMAFORGE_METADATA_DB2ZOS_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_DB2ZOS_URL:}
+      username: ${SCHEMAFORGE_METADATA_DB2ZOS_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_DB2ZOS_PASSWORD:}
+      driver-class-name: com.ibm.db2.jcc.DB2Driver
+
+    db2luw:
+      enabled: ${SCHEMAFORGE_METADATA_DB2LUW_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_DB2LUW_URL:}
+      username: ${SCHEMAFORGE_METADATA_DB2LUW_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_DB2LUW_PASSWORD:}
+      driver-class-name: com.ibm.db2.jcc.DB2Driver
+
+    sqlserver:
+      enabled: ${SCHEMAFORGE_METADATA_SQLSERVER_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_SQLSERVER_URL:}
+      username: ${SCHEMAFORGE_METADATA_SQLSERVER_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD:}
+      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+    mysql:
+      enabled: ${SCHEMAFORGE_METADATA_MYSQL_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_MYSQL_URL:}
+      username: ${SCHEMAFORGE_METADATA_MYSQL_USERNAME:}
+      password: ${SCHEMAFORGE_METADATA_MYSQL_PASSWORD:}
+      driver-class-name: com.mysql.cj.jdbc.Driver
