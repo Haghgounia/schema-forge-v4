@@ -69,7 +69,7 @@ class DistributionDocumentationContractTest {
 
         assertTrue(combined.contains("scripts\\start-windows.cmd"));
         assertTrue(combined.contains("--spring.config.location=file:./config/application.yml"));
-        assertTrue(combined.contains("78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57"));
+        assertTrue(combined.contains("checksums/SHA256SUMS.txt") || combined.contains("checksums\\SHA256SUMS.txt"));
         assertTrue(limitations.contains("IBM JCC"));
         assertTrue(limitations.contains("development `application.yml`"));
     }

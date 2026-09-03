@@ -1,11 +1,9 @@
-# Binary staging
+# Runtime binary
 
-Phase 19.3 places the already validated GA binary here as:
+The final distribution contains exactly one executable JAR:
 
 `schema-forge-v4-4.0.0.jar`
 
-Expected SHA-256:
+The authoritative frozen SHA-256 is stored in `checksums/SHA256SUMS.txt` and is written only after two clean builds produce the same byte-level JAR through `scripts\reproducible-ga-build-windows.cmd`.
 
-`78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57`
-
-Do not rebuild or replace the binary during distribution assembly. The final package must contain the exact validated GA artifact.
+Do not manually replace the binary during distribution assembly.

@@ -45,11 +45,7 @@ Run:
 scripts\verify-checksum-windows.cmd
 ```
 
-The expected GA JAR SHA-256 is:
-
-```text
-78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57
-```
+The authoritative GA JAR SHA-256 is stored in `checksums/SHA256SUMS.txt`. Run `scripts\verify-checksum-windows.cmd` after extraction.
 
 A checksum mismatch means the binary must not be started.
 

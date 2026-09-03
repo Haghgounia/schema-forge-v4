@@ -13,8 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DistributionStructureContractTest {
 
     private static final String GA_JAR = "schema-forge-v4-4.0.0.jar";
-    private static final String GA_SHA256 =
-            "78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57";
 
     @Test
     void runtimeDistributionLayoutIsPresent() {
@@ -28,6 +26,7 @@ class DistributionStructureContractTest {
                 "scripts/start-windows.cmd",
                 "scripts/smoke-test-windows.cmd",
                 "scripts/verify-checksum-windows.cmd",
+                "scripts/reproducible-ga-build-windows.cmd",
                 "docs/README.md",
                 "samples/README.md",
                 "checksums/SHA256SUMS.txt");
@@ -64,12 +63,12 @@ class DistributionStructureContractTest {
     }
 
     @Test
-    void gaBinaryChecksumIsFrozenInDistributionLayout() throws IOException {
+    void gaBinaryChecksumFileUsesDistributionContract() throws IOException {
         Path checksum = locateProjectRoot().resolve("distribution/checksums/SHA256SUMS.txt");
         String text = Files.readString(checksum).trim();
 
-        assertTrue(text.startsWith(GA_SHA256 + "  "));
-        assertTrue(text.endsWith("bin/" + GA_JAR));
+        assertTrue(text.matches("(?i)^[0-9a-f]{64}  bin/" + GA_JAR.replace(".", "\\.") + "$"),
+                () -> "Unexpected GA checksum contract: " + text);
     }
 
     private static Path locateProjectRoot() {

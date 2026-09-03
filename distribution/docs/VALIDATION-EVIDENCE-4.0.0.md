@@ -25,7 +25,10 @@ RC1 API docs and live SQL Server Schema Conformance smoke passed before GA promo
 
 ```text
 Artifact : schema-forge-v4-4.0.0.jar
-SHA-256  : 78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57
+SHA-256  : see checksums/SHA256SUMS.txt (reproducible distribution freeze)
+
+Historical pre-reproducibility GA artifact SHA-256:
+78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57
 ```
 
 ## GA runtime smoke

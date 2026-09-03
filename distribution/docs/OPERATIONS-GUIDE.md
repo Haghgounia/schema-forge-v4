@@ -8,11 +8,7 @@ Version : 4.0.0
 Artifact: bin\schema-forge-v4-4.0.0.jar
 ```
 
-Frozen GA JAR SHA-256:
-
-```text
-78057619993e942f0a43fb799da754b95282f365b4f6bab09210c86233f6db57
-```
+The authoritative frozen GA JAR SHA-256 is stored in `checksums/SHA256SUMS.txt`. It is produced by the reproducible-build freeze gate before distribution assembly.
 
 ## Startup procedure
 
