@@ -1,3 +1,12 @@
+## 2026-09-07 - SchemaForge V4 4.0.1 / FIX-001 Word object-name isolation
+
+- Fixes Word table-section boundary handling when a Sequence section follows column rows inside the same physical DOCX table.
+- Prevents Sequence-description text from leaking into Index parsing and creating invalid over-length identifiers.
+- Preserves SchemaForge-owned deterministic naming for Sequence, Index, Unique Key, and Foreign Key objects; physical names written in Word do not override the naming policy.
+- Real `MCB.RTG.TBL.BANK_TO_BANK_TRANSFERS.docx` Batch acceptance: 19/19 documents successful, 114/114 six-DBMS DDL, 0 validation errors.
+- Full regression: 765 tests, 0 failures, 0 errors, 9 skipped.
+- No REST/API, manifest, artifact, Schema Conformance, canonical-model, or DBMS feature-contract expansion.
+
 ## 2026-09-01 - R11.4.2 Legacy default and artifact-outcome hardening
 
 - Preserves explicit Legacy Word defaults written as `Value = <expression>` / `VALUE: <expression>` instead of dropping them as unrecognized natural language; compatibility validation remains fail-closed and no value is inferred.

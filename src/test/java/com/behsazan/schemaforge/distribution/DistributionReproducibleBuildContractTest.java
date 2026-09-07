@@ -14,7 +14,7 @@ class DistributionReproducibleBuildContractTest {
     @Test
     void mavenBuildPinsOutputTimestamp() throws IOException {
         String pom = Files.readString(root().resolve("pom.xml"));
-        assertTrue(pom.contains("<project.build.outputTimestamp>2026-09-02T00:00:00Z</project.build.outputTimestamp>"));
+        assertTrue(pom.contains("<project.build.outputTimestamp>2026-09-07T00:00:00Z</project.build.outputTimestamp>"));
     }
 
     @Test

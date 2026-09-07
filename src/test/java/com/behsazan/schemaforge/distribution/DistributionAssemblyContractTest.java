@@ -23,6 +23,7 @@ class DistributionAssemblyContractTest {
     @Test
     void assemblyRequiresReproduciblyFrozenGaBinary() throws IOException {
         String text = Files.readString(root().resolve("distribution/scripts/assemble-distribution-windows.cmd"));
+        assertTrue(text.contains("set \"PRODUCT_VERSION=4.0.1\""));
         assertTrue(text.contains("set \"GA_JAR=schema-forge-v4-%PRODUCT_VERSION%.jar\""));
         assertTrue(text.contains("set \"SOURCE_JAR=target\\%GA_JAR%\""));
         assertTrue(text.contains("distribution\\checksums\\SHA256SUMS.txt"));
@@ -38,6 +39,9 @@ class DistributionAssemblyContractTest {
         for (String required : List.of(
                 "distribution\\config",
                 "distribution\\docs",
+                "RELEASE-NOTES-4.0.1.md",
+                "KNOWN-LIMITATIONS-4.0.1.md",
+                "VALIDATION-EVIDENCE-4.0.1.md",
                 "distribution\\samples",
                 "start-windows.cmd",
                 "smoke-test-windows.cmd",

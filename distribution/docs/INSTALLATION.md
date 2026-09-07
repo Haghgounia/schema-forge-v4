@@ -1,4 +1,4 @@
-# SchemaForge V4 4.0.0 - Installation
+# SchemaForge V4 4.0.1 - Installation
 
 ## 1. Runtime prerequisites
 
@@ -18,10 +18,10 @@ The validated build baseline uses Java 21.
 
 ## 2. Extract the distribution
 
-Extract `schemaforge-v4-4.0.0-distribution.zip` to a dedicated directory, for example:
+Extract `schemaforge-v4-4.0.1-distribution.zip` to a dedicated directory, for example:
 
 ```text
-D:\SchemaForge\schemaforge-v4-4.0.0
+D:\SchemaForge\schemaforge-v4-4.0.1
 ```
 
 Expected top-level layout:
@@ -88,10 +88,10 @@ This external configuration boundary is part of the V4 distribution contract.
 
 ### Important
 
-For the 4.0.0 distribution, do not use a bare command such as:
+For the 4.0.1 distribution, do not use a bare command such as:
 
 ```text
-java -jar bin\schema-forge-v4-4.0.0.jar
+java -jar bin\schema-forge-v4-4.0.1.jar
 ```
 
 The validated GA JAR contains the original development `application.yml` resource. The distribution launcher overrides that embedded resource with the safe external runtime configuration. Phase 19.3 must preserve this launcher behavior unless a new maintenance binary is intentionally produced.
@@ -122,4 +122,4 @@ http://localhost:9090/swagger-ui.html
 
 DDL generation from Word/Legacy Word/EA does not require every metadata connection to be enabled. Enable a metadata repository only for operations that need that live database.
 
-The standard 4.0.0 GA runtime contains Oracle, PostgreSQL, SQL Server, and MySQL JDBC dependencies. IBM JCC is not bundled in the standard GA JAR; keep Db2 LUW and Db2 z/OS runtime metadata profiles disabled in this distribution. See `KNOWN-LIMITATIONS-4.0.0.md`.
+The standard 4.0.1 GA runtime contains Oracle, PostgreSQL, SQL Server, and MySQL JDBC dependencies. IBM JCC is not bundled in the standard GA JAR; keep Db2 LUW and Db2 z/OS runtime metadata profiles disabled in this distribution. See `KNOWN-LIMITATIONS-4.0.1.md`.

@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 cd /d "%~dp0\..\.."
 
-set "PRODUCT_VERSION=4.0.0"
+set "PRODUCT_VERSION=4.0.1"
 set "GA_JAR=schema-forge-v4-%PRODUCT_VERSION%.jar"
 set "SOURCE_JAR=target\%GA_JAR%"
 set "CHECKSUM_FILE=distribution\checksums\SHA256SUMS.txt"

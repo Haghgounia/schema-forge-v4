@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 cd /d "%~dp0\..\.."
 
-set "PRODUCT_VERSION=4.0.0"
+set "PRODUCT_VERSION=4.0.1"
 set "GA_JAR=schema-forge-v4-%PRODUCT_VERSION%.jar"
 set "PACKAGE_ROOT=target\distribution-stage\schemaforge-v4-%PRODUCT_VERSION%"
 set "PACKAGE_JAR=%PACKAGE_ROOT%\bin\%GA_JAR%"
@@ -21,6 +21,9 @@ for %%F in (
   "%PACKAGE_ROOT%\docs\API-GUIDE.md"
   "%PACKAGE_ROOT%\docs\DBA-GUIDE.md"
   "%PACKAGE_ROOT%\docs\OPERATIONS-GUIDE.md"
+  "%PACKAGE_ROOT%\docs\RELEASE-NOTES-4.0.1.md"
+  "%PACKAGE_ROOT%\docs\KNOWN-LIMITATIONS-4.0.1.md"
+  "%PACKAGE_ROOT%\docs\VALIDATION-EVIDENCE-4.0.1.md"
   "%PACKAGE_CHECKSUM%"
   "%OUTPUT_ZIP%"
   "%OUTPUT_ZIP_SHA%"

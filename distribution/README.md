@@ -1,8 +1,8 @@
 # SchemaForge V4 Runtime Distribution Staging
 
-This directory defines the source-controlled layout for the SchemaForge V4 4.0.0 runtime distribution.
+This directory defines the source-controlled layout for the SchemaForge V4 4.0.1 runtime distribution.
 
-The final deliverable is assembled in Phase 19.3 as `schemaforge-v4-4.0.0-distribution.zip`.
+The final deliverable is assembled in Phase 19.3 as `schemaforge-v4-4.0.1-distribution.zip`.
 Production Java sources are not included in the runtime distribution.
 
 Layout:

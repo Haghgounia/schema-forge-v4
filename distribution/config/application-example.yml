@@ -1,4 +1,4 @@
-# SchemaForge V4 4.0.0 external runtime configuration template.
+# SchemaForge V4 4.0.1 external runtime configuration template.
 # Copy this file to config/application.yml before starting SchemaForge.
 # No production credentials belong in the distribution package.
 

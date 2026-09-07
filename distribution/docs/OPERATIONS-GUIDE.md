@@ -1,11 +1,11 @@
-# SchemaForge V4 4.0.0 - Operations Guide
+# SchemaForge V4 4.0.1 - Operations Guide
 
 ## Runtime identity
 
 ```text
 Product : SchemaForge V4
-Version : 4.0.0
-Artifact: bin\schema-forge-v4-4.0.0.jar
+Version : 4.0.1
+Artifact: bin\schema-forge-v4-4.0.1.jar
 ```
 
 The authoritative frozen GA JAR SHA-256 is stored in `checksums/SHA256SUMS.txt`. It is produced by the reproducible-build freeze gate before distribution assembly.
@@ -38,7 +38,7 @@ The supported runtime launcher is `scripts\start-windows.cmd` because it forces:
 --spring.config.location=file:./config/application.yml
 ```
 
-Do not bypass this boundary for production deployment of the 4.0.0 distribution.
+Do not bypass this boundary for production deployment of the 4.0.1 distribution.
 
 ## Smoke verification
 
@@ -72,9 +72,9 @@ schemaforge-schema-conformance/v3
 
 ## Shutdown
 
-The supplied 4.0.0 staging package does not install SchemaForge as a Windows Service and does not expose a product-specific remote shutdown endpoint. Stop the foreground Java process using the hosting terminal/process-management mechanism approved by Operations.
+The supplied 4.0.1 staging package does not install SchemaForge as a Windows Service and does not expose a product-specific remote shutdown endpoint. Stop the foreground Java process using the hosting terminal/process-management mechanism approved by Operations.
 
-A Windows Service wrapper, container, or service manager is deployment infrastructure and is not bundled in the V4 4.0.0 distribution.
+A Windows Service wrapper, container, or service manager is deployment infrastructure and is not bundled in the V4 4.0.1 distribution.
 
 ## Logs and support evidence
 
@@ -106,7 +106,7 @@ For generation failures also preserve the returned ZIP/report artifacts when ava
 The launcher requires:
 
 ```text
-bin\schema-forge-v4-4.0.0.jar
+bin\schema-forge-v4-4.0.1.jar
 ```
 
 ### Runtime config missing
@@ -143,4 +143,4 @@ set "SCHEMAFORGE_BASE_URL=http://localhost:9191"
 
 ## Change control
 
-The 4.0.0 binary is immutable once distributed. Do not replace the JAR while retaining the same checksum record. Any binary change requires a controlled maintenance release and a new checksum.
+The 4.0.1 binary is immutable once distributed. Do not replace the JAR while retaining the same checksum record. Any binary change requires a controlled maintenance release and a new checksum.

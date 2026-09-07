@@ -1,4 +1,4 @@
-# SchemaForge V4 4.0.0 - Configuration
+# SchemaForge V4 4.0.1 - Configuration
 
 SchemaForge distribution configuration is read from `config/application.yml` by `scripts/start-windows.cmd`.
 

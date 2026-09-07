@@ -1,4 +1,4 @@
-# SchemaForge V4 4.0.0 external runtime configuration.
+# SchemaForge V4 4.0.1 external runtime configuration.
 # Safe distribution defaults: all live metadata repositories are disabled.
 # No production credentials belong in the distribution package.
 

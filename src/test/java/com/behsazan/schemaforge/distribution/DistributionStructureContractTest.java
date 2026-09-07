@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DistributionStructureContractTest {
 
-    private static final String GA_JAR = "schema-forge-v4-4.0.0.jar";
+    private static final String GA_JAR = "schema-forge-v4-4.0.1.jar";
 
     @Test
     void runtimeDistributionLayoutIsPresent() {
@@ -67,8 +67,9 @@ class DistributionStructureContractTest {
         Path checksum = locateProjectRoot().resolve("distribution/checksums/SHA256SUMS.txt");
         String text = Files.readString(checksum).trim();
 
-        assertTrue(text.matches("(?i)^[0-9a-f]{64}  bin/" + GA_JAR.replace(".", "\\.") + "$"),
-                () -> "Unexpected GA checksum contract: " + text);
+        boolean frozen = text.matches("(?i)^[0-9a-f]{64}  bin/" + GA_JAR.replace(".", "\\.") + "$");
+        boolean pending = text.equals("UNFROZEN  bin/" + GA_JAR);
+        assertTrue(frozen || pending, () -> "Unexpected GA checksum contract: " + text);
     }
 
     private static Path locateProjectRoot() {

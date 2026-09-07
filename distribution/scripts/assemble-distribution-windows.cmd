@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 cd /d "%~dp0\..\.."
 
-set "PRODUCT_VERSION=4.0.0"
+set "PRODUCT_VERSION=4.0.1"
 set "GA_JAR=schema-forge-v4-%PRODUCT_VERSION%.jar"
 set "SOURCE_JAR=target\%GA_JAR%"
 set "GA_CHECKSUM_FILE=distribution\checksums\SHA256SUMS.txt"
@@ -77,7 +77,10 @@ mkdir "%PACKAGE_ROOT%\checksums" || exit /b 34
 copy /y "%SOURCE_JAR%" "%PACKAGE_ROOT%\bin\%GA_JAR%" >nul || exit /b 35
 
 xcopy /e /i /q /y "distribution\config" "%PACKAGE_ROOT%\config" >nul || exit /b 36
-xcopy /e /i /q /y "distribution\docs" "%PACKAGE_ROOT%\docs" >nul || exit /b 36
+mkdir "%PACKAGE_ROOT%\docs" >nul 2>&1
+for %%F in (README.md INSTALLATION.md CONFIGURATION.md API-GUIDE.md DBA-GUIDE.md OPERATIONS-GUIDE.md RELEASE-NOTES-4.0.1.md KNOWN-LIMITATIONS-4.0.1.md VALIDATION-EVIDENCE-4.0.1.md) do (
+  copy /y "distribution\docs\%%F" "%PACKAGE_ROOT%\docs\%%F" >nul || exit /b 36
+)
 xcopy /e /i /q /y "distribution\samples" "%PACKAGE_ROOT%\samples" >nul || exit /b 36
 
 mkdir "%PACKAGE_ROOT%\scripts" >nul 2>&1

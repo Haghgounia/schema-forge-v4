@@ -185,20 +185,29 @@ public final class WordSpecificationParser implements SpecificationParser {
 
     private void addUniqueKeys(Table.Builder table, String tableName, List<ParsedColumn> columns) {
         Map<String, List<PositionedColumn>> groups = groupColumns(columns, ParsedColumn::uniqueToken);
-        groups.forEach((group, members) -> table.addUniqueKey(new UniqueKey(
-                identifierValidator.toIdentifier(normalizeObjectName("UK", tableName, group), "unique key"),
-                identifiers(sortedNames(members)))));
+        groups.forEach((ignoredGroup, members) -> {
+            List<String> memberNames = sortedNames(members);
+            table.addUniqueKey(new UniqueKey(
+                    identifierValidator.toIdentifier(
+                            structuralObjectName("UK", tableName, memberNames), "unique key"),
+                    identifiers(memberNames)));
+        });
     }
 
     private void addIndexes(Table.Builder table, String tableName, List<ParsedColumn> columns) {
         Map<String, List<PositionedColumn>> groups = groupColumns(columns, ParsedColumn::indexToken);
-        groups.forEach((group, members) -> table.addIndex(new Index(
-                identifierValidator.toIdentifier(normalizeObjectName("IX", tableName, group), "index"),
-                sortedNames(members).stream()
-                        .map(name -> new IndexColumn(identifierValidator.toIdentifier(name, "index column"), SortDirection.ASC))
-                        .toList(),
-                IndexType.NORMAL,
-                Description.empty())));
+        groups.forEach((ignoredGroup, members) -> {
+            List<String> memberNames = sortedNames(members);
+            table.addIndex(new Index(
+                    identifierValidator.toIdentifier(
+                            structuralObjectName("IX", tableName, memberNames), "index"),
+                    memberNames.stream()
+                            .map(name -> new IndexColumn(
+                                    identifierValidator.toIdentifier(name, "index column"), SortDirection.ASC))
+                            .toList(),
+                    IndexType.NORMAL,
+                    Description.empty()));
+        });
     }
 
     private void addForeignKeys(
@@ -315,12 +324,8 @@ public final class WordSpecificationParser implements SpecificationParser {
                 .toList();
     }
 
-    private String normalizeObjectName(String prefix, String tableName, String group) {
-        String normalized = group.toUpperCase(Locale.ROOT);
-        if (normalized.startsWith(prefix)) {
-            return normalized;
-        }
-        return prefix + "_" + tableName + "_" + normalized;
+    private String structuralObjectName(String prefix, String tableName, List<String> columnNames) {
+        return prefix + "_" + tableName + "_" + String.join("_", columnNames);
     }
 
     private Reference parseReference(String rawReference, List<String> recoveryWarnings) {
@@ -413,6 +418,7 @@ public final class WordSpecificationParser implements SpecificationParser {
         Map<String, Integer> firstDefinitionRows = new LinkedHashMap<>();
         int logicalRow = 1;
 
+        columnTables:
         for (int tableIndex = firstColumnTableIndex; tableIndex < tables.size(); tableIndex++) {
             XWPFTable table = tables.get(tableIndex);
             if (table.getNumberOfRows() == 0) {
@@ -436,11 +442,29 @@ public final class WordSpecificationParser implements SpecificationParser {
 
             for (int rowIndex = firstDataRow; rowIndex < table.getNumberOfRows(); rowIndex++) {
                 XWPFTableRow row = table.getRow(rowIndex);
+                if (isColumnSectionBoundary(row)) {
+                    break columnTables;
+                }
                 logicalRow++;
                 parseColumnRow(row, headers, logicalRow, result, firstDefinitionRows, recoveryWarnings);
             }
         }
         return result;
+    }
+
+    private boolean isColumnSectionBoundary(XWPFTableRow row) {
+        String firstCell = cell(row, 0);
+        if (firstCell == null) {
+            return false;
+        }
+        String normalized = normalizeText(firstCell).toUpperCase(Locale.ROOT);
+        return normalized.contains("SEQUENCE NAME")
+                || normalized.contains("نام توالی")
+                || normalized.contains("INDEX NAME")
+                || normalized.contains("نام ایندکس")
+                || normalized.contains("نام شاخص")
+                || normalized.contains("FOREIGN KEY NAME")
+                || normalized.contains("نام کلید خارجی");
     }
 
     private void parseColumnRow(

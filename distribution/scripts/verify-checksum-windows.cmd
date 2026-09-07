@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0\.."
 
-set "SCHEMAFORGE_JAR=bin\schema-forge-v4-4.0.0.jar"
+set "SCHEMAFORGE_JAR=bin\schema-forge-v4-4.0.1.jar"
 set "CHECKSUM_FILE=checksums\SHA256SUMS.txt"
 
 if not exist "%SCHEMAFORGE_JAR%" (

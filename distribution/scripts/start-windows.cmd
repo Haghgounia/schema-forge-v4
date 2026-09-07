@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0\.."
 
-set "SCHEMAFORGE_JAR=bin\schema-forge-v4-4.0.0.jar"
+set "SCHEMAFORGE_JAR=bin\schema-forge-v4-4.0.1.jar"
 set "SCHEMAFORGE_CONFIG=config\application.yml"
 
 where java >nul 2>&1
@@ -22,7 +22,7 @@ if not exist "%SCHEMAFORGE_CONFIG%" (
   exit /b 12
 )
 
-echo Starting SchemaForge V4 4.0.0...
+echo Starting SchemaForge V4 4.0.1...
 echo Runtime configuration: %SCHEMAFORGE_CONFIG%
 java -jar "%SCHEMAFORGE_JAR%" --spring.config.location=file:./config/application.yml
 exit /b %ERRORLEVEL%

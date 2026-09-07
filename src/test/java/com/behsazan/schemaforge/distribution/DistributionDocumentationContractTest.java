@@ -22,9 +22,9 @@ class DistributionDocumentationContractTest {
                 "API-GUIDE.md",
                 "DBA-GUIDE.md",
                 "OPERATIONS-GUIDE.md",
-                "RELEASE-NOTES-4.0.0.md",
-                "KNOWN-LIMITATIONS-4.0.0.md",
-                "VALIDATION-EVIDENCE-4.0.0.md")) {
+                "RELEASE-NOTES-4.0.1.md",
+                "KNOWN-LIMITATIONS-4.0.1.md",
+                "VALIDATION-EVIDENCE-4.0.1.md")) {
             assertTrue(Files.isRegularFile(docs.resolve(file)), () -> "Missing distribution document: " + file);
         }
     }
@@ -64,7 +64,7 @@ class DistributionDocumentationContractTest {
     void operationsDocsPreserveSafeLauncherAndGaChecksum() throws IOException {
         String install = Files.readString(root().resolve("distribution/docs/INSTALLATION.md"));
         String operations = Files.readString(root().resolve("distribution/docs/OPERATIONS-GUIDE.md"));
-        String limitations = Files.readString(root().resolve("distribution/docs/KNOWN-LIMITATIONS-4.0.0.md"));
+        String limitations = Files.readString(root().resolve("distribution/docs/KNOWN-LIMITATIONS-4.0.1.md"));
         String combined = install + operations + limitations;
 
         assertTrue(combined.contains("scripts\\start-windows.cmd"));
