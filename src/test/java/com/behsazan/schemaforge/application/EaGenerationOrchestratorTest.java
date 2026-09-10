@@ -96,7 +96,7 @@ class EaGenerationOrchestratorTest {
     }
 
     @Test
-    void preservesLegacyRunScriptLedgerProducerAcrossAllSixPlatforms() throws Exception {
+    void preservesLegacyRunScriptLedgerProducerAcrossAllRegisteredPlatforms() throws Exception {
         EaGenerationOrchestrator orchestrator = orchestrator(
                 new ObjectMapper(), emptyResolver(), "FEE");
         MockMultipartFile file = sampleFile();
@@ -108,10 +108,11 @@ class EaGenerationOrchestratorTest {
         List<ArtifactDescriptor> runScripts = context.ledger().snapshot().stream()
                 .filter(descriptor -> descriptor.type() == ArtifactType.RUN_SCRIPT)
                 .toList();
-        assertEquals(6, runScripts.size());
+        assertEquals(DatabasePlatform.values().length, runScripts.size());
         assertTrue(runScripts.stream().allMatch(descriptor ->
                 "SchemaForgeApiService".equals(descriptor.provenance().producer())));
-        assertEquals(6, runScripts.stream().map(ArtifactDescriptor::platform).distinct().count());
+        assertEquals(DatabasePlatform.values().length,
+                runScripts.stream().map(ArtifactDescriptor::platform).distinct().count());
     }
 
     private static EaGenerationOrchestrator orchestrator(

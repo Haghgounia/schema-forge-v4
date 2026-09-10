@@ -69,7 +69,7 @@ schemaforge:
   metadata:
     oracle:
       enabled: true
-      url: jdbc:oracle:thin:@//10.1.60.51:1522/FREEPDB1
+      url: jdbc:oracle:thin:@//127.0.0.1:1521/FREEPDB1
       username: SYSTEM
       password: Oracle123
       driver-class-name: oracle.jdbc.OracleDriver

@@ -29,7 +29,7 @@ class SchemaBootstrapExistenceAwarenessTest {
     private static final ValidationReport VALID = new ValidationReport(true, List.of());
 
     @Test
-    void existingDocumentSchemaIsNotRecreatedAcrossAllSixPlatforms() {
+    void existingDocumentSchemaIsNotRecreatedAcrossAllRegisteredPlatforms() {
         DatabaseSchema schema = sampleSchema();
         MetadataComparisonResult metadata = new MetadataComparisonResult(
                 List.of(), Map.of(), Map.of(), Map.of("FEE", true), true);
@@ -159,7 +159,7 @@ class SchemaBootstrapExistenceAwarenessTest {
             case DB2_ZOS -> upper.contains("CREATE SCHEMA AUTHORIZATION FEE");
             case DB2_LUW -> upper.contains("CREATE SCHEMA FEE");
             case SQLSERVER -> upper.contains("CREATE SCHEMA FEE AUTHORIZATION");
-            case MYSQL -> upper.contains("CREATE DATABASE IF NOT EXISTS `FEE`");
+            case MYSQL, MARIADB -> upper.contains("CREATE DATABASE IF NOT EXISTS `FEE`");
         };
     }
 }

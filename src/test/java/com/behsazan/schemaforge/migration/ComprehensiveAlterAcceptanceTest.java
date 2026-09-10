@@ -31,9 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** R7.5A offline acceptance gate for the complete ALTER/Migration M2 change matrix across registered platforms. */
 class ComprehensiveAlterAcceptanceTest {
 
+    private static final List<DatabasePlatform> MIGRATION_READY_PLATFORMS = List.of(
+            DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
+            DatabasePlatform.DB2_ZOS, DatabasePlatform.DB2_LUW,
+            DatabasePlatform.SQLSERVER, DatabasePlatform.MYSQL);
+
     @Test
-    void detectsEveryColumnChangeKindForAllRegisteredPlatforms() {
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+    void detectsEveryColumnChangeKindForAllMigrationReadyPlatforms() {
+        for (DatabasePlatform platform : MIGRATION_READY_PLATFORMS) {
             TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, liveColumns(), desiredColumns());
             Set<ColumnChangeKind> kinds = plan.columnChanges().stream()
                     .map(ColumnChange::kind)
@@ -50,8 +55,8 @@ class ComprehensiveAlterAcceptanceTest {
     }
 
     @Test
-    void detectsAddDropAndReplaceForEveryOwnedStructuralObjectForAllRegisteredPlatforms() {
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+    void detectsAddDropAndReplaceForEveryOwnedStructuralObjectForAllMigrationReadyPlatforms() {
+        for (DatabasePlatform platform : MIGRATION_READY_PLATFORMS) {
             assertStructuralKinds(platform, emptyStructure(), fullStructure("A"), TableObjectChangeKind.ADD);
             assertStructuralKinds(platform, fullStructure("A"), emptyStructure(), TableObjectChangeKind.DROP);
             assertStructuralKinds(platform, fullStructure("A"), fullStructure("B"), TableObjectChangeKind.REPLACE);
@@ -60,7 +65,7 @@ class ComprehensiveAlterAcceptanceTest {
 
     @Test
     void rendersFullColumnMatrixWithoutAbortingAndBlocksDestructiveSqlByDefault() {
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : MIGRATION_READY_PLATFORMS) {
             TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, liveColumns(), desiredColumns());
             String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
 
@@ -71,12 +76,24 @@ class ComprehensiveAlterAcceptanceTest {
     }
 
     @Test
-    void identicalDesiredAndLiveTablesProduceZeroResidualDiffForAllRegisteredPlatforms() {
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+    void identicalDesiredAndLiveTablesProduceZeroResidualDiffForAllMigrationReadyPlatforms() {
+        for (DatabasePlatform platform : MIGRATION_READY_PLATFORMS) {
             Table table = fullStructure("A");
             TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, table, table);
             assertTrue(plan.empty(), platform + " second comparison must have zero residual changes");
         }
+    }
+
+    @Test
+    void mariaDbMigrationRenderingRemainsExplicitlyDeferredUntilM7() {
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(
+                DatabasePlatform.MARIADB, liveColumns(), desiredColumns());
+
+        UnsupportedOperationException error = org.junit.jupiter.api.Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults()));
+
+        assertTrue(error.getMessage().contains("M7"));
     }
 
     private static void assertStructuralKinds(

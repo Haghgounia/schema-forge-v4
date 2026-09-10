@@ -51,6 +51,8 @@ class SchemaForgeApiServiceRegressionTest {
             "ddl/sqlserver/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.sqlserver\\.sql");
     private static final Pattern MYSQL_NAME = Pattern.compile(
             "ddl/mysql/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.mysql\\.sql");
+    private static final Pattern MARIADB_NAME = Pattern.compile(
+            "ddl/mariadb/MCB\\.BIM\\.TBL\\.PROVINCES\\.V1\\.2_\\d{8}_\\d{6}_\\d{3}\\.mariadb\\.sql");
 
 
     @Test
@@ -95,6 +97,8 @@ class SchemaForgeApiServiceRegressionTest {
                 .findFirst().orElseThrow();
         String mysqlName = entries.keySet().stream().filter(name -> MYSQL_NAME.matcher(name).matches())
                 .findFirst().orElseThrow();
+        String mariaDbName = entries.keySet().stream().filter(name -> MARIADB_NAME.matcher(name).matches())
+                .findFirst().orElseThrow();
 
         String sharedTimestamp = jsonName.substring(
                 "model/MCB.BIM.TBL.PROVINCES.V1.2_".length(), jsonName.length() - ".schema.json".length());
@@ -104,6 +108,7 @@ class SchemaForgeApiServiceRegressionTest {
         assertTrue(db2LuwName.contains("_" + sharedTimestamp + ".db2luw.sql"));
         assertTrue(sqlServerName.contains("_" + sharedTimestamp + ".sqlserver.sql"));
         assertTrue(mysqlName.contains("_" + sharedTimestamp + ".mysql.sql"));
+        assertTrue(mariaDbName.contains("_" + sharedTimestamp + ".mariadb.sql"));
 
         JsonNode json = new ObjectMapper().readTree(entries.get(jsonName));
         JsonNode table = json.path("schema").path("tables").get(0);

@@ -88,7 +88,7 @@ public final class SqlScriptStatementParser {
                 case POSTGRESQL -> trimmed.startsWith("\\");
                 case DB2_ZOS, DB2_LUW -> false;
                 case SQLSERVER -> trimmed.startsWith(":") || trimmed.equalsIgnoreCase("GO");
-                case MYSQL -> false;
+                case MYSQL, MARIADB -> false;
             };
             if (!skip) {
                 result.append(line).append(System.lineSeparator());

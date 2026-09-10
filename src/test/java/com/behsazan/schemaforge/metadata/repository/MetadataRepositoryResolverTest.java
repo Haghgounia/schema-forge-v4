@@ -109,6 +109,14 @@ class MetadataRepositoryResolverTest {
         assertFalse(resolver.resolve(DatabasePlatform.MYSQL).available());
     }
 
+    @Test
+    void returnsEmptyRepositoryForMariaDbUntilM5MetadataIsImplemented() {
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
+                provider(), provider(), provider(), provider(), provider(), provider());
+
+        assertFalse(resolver.resolve(DatabasePlatform.MARIADB).available());
+    }
+
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> provider() {
         return mock(ObjectProvider.class);

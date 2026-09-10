@@ -64,6 +64,7 @@ class SchemaForgeLegacyWordApiServiceTest {
         assertTrue(sql.contains("CREATE TABLE DPS.CTPINCOMEPARAMACTIVITYLOG"));
         assertTrue(sql.contains("COMMENT ON TABLE DPS.CTPINCOMEPARAMACTIVITYLOG"));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mariadb.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".schema.json")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.mmd")));

@@ -17,11 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PhysicalObjectNamePolicyTest {
 
     @Test
-    void usesTargetSpecificIdentifierLimitsForAllSixPlatforms() {
+    void usesTargetSpecificIdentifierLimitsForAllRegisteredPlatforms() {
         assertEquals(128, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.ORACLE));
         assertEquals(63, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.POSTGRESQL));
         assertEquals(128, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.SQLSERVER));
         assertEquals(64, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.MYSQL));
+        assertEquals(64, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.MARIADB));
         assertEquals(128, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.DB2_LUW));
         assertEquals(128, PhysicalObjectNamePolicy.maximumLength(DatabasePlatform.DB2_ZOS));
 

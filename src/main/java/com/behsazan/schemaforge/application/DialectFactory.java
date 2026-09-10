@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
+import com.behsazan.schemaforge.dialect.mariadb.MariaDbDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
@@ -30,6 +31,7 @@ public final class DialectFactory {
             case DB2_LUW -> new Db2LuwDialect(strategy);
             case SQLSERVER -> new SqlServerDialect(strategy);
             case MYSQL -> new MySqlDialect(strategy);
+            case MARIADB -> new MariaDbDialect(strategy);
         };
     }
 

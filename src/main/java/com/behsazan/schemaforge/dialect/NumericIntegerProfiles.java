@@ -22,6 +22,10 @@ public final class NumericIntegerProfiles {
             new NumericTypeOptimizationService.NumericIntegerProfile(
                     "SMALLINT", 4, "INT", 9, "BIGINT", 18);
 
+    public static final NumericTypeOptimizationService.NumericIntegerProfile MARIADB =
+            new NumericTypeOptimizationService.NumericIntegerProfile(
+                    "SMALLINT", 4, "INT", 9, "BIGINT", 18);
+
     private NumericIntegerProfiles() {
     }
 }

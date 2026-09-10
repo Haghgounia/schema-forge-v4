@@ -13,7 +13,8 @@ public enum DatabasePlatform {
     DB2_ZOS("db2zos", "db2-zos", "db2", "zos"),
     DB2_LUW("db2luw", "db2-luw", "luw"),
     SQLSERVER("sqlserver", "sql-server", "mssql", "sqlsrv"),
-    MYSQL("mysql");
+    MYSQL("mysql"),
+    MARIADB("mariadb", "maria-db");
 
     private final String[] aliases;
 
@@ -70,6 +71,6 @@ public enum DatabasePlatform {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unsupported database platform: " + value
-                                + ". Supported values: oracle, postgresql, db2zos, db2luw, sqlserver, mysql"));
+                                + ". Supported values: oracle, postgresql, db2zos, db2luw, sqlserver, mysql, mariadb"));
     }
 }

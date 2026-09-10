@@ -339,7 +339,7 @@ public final class EaGenerationOrchestrator {
                 case POSTGRESQL -> script.append("\\ir ").append(reference);
                 case DB2_ZOS, DB2_LUW -> script.append("-- Execute in this order: ").append(reference);
                 case SQLSERVER -> script.append(":r ").append(reference);
-                case MYSQL -> script.append("-- Execute in this order: ").append(reference);
+                case MYSQL, MARIADB -> script.append("-- Execute in this order: ").append(reference);
             }
             script.append(System.lineSeparator());
         }

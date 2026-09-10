@@ -84,6 +84,56 @@ class EaPlatformSelectionAcceptanceTest {
         verify(resolver, never()).resolve(DatabasePlatform.DB2_LUW);
         verify(resolver, never()).resolve(DatabasePlatform.SQLSERVER);
         verify(resolver, never()).resolve(DatabasePlatform.MYSQL);
+        verify(resolver, never()).resolve(DatabasePlatform.MARIADB);
+    }
+
+
+    @Test
+    void mariaDbSelectionActivatesOnlyMariaDbDdlAndRunAllWhileMetadataRemainsDeferred() throws Exception {
+        Path source = TestSamplePaths.EA_SAMPLE;
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        when(resolver.resolve(DatabasePlatform.MARIADB)).thenReturn(MetadataRepository.empty());
+
+        SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
+        spellCheck.setEnabled(false);
+        EaImportProperties ea = EaImportProperties.defaults();
+        ea.setDefaultSchema("FEE");
+        ObjectMapper mapper = new ObjectMapper();
+        SchemaForgeApiService service = new SchemaForgeApiService(
+                AuditProperties.defaults(), GrantProperties.defaults(), spellCheck,
+                mapper, resolver, ea);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", source.getFileName().toString(), "application/xml",
+                Files.readAllBytes(source));
+
+        Map<String, byte[]> entries = unzip(service.generateFromEaXml(
+                file, null, null, "AUTO", List.of("mariadb")));
+
+        assertEquals(2, entries.keySet().stream().filter(name -> name.startsWith("ddl/mariadb/")).count());
+        assertEquals(1, entries.keySet().stream().filter(name -> name.startsWith("scripts/mariadb/")).count());
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("migration/mariadb/")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("comparison/mariadb/")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("crud/mariadb/")));
+        assertFalse(entries.keySet().stream().anyMatch(name ->
+                name.startsWith("ddl/") && !name.startsWith("ddl/mariadb/")));
+
+        String summary = new String(entries.get("reports/schemaforge-generation-summary.txt"), StandardCharsets.UTF_8);
+        assertTrue(summary.contains("MARIADB"));
+        assertTrue(summary.contains("Metadata Status      : UNAVAILABLE"));
+        assertTrue(summary.contains("Reason               : METADATA_UNAVAILABLE"));
+
+        JsonNode manifest = mapper.readTree(entries.get("manifest.json"));
+        JsonNode platforms = manifest.path("extensions").path("generationOptions").path("platforms");
+        assertEquals(1, platforms.size());
+        assertEquals("mariadb", platforms.get(0).asText());
+
+        verify(resolver, atLeastOnce()).resolve(DatabasePlatform.MARIADB);
+        verify(resolver, never()).resolve(DatabasePlatform.ORACLE);
+        verify(resolver, never()).resolve(DatabasePlatform.POSTGRESQL);
+        verify(resolver, never()).resolve(DatabasePlatform.DB2_ZOS);
+        verify(resolver, never()).resolve(DatabasePlatform.DB2_LUW);
+        verify(resolver, never()).resolve(DatabasePlatform.SQLSERVER);
+        verify(resolver, never()).resolve(DatabasePlatform.MYSQL);
     }
 
     @Test
@@ -100,22 +150,26 @@ class EaPlatformSelectionAcceptanceTest {
                 || name.startsWith("ddl/db2luw/")
                 || name.startsWith("ddl/sqlserver/")
                 || name.startsWith("ddl/mysql/")
+                || name.startsWith("ddl/mariadb/")
                 || name.startsWith("scripts/postgresql/")
                 || name.startsWith("scripts/db2zos/")
                 || name.startsWith("scripts/db2luw/")
                 || name.startsWith("scripts/sqlserver/")
                 || name.startsWith("scripts/mysql/")
+                || name.startsWith("scripts/mariadb/")
                 || name.startsWith("migration/postgresql/")
                 || name.startsWith("migration/db2zos/")
                 || name.startsWith("migration/db2luw/")
                 || name.startsWith("migration/sqlserver/")
                 || name.startsWith("migration/mysql/")
+                || name.startsWith("migration/mariadb/")
                 || name.startsWith("crud/sqlserver/")
                 || name.startsWith("comparison/postgresql/")
                 || name.startsWith("comparison/db2zos/")
                 || name.startsWith("comparison/db2luw/")
                 || name.startsWith("comparison/sqlserver/")
-                || name.startsWith("comparison/mysql/");
+                || name.startsWith("comparison/mysql/")
+                || name.startsWith("comparison/mariadb/");
     }
 
     private static Map<String, byte[]> unzip(byte[] zip) throws Exception {

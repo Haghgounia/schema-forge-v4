@@ -387,6 +387,7 @@ class PhysicalPhase1CorpusAuditIT {
             case ORACLE, POSTGRESQL -> "<INDEX_TABLESPACE>";
             case SQLSERVER -> "<INDEX_FILEGROUP>";
             case DB2_ZOS, DB2_LUW, MYSQL -> "";
+            case MARIADB -> throw new UnsupportedOperationException("MariaDB physical audit is introduced in M4");
         };
         boolean placeholderPresent = !placeholder.isBlank() && indexBlock.contains(placeholder);
         if (activeIndexPlacement && placeholderPresent) {
@@ -559,6 +560,7 @@ class PhysicalPhase1CorpusAuditIT {
             case SQLSERVER -> List.of("DATA_COMPRESSION = NONE", "FILLFACTOR = 0", "PAD_INDEX = OFF");
             case DB2_ZOS -> List.of("FREEPAGE 0", "PCTFREE 10", "GBPCACHE CHANGED", "COMPRESS NO");
             case DB2_LUW, MYSQL -> List.of();
+            case MARIADB -> throw new UnsupportedOperationException("MariaDB physical audit is introduced in M4");
         };
         for (String token : forbidden) {
             if (active.contains(token)) {
@@ -755,6 +757,7 @@ class PhysicalPhase1CorpusAuditIT {
             case SQLSERVER -> "<TABLE_FILEGROUP>";
             case DB2_ZOS -> "<DATABASE>.<TABLESPACE>";
             case DB2_LUW, MYSQL -> "";
+            case MARIADB -> throw new UnsupportedOperationException("MariaDB physical audit is introduced in M4");
         };
     }
 
@@ -766,6 +769,7 @@ class PhysicalPhase1CorpusAuditIT {
             case DB2_ZOS -> "-- DB2/ZOS DBA PHYSICAL REVIEW";
             case DB2_LUW -> "-- DB2/LUW TABLE PHYSICAL OPTIONS";
             case MYSQL -> "-- MYSQL TABLE PHYSICAL OPTIONS";
+            case MARIADB -> throw new UnsupportedOperationException("MariaDB physical audit is introduced in M4");
         };
     }
 
@@ -777,6 +781,7 @@ class PhysicalPhase1CorpusAuditIT {
             case DB2_ZOS -> "-- DB2/ZOS DBA PHYSICAL REVIEW";
             case DB2_LUW -> "-- DB2/LUW INDEX PHYSICAL OPTIONS";
             case MYSQL -> "-- MYSQL INDEX PHYSICAL OPTIONS";
+            case MARIADB -> throw new UnsupportedOperationException("MariaDB physical audit is introduced in M4");
         };
     }
 

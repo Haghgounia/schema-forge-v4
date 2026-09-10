@@ -68,7 +68,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(26, entries.size());
+        assertEquals(29, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         String modelName = entryName(entries, "model/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.schema\\.json");
         assertTrue(entries.containsKey("manifest.json"));
@@ -100,6 +100,8 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
         assertTrue(entries.containsKey("ddl/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
         assertTrue(entries.containsKey("ddl/mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.sql"));
+        assertTrue(entries.containsKey("ddl/mariadb/FEE.REGULATORY_RULE_" + timestamp + ".mariadb.sql"));
+        assertTrue(entries.containsKey("ddl/mariadb/FEE.FEE_VERSION_" + timestamp + ".mariadb.sql"));
 
         String oracleRegulatoryRule = new String(
                 entries.get("ddl/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.sql"),
@@ -130,12 +132,14 @@ class SchemaForgeEaPerTableOutputTest {
         String db2LuwRunAllName = "scripts/db2luw/ea-sample_" + timestamp + ".db2luw.run-all.sql";
         String sqlServerRunAllName = "scripts/sqlserver/ea-sample_" + timestamp + ".sqlserver.run-all.sql";
         String mysqlRunAllName = "scripts/mysql/ea-sample_" + timestamp + ".mysql.run-all.sql";
+        String mariaDbRunAllName = "scripts/mariadb/ea-sample_" + timestamp + ".mariadb.run-all.sql";
         assertTrue(entries.containsKey(oracleRunAllName));
         assertTrue(entries.containsKey(postgresqlRunAllName));
         assertTrue(entries.containsKey(db2ZosRunAllName));
         assertTrue(entries.containsKey(db2LuwRunAllName));
         assertTrue(entries.containsKey(sqlServerRunAllName));
         assertTrue(entries.containsKey(mysqlRunAllName));
+        assertTrue(entries.containsKey(mariaDbRunAllName));
         assertFalse(entries.containsKey("ddl/oracle/FEE.REGULATORY_RULE.oracle.sql"));
         assertFalse(entries.containsKey("scripts/oracle/run_all.sql"));
 
@@ -153,6 +157,9 @@ class SchemaForgeEaPerTableOutputTest {
         String mysqlRunAll = new String(entries.get(mysqlRunAllName), StandardCharsets.UTF_8);
         assertTrue(mysqlRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".mysql.sql")
                 < mysqlRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".mysql.sql"));
+        String mariaDbRunAll = new String(entries.get(mariaDbRunAllName), StandardCharsets.UTF_8);
+        assertTrue(mariaDbRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".mariadb.sql")
+                < mariaDbRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".mariadb.sql"));
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         assertEquals("schemaforge-manifest/v1", manifest.path("manifestContract").asText());
@@ -196,6 +203,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(repository);
+        when(resolver.resolve(DatabasePlatform.MARIADB)).thenReturn(MetadataRepository.empty());
         SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
         spellCheck.setEnabled(false);
         EaImportProperties ea = EaImportProperties.defaults();
@@ -209,7 +217,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(50, entries.size());
+        assertEquals(53, entries.size());
         String timestamp = timestampFrom(entryName(entries, "ddl/oracle/FEE\\.REGULATORY_RULE_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION_" + timestamp + ".oracle.compare.xlsx"));
@@ -223,7 +231,14 @@ class SchemaForgeEaPerTableOutputTest {
         assertTrue(entries.containsKey("comparison/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/mysql/FEE.REGULATORY_RULE_" + timestamp + ".mysql.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/mysql/FEE.FEE_VERSION_" + timestamp + ".mysql.compare.xlsx"));
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        assertTrue(entries.containsKey("ddl/mariadb/FEE.REGULATORY_RULE_" + timestamp + ".mariadb.sql"));
+        assertTrue(entries.containsKey("ddl/mariadb/FEE.FEE_VERSION_" + timestamp + ".mariadb.sql"));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("comparison/mariadb/")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("migration/mariadb/")));
+        for (DatabasePlatform platform : List.of(
+                DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
+                DatabasePlatform.DB2_ZOS, DatabasePlatform.DB2_LUW,
+                DatabasePlatform.SQLSERVER, DatabasePlatform.MYSQL)) {
             String prefix = "migration/" + platform.commandLineName() + "/";
             assertTrue(entries.keySet().stream().anyMatch(name ->
                     name.startsWith(prefix) && name.endsWith("__FEE_REGULATORY_RULE_ALTER.sql")));
@@ -262,6 +277,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(repository);
+        when(resolver.resolve(DatabasePlatform.MARIADB)).thenReturn(MetadataRepository.empty());
         SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
         spellCheck.setEnabled(false);
         EaImportProperties ea = EaImportProperties.defaults();

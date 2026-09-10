@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
+import com.behsazan.schemaforge.dialect.mariadb.MariaDbDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
@@ -47,6 +48,8 @@ class ApplicationDialectSelectionTest {
         assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("sql-server"));
         assertEquals(DatabasePlatform.SQLSERVER, DatabasePlatform.parse("MSSQL"));
         assertEquals(DatabasePlatform.MYSQL, DatabasePlatform.parse("mysql"));
+        assertEquals(DatabasePlatform.MARIADB, DatabasePlatform.parse("mariadb"));
+        assertEquals(DatabasePlatform.MARIADB, DatabasePlatform.parse("maria-db"));
         assertThrows(IllegalArgumentException.class, () -> DatabasePlatform.parse("sqlite"));
     }
 
@@ -58,6 +61,7 @@ class ApplicationDialectSelectionTest {
         assertInstanceOf(Db2LuwDialect.class, DialectFactory.create(DatabasePlatform.DB2_LUW));
         assertInstanceOf(SqlServerDialect.class, DialectFactory.create(DatabasePlatform.SQLSERVER));
         assertInstanceOf(MySqlDialect.class, DialectFactory.create(DatabasePlatform.MYSQL));
+        assertInstanceOf(MariaDbDialect.class, DialectFactory.create(DatabasePlatform.MARIADB));
     }
 
 

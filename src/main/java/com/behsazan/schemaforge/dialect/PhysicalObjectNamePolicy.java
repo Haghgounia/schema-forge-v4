@@ -51,7 +51,7 @@ public final class PhysicalObjectNamePolicy {
     public static int maximumLength(DatabasePlatform platform) {
         return switch (platform) {
             case POSTGRESQL -> POSTGRESQL_MAX;
-            case MYSQL -> MYSQL_MAX;
+            case MYSQL, MARIADB -> MYSQL_MAX;
             case ORACLE, SQLSERVER, DB2_LUW, DB2_ZOS -> DEFAULT_MAX;
         };
     }
@@ -59,7 +59,7 @@ public final class PhysicalObjectNamePolicy {
     public static int maximumLength(Dialect dialect) {
         String name = dialect.name().replace("_", "").replace("-", "").toUpperCase(Locale.ROOT);
         if (name.contains("POSTGRES")) return POSTGRESQL_MAX;
-        if (name.contains("MYSQL")) return MYSQL_MAX;
+        if (name.contains("MYSQL") || name.contains("MARIADB")) return MYSQL_MAX;
         return DEFAULT_MAX;
     }
 

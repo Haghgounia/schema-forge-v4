@@ -76,6 +76,13 @@ class OutputFileNamerTest {
                         DatabasePlatform.MYSQL,
                         OutputFileNamer.ScriptKind.DDL,
                         timestamp));
+        assertEquals(
+                "DPS.DEPOSIT_PRODUCT_20260802_101112_345.mariadb.sql",
+                namer.scriptFileName(
+                        "DPS.DEPOSIT_PRODUCT",
+                        DatabasePlatform.MARIADB,
+                        OutputFileNamer.ScriptKind.DDL,
+                        timestamp));
     }
 
     @Test

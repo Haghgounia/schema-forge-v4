@@ -43,6 +43,10 @@ public final class MigrationSqlRenderer {
 
     public String render(TableMigrationPlan plan, MigrationRenderOptions options) {
         Objects.requireNonNull(plan, "plan must not be null");
+        if (plan.platform() == DatabasePlatform.MARIADB) {
+            throw new UnsupportedOperationException(
+                    "MariaDB migration rendering is not active in M3; it is introduced in M7");
+        }
         options = options == null ? MigrationRenderOptions.safeDefaults() : options;
         Dialect dialect = DialectFactory.create(plan.platform(), numericMappingStrategy);
         DdlGenerator ddlGenerator = new DdlGenerator(dialect);
@@ -639,7 +643,7 @@ public final class MigrationSqlRenderer {
     private String renderAddColumn(DatabasePlatform platform, Dialect dialect, Table table, Column column, String tableName) {
         String keyword = switch (platform) {
             case ORACLE, SQLSERVER -> " ADD ";
-            case POSTGRESQL, DB2_ZOS, DB2_LUW, MYSQL -> " ADD COLUMN ";
+            case POSTGRESQL, DB2_ZOS, DB2_LUW, MYSQL, MARIADB -> " ADD COLUMN ";
         };
         return "ALTER TABLE " + tableName + keyword + columnDefinition(dialect, table, column)
                 + dialect.statementTerminator();
@@ -663,7 +667,7 @@ public final class MigrationSqlRenderer {
                     + dialect.statementTerminator());
             case SQLSERVER -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " " + type
                     + (desired.nullable() ? " NULL" : " NOT NULL") + dialect.statementTerminator());
-            case MYSQL -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
+            case MYSQL, MARIADB -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
                     + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
         };
     }
@@ -681,7 +685,7 @@ public final class MigrationSqlRenderer {
             case SQLSERVER -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " "
                     + dialect.sqlType(table, desired) + (desired.nullable() ? " NULL" : " NOT NULL")
                     + dialect.statementTerminator());
-            case MYSQL -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
+            case MYSQL, MARIADB -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
                     + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
         };
     }
@@ -698,7 +702,7 @@ public final class MigrationSqlRenderer {
                     + (present ? " SET DEFAULT " + expression : " DROP DEFAULT") + dialect.statementTerminator());
             case DB2_ZOS, DB2_LUW -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
                     + (present ? " SET DEFAULT " + expression : " DROP DEFAULT") + dialect.statementTerminator());
-            case MYSQL -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
+            case MYSQL, MARIADB -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
                     + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
             case SQLSERVER -> sqlServerDefaultStatements(dialect, tableName, desired, expression);
         };

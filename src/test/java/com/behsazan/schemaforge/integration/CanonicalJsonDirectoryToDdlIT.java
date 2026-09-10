@@ -476,6 +476,7 @@ class CanonicalJsonDirectoryToDdlIT {
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
             case DB2_LUW -> List.of(); // Dedicated Db2 LUW offline validator follows core P1.
             case MYSQL -> basicMySqlValidation(sql);
+            case MARIADB -> List.of(); // MariaDB static validation is introduced in M4.
         };
     }
 

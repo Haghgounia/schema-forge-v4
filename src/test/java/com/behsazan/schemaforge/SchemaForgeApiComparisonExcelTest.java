@@ -31,6 +31,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,6 +89,7 @@ class SchemaForgeApiComparisonExcelTest {
 
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(repository);
+        when(resolver.resolve(DatabasePlatform.MARIADB)).thenReturn(MetadataRepository.empty());
 
         SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
         spellCheck.setEnabled(false);
@@ -101,7 +103,7 @@ class SchemaForgeApiComparisonExcelTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromWord(file));
-        assertEquals(DatabasePlatform.values().length * 3 + 10, entries.size());
+        assertEquals(29, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
                 "crud/oracle/BIM\\.PROVINCES_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.crud-package\\.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.matches(
@@ -111,7 +113,10 @@ class SchemaForgeApiComparisonExcelTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".er.dot")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.mmd")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".conceptual-erd.dot")));
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : List.of(
+                DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
+                DatabasePlatform.DB2_ZOS, DatabasePlatform.DB2_LUW,
+                DatabasePlatform.SQLSERVER, DatabasePlatform.MYSQL)) {
             String prefix = "migration/" + platform.commandLineName() + "/";
             assertTrue(entries.keySet().stream().anyMatch(name ->
                     name.startsWith(prefix)
@@ -126,6 +131,9 @@ class SchemaForgeApiComparisonExcelTest {
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".db2luw.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".sqlserver.sql")));
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".mariadb.sql")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("migration/mariadb/")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("comparison/mariadb/")));
 
         String oracleCreateName = entries.keySet().stream()
                 .filter(name -> name.startsWith("ddl/oracle/") && name.endsWith(".oracle.sql"))

@@ -40,6 +40,7 @@ public class MetadataRepositoryResolver {
             case DB2_LUW -> db2luw.getIfAvailable();
             case SQLSERVER -> sqlserver.getIfAvailable();
             case MYSQL -> mysql.getIfAvailable();
+            case MARIADB -> null; // MariaDB JDBC metadata repository is introduced in M5.
         };
         return repository == null ? MetadataRepository.empty() : repository;
     }

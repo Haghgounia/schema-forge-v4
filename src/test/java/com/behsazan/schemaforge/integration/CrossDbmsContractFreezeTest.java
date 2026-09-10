@@ -54,16 +54,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CrossDbmsContractFreezeTest {
 
+    private static final List<DatabasePlatform> FROZEN_PLATFORMS = List.of(
+            DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
+            DatabasePlatform.DB2_ZOS, DatabasePlatform.DB2_LUW,
+            DatabasePlatform.SQLSERVER, DatabasePlatform.MYSQL);
+
     private static final Clock FIXED_CLOCK = Clock.fixed(
             Instant.parse("2026-09-01T05:00:00Z"), ZoneOffset.UTC);
 
     @Test
-    void freezesRegisteredPlatformsAndEssentialCapabilities() {
+    void freezesLegacySixPlatformContractWhileMariaDbIsStagedSeparately() {
         assertEquals(List.of("oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql"),
-                DatabasePlatform.valuesAsList(EnumSet.allOf(DatabasePlatform.class)));
-        assertEquals(6, DatabasePlatform.values().length);
+                DatabasePlatform.valuesAsList(EnumSet.copyOf(FROZEN_PLATFORMS)));
+        assertEquals(6, FROZEN_PLATFORMS.size());
+        assertTrue(EnumSet.allOf(DatabasePlatform.class).contains(DatabasePlatform.MARIADB));
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             Dialect dialect = DialectFactory.create(platform);
             assertTrue(dialect.supports(DialectFeature.IDENTITY_COLUMN), platform + " identity capability");
             assertTrue(dialect.supports(DialectFeature.GENERATED_COLUMN), platform + " generated-column capability");
@@ -83,7 +89,7 @@ class CrossDbmsContractFreezeTest {
     void preservesCoreCanonicalSemanticsAcrossAllSixDialectsAndRemainsDeterministic() {
         DatabaseSchema schema = canonicalContractSchema();
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             Dialect dialect = DialectFactory.create(platform);
             String sql = new DdlGenerator(dialect, FIXED_CLOCK).generate(schema);
             String repeated = new DdlGenerator(DialectFactory.create(platform), FIXED_CLOCK).generate(schema);
@@ -147,7 +153,7 @@ class CrossDbmsContractFreezeTest {
         assertTrue(report.issues().stream().anyMatch(issue ->
                 issue.code().equals("COLUMN_DATATYPE_UNRESOLVED")));
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             IllegalArgumentException error = assertThrows(
                     IllegalArgumentException.class,
                     () -> new DdlGenerator(DialectFactory.create(platform), FIXED_CLOCK)
@@ -164,7 +170,7 @@ class CrossDbmsContractFreezeTest {
         Identifier firstLong = Identifier.of(common + "FIRST_PARENT_REFERENCE_COLUMN");
         Identifier secondLong = Identifier.of(common + "SECOND_PARENT_REFERENCE_COLUMN");
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             assertEquals(shortName,
                     PhysicalObjectNamePolicy.physicalIdentifier(platform, shortName),
                     platform + " must preserve representable logical object names");
@@ -217,7 +223,7 @@ class CrossDbmsContractFreezeTest {
                         ReferentialAction.NO_ACTION))
                 .build();
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             TableMigrationPlan plan = new SchemaDiffEngine().diff(platform, live, desired);
             String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
             String upper = sql.toUpperCase(Locale.ROOT);
@@ -252,7 +258,7 @@ class CrossDbmsContractFreezeTest {
         DatabaseSchema schema = DatabaseSchema.builder("APP").addTable(table).build();
         Identifier logical = Identifier.of("IX_" + tableName + "_" + columnName);
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             Identifier physical = PhysicalObjectNamePolicy.physicalIdentifier(platform, logical);
             String sql = new DdlGenerator(DialectFactory.create(platform), FIXED_CLOCK).generate(schema);
             assertTrue(sql.toUpperCase(Locale.ROOT).contains(physical.normalized()),
@@ -293,7 +299,7 @@ class CrossDbmsContractFreezeTest {
                 .primaryKey(new PrimaryKey(Identifier.of("PK_CONTRACT_M2"), List.of(Identifier.of("ID"))))
                 .build();
 
-        for (DatabasePlatform platform : DatabasePlatform.values()) {
+        for (DatabasePlatform platform : FROZEN_PLATFORMS) {
             assertTrue(new SchemaDiffEngine().diff(platform, stable, stable).empty(),
                     platform + " identical live/desired table must converge to zero residual diff");
 
