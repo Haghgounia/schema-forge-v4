@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.application;
 
 import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
+import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
@@ -12,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Owns the shared single-document workspace, manifest and package workflow.
@@ -26,6 +28,7 @@ public final class ArtifactGenerationService {
     private final ArtifactPackageBuilder artifactPackageBuilder;
     private final ArtifactManifestWriter artifactManifestWriter;
     private final NumericMappingStrategy numericMappingStrategy;
+    private final GenerationSummaryReportWriter generationSummaryReportWriter;
 
     public ArtifactGenerationService(
             DocumentGenerationOrchestrator documentGenerationOrchestrator,
@@ -48,6 +51,7 @@ public final class ArtifactGenerationService {
                 artifactManifestWriter, "artifactManifestWriter must not be null");
         this.numericMappingStrategy = Objects.requireNonNull(
                 numericMappingStrategy, "numericMappingStrategy must not be null");
+        this.generationSummaryReportWriter = new GenerationSummaryReportWriter(new ArtifactNamingPolicy());
     }
 
     /** Generates and packages one Standard Word specification. */
@@ -108,6 +112,8 @@ public final class ArtifactGenerationService {
             file.transferTo(input);
             Path output = Files.createDirectories(work.resolve("output"));
             PreparedSchema prepared = generator.generate(input, output);
+            generationSummaryReportWriter.write(
+                    output, context, prepared.schema(), Set.of(DatabasePlatform.values()));
             writeStandardManifest(output, context, stripExtension(sourceName), sourceName, prepared, auditOptions);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {

@@ -61,6 +61,15 @@ class BatchGenerationOrchestratorTest {
         assertTrue(text(output, "reports/batch-generation-errors.log")
                 .contains("Column specification table was not found"));
         assertTrue(output.containsKey("manifest.json"));
+        String generationSummary = text(output, "reports/schemaforge-generation-summary.txt");
+        assertTrue(generationSummary.contains("Request Type         : ZIP_BATCH"));
+        assertTrue(generationSummary.contains("Request Status       : PARTIAL_SUCCESS"));
+        assertTrue(generationSummary.contains("Input Documents      : 2"));
+        assertTrue(generationSummary.contains("Successful Documents : 1"));
+        assertTrue(generationSummary.contains("Failed Documents     : 1"));
+        assertTrue(generationSummary.contains("Extracted Tables     : 1"));
+        assertTrue(generationSummary.contains("BIM.PROVINCES"));
+        assertTrue(generationSummary.contains("Metadata Status      : UNAVAILABLE"));
         assertTrue(output.containsKey("diagram/mermaid/batch/schema-er.mmd"));
         assertTrue(output.containsKey("diagram/graphviz/batch/schema-overview.dot"));
 

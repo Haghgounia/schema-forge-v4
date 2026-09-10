@@ -65,13 +65,21 @@ class ArtifactGenerationServiceTest {
 
         Map<String, byte[]> entries = unzip(service.generateStandardWord(file, "sample.docx", context));
 
-        assertEquals(List.of("manifest.json"), entries.keySet().stream().toList());
+        assertEquals(List.of(
+                "manifest.json",
+                "reports/schemaforge-generation-summary.txt"),
+                entries.keySet().stream().sorted().toList());
+        String summary = new String(
+                entries.get("reports/schemaforge-generation-summary.txt"), StandardCharsets.UTF_8);
+        assertTrue(summary.contains("Request Type         : STANDARD_WORD"));
+        assertTrue(summary.contains("Extracted Tables     : 0"));
         JsonNode manifest = new ObjectMapper().readTree(entries.get("manifest.json"));
         assertEquals("schemaforge-manifest/v1", manifest.path("manifestContract").asText());
         assertEquals("sample.docx", manifest.path("source").path("name").asText());
         assertEquals("APP", manifest.path("models").get(0).path("schema").asText());
         assertEquals("sample.docx", manifest.path("models").get(0).path("sourceName").asText());
-        assertEquals(ArtifactType.MANIFEST, context.ledger().snapshot().get(0).type());
+        assertEquals(ArtifactType.SUMMARY_REPORT, context.ledger().snapshot().get(0).type());
+        assertEquals(ArtifactType.MANIFEST, context.ledger().snapshot().get(1).type());
         assertFalse(Files.exists(work.get()));
     }
 
@@ -90,7 +98,10 @@ class ArtifactGenerationServiceTest {
 
         Map<String, byte[]> entries = unzip(service.generateLegacyWord(file, "legacy.doc", "DPS", context));
         JsonNode manifest = new ObjectMapper().readTree(entries.get("manifest.json"));
+        String summary = new String(
+                entries.get("reports/schemaforge-generation-summary.txt"), StandardCharsets.UTF_8);
 
+        assertTrue(summary.contains("Request Type         : LEGACY_WORD"));
         assertEquals("legacy.doc", manifest.path("source").path("name").asText());
         assertEquals("DPS", manifest.path("models").get(0).path("schema").asText());
         verify(orchestrator).generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context), isNull());

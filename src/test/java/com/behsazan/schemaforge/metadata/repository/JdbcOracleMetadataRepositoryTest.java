@@ -56,4 +56,17 @@ class JdbcOracleMetadataRepositoryTest {
         assertTrue(JdbcOracleMetadataRepository.INDEXES_SQL.contains("CONSTRAINT_TYPE IN ('P', 'U')"));
         assertTrue(JdbcOracleMetadataRepository.INDEXES_SQL.contains("c.INDEX_NAME = i.INDEX_NAME"));
     }
+
+    @Test
+    void constraintQueryPreservesPrimaryAndUniqueBackingIndexNameForMigrationConvergence() {
+        assertTrue(JdbcOracleMetadataRepository.CONSTRAINTS_SQL.contains(
+                "c.INDEX_NAME AS CONSTRAINT_INDEX_NAME"));
+
+        Map<String, String> options = JdbcOracleMetadataRepository.oracleConstraintIndexPhysicalOptions(
+                "SYS_C0098123", "TS_IDX", 10, 2, "YES", "DISABLED", null, "1");
+
+        assertEquals("SYS_C0098123", options.get("ORACLE_CONSTRAINT_INDEX_NAME"));
+        assertEquals("TS_IDX", options.get("INDEX_TABLESPACE"));
+        assertEquals("10", options.get("ORACLE_INDEX_PCTFREE"));
+    }
 }

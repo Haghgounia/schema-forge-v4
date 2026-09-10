@@ -68,7 +68,7 @@ class SchemaForgeEaPerTableOutputTest {
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
 
-        assertEquals(25, entries.size());
+        assertEquals(26, entries.size());
         assertTrue(entries.keySet().stream().anyMatch(name -> name.endsWith(".metadata-crud-summary.csv")));
         String modelName = entryName(entries, "model/ea-sample_\\d{8}_\\d{6}_\\d{3}\\.schema\\.json");
         assertTrue(entries.containsKey("manifest.json"));
@@ -209,7 +209,7 @@ class SchemaForgeEaPerTableOutputTest {
                 Files.readAllBytes(source));
 
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(file));
-        assertEquals(49, entries.size());
+        assertEquals(50, entries.size());
         String timestamp = timestampFrom(entryName(entries, "ddl/oracle/FEE\\.REGULATORY_RULE_\\d{8}_\\d{6}_\\d{3}\\.oracle\\.sql"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.REGULATORY_RULE_" + timestamp + ".oracle.compare.xlsx"));
         assertTrue(entries.containsKey("comparison/oracle/FEE.FEE_VERSION_" + timestamp + ".oracle.compare.xlsx"));

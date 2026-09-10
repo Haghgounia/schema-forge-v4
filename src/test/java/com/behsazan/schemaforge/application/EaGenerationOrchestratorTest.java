@@ -63,6 +63,14 @@ class EaGenerationOrchestratorTest {
         assertTrue(runAll.indexOf("FEE.FEE_VERSION_" + TIMESTAMP + ".oracle.sql")
                 < runAll.indexOf("FEE.REGULATORY_RULE_" + TIMESTAMP + ".oracle.sql"));
 
+        String summary = new String(
+                entries.get("reports/schemaforge-generation-summary.txt"), StandardCharsets.UTF_8);
+        assertTrue(summary.contains("Request Type         : ENTERPRISE_ARCHITECT"));
+        assertTrue(summary.contains("Extracted Tables     : 2"));
+        assertTrue(summary.contains("Metadata Status      : UNAVAILABLE"));
+        assertTrue(summary.contains("FEE.FEE_VERSION"));
+        assertTrue(summary.contains("FEE.REGULATORY_RULE"));
+
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
         assertEquals("schemaforge-manifest/v1", manifest.path("manifestContract").asText());
         assertEquals(2, manifest.path("extensions").path("enterpriseArchitect")

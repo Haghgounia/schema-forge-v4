@@ -67,6 +67,7 @@ public final class EaGenerationOrchestrator {
     private final CrudArtifactProducer crudArtifactProducer;
     private final OracleDdlSanityChecker oracleDdlSanityChecker;
     private final NumericMappingStrategy numericMappingStrategy;
+    private final GenerationSummaryReportWriter generationSummaryReportWriter;
 
     public EaGenerationOrchestrator(
             SchemaPreparationService preparationService,
@@ -121,6 +122,7 @@ public final class EaGenerationOrchestrator {
                 oracleDdlSanityChecker, "oracleDdlSanityChecker must not be null");
         this.numericMappingStrategy = Objects.requireNonNull(
                 numericMappingStrategy, "numericMappingStrategy must not be null");
+        this.generationSummaryReportWriter = new GenerationSummaryReportWriter(this.artifactNamingPolicy);
     }
 
     /** Parses and prepares an EA XML/XMI input while preserving the existing schema resolution policy. */
@@ -283,6 +285,8 @@ public final class EaGenerationOrchestrator {
             generationOptions.put("audit", auditOptions.manifestValue());
         }
         manifestExtensions.put("generationOptions", generationOptions);
+        generationSummaryReportWriter.write(output, context, schema, platforms);
+
         artifactManifestWriter.write(
                 output, context, baseName,
                 List.of(new ArtifactManifestAssembler.ModelInput(

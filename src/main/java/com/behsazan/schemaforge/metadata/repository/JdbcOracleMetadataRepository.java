@@ -103,7 +103,7 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
              ORDER BY c.COLUMN_ID
             """;
 
-    private static final String CONSTRAINTS_SQL = """
+    static final String CONSTRAINTS_SQL = """
             SELECT c.CONSTRAINT_NAME,
                    c.CONSTRAINT_TYPE,
                    cc.COLUMN_NAME,
@@ -115,6 +115,7 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                    c.DELETE_RULE,
                    c.DEFERRABLE,
                    c.DEFERRED,
+                   c.INDEX_NAME AS CONSTRAINT_INDEX_NAME,
                    ci.TABLESPACE_NAME AS INDEX_TABLESPACE_NAME,
                    ci.PCT_FREE AS INDEX_PCT_FREE,
                    ci.INI_TRANS AS INDEX_INI_TRANS,
@@ -295,6 +296,7 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                         rs.getString("DELETE_RULE"),
                         "DEFERRABLE".equalsIgnoreCase(rs.getString("DEFERRABLE")),
                         "DEFERRED".equalsIgnoreCase(rs.getString("DEFERRED")),
+                        trimToNull(rs.getString("CONSTRAINT_INDEX_NAME")),
                         trimToNull(rs.getString("INDEX_TABLESPACE_NAME")),
                         nullableInt(rs, "INDEX_PCT_FREE"),
                         nullableInt(rs, "INDEX_INI_TRANS"),
@@ -398,6 +400,7 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                                 rs.getString("DELETE_RULE"),
                                 "DEFERRABLE".equalsIgnoreCase(rs.getString("DEFERRABLE")),
                                 "DEFERRED".equalsIgnoreCase(rs.getString("DEFERRED")),
+                                trimToNull(rs.getString("CONSTRAINT_INDEX_NAME")),
                                 trimToNull(rs.getString("INDEX_TABLESPACE_NAME")),
                                 nullableInt(rs, "INDEX_PCT_FREE"),
                                 nullableInt(rs, "INDEX_INI_TRANS"),
@@ -564,14 +567,14 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                 case "P" -> {
                     if (!columns.isEmpty()) builder.primaryKey(new PrimaryKey(
                             name, columns, first.deferrable(), first.initiallyDeferred(),
-                            oracleIndexPhysicalOptions(first.indexTablespace(), first.indexPctFree(),
+                            oracleConstraintIndexPhysicalOptions(first.indexName(), first.indexTablespace(), first.indexPctFree(),
                                     first.indexIniTrans(), first.indexLogging(), first.indexCompression(),
                                     first.indexPrefixLength(), first.indexDegree())));
                 }
                 case "U" -> {
                     if (!columns.isEmpty()) builder.addUniqueKey(new UniqueKey(
                             name, columns, first.deferrable(), first.initiallyDeferred(),
-                            oracleIndexPhysicalOptions(first.indexTablespace(), first.indexPctFree(),
+                            oracleConstraintIndexPhysicalOptions(first.indexName(), first.indexTablespace(), first.indexPctFree(),
                                     first.indexIniTrans(), first.indexLogging(), first.indexCompression(),
                                     first.indexPrefixLength(), first.indexDegree())));
                 }
@@ -767,6 +770,15 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
         return Map.copyOf(options);
     }
 
+    static Map<String, String> oracleConstraintIndexPhysicalOptions(
+            String indexName, String tablespace, Integer pctFree, Integer iniTrans, String logging,
+            String compression, Integer prefixLength, String degree) {
+        Map<String, String> options = new LinkedHashMap<>(oracleIndexPhysicalOptions(
+                tablespace, pctFree, iniTrans, logging, compression, prefixLength, degree));
+        put(options, "ORACLE_CONSTRAINT_INDEX_NAME", indexName);
+        return Map.copyOf(options);
+    }
+
     private static String oracleCompression(String compressFor) {
         if (compressFor == null) return "COMPRESS";
         String normalized = compressFor.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " ");
@@ -798,6 +810,7 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
     private record ConstraintRow(String name, String type, String column, Integer position, String expression,
                                  String referencedOwner, String referencedTable, String referencedColumn,
                                  String deleteRule, boolean deferrable, boolean initiallyDeferred,
+                                 String indexName,
                                  String indexTablespace, Integer indexPctFree, Integer indexIniTrans,
                                  String indexLogging, String indexCompression, Integer indexPrefixLength,
                                  String indexDegree) { }

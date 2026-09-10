@@ -57,7 +57,7 @@ class EaPlatformSelectionAcceptanceTest {
         Map<String, byte[]> entries = unzip(service.generateFromEaXml(
                 file, null, null, "AUTO", List.of("oracle")));
 
-        assertEquals(10, entries.size());
+        assertEquals(11, entries.size());
         assertEquals(2, entries.keySet().stream().filter(name -> name.startsWith("ddl/oracle/")).count());
         assertEquals(1, entries.keySet().stream().filter(name -> name.startsWith("scripts/oracle/")).count());
         assertFalse(entries.keySet().stream().anyMatch(EaPlatformSelectionAcceptanceTest::isNonOraclePlatformArtifact));

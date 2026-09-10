@@ -10,6 +10,7 @@ import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.model.IndexColumn;
 import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.domain.model.UniqueKey;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
 import com.behsazan.schemaforge.domain.valueobject.Description;
@@ -18,6 +19,7 @@ import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -129,6 +131,70 @@ class MigrationConvergenceRegressionTest {
         assertTrue(!sql.contains("IX_PATTERN_OPERATION__51"), sql);
         assertTrue(!sql.contains("DROP INDEX"), sql);
         assertTrue(!sql.contains("CREATE INDEX"), sql);
+    }
+
+    @Test
+    void oracleRenamesPrimaryKeyConstraintAndItsEnforcingIndexToFormulaNames() {
+        Column id = Column.required("PRODUCT_ID", DataType.numeric("NUMBER", 19, 0));
+        PrimaryKey livePrimary = new PrimaryKey(
+                Identifier.of("SYS_C0098123"),
+                List.of(Identifier.of("PRODUCT_ID")),
+                false,
+                false,
+                Map.of("ORACLE_CONSTRAINT_INDEX_NAME", "SYS_I0098123"));
+        PrimaryKey desiredPrimary = new PrimaryKey(
+                Identifier.of("SOURCE_PK_NAME_MUST_BE_IGNORED"),
+                List.of(Identifier.of("PRODUCT_ID")));
+
+        Table live = Table.builder("PDL", "PRODUCT")
+                .addColumn(id)
+                .primaryKey(livePrimary)
+                .build();
+        Table desired = Table.builder("PDL", "PRODUCT")
+                .addColumn(id)
+                .primaryKey(desiredPrimary)
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+        String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
+
+        assertTrue(sql.contains(
+                "ALTER TABLE PDL.PRODUCT RENAME CONSTRAINT SYS_C0098123 TO PK_PRODUCT;"), sql);
+        assertTrue(sql.contains(
+                "ALTER INDEX PDL.SYS_I0098123 RENAME TO PK_PRODUCT_PRODUCT_ID;"), sql);
+        assertTrue(!sql.contains("SOURCE_PK_NAME_MUST_BE_IGNORED"), sql);
+    }
+
+    @Test
+    void oracleRenamesUniqueConstraintAndItsEnforcingIndexToFormulaName() {
+        Column code = Column.required("PRODUCT_CODE", DataType.varchar("VARCHAR2", 30));
+        UniqueKey liveUnique = new UniqueKey(
+                Identifier.of("UQ_PRODUCT_CODE"),
+                List.of(Identifier.of("PRODUCT_CODE")),
+                false,
+                false,
+                Map.of("ORACLE_CONSTRAINT_INDEX_NAME", "UQ_PRODUCT_CODE_IDX"));
+        UniqueKey desiredUnique = new UniqueKey(
+                Identifier.of("SOURCE_UK_NAME_MUST_BE_IGNORED"),
+                List.of(Identifier.of("PRODUCT_CODE")));
+
+        Table live = Table.builder("PDL", "PRODUCT")
+                .addColumn(code)
+                .addUniqueKey(liveUnique)
+                .build();
+        Table desired = Table.builder("PDL", "PRODUCT")
+                .addColumn(code)
+                .addUniqueKey(desiredUnique)
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+        String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
+
+        assertTrue(sql.contains(
+                "ALTER TABLE PDL.PRODUCT RENAME CONSTRAINT UQ_PRODUCT_CODE TO UK_PRODUCT_PRODUCT_CODE;"), sql);
+        assertTrue(sql.contains(
+                "ALTER INDEX PDL.UQ_PRODUCT_CODE_IDX RENAME TO UK_PRODUCT_PRODUCT_CODE;"), sql);
+        assertTrue(!sql.contains("SOURCE_UK_NAME_MUST_BE_IGNORED"), sql);
     }
 
 }

@@ -10,6 +10,7 @@ import com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocator;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Orchestrates ZIP-batch generation while preserving the established batch artifact contract.
@@ -48,6 +50,7 @@ public final class BatchGenerationOrchestrator {
     private final ArtifactPackageBuilder artifactPackageBuilder;
     private final ArtifactManifestWriter artifactManifestWriter;
     private final NumericMappingStrategy numericMappingStrategy;
+    private final GenerationSummaryReportWriter generationSummaryReportWriter;
 
     public BatchGenerationOrchestrator(
             DocumentGenerationOrchestrator documentGenerationOrchestrator,
@@ -78,6 +81,7 @@ public final class BatchGenerationOrchestrator {
                 artifactManifestWriter, "artifactManifestWriter must not be null");
         this.numericMappingStrategy = Objects.requireNonNull(
                 numericMappingStrategy, "numericMappingStrategy must not be null");
+        this.generationSummaryReportWriter = new GenerationSummaryReportWriter(this.artifactNamingPolicy);
     }
 
     public byte[] generate(
@@ -249,6 +253,19 @@ public final class BatchGenerationOrchestrator {
                     failedCount > 0
                             ? ArtifactRequestStatus.PARTIAL_SUCCESS
                             : null;
+
+            Map<String, String> summaryFacts = new LinkedHashMap<>();
+            summaryFacts.put("Input Documents", Long.toString(processableDocuments));
+            summaryFacts.put("Successful Documents", Integer.toString(successCount));
+            summaryFacts.put("Failed Documents", Integer.toString(failedCount));
+            summaryFacts.put("Skipped Inputs", Integer.toString(skippedCount));
+            List<DatabaseSchema> extractedSchemas = manifestModels.stream()
+                    .map(ArtifactManifestAssembler.ModelInput::schema)
+                    .toList();
+            generationSummaryReportWriter.write(
+                    outputDir, context, extractedSchemas,
+                    Set.of(DatabasePlatform.values()),
+                    summaryFacts, batchRequestStatus);
 
             artifactManifestWriter.write(
                     outputDir,

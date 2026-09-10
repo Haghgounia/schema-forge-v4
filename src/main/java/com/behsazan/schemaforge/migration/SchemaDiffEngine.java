@@ -5,6 +5,8 @@ import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
+import com.behsazan.schemaforge.domain.enums.IndexType;
+import com.behsazan.schemaforge.domain.enums.SortDirection;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
@@ -13,9 +15,11 @@ import com.behsazan.schemaforge.domain.model.IndexColumn;
 import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.model.UniqueKey;
+import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.metadata.NumericTypeEquivalenceService;
+import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
 
@@ -35,6 +39,7 @@ import java.util.regex.Pattern;
 /** Computes deterministic live-to-document differences used by ALTER/Migration generation. */
 public final class SchemaDiffEngine {
     private static final Pattern TYPE_ARGUMENTS = Pattern.compile("^([A-Z0-9_ ]+)\\((\\d+)(?:,(\\d+))?(?: (?:CHAR|BYTE|CHARACTERS?))?\\)(.*)$");
+    private static final String ORACLE_CONSTRAINT_INDEX_NAME = "ORACLE_CONSTRAINT_INDEX_NAME";
 
     private final NumericMappingStrategy numericMappingStrategy;
     private final NumericTypeEquivalenceService typeEquivalenceService = new NumericTypeEquivalenceService();
@@ -139,6 +144,7 @@ public final class SchemaDiffEngine {
         diffNamedObjects(
                 platform, TableObjectType.UNIQUE_KEY, live.uniqueKeys(), desired.uniqueKeys(),
                 UniqueKey::name, this::uniqueSignature, changes);
+        diffOracleConstraintBackingIndexes(platform, live, desired, changes);
         diffNamedObjects(
                 platform, TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(), effectiveDesiredChecks(desired),
                 CheckConstraint::name, check -> checkSignature(platform, dialect, check), changes);
@@ -149,6 +155,77 @@ public final class SchemaDiffEngine {
                 platform, TableObjectType.FOREIGN_KEY, live.foreignKeys(), desired.foreignKeys(),
                 ForeignKey::name, foreignKey -> foreignKeySignature(desired, foreignKey), changes);
         return List.copyOf(changes);
+    }
+
+    private void diffOracleConstraintBackingIndexes(
+            DatabasePlatform platform, Table live, Table desired, List<TableObjectChange> changes) {
+        if (platform != DatabasePlatform.ORACLE) return;
+
+        PrimaryKey livePrimary = live.primaryKey().orElse(null);
+        PrimaryKey desiredPrimary = desired.primaryKey().orElse(null);
+        if (livePrimary != null && desiredPrimary != null
+                && primarySignature(livePrimary).equals(primarySignature(desiredPrimary))) {
+            addOracleConstraintBackingIndexRename(
+                    livePrimary.columns(),
+                    livePrimary.physicalOptions(),
+                    LogicalObjectNamingPolicy.primaryKeyIndex(desired, desiredPrimary),
+                    "primary-key",
+                    changes);
+        }
+
+        Set<Integer> matched = new LinkedHashSet<>();
+        for (UniqueKey desiredUnique : desired.uniqueKeys()) {
+            int match = findBySignature(
+                    live.uniqueKeys(), matched, this::uniqueSignature, uniqueSignature(desiredUnique));
+            if (match < 0) continue;
+            matched.add(match);
+            UniqueKey liveUnique = live.uniqueKeys().get(match);
+            addOracleConstraintBackingIndexRename(
+                    liveUnique.columns(),
+                    liveUnique.physicalOptions(),
+                    LogicalObjectNamingPolicy.uniqueKeyIndex(desired, desiredUnique),
+                    "unique-key",
+                    changes);
+        }
+    }
+
+    private void addOracleConstraintBackingIndexRename(
+            List<Identifier> columns,
+            Map<String, String> livePhysicalOptions,
+            Identifier desiredLogicalName,
+            String constraintKind,
+            List<TableObjectChange> changes) {
+        String liveName = livePhysicalOptions.get(ORACLE_CONSTRAINT_INDEX_NAME);
+        if (liveName == null || liveName.isBlank() || desiredLogicalName == null) return;
+
+        Identifier beforeName = Identifier.of(liveName);
+        if (compatibleName(DatabasePlatform.ORACLE, beforeName, desiredLogicalName)) return;
+
+        Index before = syntheticConstraintBackingIndex(beforeName, columns);
+        Index after = syntheticConstraintBackingIndex(desiredLogicalName, columns);
+        changes.add(objectChange(
+                TableObjectType.INDEX,
+                TableObjectChangeKind.RENAME,
+                desiredLogicalName,
+                before,
+                after,
+                MigrationRisk.REVIEW,
+                "Oracle " + constraintKind
+                        + " enforcing index definition is unchanged; only the physical index name differs"));
+    }
+
+    private static Index syntheticConstraintBackingIndex(Identifier name, List<Identifier> columns) {
+        List<IndexColumn> indexColumns = columns.stream()
+                .map(column -> new IndexColumn(column, SortDirection.ASC))
+                .toList();
+        return new Index(
+                name,
+                indexColumns,
+                IndexType.UNIQUE,
+                Description.empty(),
+                List.of(),
+                null,
+                Map.of());
     }
 
     private void diffPrimaryKey(

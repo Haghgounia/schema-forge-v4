@@ -141,6 +141,10 @@ public final class ArtifactNamingPolicy {
         return batchGraphvizDirectory().resolve(artifact.fileName());
     }
 
+    public Path generationSummaryRelativePath() {
+        return Path.of("reports", "schemaforge-generation-summary.txt");
+    }
+
     public Path batchGenerationSummaryRelativePath() {
         return Path.of("reports", "batch-generation-summary.csv");
     }
