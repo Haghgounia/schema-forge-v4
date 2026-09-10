@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** M3 gate: MariaDB becomes a selectable DDL platform without claiming M4-M7 services. */
+/** M3 gate: MariaDB becomes a selectable DDL platform without claiming M5-M7 services. */
 class MariaDbPlatformRegistrationTest {
 
     @Test

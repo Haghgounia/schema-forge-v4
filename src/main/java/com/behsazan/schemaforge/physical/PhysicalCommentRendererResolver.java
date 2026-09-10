@@ -5,12 +5,14 @@ import com.behsazan.schemaforge.dialect.db2zos.Db2ZosDialect;
 import com.behsazan.schemaforge.dialect.db2luw.Db2LuwDialect;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
+import com.behsazan.schemaforge.dialect.mariadb.MariaDbDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
 import com.behsazan.schemaforge.physical.db2zos.Db2ZosPhysicalRenderer;
 import com.behsazan.schemaforge.physical.db2luw.Db2LuwPhysicalRenderer;
 import com.behsazan.schemaforge.physical.oracle.OraclePhysicalRenderer;
 import com.behsazan.schemaforge.physical.mysql.MySqlPhysicalRenderer;
+import com.behsazan.schemaforge.physical.mariadb.MariaDbPhysicalRenderer;
 import com.behsazan.schemaforge.physical.postgresql.PostgreSqlPhysicalRenderer;
 import com.behsazan.schemaforge.physical.sqlserver.SqlServerPhysicalRenderer;
 
@@ -37,6 +39,9 @@ public final class PhysicalCommentRendererResolver {
         }
         if (dialect instanceof MySqlDialect) {
             return new MySqlPhysicalRenderer();
+        }
+        if (dialect instanceof MariaDbDialect) {
+            return new MariaDbPhysicalRenderer();
         }
         return new PhysicalCommentRenderer() {
             @Override

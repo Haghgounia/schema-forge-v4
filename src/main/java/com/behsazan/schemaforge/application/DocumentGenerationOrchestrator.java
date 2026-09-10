@@ -19,6 +19,7 @@ import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
 import com.behsazan.schemaforge.specification.parser.legacy.LegacyWordSpecificationParser;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
+import com.behsazan.schemaforge.validation.mariadb.MariaDbDdlSanityChecker;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 
 import java.io.IOException;
@@ -51,6 +52,7 @@ public final class DocumentGenerationOrchestrator {
     private final CrudArtifactProducer crudArtifactProducer;
     private final LegacyWordSpecificationParser legacyWordSpecificationParser;
     private final OracleDdlSanityChecker oracleDdlSanityChecker;
+    private final MariaDbDdlSanityChecker mariaDbDdlSanityChecker = new MariaDbDdlSanityChecker();
     private final NumericMappingStrategy numericMappingStrategy;
 
     public DocumentGenerationOrchestrator(
@@ -217,7 +219,7 @@ public final class DocumentGenerationOrchestrator {
             String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
             Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(baseName, platform, timestamp);
             String sqlFileName = ddlRelativePath.getFileName().toString();
-            requireValidOracleDdl(platform, sql, sqlFileName);
+            requireValidDdl(platform, sql, sqlFileName);
             Path ddlPath = output.resolve(ddlRelativePath);
             Files.createDirectories(ddlPath.getParent());
             Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
@@ -250,9 +252,11 @@ public final class DocumentGenerationOrchestrator {
         return jsonReport;
     }
 
-    private void requireValidOracleDdl(DatabasePlatform platform, String sql, String source) {
+    private void requireValidDdl(DatabasePlatform platform, String sql, String source) {
         if (platform == DatabasePlatform.ORACLE) {
             oracleDdlSanityChecker.requireValid(sql, source);
+        } else if (platform == DatabasePlatform.MARIADB) {
+            mariaDbDdlSanityChecker.requireValid(sql, source);
         }
     }
 

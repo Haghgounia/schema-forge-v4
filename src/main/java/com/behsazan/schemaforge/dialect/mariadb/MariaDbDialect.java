@@ -317,19 +317,16 @@ public final class MariaDbDialect implements Dialect {
     @Override
     public String resolveTableTablespace(Table table) {
         Objects.requireNonNull(table, "table must not be null");
-        return table.physicalOptions().entrySet().stream()
-                .filter(entry -> entry.getKey().equalsIgnoreCase("MARIADB_TABLESPACE"))
-                .map(java.util.Map.Entry::getValue)
-                .filter(value -> value != null && !value.isBlank())
-                .map(String::trim)
-                .findFirst()
-                .orElse(null);
+        // MariaDB documents TABLESPACE as a table-option grammar token, but unlike MySQL
+        // it does not provide CREATE TABLESPACE for InnoDB general tablespaces. SchemaForge
+        // therefore preserves MARIADB_TABLESPACE only as DBA-review evidence in the physical
+        // comment block and never activates it as a deployable placement directive.
+        return null;
     }
 
     @Override
     public String tableTablespaceClause(String tablespace) {
-        if (tablespace == null || tablespace.isBlank()) return "";
-        return " TABLESPACE " + quote(Identifier.of(tablespace.trim()));
+        return "";
     }
 
     @Override
@@ -351,9 +348,9 @@ public final class MariaDbDialect implements Dialect {
     public String infrastructureProvisioningTemplate(Identifier schemaName) {
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         String nl = System.lineSeparator();
-        return "-- [INFRASTRUCTURE TEMPLATE][MARIADB] Default policy: InnoDB file-per-table; no general tablespace is required." + nl
-                + "-- Optional DBA-controlled general tablespace only when the physical design explicitly requires it:" + nl
-                + "-- CREATE TABLESPACE `<GENERAL_TABLESPACE>` ADD DATAFILE '<DATAFILE>' ENGINE=InnoDB;";
+        return "-- [INFRASTRUCTURE TEMPLATE][MARIADB] InnoDB file-per-table is the SchemaForge baseline." + nl
+                + "-- MariaDB does not support MySQL-style CREATE TABLESPACE provisioning for InnoDB." + nl
+                + "-- Keep storage placement under DBA/server configuration; SchemaForge does not invent a tablespace.";
     }
 
     @Override

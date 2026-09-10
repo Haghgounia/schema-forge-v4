@@ -22,6 +22,7 @@ import com.behsazan.schemaforge.snapshot.CanonicalSnapshotVersions;
 import com.behsazan.schemaforge.specification.json.JsonExporter;
 import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
 import com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidator;
+import com.behsazan.schemaforge.validation.mariadb.MariaDbDdlSanityChecker;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.validation.postgresql.PostgreSqlDdlSanityChecker;
 import com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidator;
@@ -86,6 +87,7 @@ class CanonicalJsonDirectoryAllArtifactsIT {
     private final GraphvizBatchDiagramExporter graphvizBatchExporter = new GraphvizBatchDiagramExporter();
     private final DatatypeCompatibilityAnalyzer datatypeCompatibilityAnalyzer = new DatatypeCompatibilityAnalyzer();
     private final OracleDdlSanityChecker oracleSanityChecker = new OracleDdlSanityChecker();
+    private final MariaDbDdlSanityChecker mariaDbSanityChecker = new MariaDbDdlSanityChecker();
     private final PostgreSqlDdlSanityChecker postgreSqlSanityChecker = new PostgreSqlDdlSanityChecker();
     private final SqlServerOfflineDdlValidator sqlServerValidator = new SqlServerOfflineDdlValidator();
     private final Db2ZosOfflineDdlValidator db2ZosValidator = new Db2ZosOfflineDdlValidator();
@@ -524,7 +526,10 @@ class CanonicalJsonDirectoryAllArtifactsIT {
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
             case DB2_LUW -> List.of(); // Dedicated Db2 LUW offline validator follows core P1.
             case MYSQL -> List.of(); // MySQL offline validator is introduced after logical P1.
-            case MARIADB -> List.of(); // MariaDB offline validator is introduced in M4.
+            case MARIADB -> mariaDbSanityChecker.inspect(sql).stream()
+                    .map(issue -> new ValidationFinding("STATIC_VALIDATION",
+                            "statement " + issue.statementNumber(), issue.code(),
+                            issue.message(), issue.fragment())).toList();
         };
     }
 

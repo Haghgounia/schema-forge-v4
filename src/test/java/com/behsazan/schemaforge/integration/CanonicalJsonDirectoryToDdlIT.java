@@ -15,6 +15,7 @@ import com.behsazan.schemaforge.snapshot.CanonicalSnapshotJsonStore;
 import com.behsazan.schemaforge.snapshot.CanonicalSnapshotMapper;
 import com.behsazan.schemaforge.snapshot.CanonicalSnapshotVersions;
 import com.behsazan.schemaforge.validation.db2zos.Db2ZosOfflineDdlValidator;
+import com.behsazan.schemaforge.validation.mariadb.MariaDbDdlSanityChecker;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.behsazan.schemaforge.validation.postgresql.PostgreSqlDdlSanityChecker;
 import com.behsazan.schemaforge.validation.sqlserver.SqlServerOfflineDdlValidator;
@@ -65,6 +66,7 @@ class CanonicalJsonDirectoryToDdlIT {
     private final SchemaPreparationService preparationService = new SchemaPreparationService();
     private final OutputFileNamer outputFileNamer = new OutputFileNamer();
     private final OracleDdlSanityChecker oracleSanityChecker = new OracleDdlSanityChecker();
+    private final MariaDbDdlSanityChecker mariaDbSanityChecker = new MariaDbDdlSanityChecker();
     private final PostgreSqlDdlSanityChecker postgreSqlSanityChecker = new PostgreSqlDdlSanityChecker();
     private final SqlServerOfflineDdlValidator sqlServerValidator = new SqlServerOfflineDdlValidator();
     private final Db2ZosOfflineDdlValidator db2ZosValidator = new Db2ZosOfflineDdlValidator();
@@ -476,7 +478,10 @@ class CanonicalJsonDirectoryToDdlIT {
                             "statement " + issue.statementNumber(), issue.code(), issue.message(), "")).toList();
             case DB2_LUW -> List.of(); // Dedicated Db2 LUW offline validator follows core P1.
             case MYSQL -> basicMySqlValidation(sql);
-            case MARIADB -> List.of(); // MariaDB static validation is introduced in M4.
+            case MARIADB -> mariaDbSanityChecker.inspect(sql).stream()
+                    .map(issue -> new ValidationFinding("ERROR", "STATIC_VALIDATION",
+                            "statement " + issue.statementNumber(), issue.code(),
+                            issue.message(), issue.fragment())).toList();
         };
     }
 
