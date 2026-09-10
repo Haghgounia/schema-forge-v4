@@ -114,3 +114,10 @@ schemaforge:
       username: root
       password: mysql123
       driver-class-name: com.mysql.cj.jdbc.Driver
+    # MariaDB metadata is introduced in M5 and remains opt-in until the live gate.
+    mariadb:
+      enabled: ${SCHEMAFORGE_METADATA_MARIADB_ENABLED:false}
+      url: ${SCHEMAFORGE_METADATA_MARIADB_URL:jdbc:mariadb://localhost:3308/}
+      username: ${SCHEMAFORGE_METADATA_MARIADB_USERNAME:root}
+      password: ${SCHEMAFORGE_METADATA_MARIADB_PASSWORD:}
+      driver-class-name: org.mariadb.jdbc.Driver

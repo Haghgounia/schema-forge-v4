@@ -96,6 +96,19 @@ public class MetadataDataSourceConfiguration {
         return new NamedParameterJdbcTemplate(dataSource);
     }
 
+    @Bean("mariaDbMetadataDataSource")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.mariadb", name = "enabled", havingValue = "true")
+    DataSource mariaDbMetadataDataSource(MetadataProperties properties) {
+        return create(properties.getMariadb(), "MariaDB");
+    }
+
+    @Bean("mariaDbMetadataJdbcTemplate")
+    @ConditionalOnProperty(prefix = "schemaforge.metadata.mariadb", name = "enabled", havingValue = "true")
+    NamedParameterJdbcTemplate mariaDbMetadataJdbcTemplate(
+            @Qualifier("mariaDbMetadataDataSource") DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
     private static DataSource create(MetadataProperties.Database properties, String databaseName) {
         require(properties.getUrl(), databaseName + " metadata URL");
         require(properties.getUsername(), databaseName + " metadata username");

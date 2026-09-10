@@ -15,6 +15,7 @@ public class MetadataProperties {
     private final Database db2luw = new Database();
     private final Database sqlserver = new Database();
     private final Database mysql = new Database();
+    private final Database mariadb = new Database();
 
     public Database getOracle() { return oracle; }
     public Database getPostgresql() { return postgresql; }
@@ -22,6 +23,7 @@ public class MetadataProperties {
     public Database getDb2luw() { return db2luw; }
     public Database getSqlserver() { return sqlserver; }
     public Database getMysql() { return mysql; }
+    public Database getMariadb() { return mariadb; }
 
     public static class Database {
         private boolean enabled;

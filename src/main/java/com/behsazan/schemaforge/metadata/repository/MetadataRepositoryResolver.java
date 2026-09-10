@@ -17,19 +17,22 @@ public class MetadataRepositoryResolver {
     private final ObjectProvider<Db2LuwMetadataRepository> db2luw;
     private final ObjectProvider<SqlServerMetadataRepository> sqlserver;
     private final ObjectProvider<MySqlMetadataRepository> mysql;
+    private final ObjectProvider<MariaDbMetadataRepository> mariadb;
 
     public MetadataRepositoryResolver(ObjectProvider<OracleMetadataRepository> oracle,
                                       ObjectProvider<PostgreSqlMetadataRepository> postgresql,
                                       ObjectProvider<Db2ZosMetadataRepository> db2zos,
                                       ObjectProvider<Db2LuwMetadataRepository> db2luw,
                                       ObjectProvider<SqlServerMetadataRepository> sqlserver,
-                                      ObjectProvider<MySqlMetadataRepository> mysql) {
+                                      ObjectProvider<MySqlMetadataRepository> mysql,
+                                      ObjectProvider<MariaDbMetadataRepository> mariadb) {
         this.oracle = oracle;
         this.postgresql = postgresql;
         this.db2zos = db2zos;
         this.db2luw = db2luw;
         this.sqlserver = sqlserver;
         this.mysql = mysql;
+        this.mariadb = mariadb;
     }
 
     public MetadataRepository resolve(DatabasePlatform platform) {
@@ -40,7 +43,7 @@ public class MetadataRepositoryResolver {
             case DB2_LUW -> db2luw.getIfAvailable();
             case SQLSERVER -> sqlserver.getIfAvailable();
             case MYSQL -> mysql.getIfAvailable();
-            case MARIADB -> null; // MariaDB JDBC metadata repository is introduced in M5.
+            case MARIADB -> mariadb.getIfAvailable();
         };
         return repository == null ? MetadataRepository.empty() : repository;
     }

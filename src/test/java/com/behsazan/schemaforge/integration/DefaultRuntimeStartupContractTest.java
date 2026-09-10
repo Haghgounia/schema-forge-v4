@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
                 "schemaforge.metadata.db2zos.enabled=false",
                 "schemaforge.metadata.sqlserver.enabled=false",
                 "schemaforge.metadata.mysql.enabled=false",
+                "schemaforge.metadata.mariadb.enabled=false",
                 "schemaforge.spell-check.enabled=false"
         })
 class DefaultRuntimeStartupContractTest {

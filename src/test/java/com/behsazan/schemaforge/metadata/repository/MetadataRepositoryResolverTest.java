@@ -26,7 +26,7 @@ class MetadataRepositoryResolverTest {
         Db2ZosMetadataRepository expected = mock(Db2ZosMetadataRepository.class);
         when(db2zos.getIfAvailable()).thenReturn(expected);
 
-        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos, provider(), provider(), provider());
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos, provider(), provider(), provider(), provider());
 
         assertSame(expected, resolver.resolve(DatabasePlatform.DB2_ZOS));
     }
@@ -38,7 +38,7 @@ class MetadataRepositoryResolverTest {
         ObjectProvider<Db2ZosMetadataRepository> db2zos = provider();
         when(db2zos.getIfAvailable()).thenReturn(null);
 
-        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos, provider(), provider(), provider());
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(oracle, postgresql, db2zos, provider(), provider(), provider(), provider());
 
         assertFalse(resolver.resolve(DatabasePlatform.DB2_ZOS).available());
     }
@@ -50,7 +50,7 @@ class MetadataRepositoryResolverTest {
         when(db2luw.getIfAvailable()).thenReturn(expected);
 
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), db2luw, provider(), provider());
+                provider(), provider(), provider(), db2luw, provider(), provider(), provider());
 
         assertSame(expected, resolver.resolve(DatabasePlatform.DB2_LUW));
     }
@@ -61,7 +61,7 @@ class MetadataRepositoryResolverTest {
         when(db2luw.getIfAvailable()).thenReturn(null);
 
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), db2luw, provider(), provider());
+                provider(), provider(), provider(), db2luw, provider(), provider(), provider());
 
         assertFalse(resolver.resolve(DatabasePlatform.DB2_LUW).available());
     }
@@ -72,7 +72,7 @@ class MetadataRepositoryResolverTest {
         SqlServerMetadataRepository expected = mock(SqlServerMetadataRepository.class);
         when(sqlserver.getIfAvailable()).thenReturn(expected);
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), provider(), sqlserver, provider());
+                provider(), provider(), provider(), provider(), sqlserver, provider(), provider());
 
         assertSame(expected, resolver.resolve(DatabasePlatform.SQLSERVER));
     }
@@ -82,7 +82,7 @@ class MetadataRepositoryResolverTest {
         ObjectProvider<SqlServerMetadataRepository> sqlserver = provider();
         when(sqlserver.getIfAvailable()).thenReturn(null);
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), provider(), sqlserver, provider());
+                provider(), provider(), provider(), provider(), sqlserver, provider(), provider());
 
         assertFalse(resolver.resolve(DatabasePlatform.SQLSERVER).available());
     }
@@ -94,7 +94,7 @@ class MetadataRepositoryResolverTest {
         MySqlMetadataRepository expected = mock(MySqlMetadataRepository.class);
         when(mysql.getIfAvailable()).thenReturn(expected);
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), provider(), provider(), mysql);
+                provider(), provider(), provider(), provider(), provider(), mysql, provider());
 
         assertSame(expected, resolver.resolve(DatabasePlatform.MYSQL));
     }
@@ -104,15 +104,28 @@ class MetadataRepositoryResolverTest {
         ObjectProvider<MySqlMetadataRepository> mysql = provider();
         when(mysql.getIfAvailable()).thenReturn(null);
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), provider(), provider(), mysql);
+                provider(), provider(), provider(), provider(), provider(), mysql, provider());
 
         assertFalse(resolver.resolve(DatabasePlatform.MYSQL).available());
     }
 
     @Test
-    void returnsEmptyRepositoryForMariaDbUntilM5MetadataIsImplemented() {
+    void resolvesMariaDbRepositoryWhenConfigured() {
+        ObjectProvider<MariaDbMetadataRepository> mariadb = provider();
+        MariaDbMetadataRepository expected = mock(MariaDbMetadataRepository.class);
+        when(mariadb.getIfAvailable()).thenReturn(expected);
         MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
-                provider(), provider(), provider(), provider(), provider(), provider());
+                provider(), provider(), provider(), provider(), provider(), provider(), mariadb);
+
+        assertSame(expected, resolver.resolve(DatabasePlatform.MARIADB));
+    }
+
+    @Test
+    void returnsEmptyRepositoryWhenMariaDbMetadataIsDisabled() {
+        ObjectProvider<MariaDbMetadataRepository> mariadb = provider();
+        when(mariadb.getIfAvailable()).thenReturn(null);
+        MetadataRepositoryResolver resolver = new MetadataRepositoryResolver(
+                provider(), provider(), provider(), provider(), provider(), provider(), mariadb);
 
         assertFalse(resolver.resolve(DatabasePlatform.MARIADB).available());
     }
