@@ -24,6 +24,7 @@ import com.behsazan.schemaforge.naming.LogicalObjectNamingPolicy;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -97,9 +98,10 @@ public final class SchemaDiffEngine {
             boolean sequenceBackedIdentity = sequenceBackedIdentityEquivalent(
                     desiredTable, desired, live, dialect);
 
-            if (live.nullable() != desired.nullable()) {
-                MigrationRisk risk = desired.nullable() ? MigrationRisk.SAFE : MigrationRisk.REVIEW;
-                String rationale = desired.nullable()
+            boolean desiredNullable = effectiveDesiredNullable(platform, desiredTable, desired);
+            if (live.nullable() != desiredNullable) {
+                MigrationRisk risk = desiredNullable ? MigrationRisk.SAFE : MigrationRisk.REVIEW;
+                String rationale = desiredNullable
                         ? "column becomes nullable"
                         : "column becomes NOT NULL; verify existing rows contain no NULL values";
                 changes.add(new ColumnChange(
@@ -138,24 +140,107 @@ public final class SchemaDiffEngine {
         return List.copyOf(changes);
     }
 
+    private static boolean effectiveDesiredNullable(
+            DatabasePlatform platform, Table desiredTable, Column desiredColumn) {
+        if (platform != DatabasePlatform.MARIADB) return desiredColumn.nullable();
+        PrimaryKey primaryKey = desiredTable.primaryKey().orElse(null);
+        if (primaryKey == null) return desiredColumn.nullable();
+        boolean primaryKeyColumn = primaryKey.columns().stream()
+                .anyMatch(column -> column.normalized().equals(desiredColumn.name().normalized()));
+        // MariaDB reports every PRIMARY KEY column as NOT NULL even when the source
+        // canonical column flag was nullable. The key itself supplies the effective
+        // non-nullability, so that catalog normalization must not become ALTER drift.
+        return primaryKeyColumn ? false : desiredColumn.nullable();
+    }
+
     private List<TableObjectChange> diffObjects(
             DatabasePlatform platform, Dialect dialect, Table live, Table desired) {
         List<TableObjectChange> changes = new ArrayList<>();
         diffPrimaryKey(platform, live, desired, changes);
+        List<UniqueKey> liveUniqueKeys = new ArrayList<>(live.uniqueKeys());
+        List<Index> liveIndexes = new ArrayList<>(live.indexes());
+        List<Index> desiredIndexes = new ArrayList<>(effectiveDesiredIndexes(dialect, desired));
+        if (platform == DatabasePlatform.MARIADB) {
+            suppressMariaDbUniqueIndexCatalogAliases(liveUniqueKeys, desiredIndexes);
+            liveIndexes.removeIf(index -> mariaDbImplicitForeignKeyIndex(live, index));
+        }
+
         diffNamedObjects(
-                platform, TableObjectType.UNIQUE_KEY, live.uniqueKeys(), desired.uniqueKeys(),
+                platform, TableObjectType.UNIQUE_KEY, liveUniqueKeys, desired.uniqueKeys(),
                 UniqueKey::name, this::uniqueSignature, changes);
         diffOracleConstraintBackingIndexes(platform, live, desired, changes);
         diffNamedObjects(
-                platform, TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(), effectiveDesiredChecks(desired),
+                platform, TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(),
+                effectiveDesiredChecks(platform, dialect, desired),
                 CheckConstraint::name, check -> checkSignature(platform, dialect, check), changes);
         diffNamedObjects(
-                platform, TableObjectType.INDEX, live.indexes(), effectiveDesiredIndexes(dialect, desired),
+                platform, TableObjectType.INDEX, liveIndexes, desiredIndexes,
                 Index::name, index -> indexSignature(dialect, index), changes);
         diffNamedObjects(
                 platform, TableObjectType.FOREIGN_KEY, live.foreignKeys(), desired.foreignKeys(),
                 ForeignKey::name, foreignKey -> foreignKeySignature(platform, desired, foreignKey), changes);
         return List.copyOf(changes);
+    }
+
+    private void suppressMariaDbUniqueIndexCatalogAliases(
+            List<UniqueKey> liveUniqueKeys, List<Index> desiredIndexes) {
+        Set<Integer> matchedUniqueKeys = new LinkedHashSet<>();
+        Set<Integer> matchedIndexes = new LinkedHashSet<>();
+        for (int indexPosition = 0; indexPosition < desiredIndexes.size(); indexPosition++) {
+            Index desiredIndex = desiredIndexes.get(indexPosition);
+            if (desiredIndex.type() != IndexType.UNIQUE) continue;
+            for (int uniquePosition = 0; uniquePosition < liveUniqueKeys.size(); uniquePosition++) {
+                if (matchedUniqueKeys.contains(uniquePosition)) continue;
+                UniqueKey liveUnique = liveUniqueKeys.get(uniquePosition);
+                if (!compatibleName(DatabasePlatform.MARIADB, liveUnique.name(), desiredIndex.name())) continue;
+                if (!identifierList(liveUnique.columns()).equals(indexIdentifierList(desiredIndex))) continue;
+                matchedUniqueKeys.add(uniquePosition);
+                matchedIndexes.add(indexPosition);
+                break;
+            }
+        }
+        if (!matchedUniqueKeys.isEmpty()) {
+            List<UniqueKey> retained = new ArrayList<>();
+            for (int i = 0; i < liveUniqueKeys.size(); i++) {
+                if (!matchedUniqueKeys.contains(i)) retained.add(liveUniqueKeys.get(i));
+            }
+            liveUniqueKeys.clear();
+            liveUniqueKeys.addAll(retained);
+        }
+        if (!matchedIndexes.isEmpty()) {
+            List<Index> retained = new ArrayList<>();
+            for (int i = 0; i < desiredIndexes.size(); i++) {
+                if (!matchedIndexes.contains(i)) retained.add(desiredIndexes.get(i));
+            }
+            desiredIndexes.clear();
+            desiredIndexes.addAll(retained);
+        }
+    }
+
+    private static String indexIdentifierList(Index index) {
+        List<Identifier> identifiers = new ArrayList<>();
+        for (IndexColumn column : index.columns()) {
+            if (column.expressionBased()) return "<EXPRESSION_INDEX>";
+            identifiers.add(column.column());
+        }
+        return identifierList(identifiers);
+    }
+
+    private static boolean mariaDbImplicitForeignKeyIndex(Table liveTable, Index index) {
+        if (index.type() != IndexType.NORMAL || index.name() == null) return false;
+        List<Identifier> indexColumns = new ArrayList<>();
+        for (IndexColumn column : index.columns()) {
+            if (column.expressionBased() || column.direction() != SortDirection.ASC) return false;
+            indexColumns.add(column.column());
+        }
+        for (ForeignKey foreignKey : liveTable.foreignKeys()) {
+            if (foreignKey.name() == null
+                    || !foreignKey.name().normalized().equals(index.name().normalized())) {
+                continue;
+            }
+            if (identifierList(foreignKey.columns()).equals(identifierList(indexColumns))) return true;
+        }
+        return false;
     }
 
     private void diffOracleConstraintBackingIndexes(
@@ -1117,10 +1202,26 @@ public final class SchemaDiffEngine {
         return normalized == null ? "" : normalized.replace("\"", "");
     }
 
-    private static List<CheckConstraint> effectiveDesiredChecks(Table table) {
-        return table.checkConstraints().stream()
+    private static List<CheckConstraint> effectiveDesiredChecks(
+            DatabasePlatform platform, Dialect dialect, Table table) {
+        List<CheckConstraint> checks = new ArrayList<>(table.checkConstraints().stream()
                 .filter(check -> CheckConstraintReferenceAnalyzer.valid(table, check.expression()))
-                .toList();
+                .toList());
+        if (platform != DatabasePlatform.MARIADB) return List.copyOf(checks);
+
+        Set<String> occupiedNames = new LinkedHashSet<>();
+        checks.stream().map(CheckConstraint::name).filter(Objects::nonNull)
+                .map(Identifier::normalized).forEach(occupiedNames::add);
+        for (Column column : table.columns()) {
+            String inline = dialect.inlineColumnConstraintClause(table, column);
+            String expression = extractInlineCheckExpression(inline);
+            if (expression == null || expression.isBlank()) continue;
+            Identifier generatedName = column.name();
+            if (occupiedNames.add(generatedName.normalized())) {
+                checks.add(new CheckConstraint(generatedName, expression));
+            }
+        }
+        return List.copyOf(checks);
     }
 
     private List<Index> effectiveDesiredIndexes(Dialect dialect, Table table) {
@@ -1131,10 +1232,58 @@ public final class SchemaDiffEngine {
         }
         List<Index> result = new ArrayList<>();
         for (Index index : table.indexes()) {
-            String signature = effectiveIndexColumnSignature(dialect, index);
-            if (occupiedSignatures.add(signature)) result.add(index);
+            List<IndexColumn> normalizedColumns = deduplicateIndexColumns(dialect, index.columns());
+            Index effective = new Index(index.name(), normalizedColumns, index.type(), index.description(),
+                    index.includeColumns(), index.predicate(), index.physicalOptions(), index.buildOptions());
+            String signature = effectiveIndexColumnSignature(dialect, effective);
+            if (!occupiedSignatures.add(signature)) continue;
+            Identifier emittedName = LogicalObjectNamingPolicy.index(table, effective);
+            result.add(new Index(emittedName, normalizedColumns, index.type(), index.description(),
+                    index.includeColumns(), index.predicate(), index.physicalOptions(), index.buildOptions()));
         }
         return List.copyOf(result);
+    }
+
+    private static List<IndexColumn> deduplicateIndexColumns(Dialect dialect, List<IndexColumn> columns) {
+        Set<String> seen = new LinkedHashSet<>();
+        List<IndexColumn> result = new ArrayList<>();
+        for (IndexColumn column : columns) {
+            String signature = column.expressionBased()
+                    ? "EXPR:" + normalizeExpression(column.expression()) + ":" + column.direction()
+                    : dialect.quote(column.column()).toUpperCase(Locale.ROOT) + ":" + column.direction();
+            if (seen.add(signature)) result.add(column);
+        }
+        return List.copyOf(result);
+    }
+
+    private static String extractInlineCheckExpression(String clause) {
+        if (clause == null || clause.isBlank()) return null;
+        String upper = clause.toUpperCase(Locale.ROOT);
+        int check = upper.indexOf("CHECK");
+        if (check < 0) return null;
+        int open = clause.indexOf('(', check);
+        if (open < 0) return null;
+        int depth = 0;
+        boolean inString = false;
+        for (int i = open; i < clause.length(); i++) {
+            char ch = clause.charAt(i);
+            if (inString) {
+                if (ch == '\'') {
+                    if (i + 1 < clause.length() && clause.charAt(i + 1) == '\'') i++;
+                    else inString = false;
+                }
+                continue;
+            }
+            if (ch == '\'') {
+                inString = true;
+            } else if (ch == '(') {
+                depth++;
+            } else if (ch == ')') {
+                depth--;
+                if (depth == 0) return clause.substring(open + 1, i).trim();
+            }
+        }
+        return null;
     }
 
     private static String effectiveIndexColumnSignature(Dialect dialect, Index index) {
@@ -1157,7 +1306,45 @@ public final class SchemaDiffEngine {
         String left = live.defaultValue().isPresent()
                 ? normalizeDefault(platform, live.defaultValue().expression()) : null;
         String right = effectiveDesiredDefault(platform, dialect, desired);
+        if (platform == DatabasePlatform.MARIADB && mariaDbDefaultsEquivalent(left, right, desired)) return true;
         return Objects.equals(left, right);
+    }
+
+    private static boolean mariaDbDefaultsEquivalent(String left, String right, Column desired) {
+        if (Objects.equals(left, right)) return true;
+        if (left == null || right == null) return false;
+
+        BigDecimal leftNumeric = mariaDbNumericLiteral(left, desired, false);
+        BigDecimal rightNumeric = mariaDbNumericLiteral(right, desired, true);
+        return leftNumeric != null && rightNumeric != null && leftNumeric.compareTo(rightNumeric) == 0;
+    }
+
+    private static BigDecimal mariaDbNumericLiteral(String value, Column desired, boolean desiredSide) {
+        if (value == null) return null;
+        String token = value.trim();
+        boolean quoted = token.length() >= 2 && token.startsWith("'") && token.endsWith("'");
+        String candidate = quoted ? token.substring(1, token.length() - 1).replace("''", "'") : token;
+        if (quoted && desiredSide && !mariaDbNumericColumn(desired)) return null;
+        if (quoted && !desiredSide && !mariaDbNumericColumn(desired)) {
+            String desiredExpression = desired.defaultValue().isPresent()
+                    ? normalizeExpression(desired.defaultValue().expression()) : null;
+            if (desiredExpression == null || desiredExpression.startsWith("'")) return null;
+        }
+        candidate = candidate.replaceAll("^([+-])\\s+(?=\\d)", "$1");
+        if (!candidate.matches("[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)")) return null;
+        try {
+            return new BigDecimal(candidate);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean mariaDbNumericColumn(Column column) {
+        String name = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
+        return Set.of(
+                "NUMBER", "NUMERIC", "DECIMAL", "DEC", "INTEGER", "INT", "SMALLINT", "BIGINT",
+                "TINYINT", "MEDIUMINT", "FLOAT", "DOUBLE", "REAL", "BINARY_FLOAT", "BINARY_DOUBLE")
+                .contains(name);
     }
 
     private static String effectiveDesiredDefault(DatabasePlatform platform, Dialect dialect, Column desired) {

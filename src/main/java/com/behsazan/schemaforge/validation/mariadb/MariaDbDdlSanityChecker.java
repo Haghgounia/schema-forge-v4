@@ -29,6 +29,8 @@ public final class MariaDbDdlSanityChecker {
             "(?i)\\b(?:DATETIME|TIMESTAMP|TIME)\\s*\\(\\s*(\\d+)\\s*\\)");
     private static final Pattern VARCHAR = Pattern.compile(
             "(?i)\\bVARCHAR\\s*\\(\\s*(\\d+)\\s*\\)");
+    private static final Pattern FIXED_CHAR = Pattern.compile(
+            "(?i)\\b(?:NCHAR|CHAR|CHARACTER)\\s*\\(\\s*(\\d+)\\s*\\)");
     private static final Pattern BACKTICK_IDENTIFIER = Pattern.compile("`((?:``|[^`])*)`");
     private static final Pattern SCHEMA_QUALIFIED_INDEX_NAME = Pattern.compile(
             "(?i)\\bCREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+"
@@ -82,14 +84,16 @@ public final class MariaDbDdlSanityChecker {
                 continue;
             }
             String structuralSql = maskSingleQuotedLiterals(sql);
+            String tokenScanSql = maskBacktickIdentifiers(structuralSql);
             inspectStatementKind(sql, statementNumber, issues);
             inspectBalancedDelimiters(sql, statementNumber, issues);
             inspectIdentifiers(structuralSql, statementNumber, issues);
             inspectDecimal(structuralSql, statementNumber, issues);
             inspectTemporalPrecision(structuralSql, statementNumber, issues);
             inspectVarcharLength(structuralSql, statementNumber, issues);
+            inspectFixedCharLength(structuralSql, statementNumber, issues);
             inspectIndexShape(structuralSql, statementNumber, issues);
-            inspectForbiddenTokens(structuralSql, statementNumber, issues);
+            inspectForbiddenTokens(tokenScanSql, statementNumber, issues);
         }
         return List.copyOf(issues);
     }
@@ -116,6 +120,18 @@ public final class MariaDbDdlSanityChecker {
                     .append(" additional issue(s)");
         }
         throw new IllegalStateException(message.toString());
+    }
+
+
+    private String maskBacktickIdentifiers(String sql) {
+        StringBuilder masked = new StringBuilder(sql);
+        Matcher matcher = BACKTICK_IDENTIFIER.matcher(sql);
+        while (matcher.find()) {
+            for (int i = matcher.start(); i < matcher.end(); i++) {
+                masked.setCharAt(i, ' ');
+            }
+        }
+        return masked.toString();
     }
 
     private void inspectStatementKind(String sql, int statementNumber, List<Issue> issues) {
@@ -184,6 +200,21 @@ public final class MariaDbDdlSanityChecker {
                         "SchemaForge MariaDB utf8mb4 VARCHAR length must be between 1 and "
                                 + MAX_UTF8MB4_VARCHAR_CHARACTERS
                                 + "; larger logical strings require the dialect's TEXT promotion policy.",
+                        matcher.group()));
+            }
+        }
+    }
+
+    private void inspectFixedCharLength(String sql, int statementNumber, List<Issue> issues) {
+        Matcher matcher = FIXED_CHAR.matcher(sql);
+        while (matcher.find()) {
+            int length = Integer.parseInt(matcher.group(1));
+            if (length < 1 || length > MariaDbTypeMapper.MAX_FIXED_CHAR_LENGTH) {
+                issues.add(new Issue(statementNumber, "MARIADB_FIXED_CHAR_LENGTH",
+                        "MariaDB CHAR/NCHAR length must be between 1 and "
+                                + MariaDbTypeMapper.MAX_FIXED_CHAR_LENGTH
+                                + "; a VARCHAR/TEXT replacement requires an explicit portability policy "
+                                + "because fixed-width padding semantics would change.",
                         matcher.group()));
             }
         }

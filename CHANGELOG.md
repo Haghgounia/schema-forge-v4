@@ -1,3 +1,79 @@
+## M10.6 - MariaDB catalog semantic normalization (2026-09-12)
+
+- Trigger: M10.5 re-read all 1,907 persistent pilot tables with zero missing tables and exact column/PK/FK counts, but reported 1,354 residual changes (1,324 column + 30 object).
+- Evidence analysis showed all 1,060 nullability residuals were PRIMARY KEY columns that MariaDB reports as NOT NULL even when the canonical column flag was nullable.
+- Treats MariaDB PRIMARY KEY implied NOT NULL as semantic equivalence rather than ALTER drift.
+- Treats MariaDB catalog/default canonicalization of equivalent numeric literals as equal (for example `0.00000` vs `0`, catalog `'0'` vs an unquoted numeric default, `- 0` vs `0`, and `1.` vs `1` in numeric context) without changing string-literal semantics.
+- Mirrors the DDL renderer's duplicate index-key-column elimination and emitted logical index naming in the diff engine.
+- Suppresses MariaDB implementation artifacts from residual drift: automatic FK backing indexes, `CREATE UNIQUE INDEX` surfaced by INFORMATION_SCHEMA as a UNIQUE constraint, and SchemaForge inline VARCHAR-to-TEXT length-preservation CHECK constraints.
+- Adds focused SchemaDiffEngine regression coverage for all four MariaDB round-trip normalization families.
+- No DDL generation, canonical selection, historical winner selection, datatype mapping, FK semantics, or database mutation behavior changes.
+
+## M10.5 - MariaDB persistent catalog convergence (2026-09-12)
+
+- Added read-only `MariaDbPersistentCatalogConvergenceM105IT` for the persistent M10.4 deployment.
+- Reloads the exact 1,907-table M10.3 closed cohort from canonical persisted snapshots and re-reads live MariaDB metadata through `JdbcMariaDbMetadataRepository`.
+- Reuses the existing MariaDB-aware `SchemaDiffEngine` table-by-table; no parallel comparison semantics are introduced.
+- Reports missing/extra tables plus expected/live column, PK, UK, CHECK, index, and FK counts and every residual column/object change.
+- Uses one shared JDBC connection for the full catalog pass and performs no DDL/DML.
+- Extra live tables are reported separately and may be made fatal with `schemaforge.m10.mariadb.validation.failOnExtraTables=true`.
+
+## M10.2.1 - Persisted canonical snapshot loader correction (2026-09-12)
+
+- Fixes `CanonicalJsonMariaDbIntegratedReadinessIT` using the strict current-parser cache loader for persisted Legacy canonical JSON snapshots.
+- The runner now uses `CanonicalSnapshotMapper.toDomainPersistedSource(...)`, matching the already-proven M9 and M10.1 corpus paths.
+- Snapshot/model contract compatibility remains enforced; only stale parser provenance is accepted for persisted JSON input.
+- No Production Code, selection rule, FK rule, or MariaDB mapping behavior changes.
+
+## M10.3 - MariaDB dependency-closed safe cohort (2026-09-12)
+
+- Added `CanonicalJsonMariaDbClosedSubsetIT` as a no-guess deployment-pilot gate.
+- Starts from the 2,058 M10.1 auto-selected tables, excludes local MariaDB mapping/render blockers, then transitively prunes only FK owner tables until the remaining set is dependency-closed.
+- Does not rewrite/drop FKs, alter datatypes, invent missing targets, or select historical winners.
+- Emits the closed cohort, every exclusion with evidence, closure iteration statistics, and one integrated MariaDB SQL script when all invariants pass.
+- The resulting cohort is explicitly a pilot subset, not the final reconciled Legacy schema.
+
+## M10.2 - MariaDB integrated readiness gate (2026-09-12)
+
+- Added `CanonicalJsonMariaDbIntegratedReadinessIT` to consume the M10.1 no-guess selection artifacts.
+- Validates that every auto-selected table resolves to the exact approved canonical snapshot.
+- Classifies integrated FK blockers into review dependencies, unexpected missing targets, and other FK semantic errors.
+- Runs MariaDB local DDL rendering/sanity validation for every auto-selected table using the integrated cohort as mapping context.
+- Emits executable integrated MariaDB SQL only when the complete selected cohort is contract-clean, FK-deployable, and render-clean.
+- Unresolved review dependencies are never dropped or rewritten.
+
+## 2026-09-12 - M10.1 MariaDB selection manifest gate
+
+- Added `CanonicalJsonSelectionManifestIT` to turn the historical duplicate-table audit into a deterministic no-guess selection contract.
+- Unique definitions and `SAFE_EXACT_LOGICAL` duplicate groups are auto-selected; every structural/logical conflict remains `REQUIRES_REVIEW` with no implicit winner.
+- Added audit/corpus cross-checks, selected/review/mismatch reports, and a review-decision template for M10.2.
+- Added `docs/M10-MARIADB-INTEGRATED-PERSISTENT-DEPLOYMENT.md`.
+
+## 2026-09-12 - MariaDB M9.2 fixed-CHAR live-limit hardening
+
+- Trigger: the Legacy JSON MariaDB bulk replay for files 501-1500 executed 2,664 statements with exactly one actionable MariaDB error: error 1074 / SQLSTATE 42000, `Column length too big for column 'DESC' (max = 255); use BLOB or TEXT instead`.
+- Root cause: `MariaDbTypeMapper.fixedCharacter()` emitted canonical `CHAR/NCHAR(n)` without enforcing MariaDB's 255-character fixed-width limit; offline DDL sanity checking also lacked the same limit check.
+- `MariaDbTypeMapper` now fails closed for `CHAR/NCHAR/CHARACTER` lengths above 255 instead of guessing `VARCHAR/TEXT`, because that substitution changes fixed-width padding semantics.
+- `MariaDbDdlSanityChecker` now emits `MARIADB_FIXED_CHAR_LENGTH` if invalid fixed-width SQL leaks in from any path.
+- Adds focused mapper/sanity regression coverage for the 255 boundary and 256+ rejection.
+- Production DDL semantics for valid MariaDB types are unchanged; the affected Legacy snapshot will move from generated/live-failing to deterministic generation failure alongside other no-lossless-mapping exceptions.
+
+## 2026-09-12 - MariaDB M9.1 quoted-identifier sanity-check correction
+
+- Fixes `MariaDbDdlSanityChecker` false positives where a legitimate backtick-quoted identifier named `SERIAL` was misclassified as PostgreSQL `SERIAL` datatype leakage.
+- Forbidden-token inspection now masks backtick-quoted identifiers while retaining all structural/type checks on unquoted SQL syntax.
+- Adds regression coverage proving that `` `SERIAL` BIGINT `` and indexes on `` `SERIAL` `` are accepted, while real PostgreSQL-style `SERIAL` datatype usage remains rejected.
+- Trigger evidence: the 5,321 Legacy canonical JSON MariaDB generation run produced 143 `GENERATED_WITH_ERRORS` snapshots, all attributable to `MARIADB_POSTGRES_SERIAL`; separate generation blockers remain fail-closed.
+
+## 2026-09-12 - MariaDB M9 Legacy canonical-JSON CREATE validation
+
+- Adds `MariaDbDirectoryExecutionTest`, a MariaDB-native JDBC replay gate for `.mariadb.sql` generated directly from persisted Legacy canonical JSON snapshots.
+- Keeps the existing two-stage architecture: canonical JSON -> MariaDB DDL through `CanonicalJsonDirectoryToDdlIT`, then real MariaDB execution; Legacy Word is not reopened.
+- Adds `HISTORICAL` mode parity with the mature MySQL corpus runner: cross-table physical FKs and GRANTs are skipped so historical table versions can be validated independently without pretending that the aggregate corpus is one operational schema.
+- Supports explicit destructive per-table reset only when `dropBeforeCreate=true` and `confirmDestructive=true`; table ownership is constrained by `mariadb.sql.expectedDatabase`.
+- Verifies the JDBC target is actually MariaDB and writes durable summary/file/error reports under `target/mariadb-sql-execution-report/<run-id>`.
+- This gate validates CREATE executability only; final integrated deployment still requires one approved canonical version per qualified table and the existing integrated FK/deployment contract.
+
 ## 2026-09-12 - MariaDB M8.1 FK referential-action convergence fix
 
 - Trigger: the first real MariaDB M8 live gate completed the migration but left exactly one residual `FOREIGN_KEY` replacement for `FK_SF_M8_CHILD_PARENT_ID`.

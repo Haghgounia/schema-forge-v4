@@ -486,6 +486,115 @@ class SchemaDiffEngineTest {
                 plan.columnChanges().stream().map(ColumnChange::risk).toList());
     }
 
+    @Test
+    void treatsMariaDbPrimaryKeyCatalogNotNullAsEquivalentToNullableSourceFlag() {
+        Column liveId = column("ID", DataType.numeric("DECIMAL", 8, 0), false, null, 1);
+        Column desiredId = column("ID", DataType.numeric("NUMBER", 8, 0), true, null, 1);
+        Table live = Table.builder("APP", "T1").addColumn(liveId)
+                .primaryKey(new PrimaryKey(Identifier.of("PRIMARY"), List.of(Identifier.of("ID"))))
+                .build();
+        Table desired = Table.builder("APP", "T1").addColumn(desiredId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_T1"), List.of(Identifier.of("ID"))))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_NULLABILITY));
+    }
+
+    @Test
+    void treatsMariaDbCatalogCanonicalizedDefaultsAsEquivalent() {
+        Column liveNumber = column("N", DataType.numeric("DECIMAL", 10, 5), true, "0.00000", 1);
+        Column desiredNumber = column("N", DataType.numeric("NUMBER", 10, 5), true, "0", 1);
+        Column liveText = column("S", DataType.varchar("VARCHAR", 26), true, "'0'", 2);
+        Column desiredText = column("S", DataType.varchar("VARCHAR2", 26), true, "0", 2);
+        Table live = Table.builder("APP", "T2").addColumn(liveNumber).addColumn(liveText).build();
+        Table desired = Table.builder("APP", "T2").addColumn(desiredNumber).addColumn(desiredText).build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
+    @Test
+    void ignoresMariaDbImplicitForeignKeyBackingIndex() {
+        Column id = Column.required("ID", DataType.numeric("NUMBER", 8, 0));
+        Column parentId = Column.required("PARENT_ID", DataType.numeric("NUMBER", 8, 0));
+        ForeignKey foreignKey = new ForeignKey(
+                Identifier.of("FK_T3_PARENT_ID"), List.of(Identifier.of("PARENT_ID")),
+                QualifiedName.of("APP", "PARENT"), List.of(Identifier.of("ID")),
+                ReferentialAction.NO_ACTION, ReferentialAction.NO_ACTION);
+        Index implicitIndex = new Index(
+                Identifier.of("FK_T3_PARENT_ID"),
+                List.of(new IndexColumn(Identifier.of("PARENT_ID"), SortDirection.ASC)),
+                IndexType.NORMAL, Description.empty());
+        Table live = Table.builder("APP", "T3").addColumn(id).addColumn(parentId)
+                .addForeignKey(foreignKey).addIndex(implicitIndex).build();
+        Table desired = Table.builder("APP", "T3").addColumn(id).addColumn(parentId)
+                .addForeignKey(foreignKey).build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.INDEX));
+    }
+
+    @Test
+    void treatsMariaDbUniqueIndexCatalogedAsUniqueConstraintAsEquivalent() {
+        Column id = Column.required("ID", DataType.numeric("NUMBER", 8, 0));
+        Table live = Table.builder("APP", "T4").addColumn(id)
+                .addUniqueKey(new UniqueKey(Identifier.of("IX_T4_ID"), List.of(Identifier.of("ID"))))
+                .build();
+        Table desired = Table.builder("APP", "T4").addColumn(id)
+                .addIndex(new Index(
+                        Identifier.of("SOURCE_NAME"),
+                        List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                        IndexType.UNIQUE, Description.empty()))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.objectChanges().isEmpty());
+    }
+
+    @Test
+    void mirrorsMariaDbRendererIndexColumnDeduplicationAndStorageAdaptationChecks() {
+        Column id = Column.required("ID", DataType.numeric("NUMBER", 8, 0));
+        Table liveIndex = Table.builder("APP", "T5").addColumn(id)
+                .addIndex(new Index(
+                        Identifier.of("IX_T5_ID"),
+                        List.of(new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+        Table desiredIndex = Table.builder("APP", "T5").addColumn(id)
+                .addIndex(new Index(
+                        Identifier.of("IGNORED_SOURCE_NAME"),
+                        List.of(
+                                new IndexColumn(Identifier.of("ID"), SortDirection.ASC),
+                                new IndexColumn(Identifier.of("ID"), SortDirection.ASC)),
+                        IndexType.NORMAL, Description.empty()))
+                .build();
+        assertTrue(new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, liveIndex, desiredIndex)
+                .objectChanges().isEmpty());
+
+        Table.Builder liveBuilder = Table.builder("APP", "T6");
+        Table.Builder desiredBuilder = Table.builder("APP", "T6");
+        for (int i = 1; i <= 4; i++) {
+            Column column = Column.nullable("C" + i, DataType.varchar("VARCHAR2", 7000));
+            liveBuilder.addColumn(column);
+            desiredBuilder.addColumn(column);
+        }
+        liveBuilder.addCheck(new CheckConstraint(Identifier.of("C1"), "CHAR_LENGTH(`C1`) <= 7000"));
+        liveBuilder.addCheck(new CheckConstraint(Identifier.of("C2"), "CHAR_LENGTH(`C2`) <= 7000"));
+
+        TableMigrationPlan checkPlan = new SchemaDiffEngine().diff(
+                DatabasePlatform.MARIADB, liveBuilder.build(), desiredBuilder.build());
+        assertTrue(checkPlan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.CHECK_CONSTRAINT));
+    }
+
     private static Table table(Column column) {
         return Table.builder("APP", "CUSTOMER").addColumn(column).build();
     }

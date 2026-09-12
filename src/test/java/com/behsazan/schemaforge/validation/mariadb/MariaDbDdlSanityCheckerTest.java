@@ -36,6 +36,27 @@ class MariaDbDdlSanityCheckerTest {
     }
 
     @Test
+    void acceptsSerialWhenItIsOnlyAQuotedIdentifier() {
+        String sql = """
+                CREATE TABLE `APP`.`CHEQUE` (`SERIAL` BIGINT NOT NULL, `VALUE` DECIMAL(18,2));
+                CREATE INDEX `IX_CHEQUE_SERIAL` ON `APP`.`CHEQUE`(`SERIAL`);
+                """;
+
+        assertTrue(checker.inspect(sql).isEmpty());
+    }
+
+    @Test
+    void stillRejectsPostgresSerialDatatype() {
+        String sql = "CREATE TABLE `APP`.`T` (`ID` SERIAL NOT NULL);";
+
+        Set<String> codes = checker.inspect(sql).stream()
+                .map(MariaDbDdlSanityChecker.Issue::code)
+                .collect(Collectors.toSet());
+
+        assertTrue(codes.contains("MARIADB_POSTGRES_SERIAL"));
+    }
+
+    @Test
     void rejectsCrossDbmsSyntaxAndUnsupportedMariaDbShapes() {
         String sql = """
                 CREATE TABLESPACE `TS_APP` ADD DATAFILE 'x.ibd';
@@ -62,7 +83,7 @@ class MariaDbDdlSanityCheckerTest {
     void rejectsMariaDbTargetLimitViolations() {
         String longIdentifier = "X".repeat(65);
         String sql = "CREATE TABLE `APP`.`" + longIdentifier
-                + "` (`A` DECIMAL(66,39), `B` VARCHAR(20000), `C` TIME(7));";
+                + "` (`A` DECIMAL(66,39), `B` VARCHAR(20000), `C` TIME(7), `D` CHAR(256));";
 
         Set<String> codes = checker.inspect(sql).stream()
                 .map(MariaDbDdlSanityChecker.Issue::code)
@@ -72,6 +93,7 @@ class MariaDbDdlSanityCheckerTest {
         assertTrue(codes.contains("MARIADB_DECIMAL_PRECISION"));
         assertTrue(codes.contains("MARIADB_DECIMAL_SCALE"));
         assertTrue(codes.contains("MARIADB_UTF8MB4_VARCHAR_LENGTH"));
+        assertTrue(codes.contains("MARIADB_FIXED_CHAR_LENGTH"));
         assertTrue(codes.contains("MARIADB_TEMPORAL_PRECISION"));
     }
 

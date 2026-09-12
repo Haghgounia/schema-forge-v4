@@ -16,6 +16,7 @@ import java.util.Objects;
  * datatype limits/semantics may diverge from MySQL over time.</p>
  */
 public final class  MariaDbTypeMapper {
+    public static final int MAX_FIXED_CHAR_LENGTH = 255;
     public static final int MAX_DECIMAL_PRECISION = 65;
     public static final int MAX_DECIMAL_SCALE = 38;
     public static final int MAX_TEMPORAL_PRECISION = 6;
@@ -77,6 +78,12 @@ public final class  MariaDbTypeMapper {
     private String fixedCharacter(DataType type) {
         if (type.length() == null || type.length() <= 0) {
             throw unsupported(type, "CHAR requires explicit length in SchemaForge MariaDB foundation");
+        }
+        if (type.length() > MAX_FIXED_CHAR_LENGTH) {
+            throw unsupported(type, "MariaDB CHAR/NCHAR length must be between 1 and "
+                    + MAX_FIXED_CHAR_LENGTH
+                    + "; SchemaForge will not guess a VARCHAR/TEXT replacement because fixed-width "
+                    + "padding semantics would change");
         }
         return "CHAR(" + type.length() + ")";
     }

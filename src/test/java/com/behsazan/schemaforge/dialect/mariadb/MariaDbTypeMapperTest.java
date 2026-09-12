@@ -22,6 +22,15 @@ class MariaDbTypeMapperTest {
     }
 
     @Test
+    void shouldRejectFixedCharacterLengthsBeyondMariaDbLimitWithoutGuessingVariableStorage() {
+        assertEquals("CHAR(255)", mapper.map(DataType.varchar("CHAR", 255)));
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.map(DataType.varchar("CHAR", 256)));
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.map(DataType.varchar("NCHAR", 500)));
+    }
+
+    @Test
     void shouldUseMariaDbDecimalLimits() {
         assertEquals("DECIMAL(65,38)", mapper.map(DataType.numeric("NUMBER", 65, 38)));
         assertThrows(IllegalArgumentException.class,
