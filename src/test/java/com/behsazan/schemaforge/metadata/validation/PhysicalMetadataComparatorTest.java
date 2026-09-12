@@ -167,6 +167,33 @@ class PhysicalMetadataComparatorTest {
     }
 
     @Test
+    void comparesMariaDbTableAndIndexPhysicalStateWithoutTreatingTablespaceAsExecutableContract() {
+        Table expected = baseTable("APP", "CUSTOMERS")
+                .physicalOption("MARIADB_ENGINE", "InnoDB")
+                .physicalOption("MARIADB_COLLATION", "utf8mb4_unicode_ci")
+                .physicalOption("MARIADB_ROW_FORMAT", "DYNAMIC")
+                .physicalOption("MARIADB_TABLESPACE", "TS_REVIEW_ONLY")
+                .addIndex(index("IX_CUSTOMER_CODE", Map.of("MARIADB_INDEX_TYPE", "BTREE")))
+                .build();
+        Table actual = baseTable("APP", "CUSTOMERS")
+                .physicalOption("MARIADB_ENGINE", "InnoDB")
+                .physicalOption("MARIADB_COLLATION", "utf8mb4_unicode_ci")
+                .physicalOption("MARIADB_ROW_FORMAT", "COMPACT")
+                .addIndex(index("IX_CUSTOMER_CODE", Map.of("MARIADB_INDEX_TYPE", "BTREE")))
+                .build();
+
+        var tableRows = new PhysicalMetadataComparator().compareTable(expected, actual, "MARIADB");
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "TABLE", "CUSTOMERS", "ENGINE"));
+        assertEquals(PhysicalComparisonStatus.MATCH, status(tableRows, "TABLE", "CUSTOMERS", "COLLATION"));
+        assertEquals(PhysicalComparisonStatus.MISMATCH, status(tableRows, "TABLE", "CUSTOMERS", "ROW_FORMAT"));
+        assertTrue(tableRows.stream().noneMatch(row -> row.property().equals("TABLESPACE")));
+
+        var indexRows = new PhysicalMetadataComparator().compareIndexes(expected, actual, "MariaDB");
+        assertEquals(PhysicalComparisonStatus.MATCH,
+                status(indexRows, "INDEX", "IX_CUSTOMER_CODE", "ACCESS_METHOD"));
+    }
+
+    @Test
     void comparesDb2LuwTableAndIndexPhysicalStateIndependentlyFromDb2Zos() {
         Table expected = baseTable("APP", "CUSTOMERS")
                 .physicalOption("TABLESPACE", "TS_DATA")

@@ -85,6 +85,7 @@ public final class NumericTypeEquivalenceService {
             case "DB2_LUW" -> Optional.of(NumericIntegerProfiles.DB2_LUW);
             case "SQLSERVER" -> Optional.of(NumericIntegerProfiles.SQL_SERVER);
             case "MYSQL" -> Optional.of(NumericIntegerProfiles.MYSQL);
+            case "MARIADB" -> Optional.of(NumericIntegerProfiles.MARIADB);
             default -> Optional.empty();
         };
     }

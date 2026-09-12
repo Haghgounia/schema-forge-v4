@@ -34,7 +34,7 @@ class ComprehensiveAlterAcceptanceTest {
     private static final List<DatabasePlatform> MIGRATION_READY_PLATFORMS = List.of(
             DatabasePlatform.ORACLE, DatabasePlatform.POSTGRESQL,
             DatabasePlatform.DB2_ZOS, DatabasePlatform.DB2_LUW,
-            DatabasePlatform.SQLSERVER, DatabasePlatform.MYSQL);
+            DatabasePlatform.SQLSERVER, DatabasePlatform.MYSQL, DatabasePlatform.MARIADB);
 
     @Test
     void detectsEveryColumnChangeKindForAllMigrationReadyPlatforms() {
@@ -85,15 +85,16 @@ class ComprehensiveAlterAcceptanceTest {
     }
 
     @Test
-    void mariaDbMigrationRenderingRemainsExplicitlyDeferredUntilM7() {
+    void mariaDbMigrationRenderingIsActiveInM7() {
         TableMigrationPlan plan = new SchemaDiffEngine().diff(
                 DatabasePlatform.MARIADB, liveColumns(), desiredColumns());
 
-        UnsupportedOperationException error = org.junit.jupiter.api.Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () -> new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults()));
+        String sql = new MigrationSqlRenderer().render(plan, MigrationRenderOptions.safeDefaults());
 
-        assertTrue(error.getMessage().contains("M7"));
+        assertFalse(sql.isBlank());
+        assertTrue(sql.contains("Platform         : MARIADB"));
+        assertTrue(sql.contains("MODIFY COLUMN"));
+        assertTrue(sql.contains("DROP COLUMN"));
     }
 
     private static void assertStructuralKinds(

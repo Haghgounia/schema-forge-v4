@@ -408,6 +408,56 @@ class SchemaCompareExcelWriterTest {
     }
 
     @Test
+    void shouldCompareMariaDbNativeTypesDefaultsAndPhysicalStateWithoutFalseDrift() throws Exception {
+        Column documentId = new Column(Identifier.of("ID"), DataType.numeric("NUMBER", 19, 0),
+                false, new DefaultValue("APP.SEQ_CUSTOMERS.NEXTVAL"), Description.empty(), true, 1);
+        Column databaseId = new Column(Identifier.of("ID"), DataType.simple("BIGINT"),
+                false, new DefaultValue(null), Description.empty(), true, 1, null,
+                Map.of("MARIADB_NATIVE_COLUMN_TYPE", "bigint(20) unsigned"));
+        Column documentCreated = new Column(Identifier.of("CREATED_AT"), DataType.simple("TIMESTAMP"),
+                false, new DefaultValue("SYSTIMESTAMP"), Description.empty(), false, 2);
+        Column databaseCreated = new Column(Identifier.of("CREATED_AT"), DataType.simple("DATETIME"),
+                false, new DefaultValue("current_timestamp()"), Description.empty(), false, 2, null,
+                Map.of("MARIADB_NATIVE_COLUMN_TYPE", "datetime"));
+
+        Table document = Table.builder("APP", "CUSTOMERS")
+                .addColumn(documentId).addColumn(documentCreated)
+                .physicalOption("MARIADB_ENGINE", "InnoDB")
+                .physicalOption("MARIADB_COLLATION", "utf8mb4_unicode_ci")
+                .physicalOption("MARIADB_ROW_FORMAT", "DYNAMIC")
+                .build();
+        Table database = Table.builder("APP", "CUSTOMERS")
+                .addColumn(databaseId).addColumn(databaseCreated)
+                .physicalOption("MARIADB_ENGINE", "InnoDB")
+                .physicalOption("MARIADB_COLLATION", "utf8mb4_unicode_ci")
+                .physicalOption("MARIADB_ROW_FORMAT", "DYNAMIC")
+                .build();
+
+        byte[] content = new SchemaCompareExcelWriter().write(
+                document, database, Map.of(), DatabasePlatform.MARIADB);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+            var idRow = findRow(workbook.getSheet("CUSTOMERS"), "ID", 2, 12);
+            String idDiff = idRow.getCell(21).getStringCellValue();
+            assertFalse(idDiff.contains("DATA_TYPE"));
+            assertFalse(idDiff.contains("DATA_DEFAULT"));
+            assertFalse(idDiff.contains("IDENTITY_MODE"));
+            assertEquals("bigint(20) unsigned", idRow.getCell(13).getStringCellValue());
+
+            var createdRow = findRow(workbook.getSheet("CUSTOMERS"), "CREATED_AT", 2, 12);
+            String createdDiff = createdRow.getCell(21).getStringCellValue();
+            assertFalse(createdDiff.contains("DATA_TYPE"));
+            assertFalse(createdDiff.contains("DATA_DEFAULT"));
+
+            var physical = workbook.getSheet("TABLE_PHYSICAL_COMPARE");
+            assertTrue(physical != null);
+            assertEquals("MATCH", physicalStatus(physical, "ENGINE"));
+            assertEquals("MATCH", physicalStatus(physical, "COLLATION"));
+            assertEquals("MATCH", physicalStatus(physical, "ROW_FORMAT"));
+        }
+    }
+
+    @Test
     void shouldKeepMySqlComparisonLogicalOnlyUntilPhysicalContractIsDefined() throws Exception {
         Table document = Table.builder("CRM", "CUSTOMERS")
                 .addColumn(column("CUSTOMER_ID", DataType.simple("BIGINT"), false, 1))

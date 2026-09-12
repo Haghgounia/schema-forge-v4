@@ -29,6 +29,9 @@ public final class DataTypeCanonicalizer {
         if (value.isEmpty()) return value;
 
         value = canonicalAliases(db, value);
+        if (db.equals("MARIADB")) {
+            value = normalizeMariaDbTypeDecorations(value);
+        }
         Matcher matcher = PARAMETERIZED_TYPE.matcher(value);
         if (matcher.matches()) {
             String base = matcher.group(1).trim();
@@ -62,12 +65,41 @@ public final class DataTypeCanonicalizer {
                     .replaceFirst("^NUMERIC(?=\\(|$)", "DECIMAL")
                     .replaceFirst("^FIXED(?=\\(|$)", "DECIMAL")
                     .replaceFirst("^CHARACTER(?=\\(|$)", "CHAR");
+            case "MARIADB" -> value
+                    .replaceFirst("^NUMERIC(?=\\(|$)", "DECIMAL")
+                    .replaceFirst("^FIXED(?=\\(|$)", "DECIMAL")
+                    .replaceFirst("^DEC(?=\\(|$)", "DECIMAL")
+                    .replaceFirst("^INTEGER(?=\\(|$)", "INT")
+                    .replaceFirst("^INT4(?=\\(|$)", "INT")
+                    .replaceFirst("^INT1(?=\\(|$)", "TINYINT")
+                    .replaceFirst("^INT2(?=\\(|$)", "SMALLINT")
+                    .replaceFirst("^(?:INT3|MIDDLEINT)(?=\\(|$)", "MEDIUMINT")
+                    .replaceFirst("^INT8(?=\\(|$)", "BIGINT")
+                    .replaceFirst("^(?:BOOLEAN|BOOL)(?=\\(|$)", "TINYINT")
+                    .replaceFirst("^CHARACTER VARYING(?=\\(|$)", "VARCHAR")
+                    .replaceFirst("^CHARACTER(?=\\(|$)", "CHAR")
+                    .replaceFirst("^DOUBLE PRECISION(?=\\(|$)", "DOUBLE");
             case "SQLSERVER" -> value
                     .replaceFirst("^NUMERIC(?=\\(|$)", "DECIMAL")
                     .replaceFirst("^CHARACTER VARYING(?=\\(|$)", "VARCHAR")
                     .replaceFirst("^CHARACTER(?=\\(|$)", "CHAR");
             default -> value;
         };
+    }
+
+
+    private static String normalizeMariaDbTypeDecorations(String value) {
+        String normalized = value;
+        Matcher integerWidth = Pattern.compile(
+                "^(TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT)\\(\\d+\\)(.*)$")
+                .matcher(normalized);
+        if (integerWidth.matches()) {
+            String suffix = integerWidth.group(2).trim();
+            normalized = integerWidth.group(1) + (suffix.isEmpty() ? "" : " " + suffix);
+        }
+        normalized = normalized.replaceFirst(
+                "^(TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT)\\s+SIGNED(?=\\s|$)", "$1");
+        return normalized.trim().replaceAll("\\s+", " ");
     }
 
     private static String normalizeArguments(String base, String arguments) {
@@ -90,6 +122,9 @@ public final class DataTypeCanonicalizer {
                     value.equals("TIMESTAMP") ? "TIMESTAMP(6)" : value;
             case "MYSQL" -> value.equals("TIMESTAMP") ? "TIMESTAMP(0)"
                     : value.equals("DATETIME") ? "DATETIME(0)" : value;
+            case "MARIADB" -> value.equals("TIMESTAMP") ? "TIMESTAMP(0)"
+                    : value.equals("DATETIME") ? "DATETIME(0)"
+                    : value.equals("TIME") ? "TIME(0)" : value;
             case "SQLSERVER" -> value.equals("DATETIME2") ? "DATETIME2(7)"
                     : value.equals("DATETIMEOFFSET") ? "DATETIMEOFFSET(7)"
                     : value.equals("TIME") ? "TIME(7)" : value;

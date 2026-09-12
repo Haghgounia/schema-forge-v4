@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -94,6 +95,26 @@ class JdbcMariaDbMetadataRepositoryTest {
         Column generated = JdbcMariaDbMetadataRepository.mapColumn(generatedRow);
         assertTrue(generated.generated());
         assertFalse(generated.defaultValue().isPresent());
+    }
+
+    @Test
+    void preservesUnsignedNativeTypeInProfilesAndRecognizesJsonAliasEvidence() {
+        assertEquals("BIGINT(20) UNSIGNED", JdbcMariaDbMetadataRepository.profileSignature(
+                "bigint", "bigint(20) unsigned", null, 20, 0));
+
+        JdbcMariaDbMetadataRepository.MariaDbColumnRow payload =
+                new JdbcMariaDbMetadataRepository.MariaDbColumnRow(
+                        4, "PAYLOAD", "longtext", "longtext",
+                        null,
+                        null, null, null, true, null, null, null, null);
+        JdbcMariaDbMetadataRepository.CheckRow jsonCheck =
+                new JdbcMariaDbMetadataRepository.CheckRow("PAYLOAD", "json_valid(`PAYLOAD`)");
+
+        Set<String> aliases = JdbcMariaDbMetadataRepository.detectJsonAliasColumns(
+                List.of(payload), List.of(jsonCheck));
+        assertEquals(Set.of("PAYLOAD"), aliases);
+        assertEquals("JSON", JdbcMariaDbMetadataRepository.mapColumn(payload, true)
+                .dataType().name().normalized());
     }
 
     @Test

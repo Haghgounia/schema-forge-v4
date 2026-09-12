@@ -39,4 +39,15 @@ class DataTypeCanonicalizerTest {
         assertTrue(canonicalizer.equivalent("SQL Server", "DATETIME2", "DATETIME2(7)"));
         assertFalse(canonicalizer.equivalent("SQL Server", "TIMESTAMP", "TIMESTAMP(6)"));
     }
+    @Test
+    void shouldNormalizeMariaDbAliasesDisplayWidthsUnsignedAndTemporalDefaults() {
+        assertTrue(canonicalizer.equivalent("MariaDB", "BOOLEAN", "TINYINT(1)"));
+        assertTrue(canonicalizer.equivalent("MariaDB", "INTEGER", "INT(11)"));
+        assertTrue(canonicalizer.equivalent("MariaDB", "BIGINT UNSIGNED", "BIGINT(20) UNSIGNED"));
+        assertTrue(canonicalizer.equivalent("MariaDB", "DECIMAL(18)", "NUMERIC(18,0)"));
+        assertTrue(canonicalizer.equivalent("MariaDB", "DATETIME", "DATETIME(0)"));
+        assertTrue(canonicalizer.equivalent("MariaDB", "TIME", "TIME(0)"));
+        assertFalse(canonicalizer.equivalent("MariaDB", "BIGINT", "BIGINT(20) UNSIGNED"));
+    }
+
 }

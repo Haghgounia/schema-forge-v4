@@ -286,6 +286,10 @@ public final class PhysicalMetadataComparator {
                     property("COLLATION", "MYSQL_COLLATION", "TABLE_COLLATION", "COLLATION"),
                     property("ROW_FORMAT", "MYSQL_ROW_FORMAT", "ROW_FORMAT"),
                     identifier("TABLESPACE", "MYSQL_TABLESPACE", "TABLESPACE"));
+            case "MARIADB" -> List.of(
+                    property("ENGINE", "MARIADB_ENGINE", "ENGINE"),
+                    property("COLLATION", "MARIADB_COLLATION", "TABLE_COLLATION", "COLLATION"),
+                    property("ROW_FORMAT", "MARIADB_ROW_FORMAT", "ROW_FORMAT"));
             case "DB2_LUW" -> List.of(
                     identifier("TABLESPACE", "TABLESPACE"),
                     identifier("INDEX_TABLESPACE", "DB2_LUW_INDEX_TABLESPACE", "TABLE_INDEX_TABLESPACE"),
@@ -357,6 +361,8 @@ public final class PhysicalMetadataComparator {
                     property("OPTIMIZE_FOR_SEQUENTIAL_KEY", "SQLSERVER_INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY", "INDEX_OPTIMIZE_FOR_SEQUENTIAL_KEY"));
             case "MYSQL" -> List.of(
                     property("ACCESS_METHOD", "MYSQL_INDEX_TYPE", "INDEX_TYPE", "INDEX_ACCESS_METHOD"));
+            case "MARIADB" -> List.of(
+                    property("ACCESS_METHOD", "MARIADB_INDEX_TYPE", "INDEX_TYPE", "INDEX_ACCESS_METHOD"));
             case "DB2_LUW" -> List.of(
                     identifier("TABLESPACE", "INDEX_TABLESPACE"),
                     property("PCTFREE", "DB2_LUW_INDEX_PCTFREE", "INDEX_PCTFREE"),

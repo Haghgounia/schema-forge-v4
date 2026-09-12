@@ -24,16 +24,21 @@ import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Reads live MariaDB table/column metadata for document-to-database migration planning. */
 @Repository
 @ConditionalOnProperty(prefix = "schemaforge.metadata.mariadb", name = "enabled", havingValue = "true")
 public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository {
+    private static final Pattern JSON_VALID_COLUMN_CHECK = Pattern.compile(
+            "(?i)^JSON_VALID\\s*\\(\\s*`?([A-Za-z][A-Za-z0-9_$#]*)`?\\s*\\)$");
     static final String TABLE_SQL = """
             SELECT table_schema, table_name, table_comment, engine, table_collation, row_format, create_options
               FROM information_schema.tables
@@ -118,6 +123,7 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
     private static final String COLUMN_PROFILE_SQL = """
             SELECT column_name,
                    data_type,
+                   column_type,
                    character_maximum_length,
                    numeric_precision,
                    numeric_scale,
@@ -125,7 +131,7 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
               FROM information_schema.columns
              WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
                AND UPPER(column_name) IN (:columnNames)
-             GROUP BY column_name, data_type, character_maximum_length, numeric_precision, numeric_scale
+             GROUP BY column_name, data_type, column_type, character_maximum_length, numeric_precision, numeric_scale
              ORDER BY column_name, frequency DESC
             """;
 
@@ -149,6 +155,7 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
                         rs.getString("column_name").toUpperCase(Locale.ROOT),
                         profileSignature(
                                 rs.getString("data_type"),
+                                rs.getString("column_type"),
                                 nullableInt(rs.getObject("character_maximum_length")),
                                 nullableInt(rs.getObject("numeric_precision")),
                                 nullableInt(rs.getObject("numeric_scale"))),
@@ -192,6 +199,10 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
         MapSqlParameterSource exact = new MapSqlParameterSource()
                 .addValue("schemaName", info.schema())
                 .addValue("tableName", info.name());
+        List<CheckRow> checks = jdbcTemplate.query(
+                CHECKS_SQL, exact,
+                (rs, rowNumber) -> new CheckRow(rs.getString("constraint_name"), rs.getString("check_clause")));
+
         List<MariaDbColumnRow> columns = jdbcTemplate.query(
                 COLUMNS_SQL,
                 exact,
@@ -209,7 +220,10 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
                         trimToNull(rs.getString("extra")),
                         trimToNull(rs.getString("generation_expression")),
                         trimToNull(rs.getString("column_comment"))));
-        for (MariaDbColumnRow row : columns) builder.addColumn(mapColumn(row));
+        Set<String> jsonAliasColumns = detectJsonAliasColumns(columns, checks);
+        for (MariaDbColumnRow row : columns) {
+            builder.addColumn(mapColumn(row, jsonAliasColumns.contains(row.name().toUpperCase(Locale.ROOT))));
+        }
 
         List<KeyConstraintRow> keyConstraints = jdbcTemplate.query(
                 KEY_CONSTRAINTS_SQL, exact,
@@ -226,11 +240,9 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
                         rs.getString("referenced_column_name"), rs.getString("delete_rule"), rs.getString("update_rule")));
         mapForeignKeys(builder, foreignKeys);
 
-        List<CheckRow> checks = jdbcTemplate.query(
-                CHECKS_SQL, exact,
-                (rs, rowNumber) -> new CheckRow(rs.getString("constraint_name"), rs.getString("check_clause")));
         for (CheckRow check : checks) {
-            if (check.expression() != null && !check.expression().isBlank()) {
+            if (check.expression() != null && !check.expression().isBlank()
+                    && !isImplicitJsonAliasCheck(check, jsonAliasColumns)) {
                 builder.addCheck(new CheckConstraint(Identifier.of(check.name()), check.expression()));
             }
         }
@@ -353,6 +365,10 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
     }
 
     static Column mapColumn(MariaDbColumnRow row) {
+        return mapColumn(row, false);
+    }
+
+    static Column mapColumn(MariaDbColumnRow row, boolean jsonAlias) {
         boolean identity = containsToken(row.extra(), "auto_increment");
         boolean generated = row.generatedExpression() != null && !row.generatedExpression().isBlank();
         Map<String, String> physical = new LinkedHashMap<>();
@@ -362,7 +378,7 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
         if (row.extra() != null) physical.put("MARIADB_EXTRA", row.extra());
         return new Column(
                 Identifier.of(row.name()),
-                mapDataType(row),
+                mapDataType(row, jsonAlias),
                 row.nullable(),
                 new DefaultValue(generated ? null : defaultExpression(row)),
                 new Description(row.comment()),
@@ -373,6 +389,11 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
     }
 
     static DataType mapDataType(MariaDbColumnRow row) {
+        return mapDataType(row, false);
+    }
+
+    static DataType mapDataType(MariaDbColumnRow row, boolean jsonAlias) {
+        if (jsonAlias) return DataType.simple("JSON");
         String type = row.dataType() == null ? "UNKNOWN" : row.dataType().trim().toUpperCase(Locale.ROOT);
         return switch (type) {
             case "VARCHAR", "CHAR", "VARBINARY", "BINARY" -> new DataType(
@@ -428,13 +449,73 @@ public class JdbcMariaDbMetadataRepository implements MariaDbMetadataRepository 
         return value != null && value.toLowerCase(Locale.ROOT).contains(token.toLowerCase(Locale.ROOT));
     }
 
-    private static String profileSignature(String type, Integer length, Integer precision, Integer scale) {
+    static String profileSignature(
+            String type, String columnType, Integer length, Integer precision, Integer scale) {
         String normalized = type == null ? "UNKNOWN" : type.trim().toUpperCase(Locale.ROOT);
+        if (Set.of("TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT").contains(normalized)
+                && columnType != null && !columnType.isBlank()) {
+            return columnType.trim().toUpperCase(Locale.ROOT);
+        }
         if (normalized.contains("CHAR") && length != null) return normalized + "(" + length + ")";
         if ((normalized.equals("DECIMAL") || normalized.equals("NUMERIC")) && precision != null) {
             return "DECIMAL(" + precision + "," + (scale == null ? 0 : scale) + ")";
         }
         return normalized;
+    }
+
+    static Set<String> detectJsonAliasColumns(List<MariaDbColumnRow> columns, List<CheckRow> checks) {
+        Set<String> result = new LinkedHashSet<>();
+        for (MariaDbColumnRow column : columns) {
+            if (column.name() == null || column.dataType() == null
+                    || !column.dataType().equalsIgnoreCase("LONGTEXT")) {
+                continue;
+            }
+            String name = column.name().toUpperCase(Locale.ROOT);
+            for (CheckRow check : checks) {
+                if (check.name() == null || !check.name().equalsIgnoreCase(column.name())) continue;
+                String checkedColumn = jsonValidatedColumn(check.expression());
+                if (checkedColumn != null && checkedColumn.equals(name)) {
+                    result.add(name);
+                    break;
+                }
+            }
+        }
+        return Set.copyOf(result);
+    }
+
+    private static boolean isImplicitJsonAliasCheck(CheckRow check, Set<String> jsonAliasColumns) {
+        if (check.name() == null || !jsonAliasColumns.contains(check.name().toUpperCase(Locale.ROOT))) {
+            return false;
+        }
+        String checkedColumn = jsonValidatedColumn(check.expression());
+        return checkedColumn != null && jsonAliasColumns.contains(checkedColumn);
+    }
+
+    private static String jsonValidatedColumn(String expression) {
+        if (expression == null || expression.isBlank()) return null;
+        String normalized = expression.trim();
+        boolean changed = true;
+        while (changed && normalized.length() >= 2 && normalized.startsWith("(") && normalized.endsWith(")")) {
+            String inner = normalized.substring(1, normalized.length() - 1).trim();
+            changed = balancedParentheses(inner);
+            if (changed) normalized = inner;
+        }
+        Matcher matcher = JSON_VALID_COLUMN_CHECK.matcher(normalized);
+        return matcher.matches() ? matcher.group(1).toUpperCase(Locale.ROOT) : null;
+    }
+
+    private static boolean balancedParentheses(String value) {
+        int depth = 0;
+        boolean quoted = false;
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == '\'') {
+                if (quoted && i + 1 < value.length() && value.charAt(i + 1) == '\'') { i++; continue; }
+                quoted = !quoted;
+            } else if (!quoted && ch == '(') depth++;
+            else if (!quoted && ch == ')' && --depth < 0) return false;
+        }
+        return !quoted && depth == 0;
     }
 
     private static String safeTypeName(String type) {

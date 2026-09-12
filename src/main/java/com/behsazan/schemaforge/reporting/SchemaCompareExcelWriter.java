@@ -152,7 +152,7 @@ public final class SchemaCompareExcelWriter {
                 row.setHeightInPoints(28);
 
                 writeDocument(row, documentTable, pair.document(), usageCounts, dialect, rowStyle);
-                writeDatabase(row, databaseTable, pair.database(), dialect, rowStyle);
+                writeDatabase(row, databaseTable, pair.database(), databaseType, dialect, rowStyle);
                 setCell(row, 21, diffText(differences), rowStyle);
             }
 
@@ -193,7 +193,7 @@ public final class SchemaCompareExcelWriter {
         String normalized = databaseType.trim().toUpperCase(Locale.ROOT)
                 .replaceAll("[^A-Z0-9]", "");
         return switch (normalized) {
-            case "ORACLE", "POSTGRESQL", "DB2ZOS", "SQLSERVER" -> true;
+            case "ORACLE", "POSTGRESQL", "DB2ZOS", "SQLSERVER", "MARIADB" -> true;
             default -> false;
         };
     }
@@ -690,6 +690,7 @@ public final class SchemaCompareExcelWriter {
             Row row,
             Table table,
             Column column,
+            String databaseType,
             Dialect dialect,
             CellStyle style) {
 
@@ -700,7 +701,7 @@ public final class SchemaCompareExcelWriter {
 
         setCell(row, 11, column.ordinalPosition(), style);
         setCell(row, 12, column.name().value(), style);
-        setCell(row, 13, dialect.sqlType(column), style);
+        setCell(row, 13, databaseSqlType(databaseType, dialect, column), style);
         setCell(row, 14, column.nullable() ? "Y" : "N", style);
         setCell(row, 15, column.defaultValue().expression(), style);
         setCell(row, 16, column.description().value(), style);
@@ -730,7 +731,7 @@ public final class SchemaCompareExcelWriter {
         }
         if (!Objects.equals(document.ordinalPosition(), database.ordinalPosition())) result.add("COLUMN ID");
         if (!typeEquivalence.equivalent(
-                databaseType, dialect.sqlType(document), dialect.sqlType(database),
+                databaseType, dialect.sqlType(document), databaseSqlType(databaseType, dialect, database),
                 dialect.numericMappingStrategy())) {
             result.add("DATA_TYPE");
         }
@@ -738,8 +739,7 @@ public final class SchemaCompareExcelWriter {
         boolean sequenceBackedIdentityEquivalent = sequenceBackedIdentityEquivalent(
                 documentTable, document, database, dialect);
         if (!sequenceBackedIdentityEquivalent
-                && !normalizeDefault(document.defaultValue().expression())
-                .equals(normalizeDefault(database.defaultValue().expression()))) result.add("DATA_DEFAULT");
+                && !defaultsEquivalent(databaseType, dialect, document, database)) result.add("DATA_DEFAULT");
         if (!normalizeText(document.description().value())
                 .equals(normalizeText(database.description().value()))) result.add("COMMENTS");
         if (!identityEquivalent(documentTable, document, database, dialect)) result.add("IDENTITY_MODE");
@@ -810,7 +810,7 @@ public final class SchemaCompareExcelWriter {
         double bestScore = 0.0;
         for (Column candidate : candidates) {
             if (!typeEquivalence.equivalent(
-                    databaseType, dialect.sqlType(document), dialect.sqlType(candidate),
+                    databaseType, dialect.sqlType(document), databaseSqlType(databaseType, dialect, candidate),
                     dialect.numericMappingStrategy())) continue;
 
             double nameScore = similarity(document.name().normalized(), candidate.name().normalized());
@@ -828,6 +828,52 @@ public final class SchemaCompareExcelWriter {
             }
         }
         return bestScore >= 0.60 ? best : null;
+    }
+
+    private static String databaseSqlType(String databaseType, Dialect dialect, Column column) {
+        if (column == null) return "";
+        if (isMariaDb(databaseType)) {
+            if (column.dataType().name().normalized().equals("JSON")) return "JSON";
+            String nativeType = column.physicalOptions().get("MARIADB_NATIVE_COLUMN_TYPE");
+            if (nativeType != null && !nativeType.isBlank()) return nativeType;
+        }
+        return dialect.sqlType(column);
+    }
+
+    private static boolean defaultsEquivalent(
+            String databaseType, Dialect dialect, Column document, Column database) {
+        if (!isMariaDb(databaseType)) {
+            return normalizeDefault(document.defaultValue().expression())
+                    .equals(normalizeDefault(database.defaultValue().expression()));
+        }
+        String actual = normalizeMariaDbDefault(database.defaultValue().expression());
+        if (document.identity()) {
+            return actual.isBlank();
+        }
+        String desiredSource = document.defaultValue().expression();
+        if (desiredSource == null) return actual.isBlank();
+        String mapped;
+        try {
+            mapped = dialect.expression(desiredSource);
+        } catch (UnsupportedOperationException unsupported) {
+            mapped = desiredSource;
+        }
+        return normalizeMariaDbDefault(mapped).equals(actual);
+    }
+
+    private static String normalizeMariaDbDefault(String value) {
+        String normalized = normalizeDefault(value);
+        if (normalized.equals("CURRENT_TIMESTAMP()") || normalized.equals("CURRENT_TIMESTAMP(0)")) {
+            return "CURRENT_TIMESTAMP";
+        }
+        if (normalized.equals("CURRENT_DATE()")) return "CURRENT_DATE";
+        if (normalized.equals("CURRENT_TIME()") || normalized.equals("CURRENT_TIME(0)")) return "CURRENT_TIME";
+        return normalized;
+    }
+
+    private static boolean isMariaDb(String databaseType) {
+        if (databaseType == null) return false;
+        return databaseType.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "").equals("MARIADB");
     }
 
     private static Comparator<Column> byPosition() {

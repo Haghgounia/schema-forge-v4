@@ -96,6 +96,42 @@ class SchemaDiffEngineTest {
     }
 
     @Test
+    void treatsMariaDbNativeUnsignedIdentityDefaultsAndPrimaryCatalogNameAsConverged() {
+        Column liveId = new Column(
+                Identifier.of("ID"), DataType.simple("BIGINT"), false,
+                new DefaultValue(null), Description.empty(), true, 1, null,
+                java.util.Map.of("MARIADB_NATIVE_COLUMN_TYPE", "bigint(20) unsigned"));
+        Column desiredId = new Column(
+                Identifier.of("ID"), DataType.numeric("NUMBER", 19, 0), false,
+                new DefaultValue("APP.SEQ_CUSTOMER.NEXTVAL"), Description.empty(), true, 1);
+        Column liveCreated = new Column(
+                Identifier.of("CREATED_AT"), DataType.simple("DATETIME"), false,
+                new DefaultValue("current_timestamp()"), Description.empty(), false, 2, null,
+                java.util.Map.of("MARIADB_NATIVE_COLUMN_TYPE", "datetime"));
+        Column desiredCreated = new Column(
+                Identifier.of("CREATED_AT"), DataType.simple("TIMESTAMP"), false,
+                new DefaultValue("SYSTIMESTAMP"), Description.empty(), false, 2);
+        Column livePayload = new Column(
+                Identifier.of("PAYLOAD"), DataType.simple("JSON"), true,
+                new DefaultValue(null), Description.empty(), false, 3, null,
+                java.util.Map.of("MARIADB_NATIVE_COLUMN_TYPE", "longtext"));
+        Column desiredPayload = Column.nullable("PAYLOAD", DataType.simple("JSON"));
+
+        Table live = Table.builder("APP", "CUSTOMER")
+                .addColumn(liveId).addColumn(liveCreated).addColumn(livePayload)
+                .primaryKey(new PrimaryKey(Identifier.of("PRIMARY"), List.of(Identifier.of("ID"))))
+                .build();
+        Table desired = Table.builder("APP", "CUSTOMER")
+                .addColumn(desiredId).addColumn(desiredCreated).addColumn(desiredPayload)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_CUSTOMER"), List.of(Identifier.of("ID"))))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.empty());
+    }
+
+    @Test
     void detectsPkFkUkCheckAndIndexChangesWithoutTreatingPhysicalOptionsAsLogicalDrift() {
         Column id = Column.required("ID", DataType.numeric("NUMBER", 10, 0));
         Column parentId = Column.nullable("PARENT_ID", DataType.numeric("NUMBER", 10, 0));

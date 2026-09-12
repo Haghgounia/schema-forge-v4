@@ -247,6 +247,7 @@ public final class SchemaDiffEngine {
         }
         boolean sameStructure = primarySignature(before).equals(primarySignature(after));
         boolean sameExplicitName = platform == DatabasePlatform.MYSQL
+                || platform == DatabasePlatform.MARIADB
                 || compatibleName(platform, before.name(), after.name());
         if (sameStructure && !sameExplicitName && renameSupported(platform, before.name(), after.name())) {
             changes.add(objectChange(TableObjectType.PRIMARY_KEY, TableObjectChangeKind.RENAME,
@@ -396,8 +397,8 @@ public final class SchemaDiffEngine {
     static String normalizeCheckExpression(DatabasePlatform platform, String value) {
         if (value == null) return null;
         String normalized = value;
-        if (platform == DatabasePlatform.MYSQL) {
-            // MySQL information_schema CHECK_CLAUSE decorates identifiers with backticks and
+        if (platform == DatabasePlatform.MYSQL || platform == DatabasePlatform.MARIADB) {
+            // MySQL/MariaDB information_schema CHECK_CLAUSE can decorate identifiers with backticks and
             // ordinary UTF string literals with charset introducers such as _utf8mb4. Some
             // server/JDBC combinations also expose those literal delimiters as \' instead of '.
             // These are catalog-rendering details, not logical drift from the canonical CHECK.
@@ -1017,6 +1018,13 @@ public final class SchemaDiffEngine {
             String nativeType = column.physicalOptions().get("MYSQL_NATIVE_COLUMN_TYPE");
             if (nativeType != null && !nativeType.isBlank()) return nativeType;
         }
+        if (platform == DatabasePlatform.MARIADB) {
+            if (column.dataType().name().normalized().equals("JSON")) {
+                return dialect.sqlType(table, column);
+            }
+            String nativeType = column.physicalOptions().get("MARIADB_NATIVE_COLUMN_TYPE");
+            if (nativeType != null && !nativeType.isBlank()) return nativeType;
+        }
         return dialect.sqlType(table, column);
     }
 
@@ -1141,7 +1149,8 @@ public final class SchemaDiffEngine {
 
     private static String effectiveDesiredDefault(DatabasePlatform platform, Dialect dialect, Column desired) {
         if (!desired.defaultValue().isPresent()) return null;
-        if (platform == DatabasePlatform.MYSQL && desired.identity()) return null;
+        if ((platform == DatabasePlatform.MYSQL || platform == DatabasePlatform.MARIADB)
+                && desired.identity()) return null;
 
         String source = desired.defaultValue().expression();
         try {
@@ -1159,6 +1168,15 @@ public final class SchemaDiffEngine {
                     "^('(?:[^']|'')*'|[-+]?\\d+(?:\\.\\d+)?)::[A-Z0-9_ ]+(?:\\(\\d+(?:,\\d+)?\\))?$")
                     .matcher(normalized);
             if (literalCast.matches()) return literalCast.group(1);
+        }
+        if (platform == DatabasePlatform.MARIADB) {
+            if (normalized.equals("CURRENT_TIMESTAMP()") || normalized.equals("CURRENT_TIMESTAMP(0)")) {
+                return "CURRENT_TIMESTAMP";
+            }
+            if (normalized.equals("CURRENT_DATE()")) return "CURRENT_DATE";
+            if (normalized.equals("CURRENT_TIME()") || normalized.equals("CURRENT_TIME(0)")) {
+                return "CURRENT_TIME";
+            }
         }
         return normalized;
     }

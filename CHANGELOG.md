@@ -1,3 +1,12 @@
+## 2026-09-12 - MariaDB M7 ALTER/Migration rendering
+
+- Activates Flyway-compatible MariaDB migration rendering after the M3-M6 platform, physical, metadata, comparison, diff, and Excel gates.
+- Reuses full MariaDB `MODIFY COLUMN` definitions for datatype/nullability/default changes and collapses multiple drifts on the same column into one deterministic statement.
+- Uses MariaDB-specific structural DROP syntax: `DROP PRIMARY KEY`, `DROP FOREIGN KEY`, `DROP INDEX` for UNIQUE/index objects, and `DROP CONSTRAINT` for CHECK constraints.
+- Preserves SchemaForge destructive safety: destructive column/object SQL remains commented unless `confirmDestructive=true`.
+- Keeps identity/generated-expression transitions review/manual; M8 remains the live MariaDB create/alter/catalog-convergence gate.
+- Adds `MariaDbMigrationSqlRendererTest`, promotes MariaDB into `ComprehensiveAlterAcceptanceTest` migration-ready coverage, and adds a service-level MariaDB migration artifact regression.
+
 ## 2026-09-07 - SchemaForge V4 4.0.1 / FIX-001 Word object-name isolation
 
 - Fixes Word table-section boundary handling when a Sequence section follows column rows inside the same physical DOCX table.

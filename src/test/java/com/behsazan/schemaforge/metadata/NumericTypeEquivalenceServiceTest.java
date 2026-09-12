@@ -56,6 +56,18 @@ class NumericTypeEquivalenceServiceTest {
     }
 
     @Test
+    void shouldRecognizeMariaDbOptimizedIntegerMappingsWithoutIgnoringUnsignedSemantics() {
+        assertTrue(equivalence.equivalent(
+                "MariaDB", "DECIMAL(4,0)", "SMALLINT(6)", NumericMappingStrategy.OPTIMIZED));
+        assertTrue(equivalence.equivalent(
+                "maria-db", "DECIMAL(9)", "INT(11)", NumericMappingStrategy.OPTIMIZED));
+        assertTrue(equivalence.equivalent(
+                "MARIADB", "BIGINT(20)", "DECIMAL(18,0)", NumericMappingStrategy.OPTIMIZED));
+        assertFalse(equivalence.equivalent(
+                "MariaDB", "DECIMAL(18,0)", "BIGINT(20) UNSIGNED", NumericMappingStrategy.OPTIMIZED));
+    }
+
+    @Test
     void shouldKeepUnsafeOrUnrelatedTypesDifferent() {
         assertFalse(equivalence.equivalent(
                 "PostgreSQL", "NUMERIC(2,0)", "SMALLINT", NumericMappingStrategy.SAFE));

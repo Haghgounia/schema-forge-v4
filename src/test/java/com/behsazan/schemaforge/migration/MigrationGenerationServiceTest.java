@@ -38,4 +38,27 @@ class MigrationGenerationServiceTest {
         assertEquals(1, artifact.plan().columnChanges().size());
         assertTrue(artifact.sql().contains("MODIFY (NAME VARCHAR2(100 CHAR))"));
     }
+    @Test
+    void generatesMariaDbArtifactAfterM7Activation() {
+        Table live = Table.builder("APP", "CUSTOMERS")
+                .addColumn(Column.nullable("NAME", DataType.varchar("VARCHAR", 50)))
+                .build();
+        Table desired = Table.builder("APP", "CUSTOMERS")
+                .addColumn(Column.required("NAME", DataType.varchar("VARCHAR", 100)))
+                .build();
+        MigrationGenerationService service = new MigrationGenerationService(
+                new SchemaDiffEngine(), new MigrationSqlRenderer(),
+                new FlywayMigrationNamer(Clock.fixed(Instant.parse("2026-09-12T04:35:00Z"), ZoneOffset.UTC)));
+
+        MigrationArtifact artifact = service.generate(
+                DatabasePlatform.MARIADB,
+                new InMemoryMetadataRepository(List.of(), List.of(live)),
+                desired,
+                MigrationRenderOptions.safeDefaults());
+
+        assertEquals("V20260912043500000__APP_CUSTOMERS_ALTER.sql", artifact.fileName());
+        assertTrue(artifact.sql().contains("Platform         : MARIADB"));
+        assertTrue(artifact.sql().contains("MODIFY COLUMN `NAME` VARCHAR(100) NOT NULL"));
+    }
+
 }

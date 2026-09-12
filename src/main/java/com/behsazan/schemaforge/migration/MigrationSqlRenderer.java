@@ -43,10 +43,6 @@ public final class MigrationSqlRenderer {
 
     public String render(TableMigrationPlan plan, MigrationRenderOptions options) {
         Objects.requireNonNull(plan, "plan must not be null");
-        if (plan.platform() == DatabasePlatform.MARIADB) {
-            throw new UnsupportedOperationException(
-                    "MariaDB migration rendering is not active in M3; it is introduced in M7");
-        }
         options = options == null ? MigrationRenderOptions.safeDefaults() : options;
         Dialect dialect = DialectFactory.create(plan.platform(), numericMappingStrategy);
         DdlGenerator ddlGenerator = new DdlGenerator(dialect);
@@ -522,20 +518,20 @@ public final class MigrationSqlRenderer {
         String terminator = dialect.statementTerminator();
         return switch (change.objectType()) {
             case PRIMARY_KEY -> {
-                if (plan.platform() == DatabasePlatform.MYSQL) {
+                if (plan.platform() == DatabasePlatform.MYSQL || plan.platform() == DatabasePlatform.MARIADB) {
                     yield List.of("ALTER TABLE " + tableName + " DROP PRIMARY KEY" + terminator);
                 }
                 if (name == null) throw new UnsupportedOperationException("live primary key has no resolvable name");
                 yield List.of("ALTER TABLE " + tableName + " DROP CONSTRAINT " + dialect.quote(name) + terminator);
             }
             case FOREIGN_KEY -> {
-                if (plan.platform() == DatabasePlatform.MYSQL) {
+                if (plan.platform() == DatabasePlatform.MYSQL || plan.platform() == DatabasePlatform.MARIADB) {
                     yield List.of("ALTER TABLE " + tableName + " DROP FOREIGN KEY " + dialect.quote(name) + terminator);
                 }
                 yield List.of("ALTER TABLE " + tableName + " DROP CONSTRAINT " + dialect.quote(name) + terminator);
             }
             case UNIQUE_KEY -> {
-                if (plan.platform() == DatabasePlatform.MYSQL) {
+                if (plan.platform() == DatabasePlatform.MYSQL || plan.platform() == DatabasePlatform.MARIADB) {
                     yield List.of("ALTER TABLE " + tableName + " DROP INDEX " + dialect.quote(name) + terminator);
                 }
                 yield List.of("ALTER TABLE " + tableName + " DROP CONSTRAINT " + dialect.quote(name) + terminator);
@@ -544,13 +540,16 @@ public final class MigrationSqlRenderer {
                 if (plan.platform() == DatabasePlatform.MYSQL) {
                     yield List.of("ALTER TABLE " + tableName + " DROP CHECK " + dialect.quote(name) + terminator);
                 }
+                if (plan.platform() == DatabasePlatform.MARIADB) {
+                    yield List.of("ALTER TABLE " + tableName + " DROP CONSTRAINT " + dialect.quote(name) + terminator);
+                }
                 yield List.of("ALTER TABLE " + tableName + " DROP CONSTRAINT " + dialect.quote(name) + terminator);
             }
             case INDEX -> {
                 if (plan.platform() == DatabasePlatform.SQLSERVER) {
                     yield List.of("DROP INDEX " + dialect.quote(name) + " ON " + tableName + terminator);
                 }
-                if (plan.platform() == DatabasePlatform.MYSQL) {
+                if (plan.platform() == DatabasePlatform.MYSQL || plan.platform() == DatabasePlatform.MARIADB) {
                     yield List.of("ALTER TABLE " + tableName + " DROP INDEX " + dialect.quote(name) + terminator);
                 }
                 yield List.of("DROP INDEX " + qualifiedIndexName(dialect, plan.desiredTable(), name) + terminator);
@@ -614,11 +613,11 @@ public final class MigrationSqlRenderer {
     }
 
     private static String compositeKey(DatabasePlatform platform, ColumnChange change) {
-        if (platform == DatabasePlatform.MYSQL
+        if ((platform == DatabasePlatform.MYSQL || platform == DatabasePlatform.MARIADB)
                 && (change.kind() == ColumnChangeKind.ALTER_TYPE
                 || change.kind() == ColumnChangeKind.ALTER_NULLABILITY
                 || change.kind() == ColumnChangeKind.ALTER_DEFAULT)) {
-            return "MYSQL_MODIFY:" + change.columnName().normalized();
+            return platform.name() + "_MODIFY:" + change.columnName().normalized();
         }
         if (platform == DatabasePlatform.SQLSERVER
                 && (change.kind() == ColumnChangeKind.ALTER_TYPE
