@@ -1,3 +1,28 @@
+## 2026-09-12 - MariaDB M8.1 FK referential-action convergence fix
+
+- Trigger: the first real MariaDB M8 live gate completed the migration but left exactly one residual `FOREIGN_KEY` replacement for `FK_SF_M8_CHILD_PARENT_ID`.
+- Root cause: MariaDB treats `NO ACTION` as a synonym for `RESTRICT` and can expose the effective rule as `RESTRICT` through `INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS`; `SchemaDiffEngine` compared the enum values literally.
+- `SchemaDiffEngine` now canonicalizes MariaDB `NO_ACTION` to `RESTRICT` only for FK structural comparison.
+- Real action drift remains detectable; for example `CASCADE` versus `RESTRICT` still produces a `REPLACE` change.
+- Added focused regression coverage for both semantic equivalence and real-drift preservation.
+- No MariaDB DDL rendering, metadata extraction, canonical model, naming, safety confirmation, or destructive-execution behavior changed.
+
+## 2026-09-12 - MariaDB M8 live migration/convergence gate
+
+- Added `MariaDbMigrationM8LiveIT` as the real MariaDB closure gate for the M3-M8 path.
+- The gate exercises baseline catalog read, diff, safe render, confirmed ALTER execution, catalog re-read and zero-residual convergence.
+- Added a destructive-execution safety boundary: explicit confirmation plus a disposable `SCHEMAFORGE_*` database is mandatory.
+- Added data-preservation assertions and diagnostic CREATE/migration/diff/summary artifacts under `target/mariadb-migration-m8-live`.
+- M8 remains open until the new gate passes against the target MariaDB runtime.
+
+## 2026-09-12 - MariaDB M7.1 acceptance-test naming-contract correction
+
+- Corrects the MariaDB structural-add acceptance assertion to the frozen cross-service FK naming contract.
+- New FK creation is expected as `FK_<CHILD_TABLE>_<CHILD_COLUMNS>`; for `CHILDREN(PARENT_ID)` the generated name is `FK_CHILDREN_PARENT_ID`.
+- Preserves DROP behavior against the actual live object name; source/live constraint names remain authoritative only when removing/replacing existing objects.
+- No production Java, SQL rendering semantics, canonical model, or migration safety behavior changed.
+- Trigger: user workstation M7 gate ran 71 tests with exactly one failed assertion at `MariaDbMigrationSqlRendererTest:87`; all other 70 tests passed.
+
 ## 2026-09-12 - MariaDB M7 ALTER/Migration rendering
 
 - Activates Flyway-compatible MariaDB migration rendering after the M3-M6 platform, physical, metadata, comparison, diff, and Excel gates.

@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
 import com.behsazan.schemaforge.domain.enums.IndexType;
+import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
@@ -153,7 +154,7 @@ public final class SchemaDiffEngine {
                 Index::name, index -> indexSignature(dialect, index), changes);
         diffNamedObjects(
                 platform, TableObjectType.FOREIGN_KEY, live.foreignKeys(), desired.foreignKeys(),
-                ForeignKey::name, foreignKey -> foreignKeySignature(desired, foreignKey), changes);
+                ForeignKey::name, foreignKey -> foreignKeySignature(platform, desired, foreignKey), changes);
         return List.copyOf(changes);
     }
 
@@ -370,7 +371,7 @@ public final class SchemaDiffEngine {
         return identifierList(key.columns()) + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred();
     }
 
-    private String foreignKeySignature(Table owner, ForeignKey key) {
+    private String foreignKeySignature(DatabasePlatform platform, Table owner, ForeignKey key) {
         String referencedSchema = key.referencedTable().schemaName()
                 .map(Identifier::normalized)
                 .orElseGet(() -> owner.qualifiedName().schemaName().map(Identifier::normalized).orElse(""));
@@ -379,9 +380,21 @@ public final class SchemaDiffEngine {
         return identifierList(key.columns())
                 + "->" + referencedTable
                 + "(" + identifierList(key.referencedColumns()) + ")"
-                + "|DEL=" + key.onDelete() + "|UPD=" + key.onUpdate()
+                + "|DEL=" + canonicalReferentialAction(platform, key.onDelete())
+                + "|UPD=" + canonicalReferentialAction(platform, key.onUpdate())
                 + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred()
                 + "|PHYS=" + key.physicalReference();
+    }
+
+    private static ReferentialAction canonicalReferentialAction(
+            DatabasePlatform platform, ReferentialAction action) {
+        ReferentialAction resolved = action == null ? ReferentialAction.NO_ACTION : action;
+        if (platform == DatabasePlatform.MARIADB && resolved == ReferentialAction.NO_ACTION) {
+            // MariaDB defines NO ACTION as a synonym for RESTRICT and may report
+            // the effective rule as RESTRICT through INFORMATION_SCHEMA.
+            return ReferentialAction.RESTRICT;
+        }
+        return resolved;
     }
 
     private String checkSignature(DatabasePlatform platform, Dialect dialect, CheckConstraint check) {

@@ -117,7 +117,7 @@ schemaforge:
     # MariaDB metadata is introduced in M5 and remains opt-in until the live gate.
     mariadb:
       enabled: ${SCHEMAFORGE_METADATA_MARIADB_ENABLED:false}
-      url: ${SCHEMAFORGE_METADATA_MARIADB_URL:jdbc:mariadb://localhost:3308/}
+      url: ${SCHEMAFORGE_METADATA_MARIADB_URL:jdbc:mariadb://10.1.60.51:1521/}
       username: ${SCHEMAFORGE_METADATA_MARIADB_USERNAME:root}
-      password: ${SCHEMAFORGE_METADATA_MARIADB_PASSWORD:}
+      password: ${SCHEMAFORGE_METADATA_MARIADB_PASSWORD:maria@123456}
       driver-class-name: org.mariadb.jdbc.Driver

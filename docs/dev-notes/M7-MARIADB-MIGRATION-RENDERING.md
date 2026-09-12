@@ -20,6 +20,12 @@ M7 activates offline MariaDB ALTER/Migration SQL generation. M3-M6 already provi
 - Check constraint: `ALTER TABLE ... DROP CONSTRAINT <name>`
 - Standalone index: `ALTER TABLE ... DROP INDEX <name>`
 
+## Naming contract note
+
+- ADD operations use SchemaForge-owned deterministic logical names, not source-provided object names.
+- For example, a desired FK on `CHILDREN(PARENT_ID)` renders as `FK_CHILDREN_PARENT_ID`.
+- DROP/REPLACE operations address the actual live object name discovered from metadata.
+
 ## Acceptance gate
 
 Run on the project workstation:

@@ -132,6 +132,71 @@ class SchemaDiffEngineTest {
     }
 
     @Test
+    void treatsMariaDbNoActionAndRestrictForeignKeyActionsAsEquivalent() {
+        Column id = Column.required("ID", DataType.simple("BIGINT"));
+        Column parentId = Column.required("PARENT_ID", DataType.simple("BIGINT"));
+
+        Table live = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addForeignKey(new ForeignKey(
+                        Identifier.of("FK_CHILD_PARENT_ID"),
+                        List.of(Identifier.of("PARENT_ID")),
+                        QualifiedName.of("APP", "PARENT"),
+                        List.of(Identifier.of("ID")),
+                        ReferentialAction.CASCADE,
+                        ReferentialAction.RESTRICT))
+                .build();
+        Table desired = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addForeignKey(new ForeignKey(
+                        Identifier.of("FK_CHILD_PARENT_ID"),
+                        List.of(Identifier.of("PARENT_ID")),
+                        QualifiedName.of("APP", "PARENT"),
+                        List.of(Identifier.of("ID")),
+                        ReferentialAction.CASCADE,
+                        ReferentialAction.NO_ACTION))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.FOREIGN_KEY));
+    }
+
+    @Test
+    void stillDetectsDifferentMariaDbForeignKeyActions() {
+        Column id = Column.required("ID", DataType.simple("BIGINT"));
+        Column parentId = Column.required("PARENT_ID", DataType.simple("BIGINT"));
+
+        Table live = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addForeignKey(new ForeignKey(
+                        Identifier.of("FK_CHILD_PARENT_ID"),
+                        List.of(Identifier.of("PARENT_ID")),
+                        QualifiedName.of("APP", "PARENT"),
+                        List.of(Identifier.of("ID")),
+                        ReferentialAction.RESTRICT,
+                        ReferentialAction.RESTRICT))
+                .build();
+        Table desired = Table.builder("APP", "CHILD")
+                .addColumn(id).addColumn(parentId)
+                .addForeignKey(new ForeignKey(
+                        Identifier.of("FK_CHILD_PARENT_ID"),
+                        List.of(Identifier.of("PARENT_ID")),
+                        QualifiedName.of("APP", "PARENT"),
+                        List.of(Identifier.of("ID")),
+                        ReferentialAction.CASCADE,
+                        ReferentialAction.NO_ACTION))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.MARIADB, live, desired);
+
+        assertTrue(plan.objectChanges().stream().anyMatch(change ->
+                change.objectType() == TableObjectType.FOREIGN_KEY
+                        && change.kind() == TableObjectChangeKind.REPLACE));
+    }
+
+    @Test
     void detectsPkFkUkCheckAndIndexChangesWithoutTreatingPhysicalOptionsAsLogicalDrift() {
         Column id = Column.required("ID", DataType.numeric("NUMBER", 10, 0));
         Column parentId = Column.nullable("PARENT_ID", DataType.numeric("NUMBER", 10, 0));
