@@ -355,6 +355,7 @@ public final class EnterpriseArchitectXmlParser {
             }
 
             result.add(new EaAssociation(
+                    firstNonBlank(attribute(association, "xmi.id"), attribute(association, "xmi:id"), ""),
                     sourceId,
                     targetId,
                     sourceOperation,
@@ -372,33 +373,25 @@ public final class EnterpriseArchitectXmlParser {
             List<EaAssociation> associations,
             List<String> warnings) {
 
-        Map<String, EaAssociation> result = new HashMap<>();
+        Map<String, List<AssociationBinding>> bindings = new LinkedHashMap<>();
 
-        // Native EA exports normally use the FK operation name on the source
-        // AssociationEnd. Preserve that fast/exact path first.
-        for (EaAssociation association : associations) {
-            EaTable sourceTable = resolveAssociationTable(
-                    tablesById, association.sourceTableId(), association.sourceTableName());
-            if (sourceTable == null || association.sourceOperation().isBlank()) continue;
-
-            boolean operationExists = sourceTable.operations().stream()
-                    .anyMatch(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY
-                            && operation.name().equalsIgnoreCase(association.sourceOperation()));
-            if (operationExists) {
-                result.putIfAbsent(
-                        operationKey(sourceTable.xmiId(), association.sourceOperation()), association);
-            }
-        }
-
-        // Some real EA XMI exports contain a stale/truncated FK role name on the
-        // AssociationEnd while the association still carries the authoritative
-        // source/target table ids and column mapping. Do not silently drop such
-        // FKs. Recover only when the source-column mapping identifies exactly
-        // one FK operation on the source table. Ambiguous cases remain fail-closed.
         for (EaAssociation association : associations) {
             EaTable sourceTable = resolveAssociationTable(
                     tablesById, association.sourceTableId(), association.sourceTableName());
             if (sourceTable == null) continue;
+
+            EaOperation exact = sourceTable.operations().stream()
+                    .filter(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY)
+                    .filter(operation -> !association.sourceOperation().isBlank())
+                    .filter(operation -> operation.name().equalsIgnoreCase(association.sourceOperation()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (exact != null) {
+                bindings.computeIfAbsent(operationKey(sourceTable.xmiId(), exact.name()), ignored -> new ArrayList<>())
+                        .add(new AssociationBinding(sourceTable, exact, association, false));
+                continue;
+            }
 
             List<String> sourceColumns = association.columnPairs().stream()
                     .map(ColumnPair::source)
@@ -410,20 +403,16 @@ public final class EnterpriseArchitectXmlParser {
                     .filter(operation -> sameColumns(
                             operation.parameters().stream().map(EaParameter::name).toList(),
                             sourceColumns))
-                    .filter(operation -> !result.containsKey(operationKey(sourceTable.xmiId(), operation.name())))
                     .toList();
 
             if (candidates.size() == 1) {
                 EaOperation operation = candidates.getFirst();
-                result.put(operationKey(sourceTable.xmiId(), operation.name()), association);
-                warnings.add("EA_FK_ASSOCIATION_OPERATION_MISMATCH_RECOVERED|table="
-                        + sourceTable.name()
-                        + "|foreignKey=" + operation.name()
-                        + "|associationSourceOperation=" + association.sourceOperation()
-                        + "|columns=" + String.join(",", sourceColumns));
+                bindings.computeIfAbsent(operationKey(sourceTable.xmiId(), operation.name()), ignored -> new ArrayList<>())
+                        .add(new AssociationBinding(sourceTable, operation, association, true));
             } else if (candidates.size() > 1) {
                 warnings.add("EA_FK_ASSOCIATION_STRUCTURAL_MATCH_AMBIGUOUS|table="
                         + sourceTable.name()
+                        + "|associationId=" + association.associationId()
                         + "|associationSourceOperation=" + association.sourceOperation()
                         + "|columns=" + String.join(",", sourceColumns)
                         + "|candidates=" + candidates.stream()
@@ -432,7 +421,46 @@ public final class EnterpriseArchitectXmlParser {
             }
         }
 
+        Map<String, EaAssociation> result = new HashMap<>();
+        for (Map.Entry<String, List<AssociationBinding>> entry : bindings.entrySet()) {
+            List<AssociationBinding> candidates = entry.getValue();
+            AssociationBinding first = candidates.getFirst();
+            if (candidates.size() > 1) {
+                String associationsText = candidates.stream()
+                        .map(binding -> associationSignature(binding.association()))
+                        .collect(java.util.stream.Collectors.joining(";"));
+                warnings.add("EA_FK_ASSOCIATION_CONFLICT|table="
+                        + first.sourceTable().name()
+                        + "|foreignKey=" + first.operation().name()
+                        + "|associationCount=" + candidates.size()
+                        + "|associations=" + associationsText);
+                continue;
+            }
+
+            result.put(entry.getKey(), first.association());
+            if (first.recoveredByColumns()) {
+                List<String> sourceColumns = first.association().columnPairs().stream()
+                        .map(ColumnPair::source)
+                        .toList();
+                warnings.add("EA_FK_ASSOCIATION_OPERATION_MISMATCH_RECOVERED|table="
+                        + first.sourceTable().name()
+                        + "|foreignKey=" + first.operation().name()
+                        + "|associationId=" + first.association().associationId()
+                        + "|associationSourceOperation=" + first.association().sourceOperation()
+                        + "|columns=" + String.join(",", sourceColumns));
+            }
+        }
+
         return result;
+    }
+
+    private static String associationSignature(EaAssociation association) {
+        String mapping = association.columnPairs().stream()
+                .map(pair -> pair.source() + "->" + pair.target())
+                .collect(java.util.stream.Collectors.joining(","));
+        return firstNonBlank(association.associationId(), "NO_ID")
+                + ":" + firstNonBlank(association.targetTableName(), association.targetTableId(), "UNRESOLVED")
+                + "[" + mapping + "]";
     }
 
     private static EaTable resolveAssociationTable(
@@ -572,8 +600,10 @@ public final class EnterpriseArchitectXmlParser {
         EaAssociation association = associationBySourceOperation.get(
                 operationKey(eaTable.xmiId(), operation.name()));
         if (association == null) {
-            warnings.add("EA_FK_ASSOCIATION_NOT_FOUND|table=" + eaTable.name()
-                    + "|foreignKey=" + operation.name());
+            if (!hasAssociationConflict(warnings, eaTable.name(), operation.name())) {
+                warnings.add("EA_FK_ASSOCIATION_NOT_FOUND|table=" + eaTable.name()
+                        + "|foreignKey=" + operation.name());
+            }
             return;
         }
 
@@ -623,6 +653,14 @@ public final class EnterpriseArchitectXmlParser {
                 truthy(tag(operation.tags(), "initiallyDeferred")),
                 true,
                 false));
+    }
+
+
+    private static boolean hasAssociationConflict(
+            List<String> warnings, String tableName, String foreignKeyName) {
+        String marker = "EA_FK_ASSOCIATION_CONFLICT|table=" + tableName
+                + "|foreignKey=" + foreignKeyName + "|";
+        return warnings.stream().anyMatch(warning -> warning.startsWith(marker));
     }
 
     private static OperationKind operationKind(EaOperation operation) {
@@ -1057,6 +1095,7 @@ public final class EnterpriseArchitectXmlParser {
     private record EaParameter(String name, int position, SortDirection direction) { }
 
     private record EaAssociation(
+            String associationId,
             String sourceTableId,
             String targetTableId,
             String sourceOperation,
@@ -1065,6 +1104,12 @@ public final class EnterpriseArchitectXmlParser {
             String targetTableName,
             List<ColumnPair> columnPairs,
             Map<String, String> tags) { }
+
+    private record AssociationBinding(
+            EaTable sourceTable,
+            EaOperation operation,
+            EaAssociation association,
+            boolean recoveredByColumns) { }
 
     private record ColumnPair(String source, String target) { }
 }

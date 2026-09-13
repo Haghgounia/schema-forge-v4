@@ -15,7 +15,12 @@ import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Sequence;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
+import com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlan;
+import com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlanner;
+import com.behsazan.schemaforge.deployment.IntegratedSqlRenderer;
+import com.behsazan.schemaforge.deployment.IntegratedSqlScript;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
 import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
@@ -260,9 +265,13 @@ public final class EaGenerationOrchestrator {
         diagramArtifactProducer.writeGraphvizArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);
 
-        ValidationReport jsonReport = new ValidationReport(
+        ValidationReport preliminaryJsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
                 jsonIssues);
+        List<ValidationIssue> completeJsonIssues = SqlIssueCatalog.from(schema, preliminaryJsonReport).all();
+        ValidationReport jsonReport = new ValidationReport(
+                completeJsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
+                completeJsonIssues);
         Path modelPath = output.resolve(artifactNamingPolicy.canonicalJsonRelativePath(baseName, timestamp));
         Files.createDirectories(modelPath.getParent());
         new JsonExporter().write(modelPath, schema, jsonReport);
@@ -315,6 +324,19 @@ public final class EaGenerationOrchestrator {
 
         Path runAllRelativePath = artifactNamingPolicy.runAllRelativePath(
                 sourceBaseName, platform, timestamp);
+
+        IntegratedSqlScript integrated;
+        try {
+            IntegratedSchemaDeploymentPlan plan = new IntegratedSchemaDeploymentPlanner().plan(schema);
+            Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
+            integrated = new IntegratedSqlRenderer(dialect).render(schema, plan);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            context.ledger().blocked(
+                    context, ArtifactType.RUN_SCRIPT, platform, sourceBaseName,
+                    LEGACY_RUN_SCRIPT_PRODUCER, exception.getMessage());
+            return;
+        }
+
         Path runAllPath = artifactRoot.resolve(runAllRelativePath);
         Files.createDirectories(runAllPath.getParent());
 
@@ -322,32 +344,34 @@ public final class EaGenerationOrchestrator {
         String comment = "--";
         script.append(comment).append(" SchemaForge EA run-all script").append(System.lineSeparator())
                 .append(comment).append(" Schema: ").append(schema.name().value()).append(System.lineSeparator())
-                .append(comment).append(" Generated: ").append(timestamp).append(System.lineSeparator());
+                .append(comment).append(" Generated: ").append(timestamp).append(System.lineSeparator())
+                .append(comment).append(" Execution policy: all tables/local objects first; all physical foreign keys second.")
+                .append(System.lineSeparator());
         if (!order.cyclicTables().isEmpty()) {
             script.append(comment)
-                    .append(" WARNING: cyclic internal foreign-key dependencies detected for: ")
+                    .append(" INFO: true cyclic internal foreign-key members: ")
                     .append(order.cyclicTables().stream()
                             .map(table -> table.qualifiedName().toString())
                             .collect(java.util.stream.Collectors.joining(", ")))
                     .append(System.lineSeparator());
         }
-        script.append(System.lineSeparator());
 
+        script.append(comment).append(" Per-table artifacts (reference only):")
+                .append(System.lineSeparator());
         for (Table table : order.tables()) {
             Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
                     eaArtifactBaseName(schema, table, platform), platform, timestamp);
             String reference = artifactPackageBuilder.normalizePath(
                     runAllPath.getParent().relativize(artifactRoot.resolve(ddlRelativePath)));
-            switch (platform) {
-                case ORACLE -> script.append("@@").append(reference);
-                case POSTGRESQL -> script.append("\\ir ").append(reference);
-                case DB2_ZOS, DB2_LUW -> script.append("-- Execute in this order: ").append(reference);
-                case SQLSERVER -> script.append(":r ").append(reference);
-                case MYSQL, MARIADB -> script.append("-- Execute in this order: ").append(reference);
-            }
-            script.append(System.lineSeparator());
+            script.append(comment).append("   ").append(reference).append(System.lineSeparator());
         }
-        Files.writeString(runAllPath, script.toString(), StandardCharsets.UTF_8);
+        script.append(System.lineSeparator());
+
+        script.append(integrated.combinedSql()).append(System.lineSeparator());
+
+        String sql = script.toString();
+        requireValidDdl(platform, sql, runAllRelativePath.getFileName().toString());
+        Files.writeString(runAllPath, sql, StandardCharsets.UTF_8);
         context.ledger().generated(context, ArtifactType.RUN_SCRIPT, platform,
                 sourceBaseName, ArtifactPaths.relative(artifactRoot, runAllPath),
                 "application/sql", LEGACY_RUN_SCRIPT_PRODUCER);
@@ -453,14 +477,41 @@ public final class EaGenerationOrchestrator {
             }
         }
 
-        List<Table> cyclic = new ArrayList<>();
         for (Table table : tables) {
             if (!emitted.contains(tableKey(table))) {
-                cyclic.add(table);
                 ordered.add(table);
             }
         }
+
+        Set<String> actualCycleKeys = actualCycleKeys(tables, byName);
+        List<Table> cyclic = tables.stream()
+                .filter(table -> actualCycleKeys.contains(tableKey(table)))
+                .toList();
         return new DependencyOrder(List.copyOf(ordered), List.copyOf(cyclic));
+    }
+
+    private Set<String> actualCycleKeys(List<Table> tables, Map<String, Table> byName) {
+        Map<String, Set<String>> graph = new LinkedHashMap<>();
+        byName.keySet().forEach(key -> graph.put(key, new LinkedHashSet<>()));
+        Set<String> selfLoops = new LinkedHashSet<>();
+
+        for (Table source : tables) {
+            String sourceKey = tableKey(source);
+            for (ForeignKey foreignKey : source.foreignKeys()) {
+                if (!foreignKey.physicalReference()) continue;
+                String targetKey = resolveInternalTableKey(source, foreignKey, byName);
+                if (targetKey == null) continue;
+                graph.get(sourceKey).add(targetKey);
+                if (targetKey.equals(sourceKey)) selfLoops.add(sourceKey);
+            }
+        }
+
+        TarjanScc tarjan = new TarjanScc(graph);
+        Set<String> result = new LinkedHashSet<>(selfLoops);
+        for (Set<String> component : tarjan.components()) {
+            if (component.size() > 1) result.addAll(component);
+        }
+        return result;
     }
 
     private String resolveInternalTableKey(
@@ -498,6 +549,55 @@ public final class EaGenerationOrchestrator {
         String schema = table.qualifiedName().schemaName()
                 .map(identifier -> identifier.normalized()).orElse("");
         return schema + "." + table.qualifiedName().name().normalized();
+    }
+
+    private static final class TarjanScc {
+        private final Map<String, Set<String>> graph;
+        private final Map<String, Integer> index = new LinkedHashMap<>();
+        private final Map<String, Integer> lowLink = new LinkedHashMap<>();
+        private final Deque<String> stack = new ArrayDeque<>();
+        private final Set<String> onStack = new LinkedHashSet<>();
+        private final List<Set<String>> components = new ArrayList<>();
+        private int nextIndex;
+
+        private TarjanScc(Map<String, Set<String>> graph) {
+            this.graph = graph;
+        }
+
+        private List<Set<String>> components() {
+            for (String vertex : graph.keySet()) {
+                if (!index.containsKey(vertex)) visit(vertex);
+            }
+            return List.copyOf(components);
+        }
+
+        private void visit(String vertex) {
+            index.put(vertex, nextIndex);
+            lowLink.put(vertex, nextIndex);
+            nextIndex++;
+            stack.push(vertex);
+            onStack.add(vertex);
+
+            for (String target : graph.getOrDefault(vertex, Set.of())) {
+                if (!index.containsKey(target)) {
+                    visit(target);
+                    lowLink.put(vertex, Math.min(lowLink.get(vertex), lowLink.get(target)));
+                } else if (onStack.contains(target)) {
+                    lowLink.put(vertex, Math.min(lowLink.get(vertex), index.get(target)));
+                }
+            }
+
+            if (Objects.equals(lowLink.get(vertex), index.get(vertex))) {
+                Set<String> component = new LinkedHashSet<>();
+                String current;
+                do {
+                    current = stack.pop();
+                    onStack.remove(current);
+                    component.add(current);
+                } while (!current.equals(vertex));
+                components.add(component);
+            }
+        }
     }
 
     private record DependencyOrder(List<Table> tables, List<Table> cyclicTables) { }

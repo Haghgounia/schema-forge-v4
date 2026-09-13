@@ -1,5 +1,11 @@
-SchemaForge PostgreSQL PG-P10 Delta
-===================================
-Copy the contents of this ZIP over D:\Projects\schema-forge-v4 preserving paths.
-This phase adds only PostgreSQL external-audit qualification test/evidence documentation.
-No production code is changed by PG-P10.
+SchemaForge V4 - EA output integrity hotfix
+Baseline: schema-forge-v4-2026-09-13-SS-P10-external-database-audit.zip
+
+Apply from project root by overlaying this archive and preserving paths.
+Then run:
+
+mvnw.cmd clean ^
+  -Dtest=EnterpriseArchitectFkAssociationRecoveryTest,EaGenerationOrchestratorTest,RunAllOrderingAcceptanceTest ^
+  test
+
+The hotfix does not modify DBMS datatype mappings or auto-correct contradictory EA relationships.

@@ -1,3 +1,45 @@
+## 2026-09-13 - EA output integrity / no-guess FK and run-all hotfix
+
+- Preserves Enterprise Architect `UML:Association` identity by `xmi.id`; multiple distinct associations can no longer be silently collapsed by source FK operation name.
+- Adds fail-closed `EA_FK_ASSOCIATION_CONFLICT` validation errors with association ids, targets and column mappings; ambiguous physical FKs are omitted instead of guessed.
+- Promotes unresolved/ambiguous EA FK recovery findings into the canonical validation issue catalog so manifest/JSON consumers can see real errors rather than a false clean result.
+- Replaces sequential per-table EA run-all execution with the existing integrated four-phase renderer: create all tables/local objects first, then add all physical FKs, then metadata/grants.
+- A platform-specific run-all that cannot be rendered safely is now recorded as `BLOCKED` with the exact no-loss reason instead of emitting a misleading script.
+- Corrects EA cycle reporting to true SCC members only; tables merely downstream from a cycle are no longer labeled cyclic.
+- Adds regression coverage for duplicate-association fail-closed behavior, executable integrated run-all ordering across platforms, and true cycle-member reporting.
+- Verification against `Dps_Opn_14050622.xml`: 89 tables / 1,256 columns preserved; 6 ambiguous FK operations explicitly reported; 96 unambiguous physical FKs retained.
+
+## 2026-09-13 - SQL Server SS-P10 external database audit qualification
+
+- Adds `SqlServerExternalDatabaseAuditP10IT` as the final SQL Server parity gate after SS-P9.1 catalog convergence reached exact residual drift = 0 across the 1,908-table persistent cohort.
+- Creates an isolated three-table fixture directly through JDBC, deliberately outside SchemaForge DDL generation, then audits one child table and the full schema through the existing production `JdbcSqlServerMetadataRepository` and `SchemaConformanceAuditService`.
+- Proves a valid materialized SQL Server foreign key is read back correctly and produces no referential-integrity errors.
+- Proves the read-only audit detects an externally created table without a primary key and executes the existing datatype-compatibility rule family without mutating the database.
+- Captures before/after table sets, finding counts, FK integrity status, cleanup status, summary text, and CSV findings as qualification evidence.
+- No production code, DDL rendering, datatype mapping, migration behavior, canonical selection, or schema-diff semantics change.
+
+## 2026-09-13 - SQL Server SS-P9.1 catalog semantic normalization
+
+- Trigger: SS-P9 re-read all 1,908 persistent cohort tables with zero missing/extra tables and zero object drift, but reported 1,159 column residuals.
+- Evidence analysis proved all 1,060 nullability residuals are PRIMARY KEY columns; SQL Server catalogs PRIMARY KEY columns as NOT NULL even when an older canonical snapshot retained a nullable source flag.
+- Treats SQL Server PRIMARY KEY implied NOT NULL as semantic equivalence rather than ALTER drift.
+- Treats SQL Server catalog `GETDATE()` as semantically equivalent to canonical `CURRENT_TIMESTAMP` for default comparison.
+- Treats SQL Server catalog canonicalization of equivalent unquoted numeric default expressions as equal (including redundant parentheses, `0`/`00`/`-0`, and trailing decimal point forms) without changing generated DDL.
+- Adds focused `SchemaDiffEngineTest` regression coverage for SQL Server PK nullability, timestamp-default synonym normalization, and numeric-default canonicalization.
+- No DDL rendering, datatype mapping, canonical selection, FK semantics, migration rendering, or database mutation behavior changes.
+
+## 2026-09-13 - SQL Server SS-P7/P9 MariaDB/PostgreSQL-parity qualification track
+
+- Starts SQL Server parity qualification against the now-proven MariaDB/PostgreSQL Level-3 baseline without adding product features or changing production DDL semantics.
+- Reuses the DBMS-neutral historical selection manifest (unique + exact-logical duplicate winners only); no conflicting historical table version is guessed or auto-selected.
+- Adds `CanonicalJsonSqlServerClosedSubsetP7IT` to derive a deterministic dependency-closed SQL Server pilot cohort.
+- SS-P7 excludes local SQL Server render/offline-validation blockers, then transitively prunes only FK owner tables with structural FK blockers or SQL Server-specific FK datatype incompatibility (`SQLSERVER_FK_TYPE_MISMATCH`). No FK or datatype is rewritten to force deployment.
+- SS-P7 emits one integrated SQL Server script through the existing `IntegratedSchemaDeploymentPlanner` / `IntegratedSqlRenderer` and validates it with the existing `SqlServerOfflineDdlValidator`.
+- SS-P8 intentionally reuses the existing `SqlServerDirectoryExecutionTest` in `FULL` mode for persistent live deployment; no duplicate execution runner is introduced.
+- Adds `SqlServerPersistentCatalogConvergenceP9IT`, a read-only post-deployment gate that reloads the exact SS-P7 selected snapshots, re-reads `sys.*` metadata through `JdbcSqlServerMetadataRepository`, and runs the existing `SchemaDiffEngine` table-by-table.
+- SS-P9 reports missing/extra tables, expected/live object counts, and residual column/object drift; the qualification target is cohort residual drift = 0.
+- Existing SQL Server historical live evidence, integrated FK pilot evidence, and M2 live migration residual=0 evidence remain unchanged.
+
 ## 2026-09-13 - PostgreSQL PG-P7/P9 MariaDB-parity qualification track
 
 - Starts PostgreSQL parity qualification against the MariaDB reference baseline without adding product features or changing production DDL semantics.

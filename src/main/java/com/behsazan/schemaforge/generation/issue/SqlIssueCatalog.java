@@ -102,6 +102,46 @@ public final class SqlIssueCatalog {
                         + "; normalized=" + values.getOrDefault("normalized", "")
                         + "; reason=" + values.getOrDefault("reason", "UNKNOWN") + ".";
                 target.add(new ValidationIssue("INFO", "LEGACY_DEFAULT_NORMALIZED", path, message));
+            } else if (warning.startsWith("EA_FK_ASSOCIATION_CONFLICT|")) {
+                Map<String, String> values = parseWarning(warning);
+                String table = values.getOrDefault("table", "UNKNOWN");
+                String foreignKey = values.getOrDefault("foreignKey", "UNKNOWN");
+                String path = "tables." + table + ".foreignKeys." + foreignKey;
+                String message = "Enterprise Architect contains multiple distinct FK associations for one FK operation; "
+                        + "SchemaForge did not guess a winner and omitted this ambiguous physical FK. "
+                        + "associationCount=" + values.getOrDefault("associationCount", "?")
+                        + "; associations=" + values.getOrDefault("associations", "") + ".";
+                target.add(new ValidationIssue("ERROR", "EA_FK_ASSOCIATION_CONFLICT", path, message));
+            } else if (warning.startsWith("EA_FK_ASSOCIATION_STRUCTURAL_MATCH_AMBIGUOUS|")) {
+                Map<String, String> values = parseWarning(warning);
+                String table = values.getOrDefault("table", "UNKNOWN");
+                String path = "tables." + table + ".foreignKeys";
+                String message = "Enterprise Architect FK association could match more than one FK operation; "
+                        + "SchemaForge left it unresolved. candidates="
+                        + values.getOrDefault("candidates", "") + ".";
+                target.add(new ValidationIssue("ERROR", "EA_FK_ASSOCIATION_STRUCTURAL_MATCH_AMBIGUOUS", path, message));
+            } else if (warning.startsWith("EA_FK_ASSOCIATION_NOT_FOUND|")) {
+                Map<String, String> values = parseWarning(warning);
+                String table = values.getOrDefault("table", "UNKNOWN");
+                String foreignKey = values.getOrDefault("foreignKey", "UNKNOWN");
+                String path = "tables." + table + ".foreignKeys." + foreignKey;
+                target.add(new ValidationIssue("ERROR", "EA_FK_ASSOCIATION_NOT_FOUND", path,
+                        "Enterprise Architect FK operation has no unambiguous association; physical FK was omitted."));
+            } else if (warning.startsWith("EA_FK_COLUMNS_UNRESOLVED|")) {
+                Map<String, String> values = parseWarning(warning);
+                String table = values.getOrDefault("table", "UNKNOWN");
+                String foreignKey = values.getOrDefault("foreignKey", "UNKNOWN");
+                String path = "tables." + table + ".foreignKeys." + foreignKey;
+                target.add(new ValidationIssue("ERROR", "EA_FK_COLUMNS_UNRESOLVED", path,
+                        "Enterprise Architect FK columns could not be resolved safely; physical FK was omitted."));
+            } else if (warning.startsWith("EA_FK_ASSOCIATION_OPERATION_MISMATCH_RECOVERED|")) {
+                Map<String, String> values = parseWarning(warning);
+                String table = values.getOrDefault("table", "UNKNOWN");
+                String foreignKey = values.getOrDefault("foreignKey", "UNKNOWN");
+                String path = "tables." + table + ".foreignKeys." + foreignKey;
+                target.add(new ValidationIssue("WARNING", "EA_FK_ASSOCIATION_OPERATION_MISMATCH_RECOVERED", path,
+                        "Enterprise Architect FK association role name differed from the FK operation, but an exact "
+                                + "source-column match recovered the association without guessing."));
             }
         }
     }

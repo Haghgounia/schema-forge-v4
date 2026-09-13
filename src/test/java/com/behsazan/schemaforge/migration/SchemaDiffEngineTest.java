@@ -657,4 +657,56 @@ class SchemaDiffEngineTest {
                 Identifier.of(name), type, nullable, new DefaultValue(defaultExpression),
                 Description.empty(), false, position);
     }
+
+    @Test
+    void treatsSqlServerPrimaryKeyCatalogNotNullAsEquivalentToNullableSourceFlag() {
+        Column liveId = column("ID", DataType.numeric("DECIMAL", 8, 0), false, null, 1);
+        Column desiredId = column("ID", DataType.numeric("NUMBER", 8, 0), true, null, 1);
+        Table live = Table.builder("APP", "SS_T1").addColumn(liveId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_SS_T1"), List.of(Identifier.of("ID"))))
+                .build();
+        Table desired = Table.builder("APP", "SS_T1").addColumn(desiredId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_SS_T1"), List.of(Identifier.of("ID"))))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_NULLABILITY));
+    }
+
+    @Test
+    void treatsSqlServerGetDateCatalogDefaultAsEquivalentToCurrentTimestamp() {
+        Table live = Table.builder("APP", "SS_T2")
+                .addColumn(column("TIMEX", DataType.numeric("DATETIME2", 6, null), true, "(getdate())", 1))
+                .build();
+        Table desired = Table.builder("APP", "SS_T2")
+                .addColumn(column("TIMEX", DataType.numeric("DATETIME2", 6, null), true, "CURRENT_TIMESTAMP", 1))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
+    @Test
+    void treatsSqlServerCatalogNumericDefaultRepresentationsAsEquivalent() {
+        Table live = Table.builder("APP", "SS_T3")
+                .addColumn(column("N1", DataType.numeric("DECIMAL", 11, 0), true, "((0))", 1))
+                .addColumn(column("N2", DataType.numeric("DECIMAL", 15, 0), true, "((999999999999.))", 2))
+                .addColumn(column("S1", DataType.varchar("VARCHAR", 8), true, "((0))", 3))
+                .build();
+        Table desired = Table.builder("APP", "SS_T3")
+                .addColumn(column("N1", DataType.numeric("NUMBER", 11, 0), true, "- 0", 1))
+                .addColumn(column("N2", DataType.numeric("NUMBER", 15, 0), true, "999999999999", 2))
+                .addColumn(column("S1", DataType.varchar("VARCHAR2", 8), true, "00", 3))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.SQLSERVER, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
 }

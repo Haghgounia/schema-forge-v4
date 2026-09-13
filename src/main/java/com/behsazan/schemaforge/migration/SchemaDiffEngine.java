@@ -142,17 +142,19 @@ public final class SchemaDiffEngine {
 
     private static boolean effectiveDesiredNullable(
             DatabasePlatform platform, Table desiredTable, Column desiredColumn) {
-        if (platform != DatabasePlatform.MARIADB && platform != DatabasePlatform.POSTGRESQL) {
+        if (platform != DatabasePlatform.MARIADB
+                && platform != DatabasePlatform.POSTGRESQL
+                && platform != DatabasePlatform.SQLSERVER) {
             return desiredColumn.nullable();
         }
         PrimaryKey primaryKey = desiredTable.primaryKey().orElse(null);
         if (primaryKey == null) return desiredColumn.nullable();
         boolean primaryKeyColumn = primaryKey.columns().stream()
                 .anyMatch(column -> column.normalized().equals(desiredColumn.name().normalized()));
-        // MariaDB and PostgreSQL report every PRIMARY KEY column as NOT NULL even
-        // when an older canonical snapshot kept the source nullable flag. The key
-        // itself supplies the effective non-nullability, so catalog normalization
-        // must not become ALTER drift.
+        // MariaDB, PostgreSQL and SQL Server report every PRIMARY KEY column as
+        // NOT NULL even when an older canonical snapshot kept the source nullable
+        // flag. The key itself supplies the effective non-nullability, so catalog
+        // normalization must not become ALTER drift.
         return primaryKeyColumn ? false : desiredColumn.nullable();
     }
 
@@ -1311,6 +1313,7 @@ public final class SchemaDiffEngine {
         String right = effectiveDesiredDefault(platform, dialect, desired);
         if (platform == DatabasePlatform.MARIADB && mariaDbDefaultsEquivalent(left, right, desired)) return true;
         if (platform == DatabasePlatform.POSTGRESQL && postgreSqlDefaultsEquivalent(left, right, desired)) return true;
+        if (platform == DatabasePlatform.SQLSERVER && sqlServerDefaultsEquivalent(left, right, desired)) return true;
         return Objects.equals(left, right);
     }
 
@@ -1330,6 +1333,25 @@ public final class SchemaDiffEngine {
     private static boolean postgreSqlDefaultsEquivalent(String left, String right, Column desired) {
         if (Objects.equals(left, right)) return true;
         if (left == null || right == null) return false;
+        BigDecimal leftNumeric = numericLiteral(left, desired, false);
+        BigDecimal rightNumeric = numericLiteral(right, desired, true);
+        return leftNumeric != null && rightNumeric != null && leftNumeric.compareTo(rightNumeric) == 0;
+    }
+
+    private static boolean sqlServerDefaultsEquivalent(String left, String right, Column desired) {
+        if (Objects.equals(left, right)) return true;
+        if (left == null || right == null) return false;
+
+        // SQL Server catalogs CURRENT_TIMESTAMP defaults as GETDATE(). Both are
+        // documented synonyms and represent the same statement-start timestamp.
+        if ((left.equals("GETDATE()") && right.equals("CURRENT_TIMESTAMP"))
+                || (right.equals("GETDATE()") && left.equals("CURRENT_TIMESTAMP"))) {
+            return true;
+        }
+
+        // SQL Server strips redundant parentheses and canonicalizes unquoted
+        // numeric literals in default constraints (for example ((0)), 00, -0,
+        // or 999999999999.). Compare their numeric value without rewriting DDL.
         BigDecimal leftNumeric = numericLiteral(left, desired, false);
         BigDecimal rightNumeric = numericLiteral(right, desired, true);
         return leftNumeric != null && rightNumeric != null && leftNumeric.compareTo(rightNumeric) == 0;

@@ -62,6 +62,20 @@ class EaGenerationOrchestratorTest {
         String runAll = new String(entries.get(runAllName), StandardCharsets.UTF_8);
         assertTrue(runAll.indexOf("FEE.FEE_VERSION_" + TIMESTAMP + ".oracle.sql")
                 < runAll.indexOf("FEE.REGULATORY_RULE_" + TIMESTAMP + ".oracle.sql"));
+        assertTrue(runAll.contains("PHASE 1 - TABLES"));
+        assertTrue(runAll.contains("PHASE 3 - FOREIGN KEYS"));
+        assertTrue(runAll.lastIndexOf("CREATE TABLE") < runAll.indexOf("FOREIGN KEY"));
+
+        long runAllCount = entries.entrySet().stream()
+                .filter(entry -> entry.getKey().endsWith(".run-all.sql"))
+                .peek(entry -> {
+                    String sql = new String(entry.getValue(), StandardCharsets.UTF_8);
+                    assertTrue(sql.contains("CREATE TABLE"), entry.getKey());
+                    assertTrue(sql.contains("PHASE 3 - FOREIGN KEYS"), entry.getKey());
+                    assertTrue(sql.lastIndexOf("CREATE TABLE") < sql.indexOf("FOREIGN KEY"), entry.getKey());
+                })
+                .count();
+        assertEquals(DatabasePlatform.values().length, runAllCount);
 
         String summary = new String(
                 entries.get("reports/schemaforge-generation-summary.txt"), StandardCharsets.UTF_8);
@@ -75,6 +89,28 @@ class EaGenerationOrchestratorTest {
         assertEquals("schemaforge-manifest/v1", manifest.path("manifestContract").asText());
         assertEquals(2, manifest.path("extensions").path("enterpriseArchitect")
                 .path("dependencyOrder").size());
+    }
+
+
+    @Test
+    void reportsOnlyTrueCycleMembersAndKeepsDownstreamTablesOutOfCycleList() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "TST");
+        PreparedSchema prepared = orchestrator.prepare(cycleFile(), "ea-cycle.xml", null);
+        Map<String, byte[]> entries = unzip(orchestrator.generate(
+                prepared,
+                "ea-cycle",
+                context("ea-cycle.xml"),
+                null,
+                java.util.Set.of(DatabasePlatform.ORACLE)));
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        JsonNode cyclic = manifest.path("extensions").path("enterpriseArchitect").path("cyclicTables");
+        assertEquals(2, cyclic.size());
+        String cyclicText = cyclic.toString();
+        assertTrue(cyclicText.contains("TST.A"));
+        assertTrue(cyclicText.contains("TST.B"));
+        assertFalse(cyclicText.contains("TST.C"));
     }
 
     @Test
@@ -157,6 +193,39 @@ class EaGenerationOrchestratorTest {
                 TestSamplePaths.EA_SAMPLE.getFileName().toString(),
                 "application/xml",
                 Files.readAllBytes(TestSamplePaths.EA_SAMPLE));
+    }
+
+
+    private static MockMultipartFile cycleFile() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content><UML:Model name="EA Model" xmi.id="MODEL"><UML:Namespace.ownedElement>
+                    <UML:Class name="A" xmi.id="A"><UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype><UML:Classifier.feature>
+                      <UML:Attribute name="ID"><UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype><UML:ModelElement.taggedValue><UML:TaggedValue tag="type" value="NUMBER"/><UML:TaggedValue tag="precision" value="19"/><UML:TaggedValue tag="scale" value="0"/><UML:TaggedValue tag="position" value="0"/><UML:TaggedValue tag="lowerBound" value="1"/></UML:ModelElement.taggedValue></UML:Attribute>
+                      <UML:Attribute name="B_ID"><UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype><UML:ModelElement.taggedValue><UML:TaggedValue tag="type" value="NUMBER"/><UML:TaggedValue tag="precision" value="19"/><UML:TaggedValue tag="scale" value="0"/><UML:TaggedValue tag="position" value="1"/><UML:TaggedValue tag="lowerBound" value="1"/></UML:ModelElement.taggedValue></UML:Attribute>
+                      <UML:Operation name="PK_A"><UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype><UML:BehavioralFeature.parameter><UML:Parameter name="ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter></UML:BehavioralFeature.parameter></UML:Operation>
+                      <UML:Operation name="FK_A_B"><UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype><UML:BehavioralFeature.parameter><UML:Parameter name="B_ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter></UML:BehavioralFeature.parameter></UML:Operation>
+                    </UML:Classifier.feature></UML:Class>
+                    <UML:Class name="B" xmi.id="B"><UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype><UML:Classifier.feature>
+                      <UML:Attribute name="ID"><UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype><UML:ModelElement.taggedValue><UML:TaggedValue tag="type" value="NUMBER"/><UML:TaggedValue tag="precision" value="19"/><UML:TaggedValue tag="scale" value="0"/><UML:TaggedValue tag="position" value="0"/><UML:TaggedValue tag="lowerBound" value="1"/></UML:ModelElement.taggedValue></UML:Attribute>
+                      <UML:Attribute name="A_ID"><UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype><UML:ModelElement.taggedValue><UML:TaggedValue tag="type" value="NUMBER"/><UML:TaggedValue tag="precision" value="19"/><UML:TaggedValue tag="scale" value="0"/><UML:TaggedValue tag="position" value="1"/><UML:TaggedValue tag="lowerBound" value="1"/></UML:ModelElement.taggedValue></UML:Attribute>
+                      <UML:Operation name="PK_B"><UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype><UML:BehavioralFeature.parameter><UML:Parameter name="ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter></UML:BehavioralFeature.parameter></UML:Operation>
+                      <UML:Operation name="FK_B_A"><UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype><UML:BehavioralFeature.parameter><UML:Parameter name="A_ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter></UML:BehavioralFeature.parameter></UML:Operation>
+                    </UML:Classifier.feature></UML:Class>
+                    <UML:Class name="C" xmi.id="C"><UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype><UML:Classifier.feature>
+                      <UML:Attribute name="ID"><UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype><UML:ModelElement.taggedValue><UML:TaggedValue tag="type" value="NUMBER"/><UML:TaggedValue tag="precision" value="19"/><UML:TaggedValue tag="scale" value="0"/><UML:TaggedValue tag="position" value="0"/><UML:TaggedValue tag="lowerBound" value="1"/></UML:ModelElement.taggedValue></UML:Attribute>
+                      <UML:Attribute name="A_ID"><UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype><UML:ModelElement.taggedValue><UML:TaggedValue tag="type" value="NUMBER"/><UML:TaggedValue tag="precision" value="19"/><UML:TaggedValue tag="scale" value="0"/><UML:TaggedValue tag="position" value="1"/><UML:TaggedValue tag="lowerBound" value="1"/></UML:ModelElement.taggedValue></UML:Attribute>
+                      <UML:Operation name="PK_C"><UML:ModelElement.stereotype><UML:Stereotype name="PK"/></UML:ModelElement.stereotype><UML:BehavioralFeature.parameter><UML:Parameter name="ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter></UML:BehavioralFeature.parameter></UML:Operation>
+                      <UML:Operation name="FK_C_A"><UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype><UML:BehavioralFeature.parameter><UML:Parameter name="A_ID" kind="in"><UML:ModelElement.taggedValue><UML:TaggedValue tag="pos" value="0"/></UML:ModelElement.taggedValue></UML:Parameter></UML:BehavioralFeature.parameter></UML:Operation>
+                    </UML:Classifier.feature></UML:Class>
+                    <UML:Association name="(B_ID = ID)" xmi.id="AB"><UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype><UML:Association.connection><UML:AssociationEnd name="FK_A_B" type="A"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="source"/></UML:ModelElement.taggedValue></UML:AssociationEnd><UML:AssociationEnd name="PK_B" type="B"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="target"/></UML:ModelElement.taggedValue></UML:AssociationEnd></UML:Association.connection></UML:Association>
+                    <UML:Association name="(A_ID = ID)" xmi.id="BA"><UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype><UML:Association.connection><UML:AssociationEnd name="FK_B_A" type="B"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="source"/></UML:ModelElement.taggedValue></UML:AssociationEnd><UML:AssociationEnd name="PK_A" type="A"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="target"/></UML:ModelElement.taggedValue></UML:AssociationEnd></UML:Association.connection></UML:Association>
+                    <UML:Association name="(A_ID = ID)" xmi.id="CA"><UML:ModelElement.stereotype><UML:Stereotype name="FK"/></UML:ModelElement.stereotype><UML:Association.connection><UML:AssociationEnd name="FK_C_A" type="C"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="source"/></UML:ModelElement.taggedValue></UML:AssociationEnd><UML:AssociationEnd name="PK_A" type="A"><UML:ModelElement.taggedValue><UML:TaggedValue tag="ea_end" value="target"/></UML:ModelElement.taggedValue></UML:AssociationEnd></UML:Association.connection></UML:Association>
+                  </UML:Namespace.ownedElement></UML:Model></XMI.content>
+                </XMI>
+                """;
+        return new MockMultipartFile("file", "ea-cycle.xml", "application/xml", xml.getBytes(StandardCharsets.UTF_8));
     }
 
     private static ArtifactGenerationContext context(String sourceName) {
