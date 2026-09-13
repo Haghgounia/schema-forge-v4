@@ -8,6 +8,8 @@ import com.behsazan.schemaforge.dialect.db2luw.Db2LuwTypeMapper;
 import com.behsazan.schemaforge.dialect.oracle.OracleDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.dialect.mysql.MySqlTypeMapper;
+import com.behsazan.schemaforge.dialect.mariadb.MariaDbDialect;
+import com.behsazan.schemaforge.dialect.mariadb.MariaDbTypeMapper;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlDialect;
 import com.behsazan.schemaforge.dialect.postgresql.PostgreSqlTypeMapper;
 import com.behsazan.schemaforge.dialect.sqlserver.SqlServerDialect;
@@ -75,6 +77,8 @@ public final class DatatypeCompatibilityAnalyzer {
                     analyzeSqlServer(type, sourceName, path, issues);
                 } else if (dialect instanceof MySqlDialect) {
                     analyzeMySql(type, sourceName, path, issues);
+                } else if (dialect instanceof MariaDbDialect) {
+                    analyzeMariaDb(type, sourceName, path, issues);
                 } else if (dialect instanceof Db2ZosDialect) {
                     analyzeDb2Zos(type, sourceName, path, issues);
                 } else if (dialect instanceof Db2LuwDialect) {
@@ -239,6 +243,102 @@ public final class DatatypeCompatibilityAnalyzer {
         error(issues, "MYSQL_DATATYPE_UNSUPPORTED", path,
                 "Canonical datatype " + renderType(sourceName, type)
                         + " is outside the current MySQL logical datatype coverage.");
+    }
+
+    private void analyzeMariaDb(
+            DataType type, String sourceName, String path, List<ValidationIssue> issues) {
+        if (EXACT_NUMERIC.contains(sourceName)) {
+            if (type.precision() == null) {
+                unspecifiedNumericPrecision(
+                        issues, path, sourceName,
+                        "MariaDB DECIMAL(" + MariaDbTypeMapper.MAX_DECIMAL_PRECISION + ",0)");
+                return;
+            }
+            if (type.precision() > MariaDbTypeMapper.MAX_DECIMAL_PRECISION) {
+                error(issues, "MARIADB_DECIMAL_PRECISION_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds MariaDB DECIMAL precision "
+                                + MariaDbTypeMapper.MAX_DECIMAL_PRECISION
+                                + "; no target precision is invented or clamped.");
+            }
+            if (type.scale() != null && type.scale() > MariaDbTypeMapper.MAX_DECIMAL_SCALE) {
+                error(issues, "MARIADB_DECIMAL_SCALE_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds MariaDB DECIMAL scale " + MariaDbTypeMapper.MAX_DECIMAL_SCALE
+                                + "; no target scale is invented or clamped.");
+            }
+            return;
+        }
+        if (MYSQL_VARIABLE_CHARACTER.contains(sourceName) && type.length() == null) {
+            error(issues, "MARIADB_CHARACTER_LENGTH_REQUIRED", path,
+                    "Canonical " + sourceName
+                            + " has no explicit length; SchemaForge does not invent a MariaDB character length.");
+            return;
+        }
+        if (MYSQL_FIXED_CHARACTER.contains(sourceName)) {
+            if (type.length() == null) {
+                error(issues, "MARIADB_CHARACTER_LENGTH_REQUIRED", path,
+                        "Canonical " + sourceName
+                                + " has no explicit length; SchemaForge does not invent a MariaDB character length.");
+                return;
+            }
+            if (type.length() > MariaDbTypeMapper.MAX_FIXED_CHAR_LENGTH) {
+                error(issues, "MARIADB_FIXED_CHAR_LENGTH_UNSUPPORTED", path,
+                        "Canonical " + sourceName + "(" + type.length() + ") exceeds MariaDB fixed CHAR length "
+                                + MariaDbTypeMapper.MAX_FIXED_CHAR_LENGTH
+                                + "; SchemaForge does not guess a VARCHAR/TEXT replacement.");
+                return;
+            }
+        }
+        if (MYSQL_BINARY.contains(sourceName) && type.length() == null) {
+            error(issues, "MARIADB_BINARY_LENGTH_REQUIRED", path,
+                    "Canonical " + sourceName
+                            + " has no explicit length; SchemaForge does not invent a MariaDB VARBINARY length.");
+            return;
+        }
+        if (MYSQL_TEMPORAL.contains(sourceName)
+                && type.precision() != null
+                && type.precision() > MariaDbTypeMapper.MAX_TEMPORAL_PRECISION) {
+            error(issues, "MARIADB_TEMPORAL_PRECISION_UNSUPPORTED", path,
+                    "Canonical " + sourceName + "(" + type.precision() + ") exceeds MariaDB temporal precision "
+                            + MariaDbTypeMapper.MAX_TEMPORAL_PRECISION
+                            + "; no target precision is invented or clamped.");
+            return;
+        }
+        if (MYSQL_TIMESTAMP_WITH_TIME_ZONE.contains(sourceName)) {
+            warning(issues, "MARIADB_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION", path,
+                    "Canonical " + sourceName
+                            + " has no lossless native MariaDB temporal mapping; generated MariaDB DDL uses "
+                            + "the explicit MARIADB-TSTZ-TEXT-001 VARCHAR(128) portability envelope.");
+            return;
+        }
+        if (MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE.contains(sourceName)) {
+            error(issues, "MARIADB_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
+                    "Canonical " + sourceName
+                            + " has session-local timezone semantics for which the current MariaDB dialect "
+                            + "has no safe portability adaptation.");
+            return;
+        }
+        if (MYSQL_UNSUPPORTED_ROWID.contains(sourceName)) {
+            error(issues, "MARIADB_ROWID_UNSUPPORTED", path,
+                    "Canonical " + sourceName
+                            + " carries Oracle row locator semantics for which MariaDB has no lossless logical mapping.");
+            return;
+        }
+        if (MYSQL_VARIABLE_CHARACTER.contains(sourceName)
+                || MYSQL_FIXED_CHARACTER.contains(sourceName)
+                || MYSQL_BINARY.contains(sourceName)
+                || MYSQL_TEMPORAL.contains(sourceName)
+                || Set.of("INT", "INTEGER", "BINARY_INTEGER", "PLS_INTEGER", "BIGINT", "SMALLINT", "TINYINT",
+                          "BINARY_DOUBLE", "DOUBLE", "DOUBLE PRECISION", "BINARY_FLOAT", "FLOAT", "REAL",
+                          "CLOB", "NCLOB", "LONG", "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT",
+                          "BLOB", "LONG RAW", "LONG_RAW", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB",
+                          "DATE", "BOOLEAN", "BOOL", "JSON", "XMLTYPE", "XML").contains(sourceName)) {
+            return;
+        }
+        error(issues, "MARIADB_DATATYPE_UNSUPPORTED", path,
+                "Canonical datatype " + renderType(sourceName, type)
+                        + " is outside the current MariaDB lossless datatype coverage.");
     }
 
     private void analyzeDb2Zos(

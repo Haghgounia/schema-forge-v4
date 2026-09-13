@@ -1,3 +1,19 @@
+## 2026-09-13 - M11.1 MariaDB external-audit unsupported-type resilience
+
+- Fixed `MetadataComparisonValidator` so live audit does not abort when a native MariaDB datatype is intentionally outside lossless SchemaForge rendering coverage.
+- Metadata convention comparison now falls back to the live/native canonical signature; `DatatypeCompatibilityAnalyzer` remains the authoritative source of `MARIADB_DATATYPE_UNSUPPORTED`.
+- Added regression coverage for live `MEDIUMINT` audit behavior.
+
+## M11 - MariaDB external database auditing / validation qualification (2026-09-13)
+
+- Applies the project policy that malformed historical/documentation-only FK declarations are non-blocking for DBMS capability qualification when correctly specified physical FKs are proven end-to-end.
+- Reuses the existing production `SchemaConformanceAuditService` and `JdbcMariaDbMetadataRepository` rather than building a parallel auditor.
+- Adds `MariaDbExternalDatabaseAuditM11IT`: the fixture schema is created directly through JDBC (outside SchemaForge), then one table and the whole schema are audited read-only.
+- Proves a valid external MariaDB FK is read from the catalog and produces no referential-integrity error, while real external issues such as a missing PK remain reportable.
+- Adds the missing independent MariaDB branch to `DatatypeCompatibilityAnalyzer`; MariaDB no longer silently skips datatype compatibility analysis just because `MariaDbDialect` is not a `MySqlDialect`.
+- Adds focused MariaDB datatype analyzer tests for precision, fixed CHAR limits, ROWID, timezone policy, supported types, and unsupported live-native types.
+- M11 does not change canonical historical winner selection, DDL generation, database migration, or the M10 convergence contract.
+
 ## M10.6 - MariaDB catalog semantic normalization (2026-09-12)
 
 - Trigger: M10.5 re-read all 1,907 persistent pilot tables with zero missing tables and exact column/PK/FK counts, but reported 1,354 residual changes (1,324 column + 30 object).

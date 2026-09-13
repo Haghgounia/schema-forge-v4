@@ -91,8 +91,7 @@ public final class MetadataComparisonValidator {
                 String path = path(table, column);
                 if (metadataAvailable) frequencies.put(path, profile == null ? 0L : profile.totalFrequency());
                 if (profile == null) continue;
-                String documentType = MetadataTypeFrequency.normalize(
-                        dialect.sqlType(normalizedSchema, table, column));
+                String documentType = comparableDocumentType(normalizedSchema, table, column);
                 boolean knownType = profile.typeFrequencies().stream().anyMatch(item ->
                         typeEquivalence.equivalent(
                                 dialect.name(), documentType, item.typeSignature(),
@@ -105,6 +104,44 @@ public final class MetadataComparisonValidator {
         }
         return new MetadataComparisonResult(issues, frequencies, resolvedForeignKeySchemas,
                 schemaExistence, metadataAvailable);
+    }
+
+    /**
+     * Returns a best-effort SQL type signature for metadata convention comparison.
+     *
+     * <p>Live database auditing can legitimately encounter a native datatype that the
+     * SchemaForge target dialect intentionally refuses to render losslessly. Metadata
+     * comparison must not turn that audit finding into a control-flow exception. The
+     * dedicated datatype compatibility analyzer owns the unsupported-type finding; this
+     * validator falls back to the canonical/native signature so the rest of the schema can
+     * still be audited.</p>
+     */
+    private String comparableDocumentType(DatabaseSchema schema, Table table, Column column) {
+        try {
+            return MetadataTypeFrequency.normalize(dialect.sqlType(schema, table, column));
+        } catch (IllegalArgumentException unsupportedMapping) {
+            return MetadataTypeFrequency.normalize(canonicalTypeSignature(column));
+        }
+    }
+
+    private static String canonicalTypeSignature(Column column) {
+        String nativeType = column.physicalOptions().entrySet().stream()
+                .filter(entry -> entry.getKey() != null
+                        && entry.getKey().toUpperCase(Locale.ROOT).endsWith("_NATIVE_COLUMN_TYPE"))
+                .map(Map.Entry::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
+        if (nativeType != null) return nativeType;
+
+        var type = column.dataType();
+        String name = type.name().value();
+        if (type.length() != null) return name + "(" + type.length() + ")";
+        if (type.precision() != null) {
+            if (type.scale() != null) return name + "(" + type.precision() + "," + type.scale() + ")";
+            return name + "(" + type.precision() + ")";
+        }
+        return name;
     }
 
     private Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
