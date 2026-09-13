@@ -1,8 +1,5 @@
-SchemaForge V4 4.0.1 - M7.1 MariaDB test hotfix
-
-Replace:
-src\test\java\com\behsazan\schemaforge\migration\MariaDbMigrationSqlRendererTest.java
-
-The corrected structural-add assertions are:
-assertTrue(sql.contains("ADD CONSTRAINT `FK_CHILDREN_PARENT_ID` FOREIGN KEY"));
-assertFalse(sql.contains("ADD CONSTRAINT `FK_CHILDREN_PARENT` FOREIGN KEY"));
+SchemaForge PostgreSQL PG-P10 Delta
+===================================
+Copy the contents of this ZIP over D:\Projects\schema-forge-v4 preserving paths.
+This phase adds only PostgreSQL external-audit qualification test/evidence documentation.
+No production code is changed by PG-P10.

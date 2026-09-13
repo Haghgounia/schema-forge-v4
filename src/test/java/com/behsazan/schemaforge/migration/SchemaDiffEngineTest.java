@@ -487,6 +487,59 @@ class SchemaDiffEngineTest {
     }
 
     @Test
+    void treatsPostgreSqlPrimaryKeyCatalogNotNullAsEquivalentToNullableSourceFlag() {
+        Column liveId = column("ID", DataType.numeric("NUMERIC", 8, 0), false, null, 1);
+        Column desiredId = column("ID", DataType.numeric("NUMBER", 8, 0), true, null, 1);
+        Table live = Table.builder("APP", "PG_T1").addColumn(liveId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_PG_T1"), List.of(Identifier.of("ID"))))
+                .build();
+        Table desired = Table.builder("APP", "PG_T1").addColumn(desiredId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_PG_T1"), List.of(Identifier.of("ID"))))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.POSTGRESQL, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_NULLABILITY));
+    }
+
+    @Test
+    void treatsPostgreSqlTypedNullDefaultsAsEquivalentToCanonicalNull() {
+        Column liveText = column("S", DataType.varchar("VARCHAR", 30), true, "NULL::character varying", 1);
+        Column desiredText = column("S", DataType.varchar("VARCHAR2", 30), true, "NULL", 1);
+        Column liveNumber = column("N", DataType.numeric("NUMERIC", 10, 0), true, "NULL::numeric", 2);
+        Column desiredNumber = column("N", DataType.numeric("NUMBER", 10, 0), true, "NULL", 2);
+        Table live = Table.builder("APP", "PG_T2").addColumn(liveText).addColumn(liveNumber).build();
+        Table desired = Table.builder("APP", "PG_T2").addColumn(desiredText).addColumn(desiredNumber).build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.POSTGRESQL, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
+    @Test
+    void treatsPostgreSqlCatalogNumericDefaultRepresentationsAsEquivalent() {
+        Table live = Table.builder("APP", "PG_T3")
+                .addColumn(column("N1", DataType.simple("INTEGER"), true, "'-1'::integer", 1))
+                .addColumn(column("N2", DataType.numeric("NUMERIC", 10, 2), true, "'1'::numeric", 2))
+                .addColumn(column("N3", DataType.numeric("NUMERIC", 10, 0), true, "0", 3))
+                .addColumn(column("N4", DataType.simple("BIGINT"), true, "'999999999999'::bigint", 4))
+                .build();
+        Table desired = Table.builder("APP", "PG_T3")
+                .addColumn(column("N1", DataType.simple("INTEGER"), true, "-1", 1))
+                .addColumn(column("N2", DataType.numeric("NUMBER", 10, 2), true, "1.", 2))
+                .addColumn(column("N3", DataType.numeric("NUMBER", 10, 0), true, "- 0", 3))
+                .addColumn(column("N4", DataType.simple("BIGINT"), true, "999999999999", 4))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.POSTGRESQL, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
+    @Test
     void treatsMariaDbPrimaryKeyCatalogNotNullAsEquivalentToNullableSourceFlag() {
         Column liveId = column("ID", DataType.numeric("DECIMAL", 8, 0), false, null, 1);
         Column desiredId = column("ID", DataType.numeric("NUMBER", 8, 0), true, null, 1);

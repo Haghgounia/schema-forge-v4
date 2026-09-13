@@ -76,9 +76,9 @@ schemaforge:
 
     postgresql:
       enabled: true
-      url: jdbc:postgresql://localhost:5433/postgres
+      url: jdbc:postgresql://10.1.60.51:5432/postgres
       username: postgres
-      password: 123456
+      password: postgres@123456
       driver-class-name: org.postgresql.Driver
 
     # Disabled by default because IBM JCC is not bundled with the project.

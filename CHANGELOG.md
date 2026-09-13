@@ -1,3 +1,14 @@
+## 2026-09-13 - PostgreSQL PG-P7/P9 MariaDB-parity qualification track
+
+- Starts PostgreSQL parity qualification against the MariaDB reference baseline without adding product features or changing production DDL semantics.
+- Adds `CanonicalJsonPostgreSqlClosedSubsetP7IT`, reusing the DBMS-neutral M10.1 selection manifest to derive a deterministic dependency-closed PostgreSQL pilot cohort with no historical guessing and no FK/type rewrite.
+- P7 excludes only tables that cannot render/sanity-check locally for PostgreSQL and then transitively prunes only FK-owner tables that still have blocking physical-FK errors; every exclusion is emitted as evidence.
+- P7 emits one integrated PostgreSQL SQL file through the existing `IntegratedSchemaDeploymentPlanner` and `IntegratedSqlRenderer`.
+- PG-P8 intentionally reuses the existing `PostgreSqlDirectoryExecutionTest` in `FULL` mode for persistent live deployment; no duplicate execution runner is introduced.
+- Adds `PostgreSqlPersistentCatalogConvergenceP9IT`, a read-only post-deployment gate that reloads the exact P7 selected snapshots, re-reads live PostgreSQL metadata, and runs the existing `SchemaDiffEngine` table-by-table.
+- P9 reports missing/extra tables, object counts and residual column/object drift; the qualification target is cohort residual drift = 0.
+- Existing PostgreSQL PG-P1..P6 evidence and PostgreSQL M2 live migration convergence remain unchanged.
+
 ## 2026-09-13 - M11.1 MariaDB external-audit unsupported-type resilience
 
 - Fixed `MetadataComparisonValidator` so live audit does not abort when a native MariaDB datatype is intentionally outside lossless SchemaForge rendering coverage.
@@ -2414,3 +2425,17 @@
 - Retained integrated FULL FK evidence: 15 tables, 13 resolved FKs, 274 statements, zero failures.
 - Retained SQL Server M2 live evidence: 20 statements, residual zero, data preserved.
 - No production code, generated SQL, Legacy Word, canonical JSON, or database state is changed by the closure gate.
+
+## PG-P9.1 - PostgreSQL catalog semantic normalization (2026-09-13)
+
+- normalized PostgreSQL primary-key implied NOT NULL semantics during schema diff
+- normalized PostgreSQL typed NULL defaults such as `NULL::character varying` and `NULL::numeric`
+- normalized equivalent numeric catalog defaults such as `'-1'::integer`, `'1'::numeric`, `- 0`, and zero-padded literals
+- added PostgreSQL regression coverage to `SchemaDiffEngineTest`
+- no DDL generation or database mutation changes; PG-P9 remains read-only
+
+## 4.0.1 - PostgreSQL PG-P10 External Database Audit Qualification (2026-09-13)
+
+- Added `PostgreSqlExternalDatabaseAuditP10IT` to qualify the existing read-only `SchemaConformanceAuditService` against a PostgreSQL schema created directly through JDBC outside SchemaForge.
+- The fixture proves live Table/Schema audit, valid FK catalog read-back, missing-PK detection, PostgreSQL datatype rule execution, and no audit mutation.
+- No production feature, DDL mapping, or legacy FK reconciliation logic was added.

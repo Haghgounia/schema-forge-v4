@@ -142,14 +142,17 @@ public final class SchemaDiffEngine {
 
     private static boolean effectiveDesiredNullable(
             DatabasePlatform platform, Table desiredTable, Column desiredColumn) {
-        if (platform != DatabasePlatform.MARIADB) return desiredColumn.nullable();
+        if (platform != DatabasePlatform.MARIADB && platform != DatabasePlatform.POSTGRESQL) {
+            return desiredColumn.nullable();
+        }
         PrimaryKey primaryKey = desiredTable.primaryKey().orElse(null);
         if (primaryKey == null) return desiredColumn.nullable();
         boolean primaryKeyColumn = primaryKey.columns().stream()
                 .anyMatch(column -> column.normalized().equals(desiredColumn.name().normalized()));
-        // MariaDB reports every PRIMARY KEY column as NOT NULL even when the source
-        // canonical column flag was nullable. The key itself supplies the effective
-        // non-nullability, so that catalog normalization must not become ALTER drift.
+        // MariaDB and PostgreSQL report every PRIMARY KEY column as NOT NULL even
+        // when an older canonical snapshot kept the source nullable flag. The key
+        // itself supplies the effective non-nullability, so catalog normalization
+        // must not become ALTER drift.
         return primaryKeyColumn ? false : desiredColumn.nullable();
     }
 
@@ -1307,6 +1310,7 @@ public final class SchemaDiffEngine {
                 ? normalizeDefault(platform, live.defaultValue().expression()) : null;
         String right = effectiveDesiredDefault(platform, dialect, desired);
         if (platform == DatabasePlatform.MARIADB && mariaDbDefaultsEquivalent(left, right, desired)) return true;
+        if (platform == DatabasePlatform.POSTGRESQL && postgreSqlDefaultsEquivalent(left, right, desired)) return true;
         return Objects.equals(left, right);
     }
 
@@ -1320,12 +1324,24 @@ public final class SchemaDiffEngine {
     }
 
     private static BigDecimal mariaDbNumericLiteral(String value, Column desired, boolean desiredSide) {
+        return numericLiteral(value, desired, desiredSide);
+    }
+
+    private static boolean postgreSqlDefaultsEquivalent(String left, String right, Column desired) {
+        if (Objects.equals(left, right)) return true;
+        if (left == null || right == null) return false;
+        BigDecimal leftNumeric = numericLiteral(left, desired, false);
+        BigDecimal rightNumeric = numericLiteral(right, desired, true);
+        return leftNumeric != null && rightNumeric != null && leftNumeric.compareTo(rightNumeric) == 0;
+    }
+
+    private static BigDecimal numericLiteral(String value, Column desired, boolean desiredSide) {
         if (value == null) return null;
         String token = value.trim();
         boolean quoted = token.length() >= 2 && token.startsWith("'") && token.endsWith("'");
         String candidate = quoted ? token.substring(1, token.length() - 1).replace("''", "'") : token;
-        if (quoted && desiredSide && !mariaDbNumericColumn(desired)) return null;
-        if (quoted && !desiredSide && !mariaDbNumericColumn(desired)) {
+        if (quoted && desiredSide && !numericColumn(desired)) return null;
+        if (quoted && !desiredSide && !numericColumn(desired)) {
             String desiredExpression = desired.defaultValue().isPresent()
                     ? normalizeExpression(desired.defaultValue().expression()) : null;
             if (desiredExpression == null || desiredExpression.startsWith("'")) return null;
@@ -1339,7 +1355,7 @@ public final class SchemaDiffEngine {
         }
     }
 
-    private static boolean mariaDbNumericColumn(Column column) {
+    private static boolean numericColumn(Column column) {
         String name = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
         return Set.of(
                 "NUMBER", "NUMERIC", "DECIMAL", "DEC", "INTEGER", "INT", "SMALLINT", "BIGINT",
@@ -1364,6 +1380,7 @@ public final class SchemaDiffEngine {
         String normalized = normalizeExpression(value);
         if (normalized == null || normalized.equals("NULL")) return null;
         if (platform == DatabasePlatform.POSTGRESQL) {
+            if (normalized.matches("^NULL::[A-Z0-9_ ]+(?:\\(\\d+(?:,\\d+)?\\))?$")) return null;
             Matcher literalCast = Pattern.compile(
                     "^('(?:[^']|'')*'|[-+]?\\d+(?:\\.\\d+)?)::[A-Z0-9_ ]+(?:\\(\\d+(?:,\\d+)?\\))?$")
                     .matcher(normalized);
