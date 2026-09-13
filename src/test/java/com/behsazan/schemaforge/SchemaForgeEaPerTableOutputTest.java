@@ -151,7 +151,10 @@ class SchemaForgeEaPerTableOutputTest {
                 < db2ZosRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".db2zos.sql"));
         String sqlServerRunAll = new String(entries.get(sqlServerRunAllName), StandardCharsets.UTF_8);
         assertTrue(sqlServerRunAll.contains(
-                ":r ../../ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
+                "--   ../../ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"));
+        assertFalse(sqlServerRunAll.contains(
+                ":r ../../ddl/sqlserver/FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql"),
+                "integrated run-all must not execute per-table artifacts via sqlcmd :r");
         assertTrue(sqlServerRunAll.indexOf("FEE.FEE_VERSION_" + timestamp + ".sqlserver.sql")
                 < sqlServerRunAll.indexOf("FEE.REGULATORY_RULE_" + timestamp + ".sqlserver.sql"));
         String mysqlRunAll = new String(entries.get(mysqlRunAllName), StandardCharsets.UTF_8);
