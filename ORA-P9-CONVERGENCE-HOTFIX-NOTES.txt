@@ -1,0 +1,24 @@
+SchemaForge v4 - Oracle ORA-P9 catalog convergence hotfix
+
+Scope:
+1. Treat OracleIdentifierPolicy physical aliases (e.g. USER -> SF_USER, ROWID -> SF_ROWID) as equivalent in SchemaDiffEngine.
+2. Treat Oracle PRIMARY KEY columns as effectively NOT NULL during catalog convergence.
+3. Ignore non-semantic trailing SQL line comments persisted by Oracle in DATA_DEFAULT while preserving -- inside string literals.
+4. Make ORA-P9 table-set comparison and table lookup use Oracle physical table identifiers.
+5. Add regression tests for the three observed residual families.
+
+Observed P9 evidence before hotfix:
+- Missing expected tables: 1 (TSTSHMA.USER; live physical table is TSTSHMA.SF_USER)
+- Residuals: 1390
+  * 991 ALTER_NULLABILITY
+  * 159 ADD_COLUMN reserved logical names
+  * 159 DROP_COLUMN corresponding SF_ physical aliases
+  * 79 PRIMARY_KEY REPLACE on those alias-bearing tables
+  * 2 ALTER_DEFAULT caused by trailing -- W:NUMERIC_PRECISION_UNSPEC catalog text
+
+Expected after hotfix on the same persistent ORA-P8 database:
+- Missing expected tables: 0
+- Expected tables compared: 1888
+- Residual changes total: 0
+- Cohort converged: true
+- Extra live tables may remain because failOnExtraTables=false.

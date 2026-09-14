@@ -1,3 +1,9 @@
+## 2026-09-14 - Oracle ORA-P7 Phase-4 metadata preflight follow-up
+
+- ORA-P7 local table preflight now includes integrated Phase-4 metadata statements (table/column comments and grants), not only CREATE/local-object phases.
+- Unsupported comment control characters such as U+001F are therefore attributed to and exclude the owning table before dependency closure, instead of aborting final integrated rendering for the entire cohort.
+- No comment sanitization, datatype rewrite, FK rewrite, or historical winner guessing is introduced; `COMMENT_LITERAL_CONTROL_CHAR_UNSUPPORTED` remains fail-closed evidence.
+
 ## 2026-09-14 - FK / infrastructure existence-awareness hotfix
 
 - SQL Server EA per-table DDL now reuses the integrated FK type-compatibility gate. An unsafe FK
@@ -2526,3 +2532,11 @@
 - Added `PostgreSqlExternalDatabaseAuditP10IT` to qualify the existing read-only `SchemaConformanceAuditService` against a PostgreSQL schema created directly through JDBC outside SchemaForge.
 - The fixture proves live Table/Schema audit, valid FK catalog read-back, missing-PK detection, PostgreSQL datatype rule execution, and no audit mutation.
 - No production feature, DDL mapping, or legacy FK reconciliation logic was added.
+
+## 2026-09-14 - Oracle parity qualification ORA-P7..P10
+
+- Added `CanonicalJsonOracleClosedSubsetP7IT` for deterministic dependency-closed Oracle integrated cohort generation from the retained selection contract.
+- Added `OracleIntegratedPersistentDeploymentP8IT` for guarded persistent execution of the exact ORA-P7 integrated script.
+- Added `OraclePersistentCatalogConvergenceP9IT` for read-only Oracle catalog reread and residual diff evidence.
+- Added `OracleExternalDatabaseAuditP10IT` for direct-JDBC, external-object audit qualification using the production Oracle metadata repository and conformance service.
+- Preserved No-Guess / No-Lossy behavior: no synthetic PK/UK/FK, no inferred rename, no datatype coercion.

@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.dialect.oracle.OracleIdentifierPolicy;
 import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
@@ -59,7 +60,7 @@ public final class SchemaDiffEngine {
         Objects.requireNonNull(platform, "platform must not be null");
         Objects.requireNonNull(liveTable, "liveTable must not be null");
         Objects.requireNonNull(desiredTable, "desiredTable must not be null");
-        requireSameTable(liveTable, desiredTable);
+        requireSameTable(platform, liveTable, desiredTable);
         Table normalizedDesired = new SpecificationNormalizer().normalize(desiredTable);
 
         Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
@@ -73,14 +74,14 @@ public final class SchemaDiffEngine {
 
     private List<ColumnChange> diffColumns(
             DatabasePlatform platform, Dialect dialect, Table liveTable, Table desiredTable) {
-        Map<String, Column> liveByName = byName(liveTable.columns());
-        Map<String, Column> desiredByName = byName(desiredTable.columns());
+        Map<String, Column> liveByName = byName(platform, liveTable.columns());
+        Map<String, Column> desiredByName = byName(platform, desiredTable.columns());
         List<ColumnChange> changes = new ArrayList<>();
 
         List<Column> desiredColumns = new ArrayList<>(desiredTable.columns());
         desiredColumns.sort(columnOrder());
         for (Column desired : desiredColumns) {
-            Column live = liveByName.get(desired.name().normalized());
+            Column live = liveByName.get(identifierKey(platform, desired.name()));
             if (live == null) {
                 changes.add(new ColumnChange(
                         ColumnChangeKind.ADD_COLUMN, desired.name(), null, desired,
@@ -140,7 +141,7 @@ public final class SchemaDiffEngine {
         List<Column> liveColumns = new ArrayList<>(liveTable.columns());
         liveColumns.sort(columnOrder());
         for (Column live : liveColumns) {
-            if (!desiredByName.containsKey(live.name().normalized())) {
+            if (!desiredByName.containsKey(identifierKey(platform, live.name()))) {
                 changes.add(new ColumnChange(
                         ColumnChangeKind.DROP_COLUMN, live.name(), live, null, MigrationRisk.DESTRUCTIVE,
                         "column is present in live metadata but absent from the desired document; rename is never inferred"));
@@ -168,7 +169,8 @@ public final class SchemaDiffEngine {
             DatabasePlatform platform, Table desiredTable, Column desiredColumn) {
         if (platform != DatabasePlatform.MARIADB
                 && platform != DatabasePlatform.POSTGRESQL
-                && platform != DatabasePlatform.SQLSERVER) {
+                && platform != DatabasePlatform.SQLSERVER
+                && platform != DatabasePlatform.ORACLE) {
             return desiredColumn.nullable();
         }
         PrimaryKey primaryKey = desiredTable.primaryKey().orElse(null);
@@ -196,7 +198,7 @@ public final class SchemaDiffEngine {
 
         diffNamedObjects(
                 platform, TableObjectType.UNIQUE_KEY, liveUniqueKeys, desired.uniqueKeys(),
-                UniqueKey::name, this::uniqueSignature, changes);
+                UniqueKey::name, key -> uniqueSignature(platform, key), changes);
         diffOracleConstraintBackingIndexes(platform, live, desired, changes);
         diffNamedObjects(
                 platform, TableObjectType.CHECK_CONSTRAINT, live.checkConstraints(),
@@ -204,7 +206,7 @@ public final class SchemaDiffEngine {
                 CheckConstraint::name, check -> checkSignature(platform, dialect, check), changes);
         diffNamedObjects(
                 platform, TableObjectType.INDEX, liveIndexes, desiredIndexes,
-                Index::name, index -> indexSignature(dialect, index), changes);
+                Index::name, index -> indexSignature(platform, dialect, index), changes);
         diffNamedObjects(
                 platform, TableObjectType.FOREIGN_KEY, live.foreignKeys(), desired.foreignKeys(),
                 ForeignKey::name, foreignKey -> foreignKeySignature(platform, desired, foreignKey), changes);
@@ -279,7 +281,7 @@ public final class SchemaDiffEngine {
         PrimaryKey livePrimary = live.primaryKey().orElse(null);
         PrimaryKey desiredPrimary = desired.primaryKey().orElse(null);
         if (livePrimary != null && desiredPrimary != null
-                && primarySignature(livePrimary).equals(primarySignature(desiredPrimary))) {
+                && primarySignature(platform, livePrimary).equals(primarySignature(platform, desiredPrimary))) {
             addOracleConstraintBackingIndexRename(
                     livePrimary.columns(),
                     livePrimary.physicalOptions(),
@@ -291,7 +293,7 @@ public final class SchemaDiffEngine {
         Set<Integer> matched = new LinkedHashSet<>();
         for (UniqueKey desiredUnique : desired.uniqueKeys()) {
             int match = findBySignature(
-                    live.uniqueKeys(), matched, this::uniqueSignature, uniqueSignature(desiredUnique));
+                    live.uniqueKeys(), matched, key -> uniqueSignature(platform, key), uniqueSignature(platform, desiredUnique));
             if (match < 0) continue;
             matched.add(match);
             UniqueKey liveUnique = live.uniqueKeys().get(match);
@@ -360,7 +362,7 @@ public final class SchemaDiffEngine {
                     "primary key is present in live metadata but absent from the desired document"));
             return;
         }
-        boolean sameStructure = primarySignature(before).equals(primarySignature(after));
+        boolean sameStructure = primarySignature(platform, before).equals(primarySignature(platform, after));
         boolean sameExplicitName = platform == DatabasePlatform.MYSQL
                 || platform == DatabasePlatform.MARIADB
                 || compatibleName(platform, before.name(), after.name());
@@ -477,12 +479,12 @@ public final class SchemaDiffEngine {
         return preferred == null ? fallback : preferred;
     }
 
-    private String primarySignature(PrimaryKey key) {
-        return identifierList(key.columns()) + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred();
+    private String primarySignature(DatabasePlatform platform, PrimaryKey key) {
+        return identifierList(platform, key.columns()) + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred();
     }
 
-    private String uniqueSignature(UniqueKey key) {
-        return identifierList(key.columns()) + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred();
+    private String uniqueSignature(DatabasePlatform platform, UniqueKey key) {
+        return identifierList(platform, key.columns()) + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred();
     }
 
     private String foreignKeySignature(DatabasePlatform platform, Table owner, ForeignKey key) {
@@ -491,9 +493,13 @@ public final class SchemaDiffEngine {
                 .orElseGet(() -> owner.qualifiedName().schemaName().map(Identifier::normalized).orElse(""));
         String referencedTable = (referencedSchema.isBlank() ? "" : referencedSchema + ".")
                 + key.referencedTable().name().normalized();
-        return identifierList(key.columns())
+        if (platform == DatabasePlatform.ORACLE) {
+            referencedTable = (referencedSchema.isBlank() ? "" : referencedSchema + ".")
+                    + identifierKey(platform, key.referencedTable().name());
+        }
+        return identifierList(platform, key.columns())
                 + "->" + referencedTable
-                + "(" + identifierList(key.referencedColumns()) + ")"
+                + "(" + identifierList(platform, key.referencedColumns()) + ")"
                 + "|DEL=" + canonicalReferentialAction(platform, key.onDelete())
                 + "|UPD=" + canonicalReferentialAction(platform, key.onUpdate())
                 + "|DEF=" + key.deferrable() + "|INIT=" + key.initiallyDeferred()
@@ -1086,7 +1092,7 @@ public final class SchemaDiffEngine {
         return depth == 0 && !inString;
     }
 
-    private String indexSignature(Dialect dialect, Index index) {
+    private String indexSignature(DatabasePlatform platform, Dialect dialect, Index index) {
         StringBuilder value = new StringBuilder(index.type().name()).append('|');
         for (IndexColumn column : index.columns()) {
             if (column.expressionBased()) {
@@ -1098,11 +1104,11 @@ public final class SchemaDiffEngine {
                 }
                 value.append("EXPR:").append(normalizeExpression(expression));
             } else {
-                value.append("COL:").append(column.column().normalized());
+                value.append("COL:").append(identifierKey(platform, column.column()));
             }
             value.append(':').append(column.direction()).append('|');
         }
-        value.append("INCLUDE=").append(identifierList(index.includeColumns())).append('|');
+        value.append("INCLUDE=").append(identifierList(platform, index.includeColumns())).append('|');
         String predicate = index.predicate();
         if (predicate != null) {
             try {
@@ -1119,19 +1125,33 @@ public final class SchemaDiffEngine {
         return values.stream().map(Identifier::normalized).reduce((a, b) -> a + "," + b).orElse("");
     }
 
-    private static void requireSameTable(Table live, Table desired) {
-        String liveName = live.qualifiedName().toString().toUpperCase(Locale.ROOT);
-        String desiredName = desired.qualifiedName().toString().toUpperCase(Locale.ROOT);
-        if (!liveName.equals(desiredName)) {
+    private static String identifierList(DatabasePlatform platform, List<Identifier> values) {
+        return values.stream().map(identifier -> identifierKey(platform, identifier))
+                .reduce((a, b) -> a + "," + b).orElse("");
+    }
+
+    private static String identifierKey(DatabasePlatform platform, Identifier identifier) {
+        if (platform == DatabasePlatform.ORACLE) {
+            return OracleIdentifierPolicy.render(identifier).toUpperCase(Locale.ROOT);
+        }
+        return identifier.normalized();
+    }
+
+    private static void requireSameTable(DatabasePlatform platform, Table live, Table desired) {
+        String liveSchema = live.qualifiedName().schemaName().map(Identifier::normalized).orElse("");
+        String desiredSchema = desired.qualifiedName().schemaName().map(Identifier::normalized).orElse("");
+        String liveTable = identifierKey(platform, live.qualifiedName().name());
+        String desiredTable = identifierKey(platform, desired.qualifiedName().name());
+        if (!liveSchema.equals(desiredSchema) || !liveTable.equals(desiredTable)) {
             throw new IllegalArgumentException(
                     "live and desired tables must have the same qualified name: "
                             + live.qualifiedName() + " vs " + desired.qualifiedName());
         }
     }
 
-    private static Map<String, Column> byName(List<Column> columns) {
+    private static Map<String, Column> byName(DatabasePlatform platform, List<Column> columns) {
         Map<String, Column> values = new LinkedHashMap<>();
-        for (Column column : columns) values.put(column.name().normalized(), column);
+        for (Column column : columns) values.put(identifierKey(platform, column.name()), column);
         return values;
     }
 
@@ -1441,7 +1461,30 @@ public final class SchemaDiffEngine {
                 return "CURRENT_TIME";
             }
         }
+        if (platform == DatabasePlatform.ORACLE) {
+            normalized = stripSqlLineComment(normalized);
+        }
         return normalized;
+    }
+
+    private static String stripSqlLineComment(String value) {
+        if (value == null || value.isEmpty()) return value;
+        boolean inString = false;
+        for (int i = 0; i + 1 < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == '\'' && inString && i + 1 < value.length() && value.charAt(i + 1) == '\'') {
+                i++;
+                continue;
+            }
+            if (ch == '\'') {
+                inString = !inString;
+                continue;
+            }
+            if (!inString && ch == '-' && value.charAt(i + 1) == '-') {
+                return value.substring(0, i).trim();
+            }
+        }
+        return value.trim();
     }
 
     private static String defaultLabel(Column column) {

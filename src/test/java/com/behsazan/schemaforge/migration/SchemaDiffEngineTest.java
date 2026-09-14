@@ -709,4 +709,71 @@ class SchemaDiffEngineTest {
                 change.kind() == ColumnChangeKind.ALTER_DEFAULT));
     }
 
+    @Test
+    void treatsOracleReservedTableAndColumnPhysicalAliasesAsConverged() {
+        Column liveRowId = column("SF_ROWID", DataType.numeric("NUMBER", 8, 0), false, null, 1);
+        Column desiredRowId = column("ROWID", DataType.numeric("NUMBER", 8, 0), true, null, 1);
+        Table live = Table.builder("APP", "SF_USER").addColumn(liveRowId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_USER"), List.of(Identifier.of("SF_ROWID"))))
+                .build();
+        Table desired = Table.builder("APP", "USER").addColumn(desiredRowId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_USER"), List.of(Identifier.of("ROWID"))))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+
+        assertTrue(plan.columnChanges().isEmpty(), () -> "column drift=" + plan.columnChanges());
+        assertTrue(plan.objectChanges().stream().noneMatch(change ->
+                change.objectType() == TableObjectType.PRIMARY_KEY), () -> "object drift=" + plan.objectChanges());
+    }
+
+    @Test
+    void treatsOraclePrimaryKeyCatalogNotNullAsEquivalentToNullableSourceFlag() {
+        Column liveId = column("ID", DataType.numeric("NUMBER", 8, 0), false, null, 1);
+        Column desiredId = column("ID", DataType.numeric("NUMBER", 8, 0), true, null, 1);
+        Table live = Table.builder("APP", "ORA_T1").addColumn(liveId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_ORA_T1"), List.of(Identifier.of("ID"))))
+                .build();
+        Table desired = Table.builder("APP", "ORA_T1").addColumn(desiredId)
+                .primaryKey(new PrimaryKey(Identifier.of("PK_ORA_T1"), List.of(Identifier.of("ID"))))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_NULLABILITY));
+    }
+
+    @Test
+    void ignoresSchemaForgeInlineWarningCommentInOracleCatalogDefault() {
+        Table live = Table.builder("APP", "ORA_T2")
+                .addColumn(column("ERRORCODE", DataType.numeric("NUMBER", 8, 0), true,
+                        "0 -- W:NUMERIC_PRECISION_UNSPEC", 1))
+                .build();
+        Table desired = Table.builder("APP", "ORA_T2")
+                .addColumn(column("ERRORCODE", DataType.numeric("NUMBER", 8, 0), true, "0", 1))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
+    @Test
+    void preservesDoubleDashInsideOracleStringDefaultWhileRemovingTrailingSqlComment() {
+        Table live = Table.builder("APP", "ORA_T3")
+                .addColumn(column("TXT", DataType.varchar("VARCHAR2", 20), true,
+                        "'A--B' -- W:SPELL", 1))
+                .build();
+        Table desired = Table.builder("APP", "ORA_T3")
+                .addColumn(column("TXT", DataType.varchar("VARCHAR2", 20), true, "'A--B'", 1))
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT));
+    }
+
 }
