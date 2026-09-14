@@ -1,3 +1,11 @@
+## 2026-09-14 - MySQL MYSQL-P10 External Database Audit Qualification
+
+- Added `MySqlExternalDatabaseAuditP10IT` to qualify the existing read-only `SchemaConformanceAuditService` against a MySQL database created directly through JDBC outside SchemaForge.
+- Creates an isolated three-table InnoDB fixture, proves the production `JdbcMySqlMetadataRepository` reads a materialized FK correctly, and audits both one child table and the full live database without mutation.
+- Requires a destructively isolated database name prefixed `SFORGE_MYP10_`, explicit confirmation, and emits summary/CSV qualification evidence with cleanup status.
+- Proves live audit detection of a missing primary key and a valid MySQL-native `MEDIUMINT` that is intentionally outside the current lossless logical datatype coverage.
+- No production DDL, datatype mapping, migration behavior, canonical selection, schema-diff semantics, or metadata repository behavior changes.
+
 ## 2026-09-14 - Oracle ORA-P7 Phase-4 metadata preflight follow-up
 
 - ORA-P7 local table preflight now includes integrated Phase-4 metadata statements (table/column comments and grants), not only CREATE/local-object phases.
