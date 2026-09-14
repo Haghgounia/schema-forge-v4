@@ -96,7 +96,7 @@ class PostgreSqlDdlGeneratorTest {
         assertTrue(sql.contains("REFERENCES bim.branches(branch_id) ON DELETE CASCADE ON UPDATE RESTRICT;"));
         assertTrue(sql.contains("CREATE INDEX ix_customers_status ON bim.customers(status DESC)"));
         assertTrue(sql.contains("TABLESPACE its_bim;"));
-        assertTrue(sql.contains("COMMENT ON TABLE bim.customers IS 'Customer master';"));
+        assertTrue(sql.contains("COMMENT ON TABLE bim.customers IS E'Customer master';"));
         assertTrue(sql.contains("Dialect      : PostgreSql"));
         assertFalse(sql.contains("PROMPT "));
         assertFalse(sql.contains(" ENABLE;"));

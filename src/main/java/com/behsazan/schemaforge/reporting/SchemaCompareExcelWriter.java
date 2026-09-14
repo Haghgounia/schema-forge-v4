@@ -212,9 +212,9 @@ public final class SchemaCompareExcelWriter {
         }
 
         String documentDescription = documentTable.description().value();
-        String expectedDatabaseComment = documentTable.persianName().isEmpty()
-                ? documentDescription
-                : documentTable.persianName().value();
+        String expectedDatabaseComment = documentDescription.isBlank()
+                ? documentTable.persianName().value()
+                : documentDescription;
         String databaseComment = databaseTable.description().value();
         boolean commentsEqual = normalizeText(expectedDatabaseComment).equals(normalizeText(databaseComment));
 

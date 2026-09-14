@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.artifact.ArtifactDescriptor;
 import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
 import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactOrigin;
+import com.behsazan.schemaforge.artifact.ArtifactStatus;
 import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
 import com.behsazan.schemaforge.config.AuditProperties;
@@ -91,6 +92,42 @@ class EaGenerationOrchestratorTest {
                 .path("dependencyOrder").size());
     }
 
+
+    @Test
+    void blocksSqlServerPerTableDdlWhenForeignKeyTypesAreIncompatible() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "FEE");
+        PreparedSchema prepared = orchestrator.prepare(
+                sqlServerForeignKeyMismatchFile(), "ea-sqlserver-fk-mismatch.xml", null);
+        ArtifactGenerationContext context = context("ea-sqlserver-fk-mismatch.xml");
+
+        Map<String, byte[]> entries = unzip(orchestrator.generate(
+                prepared, "ea-sqlserver-fk-mismatch", context, null,
+                java.util.Set.of(DatabasePlatform.SQLSERVER)));
+
+        assertTrue(entries.containsKey(
+                "ddl/sqlserver/FEE.FEE_VERSION_" + TIMESTAMP + ".sqlserver.sql"));
+        assertFalse(entries.containsKey(
+                "ddl/sqlserver/FEE.REGULATORY_RULE_" + TIMESTAMP + ".sqlserver.sql"));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".run-all.sql")));
+
+        ArtifactDescriptor blockedDdl = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.DDL)
+                .filter(descriptor -> descriptor.platform() == DatabasePlatform.SQLSERVER)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(blockedDdl.logicalName().contains("FEE.REGULATORY_RULE"));
+        assertTrue(blockedDdl.outcomeReason().contains("PER_TABLE_DDL_BLOCKED"));
+        assertTrue(blockedDdl.outcomeReason().contains("SQLSERVER_FK_TYPE_MISMATCH"));
+        assertTrue(blockedDdl.outcomeReason().contains("DECIMAL(6,0)"));
+        assertTrue(blockedDdl.outcomeReason().contains("DECIMAL(5,0)"));
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        assertEquals("PARTIAL_SUCCESS", manifest.path("requestStatus").asText());
+        assertEquals(2, manifest.path("artifactOutcomes").path("blocked").asInt(),
+                "one per-table DDL and the SQL Server run-all must be blocked");
+    }
 
     @Test
     void reportsOnlyTrueCycleMembersAndKeepsDownstreamTablesOutOfCycleList() throws Exception {
@@ -185,6 +222,23 @@ class EaGenerationOrchestratorTest {
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(any(DatabasePlatform.class))).thenReturn(MetadataRepository.empty());
         return resolver;
+    }
+
+    private static MockMultipartFile sqlServerForeignKeyMismatchFile() throws Exception {
+        String xml = Files.readString(TestSamplePaths.EA_SAMPLE, StandardCharsets.UTF_8);
+        int tableStart = xml.indexOf("<UML:Class name=\"REGULATORY_RULE\"");
+        int columnStart = xml.indexOf("<UML:Attribute name=\"FEE_VERSION_ID\">", tableStart);
+        String precision5 = "<UML:TaggedValue tag=\"precision\" value=\"5\"/>";
+        int precisionStart = xml.indexOf(precision5, columnStart);
+        if (tableStart < 0 || columnStart < 0 || precisionStart < 0) {
+            throw new IllegalStateException("EA sample FK precision marker was not found");
+        }
+        xml = xml.substring(0, precisionStart)
+                + "<UML:TaggedValue tag=\"precision\" value=\"6\"/>"
+                + xml.substring(precisionStart + precision5.length());
+        return new MockMultipartFile(
+                "file", "ea-sqlserver-fk-mismatch.xml", "application/xml",
+                xml.getBytes(StandardCharsets.UTF_8));
     }
 
     private static MockMultipartFile sampleFile() throws Exception {

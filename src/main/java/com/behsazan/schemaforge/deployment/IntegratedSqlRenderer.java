@@ -75,8 +75,15 @@ public final class IntegratedSqlRenderer {
             phase4.addAll(ddlGenerator.renderIntegratedMetadataStatements(table));
         }
 
+        List<String> preTable = new ArrayList<>();
+        String commentClientPreamble = dialect.commentClientPreamble();
+        if (commentClientPreamble != null && !commentClientPreamble.isBlank()) {
+            preTable.add(commentClientPreamble);
+        }
+        preTable.addAll(ddlGenerator.renderIntegratedPreTableStatements(schema));
+
         return new IntegratedSqlScript(
-                ddlGenerator.renderIntegratedPreTableStatements(schema),
+                preTable,
                 phase1,
                 phase2,
                 phase3,

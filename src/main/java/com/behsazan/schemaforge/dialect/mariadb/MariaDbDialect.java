@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.dialect.mariadb;
 
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.CommentLiteralSafety;
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
@@ -293,11 +294,16 @@ public final class MariaDbDialect implements Dialect {
     }
 
     @Override
+    public String commentLiteral(String comment) {
+        return CommentLiteralSafety.mySqlBackslashLiteral(comment);
+    }
+
+    @Override
     public String inlineColumnCommentClause(Column column) {
         if (column.description().isEmpty()) {
             return "";
         }
-        return " COMMENT '" + escapeLiteral(column.description().value()) + "'";
+        return " COMMENT " + commentLiteral(column.description().value());
     }
 
     @Override
@@ -305,7 +311,20 @@ public final class MariaDbDialect implements Dialect {
         if (comment == null || comment.isBlank()) {
             return "";
         }
-        return " COMMENT='" + escapeLiteral(comment) + "'";
+        return " COMMENT=" + commentLiteral(comment);
+    }
+
+    @Override
+    public String commentLiteralStatementPreamble() {
+        String nl = System.lineSeparator();
+        return "SET @SCHEMAFORGE_OLD_SQL_MODE = @@SESSION.sql_mode;" + nl
+                + "SET SESSION sql_mode = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', @@SESSION.sql_mode, ','), "
+                + "',NO_BACKSLASH_ESCAPES,', ','));";
+    }
+
+    @Override
+    public String commentLiteralStatementPostamble() {
+        return "SET SESSION sql_mode = @SCHEMAFORGE_OLD_SQL_MODE;";
     }
 
     @Override
@@ -629,9 +648,5 @@ public final class MariaDbDialect implements Dialect {
                 || source.equals("TIMESTAMP_WITH_TIME_ZONE");
     }
 
-    private String escapeLiteral(String value) {
-        // Doubling quotes is accepted by MariaDB unless NO_BACKSLASH_ESCAPES changes only
-        // backslash handling; this representation does not depend on backslashes.
-        return value.replace("'", "''");
-    }
+
 }

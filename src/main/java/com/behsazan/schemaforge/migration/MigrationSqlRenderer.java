@@ -48,6 +48,10 @@ public final class MigrationSqlRenderer {
         DdlGenerator ddlGenerator = new DdlGenerator(dialect);
 
         StringBuilder sql = new StringBuilder();
+        String commentClientPreamble = dialect.commentClientPreamble();
+        if (commentClientPreamble != null && !commentClientPreamble.isBlank()) {
+            sql.append(commentClientPreamble).append(NL).append(NL);
+        }
         appendHeader(sql, plan, options);
         if (plan.empty()) {
             sql.append("-- No table changes detected. This migration is intentionally empty.").append(NL);
@@ -111,6 +115,7 @@ public final class MigrationSqlRenderer {
             }
         }
 
+        renderTableDescriptionChange(sql, plan, dialect);
         renderObjectAddPhase(sql, plan, dialect, ddlGenerator, options);
         renderDependencyRefreshAddPhase(sql, plan, ddlGenerator, options, dependencyRefreshes);
         return sql.toString();
@@ -577,9 +582,38 @@ public final class MigrationSqlRenderer {
                 .orElseGet(() -> dialect.quote(indexName));
     }
 
+    private void renderTableDescriptionChange(StringBuilder sql, TableMigrationPlan plan, Dialect dialect) {
+        if (!plan.tableDescriptionChanged()) return;
+        String desiredComment = effectiveTableComment(plan.desiredTable());
+        sql.append(NL)
+                .append("-- [SAFE] ALTER_TABLE_DESCRIPTION: table description/comment changes")
+                .append(NL);
+        String statement;
+        if (plan.platform() == DatabasePlatform.MYSQL || plan.platform() == DatabasePlatform.MARIADB) {
+            String tableName = qualifiedName(dialect, plan.desiredTable().qualifiedName());
+            statement = "ALTER TABLE " + tableName + " COMMENT = "
+                    + dialect.commentLiteral(desiredComment) + dialect.statementTerminator();
+        } else if (dialect.supports(DialectFeature.TABLE_COMMENT)) {
+            statement = dialect.migrationTableCommentStatement(
+                    plan.desiredTable().qualifiedName(), desiredComment);
+        } else {
+            statement = "";
+        }
+        if (!statement.isBlank()) {
+            appendGuardedCommentStatement(sql, dialect, statement, false);
+        }
+    }
+
+    private static String effectiveTableComment(Table table) {
+        if (!table.description().isEmpty()) {
+            return table.description().value();
+        }
+        return table.persianName().value();
+    }
+
     private static void appendHeader(StringBuilder sql, TableMigrationPlan plan, MigrationRenderOptions options) {
         sql.append("-- SchemaForge Flyway-compatible migration").append(NL)
-                .append("-- Phase            : ALTER/Migration M2 - columns + PK/FK/UK/CHECK/INDEX").append(NL)
+                .append("-- Phase            : ALTER/Migration M2 - columns + descriptions + PK/FK/UK/CHECK/INDEX").append(NL)
                 .append("-- Platform         : ").append(plan.platform()).append(NL)
                 .append("-- Table            : ").append(plan.desiredTable().qualifiedName()).append(NL)
                 .append("-- Highest risk     : ").append(plan.highestRisk()).append(NL)
@@ -616,7 +650,8 @@ public final class MigrationSqlRenderer {
         if ((platform == DatabasePlatform.MYSQL || platform == DatabasePlatform.MARIADB)
                 && (change.kind() == ColumnChangeKind.ALTER_TYPE
                 || change.kind() == ColumnChangeKind.ALTER_NULLABILITY
-                || change.kind() == ColumnChangeKind.ALTER_DEFAULT)) {
+                || change.kind() == ColumnChangeKind.ALTER_DEFAULT
+                || change.kind() == ColumnChangeKind.ALTER_DESCRIPTION)) {
             return platform.name() + "_MODIFY:" + change.columnName().normalized();
         }
         if (platform == DatabasePlatform.SQLSERVER
@@ -630,22 +665,139 @@ public final class MigrationSqlRenderer {
     private List<String> renderChange(TableMigrationPlan plan, Dialect dialect, ColumnChange change) {
         String tableName = qualifiedName(dialect, plan.desiredTable().qualifiedName());
         return switch (change.kind()) {
-            case ADD_COLUMN -> List.of(renderAddColumn(plan.platform(), dialect, plan.desiredTable(), change.after(), tableName));
+            case ADD_COLUMN -> renderAddColumn(plan.platform(), dialect, plan.desiredTable(), change.after(), tableName);
             case DROP_COLUMN -> List.of(renderDropColumn(plan.platform(), dialect, change.columnName(), tableName));
             case ALTER_TYPE -> renderAlterType(plan.platform(), dialect, plan.desiredTable(), change.after(), tableName);
             case ALTER_NULLABILITY -> renderAlterNullability(plan.platform(), dialect, plan.desiredTable(), change.after(), tableName);
             case ALTER_DEFAULT -> renderAlterDefault(plan.platform(), dialect, plan.desiredTable(), change.after(), tableName);
+            case ALTER_DESCRIPTION -> renderAlterDescription(
+                    plan.platform(), dialect, plan.desiredTable(), change.before(), change.after(), tableName);
             case ALTER_IDENTITY, ALTER_GENERATED_EXPRESSION -> List.of();
         };
     }
 
-    private String renderAddColumn(DatabasePlatform platform, Dialect dialect, Table table, Column column, String tableName) {
+    private List<String> renderAddColumn(
+            DatabasePlatform platform, Dialect dialect, Table table, Column column, String tableName) {
         String keyword = switch (platform) {
             case ORACLE, SQLSERVER -> " ADD ";
             case POSTGRESQL, DB2_ZOS, DB2_LUW, MYSQL, MARIADB -> " ADD COLUMN ";
         };
-        return "ALTER TABLE " + tableName + keyword + columnDefinition(dialect, table, column)
+        List<String> statements = new ArrayList<>();
+        String addStatement = "ALTER TABLE " + tableName + keyword + columnDefinition(dialect, table, column)
                 + dialect.statementTerminator();
+        if (dialect.commentsInline() && !column.description().isEmpty()) {
+            statements.addAll(guardCommentStatement(dialect, addStatement));
+        } else {
+            statements.add(addStatement);
+        }
+        if (!dialect.commentsInline()
+                && dialect.supports(DialectFeature.COLUMN_COMMENT)
+                && !column.description().isEmpty()) {
+            statements.addAll(guardCommentStatement(dialect, dialect.migrationColumnCommentStatement(
+                    table.qualifiedName(), column.name(), column.description().value())));
+        }
+        return List.copyOf(statements);
+    }
+
+    private List<String> renderAlterDescription(
+            DatabasePlatform platform, Dialect dialect, Table table, Column live, Column desired, String tableName) {
+        if (platform == DatabasePlatform.MYSQL || platform == DatabasePlatform.MARIADB) {
+            if (live == null) {
+                throw new UnsupportedOperationException(
+                        "comment-only MODIFY requires live column metadata so existing physical attributes are preserved");
+            }
+            return guardCommentStatement(dialect, "ALTER TABLE " + tableName + " MODIFY COLUMN "
+                    + mysqlMariaDbCommentOnlyDefinition(platform, dialect, table, live, desired)
+                    + dialect.statementTerminator());
+        }
+        if (!dialect.supports(DialectFeature.COLUMN_COMMENT)) return List.of();
+        return guardCommentStatement(dialect, dialect.migrationColumnCommentStatement(
+                table.qualifiedName(), desired.name(), desired.description().value()));
+    }
+
+    private String mysqlMariaDbCommentOnlyDefinition(
+            DatabasePlatform platform, Dialect dialect, Table table, Column live, Column desired) {
+        String prefix = platform == DatabasePlatform.MYSQL ? "MYSQL" : "MARIADB";
+        String nativeType = live.physicalOptions().get(prefix + "_NATIVE_COLUMN_TYPE");
+        if (nativeType == null || nativeType.isBlank()) {
+            nativeType = dialect.sqlType(table, live);
+        }
+
+        StringBuilder definition = new StringBuilder(dialect.quote(live.name()))
+                .append(" ").append(nativeType.trim());
+
+        appendSafeIdentifierOption(definition, " CHARACTER SET ",
+                live.physicalOptions().get(prefix + "_CHARACTER_SET"), prefix + "_CHARACTER_SET");
+        appendSafeIdentifierOption(definition, " COLLATE ",
+                live.physicalOptions().get(prefix + "_COLLATION"), prefix + "_COLLATION");
+
+        String extra = live.physicalOptions().get(prefix + "_EXTRA");
+        String remainingExtra = extra == null ? "" : extra.trim();
+
+        if (live.generated()) {
+            String storage = " STORED";
+            if (containsIgnoreCase(remainingExtra, "VIRTUAL GENERATED")) storage = " VIRTUAL";
+            else if (!remainingExtra.isBlank() && !containsIgnoreCase(remainingExtra, "STORED GENERATED")) {
+                throw new UnsupportedOperationException(
+                        "comment-only MODIFY is blocked because live " + prefix + "_EXTRA is not safely modeled: " + remainingExtra);
+            }
+            definition.append(" GENERATED ALWAYS AS (")
+                    .append(dialect.expression(live.generatedExpression())).append(")").append(storage);
+            remainingExtra = "";
+        } else if (live.identity()) {
+            definition.append(dialect.identityClause(live));
+            remainingExtra = removeIgnoreCase(remainingExtra, "auto_increment");
+        } else if (live.defaultValue().isPresent()) {
+            definition.append(dialect.defaultClause(live));
+        }
+
+        String onUpdate = extractOnUpdate(remainingExtra);
+        if (!onUpdate.isBlank()) {
+            definition.append(" ").append(onUpdate);
+            remainingExtra = removeIgnoreCase(remainingExtra, onUpdate);
+        }
+        remainingExtra = removeIgnoreCase(remainingExtra, "DEFAULT_GENERATED").trim();
+        if (!remainingExtra.isBlank()) {
+            throw new UnsupportedOperationException(
+                    "comment-only MODIFY is blocked because live " + prefix + "_EXTRA is not safely modeled: " + remainingExtra);
+        }
+
+        if (!live.nullable() && (!live.generated() || dialect.generatedColumnIncludesNullability())) {
+            definition.append(" NOT NULL");
+        }
+
+        Column commentOnly = new Column(
+                live.name(), live.dataType(), live.nullable(), live.defaultValue(), desired.description(),
+                live.identity(), live.ordinalPosition(), live.generatedExpression(), live.physicalOptions());
+        definition.append(dialect.inlineColumnCommentClause(commentOnly));
+        return definition.toString();
+    }
+
+    private static void appendSafeIdentifierOption(
+            StringBuilder definition, String clause, String value, String label) {
+        if (value == null || value.isBlank()) return;
+        String token = value.trim();
+        if (!token.matches("[A-Za-z0-9_$]+")) {
+            throw new UnsupportedOperationException(
+                    "comment-only MODIFY is blocked because live " + label + " is not a safe identifier token: " + token);
+        }
+        definition.append(clause).append(token);
+    }
+
+    private static boolean containsIgnoreCase(String value, String token) {
+        return value != null && token != null
+                && value.toUpperCase(Locale.ROOT).contains(token.toUpperCase(Locale.ROOT));
+    }
+
+    private static String removeIgnoreCase(String value, String token) {
+        if (value == null || value.isBlank() || token == null || token.isBlank()) return value == null ? "" : value;
+        return value.replaceAll("(?i)" + Pattern.quote(token), " ").replaceAll("\\s+", " ").trim();
+    }
+
+    private static String extractOnUpdate(String extra) {
+        if (extra == null || extra.isBlank()) return "";
+        java.util.regex.Matcher matcher = Pattern.compile("(?i)\\bon\\s+update\\s+.+$").matcher(extra.trim());
+        return matcher.find() ? matcher.group().trim() : "";
     }
 
     private String renderDropColumn(DatabasePlatform platform, Dialect dialect, Identifier column, String tableName) {
@@ -666,8 +818,9 @@ public final class MigrationSqlRenderer {
                     + dialect.statementTerminator());
             case SQLSERVER -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " " + type
                     + (desired.nullable() ? " NULL" : " NOT NULL") + dialect.statementTerminator());
-            case MYSQL, MARIADB -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
-                    + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
+            case MYSQL, MARIADB -> guardIfInlineDescription(dialect, desired,
+                    "ALTER TABLE " + tableName + " MODIFY COLUMN "
+                            + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
         };
     }
 
@@ -684,8 +837,9 @@ public final class MigrationSqlRenderer {
             case SQLSERVER -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column + " "
                     + dialect.sqlType(table, desired) + (desired.nullable() ? " NULL" : " NOT NULL")
                     + dialect.statementTerminator());
-            case MYSQL, MARIADB -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
-                    + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
+            case MYSQL, MARIADB -> guardIfInlineDescription(dialect, desired,
+                    "ALTER TABLE " + tableName + " MODIFY COLUMN "
+                            + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
         };
     }
 
@@ -701,8 +855,9 @@ public final class MigrationSqlRenderer {
                     + (present ? " SET DEFAULT " + expression : " DROP DEFAULT") + dialect.statementTerminator());
             case DB2_ZOS, DB2_LUW -> List.of("ALTER TABLE " + tableName + " ALTER COLUMN " + column
                     + (present ? " SET DEFAULT " + expression : " DROP DEFAULT") + dialect.statementTerminator());
-            case MYSQL, MARIADB -> List.of("ALTER TABLE " + tableName + " MODIFY COLUMN "
-                    + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
+            case MYSQL, MARIADB -> guardIfInlineDescription(dialect, desired,
+                    "ALTER TABLE " + tableName + " MODIFY COLUMN "
+                            + columnDefinition(dialect, table, desired) + dialect.statementTerminator());
             case SQLSERVER -> sqlServerDefaultStatements(dialect, tableName, desired, expression);
         };
     }
@@ -766,6 +921,31 @@ public final class MigrationSqlRenderer {
         return sql.toString();
     }
 
+
+    private static List<String> guardIfInlineDescription(
+            Dialect dialect, Column column, String statement) {
+        if (dialect.commentsInline() && column != null && !column.description().isEmpty()) {
+            return guardCommentStatement(dialect, statement);
+        }
+        return List.of(statement);
+    }
+
+    private static List<String> guardCommentStatement(Dialect dialect, String statement) {
+        List<String> result = new ArrayList<>();
+        String preamble = dialect.commentLiteralStatementPreamble();
+        if (preamble != null && !preamble.isBlank()) result.add(preamble);
+        result.add(statement);
+        String postamble = dialect.commentLiteralStatementPostamble();
+        if (postamble != null && !postamble.isBlank()) result.add(postamble);
+        return List.copyOf(result);
+    }
+
+    private static void appendGuardedCommentStatement(
+            StringBuilder sql, Dialect dialect, String statement, boolean commented) {
+        for (String guarded : guardCommentStatement(dialect, statement)) {
+            appendStatement(sql, guarded, commented);
+        }
+    }
 
     private static String safeComment(String value) {
         if (value == null || value.isBlank()) return "dialect expression mapping is unsupported";

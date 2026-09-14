@@ -39,6 +39,12 @@ public final class MariaDbDdlSanityChecker {
             "(?is)^\\s*CREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*\\bWHERE\\b");
     private static final Pattern EXPRESSION_INDEX = Pattern.compile(
             "(?is)^\\s*CREATE\\s+(?:UNIQUE\\s+)?INDEX\\b.*\\bON\\b[^;]*\\(\\s*\\(");
+    private static final Pattern COMMENT_SQL_MODE_CAPTURE = Pattern.compile(
+            "(?is)^\\s*SET\\s+@SCHEMAFORGE_OLD_SQL_MODE\\s*=\\s*@@SESSION\\.SQL_MODE\\s*$");
+    private static final Pattern COMMENT_SQL_MODE_NORMALIZE = Pattern.compile(
+            "(?is)^\\s*SET\\s+SESSION\\s+SQL_MODE\\s*=\\s*TRIM\\s*\\(\\s*BOTH\\s+','\\s+FROM\\s+REPLACE\\s*\\(\\s*CONCAT\\s*\\(\\s*','\\s*,\\s*@@SESSION\\.SQL_MODE\\s*,\\s*','\\s*\\)\\s*,\\s*',NO_BACKSLASH_ESCAPES,'\\s*,\\s*','\\s*\\)\\s*\\)\\s*$");
+    private static final Pattern COMMENT_SQL_MODE_RESTORE = Pattern.compile(
+            "(?is)^\\s*SET\\s+SESSION\\s+SQL_MODE\\s*=\\s*@SCHEMAFORGE_OLD_SQL_MODE\\s*$");
 
     private static final List<ForbiddenToken> FORBIDDEN = List.of(
             forbidden("MARIADB_CREATE_TABLESPACE", "\\bCREATE\\s+TABLESPACE\\b"),
@@ -142,11 +148,18 @@ public final class MariaDbDdlSanityChecker {
                 || normalized.startsWith("CREATE INDEX ")
                 || normalized.startsWith("CREATE UNIQUE INDEX ")
                 || normalized.startsWith("ALTER TABLE ")
-                || normalized.startsWith("GRANT ");
+                || normalized.startsWith("GRANT ")
+                || isCommentLiteralSessionGuard(sql);
         if (!supported) {
             issues.add(new Issue(statementNumber, "MARIADB_UNEXPECTED_STATEMENT",
                     "Unexpected statement type in the SchemaForge MariaDB DDL subset.", firstLine(sql)));
         }
+    }
+
+    private boolean isCommentLiteralSessionGuard(String sql) {
+        return COMMENT_SQL_MODE_CAPTURE.matcher(sql).matches()
+                || COMMENT_SQL_MODE_NORMALIZE.matcher(sql).matches()
+                || COMMENT_SQL_MODE_RESTORE.matcher(sql).matches();
     }
 
     private void inspectIdentifiers(String sql, int statementNumber, List<Issue> issues) {

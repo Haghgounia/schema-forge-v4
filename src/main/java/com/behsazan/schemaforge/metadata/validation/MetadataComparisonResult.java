@@ -20,26 +20,36 @@ public record MetadataComparisonResult(List<ValidationIssue> issues,
                                        Map<String, Long> columnFrequencies,
                                        Map<String, String> resolvedForeignKeySchemas,
                                        Map<String, Boolean> schemaExistence,
+                                       Map<String, Boolean> tablespaceExistence,
                                        boolean metadataAvailable) {
     public MetadataComparisonResult {
         issues = issues == null ? List.of() : List.copyOf(issues);
         columnFrequencies = columnFrequencies == null ? Map.of() : Map.copyOf(columnFrequencies);
         resolvedForeignKeySchemas = resolvedForeignKeySchemas == null
                 ? Map.of() : Map.copyOf(resolvedForeignKeySchemas);
-        schemaExistence = normalizeSchemaExistence(schemaExistence);
+        schemaExistence = normalizeExistence(schemaExistence);
+        tablespaceExistence = normalizeExistence(tablespaceExistence);
+    }
+
+    public MetadataComparisonResult(List<ValidationIssue> issues,
+                                    Map<String, Long> frequencies,
+                                    Map<String, String> resolvedForeignKeySchemas,
+                                    Map<String, Boolean> schemaExistence,
+                                    boolean available) {
+        this(issues, frequencies, resolvedForeignKeySchemas, schemaExistence, Map.of(), available);
     }
 
     public MetadataComparisonResult(List<ValidationIssue> issues,
                                     Map<String, Long> frequencies,
                                     Map<String, String> resolvedForeignKeySchemas,
                                     boolean available) {
-        this(issues, frequencies, resolvedForeignKeySchemas, Map.of(), available);
+        this(issues, frequencies, resolvedForeignKeySchemas, Map.of(), Map.of(), available);
     }
 
     public MetadataComparisonResult(List<ValidationIssue> issues,
                                     Map<String, Long> frequencies,
                                     boolean available) {
-        this(issues, frequencies, Map.of(), Map.of(), available);
+        this(issues, frequencies, Map.of(), Map.of(), Map.of(), available);
     }
 
     public long frequency(String path) {
@@ -62,7 +72,19 @@ public record MetadataComparisonResult(List<ValidationIssue> issues,
         return Boolean.FALSE.equals(schemaExistence.get(normalizeSchema(schemaName)));
     }
 
-    private static Map<String, Boolean> normalizeSchemaExistence(Map<String, Boolean> source) {
+    /** Returns true only when database metadata positively verified that the tablespace exists. */
+    public boolean tablespaceKnownToExist(String tablespaceName) {
+        if (tablespaceName == null || tablespaceName.isBlank()) return false;
+        return Boolean.TRUE.equals(tablespaceExistence.get(normalizeSchema(tablespaceName)));
+    }
+
+    /** Returns true only when database metadata positively verified that the tablespace is missing. */
+    public boolean tablespaceKnownToBeMissing(String tablespaceName) {
+        if (tablespaceName == null || tablespaceName.isBlank()) return false;
+        return Boolean.FALSE.equals(tablespaceExistence.get(normalizeSchema(tablespaceName)));
+    }
+
+    private static Map<String, Boolean> normalizeExistence(Map<String, Boolean> source) {
         if (source == null || source.isEmpty()) return Map.of();
         Map<String, Boolean> normalized = new LinkedHashMap<>();
         source.forEach((schema, exists) -> {

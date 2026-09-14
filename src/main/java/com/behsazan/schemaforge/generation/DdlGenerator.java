@@ -258,7 +258,9 @@ public final class DdlGenerator {
         List<String> statements = new ArrayList<>();
         List<String> grantStatements = new ArrayList<>();
         List<Sequence> emittedSequences = emittedSequences(schema);
+        DatabaseSchema generatedSchema = schema;
         generatedObjectSchemas(schema).stream()
+                .filter(schemaName -> shouldEmitInfrastructureTemplate(generatedSchema, schemaName, metadata))
                 .map(dialect::infrastructureProvisioningTemplate)
                 .filter(statement -> statement != null && !statement.isBlank())
                 .forEach(statements::add);
@@ -289,8 +291,8 @@ public final class DdlGenerator {
                 }
             }
             if (dialect.commentsBeforeForeignKeys()) {
-                // SQL Server descriptions are independent metadata. Emit them before
-                // referential dependencies so they survive a later missing-parent failure.
+                // Descriptions are independent schema metadata. Emit them before
+                // referential dependencies so a later FK failure cannot suppress documentation.
                 addComments(statements, table);
             }
             emittedIndexes(table).stream()
@@ -312,6 +314,10 @@ public final class DdlGenerator {
                 .collect(Collectors.joining(NL + NL));
         String warnings = warningHeader(issueCatalog);
         StringBuilder script = new StringBuilder();
+        String commentClientPreamble = dialect.commentClientPreamble();
+        if (commentClientPreamble != null && !commentClientPreamble.isBlank()) {
+            script.append(commentClientPreamble).append(NL).append(NL);
+        }
         if (!warnings.isBlank()) {
             script.append(warnings).append(NL).append(NL);
         }
@@ -392,12 +398,12 @@ public final class DdlGenerator {
 
         StringBuilder sql = new StringBuilder();
         if (!table.persianName().isEmpty()) {
-            sql.append("-- Persian table name: ").append(table.persianName().value()).append(NL);
+            appendSqlLineComment(sql, "Persian table name: " + table.persianName().value());
         }
         if (!table.description().isEmpty()
                 && !normalizeCommentText(table.description().value())
                         .equals(normalizeCommentText(table.persianName().value()))) {
-            sql.append("-- ").append(table.description().value()).append(NL);
+            appendSqlLineComment(sql, table.description().value());
         }
         sql.append("CREATE TABLE ")
                 .append(qualifiedName(table.qualifiedName()))
@@ -411,13 +417,15 @@ public final class DdlGenerator {
         String physicalComment = physicalCommentRenderer.tableOptions(
                 table, !activePlacement.isBlank());
         sql.append(dialect.tableTailWithPhysical(activePlacement, physicalComment));
-        String tableComment = table.persianName().isEmpty()
-                ? table.description().value()
-                : table.persianName().value();
+        String tableComment = effectiveTableComment(table);
         if (!tableComment.isBlank()) {
             sql.append(dialect.inlineTableCommentClause(tableComment));
         }
-        return sql.append(dialect.statementTerminator()).toString();
+        String statement = sql.append(dialect.statementTerminator()).toString();
+        if (dialect.commentsInline() && containsDocumentation(table)) {
+            return wrapCommentLiteralStatement(statement);
+        }
+        return statement;
     }
 
     private String columnDefinition(
@@ -478,6 +486,37 @@ public final class DdlGenerator {
 
     private DatabaseSchema effectiveTypeMappingContext(DatabaseSchema generatedSchema) {
         return typeMappingContext == null ? generatedSchema : typeMappingContext;
+    }
+
+    private boolean shouldEmitInfrastructureTemplate(
+            DatabaseSchema schema, Identifier schemaName, MetadataComparisonResult metadata) {
+        if (!metadata.metadataAvailable() || !metadata.schemaKnownToExist(schemaName.value())) {
+            return true;
+        }
+        Set<String> requiredTablespaces = new LinkedHashSet<>();
+        for (Table table : schema.tables()) {
+            String ownerSchema = table.qualifiedName().schemaName()
+                    .map(Identifier::normalized)
+                    .orElse(schema.name().normalized());
+            if (!ownerSchema.equals(schemaName.normalized())) {
+                continue;
+            }
+            String tableTablespace = dialect.resolveTableTablespace(table);
+            if (tableTablespace != null && !tableTablespace.isBlank()) {
+                requiredTablespaces.add(tableTablespace.trim());
+            }
+            if (table.primaryKey().isPresent() || !table.uniqueKeys().isEmpty() || !table.indexes().isEmpty()) {
+                String indexTablespace = dialect.defaultIndexTablespace(table.qualifiedName());
+                if (indexTablespace != null && !indexTablespace.isBlank()) {
+                    requiredTablespaces.add(indexTablespace.trim());
+                }
+            }
+        }
+        if (requiredTablespaces.isEmpty()) {
+            return true;
+        }
+        return requiredTablespaces.stream().anyMatch(
+                tablespace -> !metadata.tablespaceKnownToExist(tablespace));
     }
 
     private String primaryKeyDefinition(Table table, PrimaryKey primaryKey) {
@@ -760,30 +799,68 @@ public final class DdlGenerator {
         return indexColumn.direction() == SortDirection.DESC ? value + " DESC" : value;
     }
 
+    private static void appendSqlLineComment(StringBuilder sql, String value) {
+        String normalized = value == null ? "" : value.replace("\r\n", "\n").replace('\r', '\n');
+        String[] lines = normalized.split("\n", -1);
+        for (String line : lines) {
+            sql.append("-- ").append(line).append(NL);
+        }
+    }
+
     private static String normalizeCommentText(String value) {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
+
+    private static String effectiveTableComment(Table table) {
+        if (!table.description().isEmpty()) {
+            return table.description().value();
+        }
+        return table.persianName().value();
+    }
+
 
     private void addComments(List<String> statements, Table table) {
         if (dialect.commentsInline()) {
             return;
         }
-        String tableComment = table.persianName().isEmpty()
-                ? table.description().value()
-                : table.persianName().value();
+        List<String> rendered = new ArrayList<>();
+        String tableComment = effectiveTableComment(table);
         if (dialect.supports(DialectFeature.TABLE_COMMENT) && !tableComment.isBlank()) {
-            statements.add(dialect.tableCommentStatement(
+            rendered.add(dialect.tableCommentStatement(
                     table.qualifiedName(), tableComment));
         }
-        if (!dialect.supports(DialectFeature.COLUMN_COMMENT)) {
-            return;
-        }
-        for (Column column : table.columns()) {
-            if (!column.description().isEmpty()) {
-                statements.add(dialect.columnCommentStatement(
-                        table.qualifiedName(), column.name(), column.description().value()));
+        if (dialect.supports(DialectFeature.COLUMN_COMMENT)) {
+            for (Column column : table.columns()) {
+                if (!column.description().isEmpty()) {
+                    rendered.add(dialect.columnCommentStatement(
+                            table.qualifiedName(), column.name(), column.description().value()));
+                }
             }
         }
+        if (rendered.isEmpty()) return;
+        String preamble = dialect.commentLiteralStatementPreamble();
+        if (preamble != null && !preamble.isBlank()) statements.add(preamble);
+        statements.addAll(rendered);
+        String postamble = dialect.commentLiteralStatementPostamble();
+        if (postamble != null && !postamble.isBlank()) statements.add(postamble);
+    }
+
+    private boolean containsDocumentation(Table table) {
+        if (!effectiveTableComment(table).isBlank()) return true;
+        return table.columns().stream().anyMatch(column -> !column.description().isEmpty());
+    }
+
+    private String wrapCommentLiteralStatement(String statement) {
+        String preamble = dialect.commentLiteralStatementPreamble();
+        String postamble = dialect.commentLiteralStatementPostamble();
+        if ((preamble == null || preamble.isBlank()) && (postamble == null || postamble.isBlank())) {
+            return statement;
+        }
+        StringBuilder guarded = new StringBuilder();
+        if (preamble != null && !preamble.isBlank()) guarded.append(preamble).append(NL);
+        guarded.append(statement);
+        if (postamble != null && !postamble.isBlank()) guarded.append(NL).append(postamble);
+        return guarded.toString();
     }
 
     private void addGrants(List<String> statements, Table table) {

@@ -34,6 +34,7 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
     private final MetadataRepository delegate;
     private final AtomicBoolean connectionUnavailable = new AtomicBoolean(false);
     private final ConcurrentMap<String, Boolean> schemaExistence = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Boolean> tablespaceExistence = new ConcurrentHashMap<>();
     private final ConcurrentMap<TableKey, Optional<Table>> tables = new ConcurrentHashMap<>();
     private final ConcurrentMap<ExactTableKey, Boolean> missingTables = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<String>> tableSchemas = new ConcurrentHashMap<>();
@@ -195,6 +196,31 @@ public final class FailureIsolatingMetadataRepository implements MetadataReposit
         } catch (RuntimeException exception) {
             if (isolateConnectionFailure("schemaExists", exception)) {
                 return false;
+            }
+            throw exception;
+        }
+    }
+
+    @Override
+    public Optional<Boolean> tablespaceExists(String tablespaceName) {
+        if (!available()) {
+            return Optional.empty();
+        }
+        String key = normalize(tablespaceName);
+        if (key == null) {
+            return Optional.empty();
+        }
+        Boolean cached = tablespaceExistence.get(key);
+        if (cached != null) {
+            return Optional.of(cached);
+        }
+        try {
+            Optional<Boolean> result = delegate.tablespaceExists(tablespaceName);
+            result.ifPresent(value -> tablespaceExistence.putIfAbsent(key, value));
+            return result;
+        } catch (RuntimeException exception) {
+            if (isolateConnectionFailure("tablespaceExists", exception)) {
+                return Optional.empty();
             }
             throw exception;
         }

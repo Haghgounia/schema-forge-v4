@@ -4,8 +4,10 @@ import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.domain.model.PrimaryKey;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DataType;
+import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.generation.DdlGenerator;
 import com.behsazan.schemaforge.metadata.repository.MetadataColumnProfile;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -43,6 +46,42 @@ class SchemaBootstrapExistenceAwarenessTest {
             assertTrue(sql.toUpperCase().contains("CREATE TABLE"),
                     () -> platform + " must still emit table DDL");
         }
+    }
+
+    @Test
+    void oracleExistingSchemaAndTablespacesSuppressInfrastructureTemplate() {
+        DatabaseSchema schema = sampleSchema();
+        MetadataComparisonResult metadata = new MetadataComparisonResult(
+                List.of(), Map.of(), Map.of(), Map.of("FEE", true),
+                Map.of("TS_FEE", true, "ITS_FEE", true), true);
+
+        String sql = new DdlGenerator(DialectFactory.create(DatabasePlatform.ORACLE))
+                .generate(schema, VALID, metadata);
+
+        assertFalse(sql.contains("[INFRASTRUCTURE TEMPLATE][ORACLE]"));
+        assertFalse(sql.contains("CREATE TABLESPACE TS_FEE"));
+        assertFalse(sql.contains("CREATE TABLESPACE ITS_FEE"));
+        assertFalse(sql.contains("CREATE USER FEE"));
+        assertTrue(sql.contains("CREATE TABLE FEE.T1"));
+    }
+
+    @Test
+    void oracleMissingOrUnknownTablespaceKeepsNonExecutableInfrastructureGuidance() {
+        DatabaseSchema schema = sampleSchema();
+        MetadataComparisonResult missing = new MetadataComparisonResult(
+                List.of(), Map.of(), Map.of(), Map.of("FEE", true),
+                Map.of("TS_FEE", true, "ITS_FEE", false), true);
+        MetadataComparisonResult unknown = new MetadataComparisonResult(
+                List.of(), Map.of(), Map.of(), Map.of("FEE", true), Map.of(), true);
+
+        String missingSql = new DdlGenerator(DialectFactory.create(DatabasePlatform.ORACLE))
+                .generate(schema, VALID, missing);
+        String unknownSql = new DdlGenerator(DialectFactory.create(DatabasePlatform.ORACLE))
+                .generate(schema, VALID, unknown);
+
+        assertTrue(missingSql.contains("[INFRASTRUCTURE TEMPLATE][ORACLE]"));
+        assertTrue(missingSql.contains("-- CREATE TABLESPACE ITS_FEE"));
+        assertTrue(unknownSql.contains("[INFRASTRUCTURE TEMPLATE][ORACLE]"));
     }
 
     @Test
@@ -100,6 +139,41 @@ class SchemaBootstrapExistenceAwarenessTest {
     }
 
     @Test
+    void metadataValidationRetainsOracleTablespaceExistence() {
+        DatabaseSchema schema = sampleSchema();
+        AtomicInteger tablespaceChecks = new AtomicInteger();
+        MetadataRepository repository = new MetadataRepository() {
+            @Override
+            public Map<String, MetadataColumnProfile> loadColumnProfiles(Set<String> columnNames) {
+                return Map.of();
+            }
+
+            @Override
+            public boolean schemaExists(String schemaName) {
+                return true;
+            }
+
+            @Override
+            public Optional<Boolean> tablespaceExists(String tablespaceName) {
+                tablespaceChecks.incrementAndGet();
+                return Optional.of(Set.of("TS_FEE", "ITS_FEE").contains(tablespaceName.toUpperCase()));
+            }
+
+            @Override
+            public List<String> findTableSchemas(String tableName) {
+                return List.of();
+            }
+        };
+
+        MetadataComparisonResult result = new MetadataComparisonValidator(
+                DialectFactory.create(DatabasePlatform.ORACLE), repository).validate(schema);
+
+        assertTrue(result.tablespaceKnownToExist("TS_FEE"));
+        assertTrue(result.tablespaceKnownToExist("ITS_FEE"));
+        assertEquals(2, tablespaceChecks.get());
+    }
+
+    @Test
     void missingSchemaSkipsExpensiveProfileAndPerTableLocationQueries() {
         DatabaseSchema schema = DatabaseSchema.builder("FEE")
                 .addTable(table("FEE", "T1"))
@@ -148,6 +222,7 @@ class SchemaBootstrapExistenceAwarenessTest {
     private static Table table(String schema, String name) {
         return Table.builder(schema, name)
                 .addColumn(Column.required("ID", DataType.numeric("NUMBER", 19, 0)))
+                .primaryKey(new PrimaryKey(Identifier.of("PK_" + name), List.of(Identifier.of("ID"))))
                 .build();
     }
 

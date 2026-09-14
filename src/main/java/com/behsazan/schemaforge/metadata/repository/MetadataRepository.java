@@ -33,6 +33,12 @@ public interface MetadataRepository {
 
     default boolean schemaExists(String schemaName) { return false; }
 
+    /**
+     * Optional tablespace existence lookup. Empty means this repository cannot authoritatively
+     * inspect tablespaces; {@code true}/{@code false} mean verified present/missing.
+     */
+    default Optional<Boolean> tablespaceExists(String tablespaceName) { return Optional.empty(); }
+
     /** Returns deterministic non-system table names for one live schema. */
     default List<String> findTableNames(String schemaName) { return List.of(); }
 

@@ -15,6 +15,8 @@ import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Sequence;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.DefaultValue;
+import com.behsazan.schemaforge.deployment.DialectForeignKeyCompatibilityIssue;
+import com.behsazan.schemaforge.deployment.DialectForeignKeyCompatibilityValidator;
 import com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlan;
 import com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlanner;
 import com.behsazan.schemaforge.deployment.IntegratedSqlRenderer;
@@ -73,6 +75,8 @@ public final class EaGenerationOrchestrator {
     private final CrudArtifactProducer crudArtifactProducer;
     private final OracleDdlSanityChecker oracleDdlSanityChecker;
     private final MariaDbDdlSanityChecker mariaDbDdlSanityChecker = new MariaDbDdlSanityChecker();
+    private final DialectForeignKeyCompatibilityValidator foreignKeyCompatibilityValidator =
+            new DialectForeignKeyCompatibilityValidator();
     private final NumericMappingStrategy numericMappingStrategy;
     private final GenerationSummaryReportWriter generationSummaryReportWriter;
 
@@ -232,29 +236,40 @@ public final class EaGenerationOrchestrator {
                     .forEach(jsonIssues::add);
 
             for (Table table : schema.tables()) {
-                DatabaseSchema tableSchema = singleTableSchema(schema, table);
-                ValidationReport tableReport = validationForTable(report, table);
-                MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
-                String sql = new DdlGenerator(dialect, schema)
-                        .generate(tableSchema, tableReport, tableMetadata);
-                Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
-                        eaArtifactBaseName(schema, table, platform), platform, timestamp);
-                String sqlFileName = ddlRelativePath.getFileName().toString();
-                requireValidDdl(platform, sql, sqlFileName);
-                Path ddlPath = output.resolve(ddlRelativePath);
-                Files.createDirectories(ddlPath.getParent());
-                Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
-                context.ledger().generated(context, ArtifactType.DDL, platform,
-                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
-                        ArtifactPaths.relative(output, ddlPath), "application/sql", "DdlGenerator");
+                List<DialectForeignKeyCompatibilityIssue> perTableCompatibilityIssues =
+                        foreignKeyCompatibilityValidator.validateTable(schema, table, dialect);
+                if (perTableCompatibilityIssues.isEmpty()) {
+                    DatabaseSchema tableSchema = singleTableSchema(schema, table);
+                    ValidationReport tableReport = validationForTable(report, table);
+                    MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
+                    String sql = new DdlGenerator(dialect, schema)
+                            .generate(tableSchema, tableReport, tableMetadata);
+                    Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
+                            eaArtifactBaseName(schema, table, platform), platform, timestamp);
+                    String sqlFileName = ddlRelativePath.getFileName().toString();
+                    requireValidDdl(platform, sql, sqlFileName);
+                    Path ddlPath = output.resolve(ddlRelativePath);
+                    Files.createDirectories(ddlPath.getParent());
+                    Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
+                    context.ledger().generated(context, ArtifactType.DDL, platform,
+                            tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                            ArtifactPaths.relative(output, ddlPath), "application/sql", "DdlGenerator");
+                } else {
+                    DialectForeignKeyCompatibilityIssue first = perTableCompatibilityIssues.getFirst();
+                    context.ledger().blocked(
+                            context, ArtifactType.DDL, platform,
+                            tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                            "DdlGenerator",
+                            "PER_TABLE_DDL_BLOCKED: " + first.code() + ": " + first.message());
+                }
 
                 comparisonArtifactProducer.writeEaComparisonWorkbook(
                         schema, table, repository, metadata, output, platform, dialect,
                         context, timestamp);
             }
 
-            // Per-table CREATE scripts above remain unconditional. If matching live tables exist,
-            // emit additional Flyway migrations under migration/<platform>/.
+            // Per-table CREATE scripts are emitted unless a DBMS-specific compatibility gate
+            // blocks an unsafe artifact. Live-table migrations remain independent artifacts.
             migrationArtifactProducer.writeMigrationArtifacts(schema, repository, output, platform, context);
             writeEaRunAll(schema, platform, dependencyOrder, baseName, timestamp, output, context);
         }
@@ -431,7 +446,7 @@ public final class EaGenerationOrchestrator {
                 .filter(issue -> issueAppliesToTable(issue, table))
                 .toList();
         return new MetadataComparisonResult(issues, frequencies, resolvedSchemas,
-                metadata.schemaExistence(), metadata.metadataAvailable());
+                metadata.schemaExistence(), metadata.tablespaceExistence(), metadata.metadataAvailable());
     }
 
     private boolean issueAppliesToTable(ValidationIssue issue, Table table) {

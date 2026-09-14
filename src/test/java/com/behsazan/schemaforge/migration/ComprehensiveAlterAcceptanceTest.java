@@ -111,7 +111,7 @@ class ComprehensiveAlterAcceptanceTest {
     private static Table liveColumns() {
         return Table.builder("APP", "R75_MATRIX")
                 .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, false, null, 1))
-                .addColumn(column("NAME", DataType.varchar("VARCHAR2", 50), true, null, false, null, 2))
+                .addColumn(column("NAME", DataType.varchar("VARCHAR2", 50), true, null, false, null, 2, "Old name description"))
                 .addColumn(column("DEFAULTED", DataType.varchar("VARCHAR2", 20), true, "'OLD'", false, null, 3))
                 .addColumn(column("IDENT_COL", DataType.numeric("NUMBER", 10, 0), false, null, false, null, 4))
                 .addColumn(column("GENERATED_COL", DataType.numeric("NUMBER", 10, 0), true, null, false, "ID + 1", 5))
@@ -122,7 +122,7 @@ class ComprehensiveAlterAcceptanceTest {
     private static Table desiredColumns() {
         return Table.builder("APP", "R75_MATRIX")
                 .addColumn(column("ID", DataType.numeric("NUMBER", 10, 0), false, null, false, null, 1))
-                .addColumn(column("NAME", DataType.varchar("VARCHAR2", 100), false, null, false, null, 2))
+                .addColumn(column("NAME", DataType.varchar("VARCHAR2", 100), false, null, false, null, 2, "New name description"))
                 .addColumn(column("DEFAULTED", DataType.varchar("VARCHAR2", 20), true, "'NEW'", false, null, 3))
                 .addColumn(column("IDENT_COL", DataType.numeric("NUMBER", 10, 0), false, null, true, null, 4))
                 .addColumn(column("GENERATED_COL", DataType.numeric("NUMBER", 10, 0), true, null, false, "ID + 2", 5))
@@ -133,8 +133,14 @@ class ComprehensiveAlterAcceptanceTest {
     private static Column column(
             String name, DataType type, boolean nullable, String defaultExpression,
             boolean identity, String generatedExpression, int ordinal) {
+        return column(name, type, nullable, defaultExpression, identity, generatedExpression, ordinal, "");
+    }
+
+    private static Column column(
+            String name, DataType type, boolean nullable, String defaultExpression,
+            boolean identity, String generatedExpression, int ordinal, String description) {
         return new Column(
-                Identifier.of(name), type, nullable, new DefaultValue(defaultExpression), Description.empty(),
+                Identifier.of(name), type, nullable, new DefaultValue(defaultExpression), new Description(description),
                 identity, ordinal, generatedExpression);
     }
 

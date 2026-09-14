@@ -42,6 +42,9 @@ import java.util.Set;
 @Repository
 @ConditionalOnProperty(prefix = "schemaforge.metadata.oracle", name = "enabled", havingValue = "true")
 public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
+    static final String TABLESPACE_EXISTS_SQL =
+            "SELECT COUNT(*) FROM USER_TABLESPACES WHERE TABLESPACE_NAME = ?";
+
     private static final String COLUMN_PROFILE_SQL = """
             SELECT c.COLUMN_NAME,
                    c.DATA_TYPE,
@@ -462,6 +465,15 @@ public class JdbcOracleMetadataRepository implements OracleMetadataRepository {
                 "SELECT COUNT(*) FROM ALL_USERS WHERE USERNAME = ?", Integer.class,
                 schemaName.toUpperCase(Locale.ROOT));
         return count != null && count > 0;
+    }
+
+    @Override
+    public Optional<Boolean> tablespaceExists(String tablespaceName) {
+        if (tablespaceName == null || tablespaceName.isBlank()) return Optional.empty();
+        Integer count = jdbcTemplate.getJdbcTemplate().queryForObject(
+                TABLESPACE_EXISTS_SQL, Integer.class,
+                tablespaceName.toUpperCase(Locale.ROOT));
+        return Optional.of(count != null && count > 0);
     }
 
     @Override

@@ -1,3 +1,48 @@
+## 2026-09-14 - FK / infrastructure existence-awareness hotfix
+
+- SQL Server EA per-table DDL now reuses the integrated FK type-compatibility gate. An unsafe FK
+  blocks the owning DDL artifact with `PER_TABLE_DDL_BLOCKED` and the exact rendered type mismatch;
+  no executable incompatible FK file is emitted.
+- Oracle metadata now records required tablespace existence through `USER_TABLESPACES`.
+- Oracle per-table/document DDL suppresses the optional infrastructure provisioning template when
+  the schema and all actually required table/index tablespaces are positively verified to exist.
+- Missing or unknown tablespaces remain fail-closed/non-executable DBA guidance; no infrastructure
+  resource is guessed or auto-created.
+- Added regression coverage for manifest BLOCKED status and Oracle infrastructure suppression.
+
+## 2026-09-14 - Comment literal safety validator/test-contract follow-up
+
+- MariaDB offline DDL sanity validation now accepts only the three exact SchemaForge-managed `sql_mode` guard statement shapes used around comment-bearing DDL, while continuing to reject arbitrary `SET` statements.
+- PostgreSQL DDL regression expectation now reflects the deliberate deterministic `E'...'` comment literal contract introduced by the cross-DBMS literal-safety hotfix.
+- No production comment text, escaping semantics, datatype mapping, FK behavior, selection policy, or migration safety policy changes.
+
+## 2026-09-14 - Cross-DBMS comment literal safety
+- Centralizes executable table/column comment literal rendering and validation for all seven DBMSs.
+- Preserves quotes, ampersands, backslashes, Unicode/Persian text, newlines, tabs, semicolons and SQL-looking text without changing canonical documentation content.
+- Oracle scripts now guard SQL*Plus/SQLcl substitution and blank-line parsing with `SET DEFINE OFF` / `SET SQLBLANKLINES ON`; JDBC parsing strips these client commands.
+- PostgreSQL uses deterministic escape-string literals; SQL Server uses Unicode `N'...'` extended-property values.
+- MySQL/MariaDB comment-bearing statements temporarily normalize `NO_BACKSLASH_ESCAPES` behavior and restore the original session `sql_mode` immediately afterwards.
+- Multiline human-readable table-description headers now prefix every physical line with `--`, preventing documentation text from becoming executable SQL.
+- NUL and unsupported C0 control characters fail closed; no lossy sanitization is introduced.
+- Adds cross-DBMS CREATE/Migration special-character regression coverage and Oracle client-command parser coverage.
+
+
+## 2026-09-14 - Cross-DBMS comment convergence hardening
+- Table database comments now prefer canonical table `description`; `persianName` is only a fallback when description is empty.
+- Description changes therefore participate in CREATE, Compare and ALTER/Migration consistently.
+- MySQL/MariaDB comment-only `MODIFY COLUMN` preserves live native type, character set, collation, nullability, default, identity and supported `ON UPDATE` metadata; unknown live extras fail closed instead of risking physical drift.
+- Comment literal escaping and Unicode/newline regression coverage added for all seven DBMS.
+- Comment convergence regression verifies zero description residual after live metadata matches desired state.
+## 2026-09-13 - Cross-DBMS description/comment migration hotfix
+
+- Makes table and column descriptions part of the live-to-desired schema state for all seven supported DBMSs.
+- `SchemaDiffEngine` now emits SAFE description drift for changed/missing/removed column comments and tracks table-comment drift independently from structural objects.
+- Migration rendering now converges descriptions with native syntax: `COMMENT ON` for Oracle/PostgreSQL/DB2, `MS_Description` extended-property upsert/drop for SQL Server, and full-definition `ALTER TABLE ... MODIFY COLUMN ... COMMENT` plus table `COMMENT=` for MySQL/MariaDB.
+- ADD COLUMN migrations now also persist the new column description on dialects where comments are separate statements.
+- CREATE/per-table generation now emits non-inline table/column comments before foreign keys across dialects, preventing a later FK failure from suppressing schema documentation.
+- Adds cross-DBMS regression coverage for description add/change/remove behavior and comment-before-FK ordering.
+- No canonical datatype guessing, FK guessing, historical winner selection, or destructive migration policy changes.
+
 ## 2026-09-13 - EA output integrity / no-guess FK and run-all hotfix
 
 - Preserves Enterprise Architect `UML:Association` identity by `xmi.id`; multiple distinct associations can no longer be silently collapsed by source FK operation name.

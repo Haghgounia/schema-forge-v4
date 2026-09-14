@@ -56,6 +56,8 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
                    numeric_precision,
                    numeric_scale,
                    datetime_precision,
+                   character_set_name,
+                   collation_name,
                    is_nullable,
                    column_default,
                    extra,
@@ -203,6 +205,8 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
                         nullableInt(rs.getObject("numeric_precision")),
                         nullableInt(rs.getObject("numeric_scale")),
                         nullableInt(rs.getObject("datetime_precision")),
+                        trimToNull(rs.getString("character_set_name")),
+                        trimToNull(rs.getString("collation_name")),
                         "YES".equalsIgnoreCase(rs.getString("is_nullable")),
                         rs.getString("column_default"),
                         trimToNull(rs.getString("extra")),
@@ -359,6 +363,8 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
         if (row.columnType() != null && !row.columnType().isBlank()) {
             physical.put("MYSQL_NATIVE_COLUMN_TYPE", row.columnType().trim());
         }
+        if (row.characterSet() != null) physical.put("MYSQL_CHARACTER_SET", row.characterSet());
+        if (row.collation() != null) physical.put("MYSQL_COLLATION", row.collation());
         if (row.extra() != null) physical.put("MYSQL_EXTRA", row.extra());
         return new Column(
                 Identifier.of(row.name()),
@@ -463,11 +469,21 @@ public class JdbcMySqlMetadataRepository implements MySqlMetadataRepository {
             Integer numericPrecision,
             Integer numericScale,
             Integer datetimePrecision,
+            String characterSet,
+            String collation,
             boolean nullable,
             String defaultValue,
             String extra,
             String generatedExpression,
-            String comment) {}
+            String comment) {
+        MySqlColumnRow(
+                int position, String name, String dataType, String columnType,
+                Integer characterLength, Integer numericPrecision, Integer numericScale, Integer datetimePrecision,
+                boolean nullable, String defaultValue, String extra, String generatedExpression, String comment) {
+            this(position, name, dataType, columnType, characterLength, numericPrecision, numericScale,
+                    datetimePrecision, null, null, nullable, defaultValue, extra, generatedExpression, comment);
+        }
+    }
     record KeyConstraintRow(String name, String type, String column, int position) {}
     record ForeignKeyRow(String name, String column, int position, String referencedSchema,
                          String referencedTable, String referencedColumn, String deleteRule, String updateRule) {}

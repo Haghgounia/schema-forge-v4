@@ -10,6 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcOracleMetadataRepositoryTest {
 
     @Test
+    void tablespaceExistenceUsesReadOnlyUserCatalog() {
+        assertTrue(JdbcOracleMetadataRepository.TABLESPACE_EXISTS_SQL.contains("USER_TABLESPACES"));
+        assertTrue(JdbcOracleMetadataRepository.TABLESPACE_EXISTS_SQL.contains("TABLESPACE_NAME = ?"));
+    }
+
+    @Test
     void mapsTablePhysicalCatalogValuesToExistingOraclePhysicalKeys() {
         var info = new JdbcOracleMetadataRepository.TableInfo(
                 "CUSTOMERS", "Customer master", "TS_APP",

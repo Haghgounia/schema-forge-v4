@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.dialect.postgresql;
 
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.CommentLiteralSafety;
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.Column;
@@ -303,6 +304,11 @@ public final class PostgreSqlDialect implements Dialect {
                 + physicalIndexComment
                 + indexTablespaceClause(indexTablespace)
                 + partialIndexClause(predicate);
+    }
+
+    @Override
+    public String commentLiteral(String comment) {
+        return CommentLiteralSafety.postgreSqlEscapeLiteral(comment);
     }
 
     @Override

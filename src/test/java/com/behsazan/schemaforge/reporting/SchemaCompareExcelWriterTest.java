@@ -269,7 +269,7 @@ class SchemaCompareExcelWriterTest {
             assertEquals("مشتریان", metadata.getRow(1).getCell(1).getStringCellValue());
             assertEquals("اطلاعات مشتریان", metadata.getRow(1).getCell(2).getStringCellValue());
             assertEquals("مشتریان", metadata.getRow(1).getCell(3).getStringCellValue());
-            assertEquals("SAME", metadata.getRow(1).getCell(4).getStringCellValue());
+            assertEquals("DIFFERENT", metadata.getRow(1).getCell(4).getStringCellValue());
             assertObjectStatus(workbook, "PRIMARY_KEY_COMPARE", "PK_CUSTOMERS", "MODIFY");
             assertObjectStatus(workbook, "FOREIGN_KEYS_COMPARE", "FK_CUSTOMERS_F2", "ADD");
             assertObjectStatus(workbook, "INDEXES_COMPARE", "IX_CUSTOMERS_F2_F3", "ADD");

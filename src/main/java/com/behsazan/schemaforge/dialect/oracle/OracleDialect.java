@@ -313,8 +313,13 @@ public final class OracleDialect implements Dialect {
                 + (source == null ? "" : "PROMPT Source File : " + source + nl)
                 + "PROMPT Schema      : " + schemaName + nl
                 + "PROMPT ==============================================================" + nl
-                + "SET DEFINE OFF;" + nl
                 + "WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;";
+    }
+
+    @Override
+    public String commentClientPreamble() {
+        String nl = System.lineSeparator();
+        return "SET DEFINE OFF" + nl + "SET SQLBLANKLINES ON";
     }
 
     @Override

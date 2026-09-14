@@ -83,6 +83,7 @@ public final class SqlScriptStatementParser {
             boolean skip = switch (platform) {
                 case ORACLE -> trimmed.regionMatches(true, 0, "PROMPT", 0, "PROMPT".length())
                         || trimmed.regionMatches(true, 0, "SET DEFINE", 0, "SET DEFINE".length())
+                        || trimmed.regionMatches(true, 0, "SET SQLBLANKLINES", 0, "SET SQLBLANKLINES".length())
                         || trimmed.regionMatches(true, 0, "WHENEVER SQLERROR", 0, "WHENEVER SQLERROR".length())
                         || trimmed.equals("/");
                 case POSTGRESQL -> trimmed.startsWith("\\");

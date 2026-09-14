@@ -65,7 +65,10 @@ public final class SchemaDiffEngine {
         Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
         List<ColumnChange> columnChanges = diffColumns(platform, dialect, liveTable, normalizedDesired);
         List<TableObjectChange> objectChanges = diffObjects(platform, dialect, liveTable, normalizedDesired);
-        return new TableMigrationPlan(platform, liveTable, normalizedDesired, columnChanges, objectChanges);
+        boolean tableDescriptionChanged = !sameDescription(
+                liveTable.description().value(), effectiveTableComment(normalizedDesired));
+        return new TableMigrationPlan(
+                platform, liveTable, normalizedDesired, columnChanges, objectChanges, tableDescriptionChanged);
     }
 
     private List<ColumnChange> diffColumns(
@@ -126,6 +129,12 @@ public final class SchemaDiffEngine {
                         ColumnChangeKind.ALTER_GENERATED_EXPRESSION, desired.name(), live, desired, MigrationRisk.REVIEW,
                         "generated expression changes; automatic expression transition requires operational review"));
             }
+
+            if (!sameDescription(live.description().value(), desired.description().value())) {
+                changes.add(new ColumnChange(
+                        ColumnChangeKind.ALTER_DESCRIPTION, desired.name(), live, desired, MigrationRisk.SAFE,
+                        "column description/comment changes"));
+            }
         }
 
         List<Column> liveColumns = new ArrayList<>(liveTable.columns());
@@ -138,6 +147,21 @@ public final class SchemaDiffEngine {
             }
         }
         return List.copyOf(changes);
+    }
+
+    private static String effectiveTableComment(Table table) {
+        if (!table.description().isEmpty()) {
+            return table.description().value();
+        }
+        return table.persianName().value();
+    }
+
+    private static boolean sameDescription(String live, String desired) {
+        return Objects.equals(normalizeDescription(live), normalizeDescription(desired));
+    }
+
+    private static String normalizeDescription(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static boolean effectiveDesiredNullable(

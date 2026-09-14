@@ -246,7 +246,7 @@ public interface Dialect {
 
     /** Whether table/column comments must be emitted before foreign-key dependencies. */
     default boolean commentsBeforeForeignKeys() {
-        return false;
+        return true;
     }
 
     /**
@@ -467,24 +467,51 @@ public interface Dialect {
         return " " + clause + " " + renderedAction;
     }
 
+    /** Renders a database comment value as a complete SQL literal. */
+    default String commentLiteral(String comment) {
+        return CommentLiteralSafety.standardLiteral(comment);
+    }
+
+    /** Optional client command guard that must appear before any script text containing comments. */
+    default String commentClientPreamble() {
+        return "";
+    }
+
+    /** Optional SQL session guard emitted immediately before a statement containing a comment literal. */
+    default String commentLiteralStatementPreamble() {
+        return "";
+    }
+
+    /** Optional SQL session restoration emitted immediately after a statement containing a comment literal. */
+    default String commentLiteralStatementPostamble() {
+        return "";
+    }
+
     default String tableCommentStatement(QualifiedName tableName, String comment) {
         return "COMMENT ON TABLE " + qualifiedName(tableName)
-                + " IS '" + escapeLiteral(comment) + "'" + statementTerminator();
+                + " IS " + commentLiteral(comment) + statementTerminator();
     }
 
     default String columnCommentStatement(QualifiedName tableName, Identifier columnName, String comment) {
         return "COMMENT ON COLUMN " + qualifiedName(tableName) + "." + quote(columnName)
-                + " IS '" + escapeLiteral(comment) + "'" + statementTerminator();
+                + " IS " + commentLiteral(comment) + statementTerminator();
+    }
+
+    /** Renders a table-comment change for ALTER/Migration convergence. */
+    default String migrationTableCommentStatement(QualifiedName tableName, String comment) {
+        return tableCommentStatement(tableName, comment == null ? "" : comment);
+    }
+
+    /** Renders a column-comment change for ALTER/Migration convergence. */
+    default String migrationColumnCommentStatement(
+            QualifiedName tableName, Identifier columnName, String comment) {
+        return columnCommentStatement(tableName, columnName, comment == null ? "" : comment);
     }
 
     private String qualifiedName(QualifiedName name) {
         return name.schemaName()
                 .map(schema -> quote(schema) + "." + quote(name.name()))
                 .orElseGet(() -> quote(name.name()));
-    }
-
-    private String escapeLiteral(String value) {
-        return value.replace("'", "''");
     }
 
     default String scriptPostamble() {

@@ -186,7 +186,7 @@ class OracleDdlGeneratorTest {
 
 
     @Test
-    void shouldUsePersianNameAsTableCommentAndKeepDescriptionAsHeader() {
+    void shouldPreferDescriptionAsTableCommentAndKeepPersianNameAsHeader() {
         Table table = Table.builder("BIM", "CUSTOMERS")
                 .persianName("مشتریان")
                 .description("شرح کامل اطلاعات مشتریان")
@@ -202,8 +202,8 @@ class OracleDdlGeneratorTest {
 
         assertTrue(sql.contains("-- Persian table name: مشتریان"));
         assertTrue(sql.contains("-- شرح کامل اطلاعات مشتریان"));
-        assertTrue(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'مشتریان';"));
-        assertFalse(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'شرح کامل اطلاعات مشتریان';"));
+        assertTrue(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'شرح کامل اطلاعات مشتریان';"));
+        assertFalse(sql.contains("COMMENT ON TABLE BIM.CUSTOMERS IS 'مشتریان';"));
     }
 
 

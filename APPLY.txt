@@ -1,11 +1,21 @@
-SchemaForge V4 - EA output integrity hotfix
-Baseline: schema-forge-v4-2026-09-13-SS-P10-external-database-audit.zip
+SchemaForge V4 - Cross-DBMS Comment Literal Safety Hotfix v2
 
-Apply from project root by overlaying this archive and preserving paths.
+Baseline:
+  schema-forge-v4-2026-09-14-CROSSDB-comment-literal-safety-hotfix.zip
+
+Apply the delta over the project root:
+  D:\Projects\schema-forge-v4
+
+Targeted verification:
+  mvnw.cmd clean ^
+    -Dtest=MariaDbDdlSanityCheckerTest,PostgreSqlDdlGeneratorTest,CrossDbmsCommentLiteralSafetyTest,ArtifactIdentityNamingAcceptanceTest,RestArtifactIntegrityAcceptanceTest,EaGenerationOrchestratorTest,SchemaForgeEaPerTableOutputTest ^
+    test
+
 Then run:
+  mvnw.cmd clean test
 
-mvnw.cmd clean ^
-  -Dtest=EnterpriseArchitectFkAssociationRecoveryTest,EaGenerationOrchestratorTest,RunAllOrderingAcceptanceTest ^
-  test
-
-The hotfix does not modify DBMS datatype mappings or auto-correct contradictory EA relationships.
+Expected policy:
+- MariaDB sanity checker accepts only SchemaForge's exact comment-literal sql_mode guards
+- arbitrary SET statements remain rejected
+- PostgreSQL CREATE comment contract uses deterministic E'...' literals
+- no production comment text, escaping semantics, datatype mapping, FK behavior, or migration policy changes

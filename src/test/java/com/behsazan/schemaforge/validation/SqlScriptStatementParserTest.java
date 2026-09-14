@@ -34,7 +34,7 @@ class SqlScriptStatementParserTest {
 
     @Test
     void shouldRemoveOracleSqlPlusCommands() {
-        String script = "PROMPT Header\nSET DEFINE OFF;\nWHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;\n"
+        String script = "PROMPT Header\nSET DEFINE OFF\nSET SQLBLANKLINES ON\nWHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;\n"
                 + "CREATE TABLE TEST_TABLE(ID NUMBER);\n";
 
         List<String> statements = parser.parse(script, DatabasePlatform.ORACLE);

@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.dialect.sqlserver;
 
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.CommentLiteralSafety;
 import com.behsazan.schemaforge.dialect.DialectFeature;
 import com.behsazan.schemaforge.dialect.ForeignKeyTypeCompatibilityPolicy;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
@@ -347,10 +348,15 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     }
 
     @Override
+    public String commentLiteral(String comment) {
+        return CommentLiteralSafety.sqlServerUnicodeLiteral(comment);
+    }
+
+    @Override
     public String tableCommentStatement(QualifiedName tableName, String comment) {
         Identifier schema = tableName.schemaName().orElseGet(() -> Identifier.of("dbo"));
         return "EXEC sys.sp_addextendedproperty "
-                + "@name=N'MS_Description', @value=N'" + escapeLiteral(comment) + "', "
+                + "@name=N'MS_Description', @value=" + commentLiteral(comment) + ", "
                 + "@level0type=N'SCHEMA', @level0name=N'" + escapeLiteral(metadataName(schema)) + "', "
                 + "@level1type=N'TABLE', @level1name=N'" + escapeLiteral(metadataName(tableName.name())) + "'"
                 + statementTerminator();
@@ -360,10 +366,71 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     public String columnCommentStatement(QualifiedName tableName, Identifier columnName, String comment) {
         Identifier schema = tableName.schemaName().orElseGet(() -> Identifier.of("dbo"));
         return "EXEC sys.sp_addextendedproperty "
-                + "@name=N'MS_Description', @value=N'" + escapeLiteral(comment) + "', "
+                + "@name=N'MS_Description', @value=" + commentLiteral(comment) + ", "
                 + "@level0type=N'SCHEMA', @level0name=N'" + escapeLiteral(metadataName(schema)) + "', "
                 + "@level1type=N'TABLE', @level1name=N'" + escapeLiteral(metadataName(tableName.name())) + "', "
                 + "@level2type=N'COLUMN', @level2name=N'" + escapeLiteral(metadataName(columnName)) + "'"
+                + statementTerminator();
+    }
+
+    @Override
+    public String migrationTableCommentStatement(QualifiedName tableName, String comment) {
+        Identifier schema = tableName.schemaName().orElseGet(() -> Identifier.of("dbo"));
+        String schemaName = escapeLiteral(metadataName(schema));
+        String table = escapeLiteral(metadataName(tableName.name()));
+        String exists = "EXISTS (SELECT 1 FROM sys.extended_properties ep "
+                + "JOIN sys.tables t ON t.object_id = ep.major_id "
+                + "JOIN sys.schemas s ON s.schema_id = t.schema_id "
+                + "WHERE ep.class = 1 AND ep.minor_id = 0 AND ep.name = N'MS_Description' "
+                + "AND s.name = N'" + schemaName + "' AND t.name = N'" + table + "')";
+        if (comment == null || comment.isBlank()) {
+            return "IF " + exists + " EXEC sys.sp_dropextendedproperty "
+                    + "@name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'" + schemaName + "', "
+                    + "@level1type=N'TABLE', @level1name=N'" + table + "'" + statementTerminator();
+        }
+        String value = commentLiteral(comment);
+        return "IF " + exists + " EXEC sys.sp_updateextendedproperty "
+                + "@name=N'MS_Description', @value=" + value + ", "
+                + "@level0type=N'SCHEMA', @level0name=N'" + schemaName + "', "
+                + "@level1type=N'TABLE', @level1name=N'" + table + "' "
+                + "ELSE EXEC sys.sp_addextendedproperty "
+                + "@name=N'MS_Description', @value=" + value + ", "
+                + "@level0type=N'SCHEMA', @level0name=N'" + schemaName + "', "
+                + "@level1type=N'TABLE', @level1name=N'" + table + "'"
+                + statementTerminator();
+    }
+
+    @Override
+    public String migrationColumnCommentStatement(
+            QualifiedName tableName, Identifier columnName, String comment) {
+        Identifier schema = tableName.schemaName().orElseGet(() -> Identifier.of("dbo"));
+        String schemaName = escapeLiteral(metadataName(schema));
+        String table = escapeLiteral(metadataName(tableName.name()));
+        String column = escapeLiteral(metadataName(columnName));
+        String exists = "EXISTS (SELECT 1 FROM sys.extended_properties ep "
+                + "JOIN sys.tables t ON t.object_id = ep.major_id "
+                + "JOIN sys.schemas s ON s.schema_id = t.schema_id "
+                + "JOIN sys.columns c ON c.object_id = t.object_id AND c.column_id = ep.minor_id "
+                + "WHERE ep.class = 1 AND ep.name = N'MS_Description' "
+                + "AND s.name = N'" + schemaName + "' AND t.name = N'" + table + "' "
+                + "AND c.name = N'" + column + "')";
+        if (comment == null || comment.isBlank()) {
+            return "IF " + exists + " EXEC sys.sp_dropextendedproperty "
+                    + "@name=N'MS_Description', @level0type=N'SCHEMA', @level0name=N'" + schemaName + "', "
+                    + "@level1type=N'TABLE', @level1name=N'" + table + "', "
+                    + "@level2type=N'COLUMN', @level2name=N'" + column + "'" + statementTerminator();
+        }
+        String value = commentLiteral(comment);
+        return "IF " + exists + " EXEC sys.sp_updateextendedproperty "
+                + "@name=N'MS_Description', @value=" + value + ", "
+                + "@level0type=N'SCHEMA', @level0name=N'" + schemaName + "', "
+                + "@level1type=N'TABLE', @level1name=N'" + table + "', "
+                + "@level2type=N'COLUMN', @level2name=N'" + column + "' "
+                + "ELSE EXEC sys.sp_addextendedproperty "
+                + "@name=N'MS_Description', @value=" + value + ", "
+                + "@level0type=N'SCHEMA', @level0name=N'" + schemaName + "', "
+                + "@level1type=N'TABLE', @level1name=N'" + table + "', "
+                + "@level2type=N'COLUMN', @level2name=N'" + column + "'"
                 + statementTerminator();
     }
 

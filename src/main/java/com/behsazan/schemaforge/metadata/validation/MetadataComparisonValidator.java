@@ -47,6 +47,7 @@ public final class MetadataComparisonValidator {
         Map<String, Long> frequencies = new LinkedHashMap<>();
         Map<String, String> resolvedForeignKeySchemas = new LinkedHashMap<>();
         Map<String, Boolean> schemaExistence = new LinkedHashMap<>();
+        Map<String, Boolean> tablespaceExistence = new LinkedHashMap<>();
         Set<String> columnNames = normalizedSchema.tables().stream()
                 .flatMap(table -> table.columns().stream())
                 .map(column -> column.name().value().toUpperCase(Locale.ROOT))
@@ -59,6 +60,9 @@ public final class MetadataComparisonValidator {
         boolean allDocumentSchemasVerifiedMissing = repository.schemaExistenceAuthoritative()
                 && !schemaExistence.isEmpty()
                 && schemaExistence.values().stream().noneMatch(Boolean.TRUE::equals);
+        if (metadataAvailable && !allDocumentSchemasVerifiedMissing) {
+            metadataAvailable = inspectTablespaceExistence(normalizedSchema, tablespaceExistence);
+        }
         Map<String, MetadataColumnProfile> profiles = metadataAvailable && !allDocumentSchemasVerifiedMissing
                 ? loadColumnProfiles(columnNames)
                 : Map.of();
@@ -103,7 +107,7 @@ public final class MetadataComparisonValidator {
             }
         }
         return new MetadataComparisonResult(issues, frequencies, resolvedForeignKeySchemas,
-                schemaExistence, metadataAvailable);
+                schemaExistence, tablespaceExistence, metadataAvailable);
     }
 
     /**
@@ -184,6 +188,31 @@ public final class MetadataComparisonValidator {
 
     private static String normalizeSchema(String schemaName) {
         return schemaName.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean inspectTablespaceExistence(
+            DatabaseSchema schema, Map<String, Boolean> tablespaceExistence) {
+        Set<String> tablespaces = new LinkedHashSet<>();
+        for (Table table : schema.tables()) {
+            String tableTablespace = dialect.resolveTableTablespace(table);
+            if (tableTablespace != null && !tableTablespace.isBlank()) {
+                tablespaces.add(tableTablespace.trim());
+            }
+            if (table.primaryKey().isPresent() || !table.uniqueKeys().isEmpty() || !table.indexes().isEmpty()) {
+                String indexTablespace = dialect.defaultIndexTablespace(table.qualifiedName());
+                if (indexTablespace != null && !indexTablespace.isBlank()) {
+                    tablespaces.add(indexTablespace.trim());
+                }
+            }
+        }
+        for (String tablespace : tablespaces) {
+            java.util.Optional<Boolean> exists = repository.tablespaceExists(tablespace);
+            if (!repository.available()) {
+                return false;
+            }
+            exists.ifPresent(value -> tablespaceExistence.put(normalizeSchema(tablespace), value));
+        }
+        return true;
     }
 
     private boolean validateTableLocation(Table table, List<ValidationIssue> issues,

@@ -36,6 +36,24 @@ class MariaDbDdlSanityCheckerTest {
     }
 
     @Test
+    void acceptsOnlySchemaForgeCommentLiteralSqlModeGuards() {
+        String sql = """
+                SET @SCHEMAFORGE_OLD_SQL_MODE = @@SESSION.sql_mode;
+                SET SESSION sql_mode = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', @@SESSION.sql_mode, ','), ',NO_BACKSLASH_ESCAPES,', ','));
+                CREATE TABLE `APP`.`CUSTOMER` (`ID` BIGINT NOT NULL) COMMENT='Tax & Withholding';
+                SET SESSION sql_mode = @SCHEMAFORGE_OLD_SQL_MODE;
+                """;
+
+        assertTrue(checker.inspect(sql).isEmpty());
+        assertDoesNotThrow(() -> checker.requireValid(sql, "comment-guard.mariadb.sql"));
+
+        Set<String> arbitrarySetCodes = checker.inspect("SET SESSION sql_mode = 'ANSI';").stream()
+                .map(MariaDbDdlSanityChecker.Issue::code)
+                .collect(Collectors.toSet());
+        assertTrue(arbitrarySetCodes.contains("MARIADB_UNEXPECTED_STATEMENT"));
+    }
+
+    @Test
     void acceptsSerialWhenItIsOnlyAQuotedIdentifier() {
         String sql = """
                 CREATE TABLE `APP`.`CHEQUE` (`SERIAL` BIGINT NOT NULL, `VALUE` DECIMAL(18,2));
