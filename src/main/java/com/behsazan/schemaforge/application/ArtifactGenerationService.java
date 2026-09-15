@@ -67,7 +67,13 @@ public final class ArtifactGenerationService {
             String sourceName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
-        return generateStandardWord(file, sourceName, context, auditOptions, Set.of(DatabasePlatform.values()));
+        Objects.requireNonNull(file, "file must not be null");
+        Objects.requireNonNull(sourceName, "sourceName must not be null");
+        Objects.requireNonNull(context, "context must not be null");
+        Set<DatabasePlatform> platforms = Set.of(DatabasePlatform.values());
+        return generate(file, sourceName, "schemaforge-word-", context, auditOptions, platforms,
+                (input, output) -> documentGenerationOrchestrator.generateStandardWord(
+                        input, output, context, auditOptions));
     }
 
     public byte[] generateStandardWord(
@@ -100,7 +106,14 @@ public final class ArtifactGenerationService {
             String schemaName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
-        return generateLegacyWord(file, sourceName, schemaName, context, auditOptions, Set.of(DatabasePlatform.values()));
+        Objects.requireNonNull(file, "file must not be null");
+        Objects.requireNonNull(sourceName, "sourceName must not be null");
+        Objects.requireNonNull(schemaName, "schemaName must not be null");
+        Objects.requireNonNull(context, "context must not be null");
+        Set<DatabasePlatform> platforms = Set.of(DatabasePlatform.values());
+        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions, platforms,
+                (input, output) -> documentGenerationOrchestrator.generateLegacyWord(
+                        input, output, schemaName, context, auditOptions));
     }
 
     public byte[] generateLegacyWord(

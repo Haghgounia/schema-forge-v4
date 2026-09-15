@@ -1,5 +1,13 @@
 ## 2026-09-15 - Generation REST platform selection parity
 
+### 2026-09-15 - REST generation platform multi-select compatibility hotfix v5
+
+- Restored backward-compatible `ArtifactGenerationService` overload dispatch for Standard Word and Legacy Word generation.
+- Legacy/non-platform-aware callers continue invoking the historical `DocumentGenerationOrchestrator` overloads and retain all-platform behavior.
+- New REST platform-aware overloads remain unchanged and continue honoring explicit multi-select/fail-closed platform selection.
+- Fixes `ArtifactGenerationServiceTest` Mockito regressions introduced by v4 without changing DDL generation semantics.
+
+
 - Added the required multi-select `platform` request parameter to all four general generation endpoints: `/word`, `/legacy-word`, `/zip`, and `/ea-xml`.
 - The selected platform set now controls actual DDL/migration/comparison/CRUD generation for Word, legacy Word, ZIP batch, and EA inputs.
 - REST requests fail closed with `400 INVALID_REQUEST` when no platform is selected; programmatic service overloads retain the historical all-platform default for backward compatibility.

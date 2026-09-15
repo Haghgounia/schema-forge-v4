@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -105,6 +106,31 @@ class ArtifactGenerationServiceTest {
         assertEquals("legacy.doc", manifest.path("source").path("name").asText());
         assertEquals("DPS", manifest.path("models").get(0).path("schema").asText());
         verify(orchestrator).generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context), isNull());
+    }
+
+    @Test
+    void platformAwareStandardWordDelegatesSelectedPlatforms() throws Exception {
+        DocumentGenerationOrchestrator orchestrator = mock(DocumentGenerationOrchestrator.class);
+        ArtifactGenerationService service = service(orchestrator);
+        ArtifactGenerationContext context = context(ArtifactOrigin.STANDARD_WORD, "selected.docx");
+        PreparedSchema prepared = prepared("APP");
+        Set<DatabasePlatform> platforms = Set.of(DatabasePlatform.ORACLE, DatabasePlatform.MYSQL);
+
+        when(orchestrator.generateStandardWord(
+                any(Path.class), any(Path.class), same(context), isNull(), eq(platforms)))
+                .thenReturn(prepared);
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "selected.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "word-content".getBytes(StandardCharsets.UTF_8));
+
+        Map<String, byte[]> entries = unzip(service.generateStandardWord(
+                file, "selected.docx", context, null, platforms));
+
+        assertTrue(entries.containsKey("manifest.json"));
+        verify(orchestrator).generateStandardWord(
+                any(Path.class), any(Path.class), same(context), isNull(), eq(platforms));
     }
 
     @Test
