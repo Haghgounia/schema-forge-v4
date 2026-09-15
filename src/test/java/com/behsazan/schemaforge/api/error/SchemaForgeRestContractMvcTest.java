@@ -5,10 +5,12 @@ import com.behsazan.schemaforge.api.MermaidDiagramController;
 import com.behsazan.schemaforge.api.OracleCrudController;
 import com.behsazan.schemaforge.api.SchemaForgeApiService;
 import com.behsazan.schemaforge.api.SchemaForgeController;
+import com.behsazan.schemaforge.api.SchemaConformanceController;
 import com.behsazan.schemaforge.api.SqlServerCrudController;
 import com.behsazan.schemaforge.application.OracleCrudGenerationService;
 import com.behsazan.schemaforge.application.ServiceUnavailableException;
 import com.behsazan.schemaforge.application.SqlServerCrudGenerationService;
+import com.behsazan.schemaforge.conformance.SchemaConformanceAuditService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -21,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,13 +37,13 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void generationErrorsUseStandardContract() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any()))
+        when(service.generateFromWord(any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("invalid word"));
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
 
-        mvc.perform(multipart("/api/v1/generate/word").file(file))
+        mvc.perform(multipart("/api/v1/generate/word").file(file).param("platform", "oracle"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.contract").value(RestErrorResponse.CONTRACT))
@@ -49,6 +52,71 @@ class SchemaForgeRestContractMvcTest {
                 .andExpect(jsonPath("$.path").value("/api/v1/generate/word"))
                 .andExpect(header().exists(SchemaForgeRequestCorrelationFilter.HEADER_NAME))
                 .andExpect(jsonPath("$.requestId").isNotEmpty());
+    }
+
+
+    @Test
+    void wordPlatformSelectionIsForwardedAndRequired() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle", "mysql"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(any(), any(), any(), eq(java.util.List.of("oracle", "mysql")));
+
+        mvc.perform(multipart("/api/v1/generate/word").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
+    }
+
+    @Test
+    void legacyWordPlatformSelectionIsForwardedAndRequired() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromLegacyWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "legacy.doc", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/legacy-word")
+                        .file(file)
+                        .param("schema", "BIM")
+                        .param("platform", "db2luw"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromLegacyWord(any(), eq("BIM"), any(), any(), eq(java.util.List.of("db2luw")));
+
+        mvc.perform(multipart("/api/v1/generate/legacy-word")
+                        .file(file)
+                        .param("schema", "BIM"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
+    }
+
+    @Test
+    void zipPlatformSelectionIsForwardedAndRequired() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromZip(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "batch.zip", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/zip")
+                        .file(file)
+                        .param("platform", "sqlserver"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromZip(any(), any(), any(), eq(java.util.List.of("sqlserver")));
+
+        mvc.perform(multipart("/api/v1/generate/zip").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
     }
 
     @Test
@@ -67,6 +135,74 @@ class SchemaForgeRestContractMvcTest {
                 .andExpect(content().contentType("application/zip"));
 
         verify(service).generateFromEaXml(any(), any(), any(), any(), eq(java.util.List.of("oracle")));
+    }
+
+    @Test
+    void eaPlatformSelectionIsRequired() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "model.xml", MediaType.APPLICATION_XML_VALUE, "<x/>".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/ea-xml").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.contract").value(RestErrorResponse.CONTRACT))
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."))
+                .andExpect(jsonPath("$.path").value("/api/v1/generate/ea-xml"));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void blankEaPlatformSelectionIsRejected() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "model.xml", MediaType.APPLICATION_XML_VALUE, "<x/>".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/ea-xml")
+                        .file(file)
+                        .param("platform", "  ,  "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
+
+        verifyNoInteractions(service);
+    }
+
+
+    @Test
+    void conformancePlatformSelectionIsRequiredForTableAudit() throws Exception {
+        SchemaConformanceAuditService service = mock(SchemaConformanceAuditService.class);
+        MockMvc mvc = mvc(new SchemaConformanceController(service));
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                        "/api/v1/conformance/table")
+                        .param("schema", "BANKING")
+                        .param("table", "CUSTOMER"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void conformancePlatformSelectionIsRequiredForSchemaAudit() throws Exception {
+        SchemaConformanceAuditService service = mock(SchemaConformanceAuditService.class);
+        MockMvc mvc = mvc(new SchemaConformanceController(service));
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                        "/api/v1/conformance/schema")
+                        .param("schema", "BANKING")
+                        .param("platform", "  ,  "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
+
+        verifyNoInteractions(service);
     }
 
     @Test

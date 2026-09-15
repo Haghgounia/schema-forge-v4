@@ -125,12 +125,22 @@ public class SchemaForgeApiService {
         return generateFromWordTracked(file, includeAuditFields, auditProfile).content();
     }
 
+    public byte[] generateFromWord(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
+        return generateFromWordTracked(file, includeAuditFields, auditProfile, platforms).content();
+    }
+
     GenerationArchive generateFromWordTracked(MultipartFile file) throws IOException {
         return generateFromWordTracked(file, null, "AUTO");
     }
 
     GenerationArchive generateFromWordTracked(
             MultipartFile file, Boolean includeAuditFields, String auditProfile) throws IOException {
+        return generateFromWordTracked(file, includeAuditFields, auditProfile, null);
+    }
+
+    GenerationArchive generateFromWordTracked(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
         requireExtension(file, ".docx");
         String sourceName = safeName(file.getOriginalFilename(), "input.docx");
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
@@ -138,7 +148,7 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         byte[] content = artifactGenerationService.generateStandardWord(
-                file, sourceName, context, auditOptions);
+                file, sourceName, context, auditOptions, DatabasePlatform.parseSelection(platforms));
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
@@ -154,6 +164,15 @@ public class SchemaForgeApiService {
         return generateFromLegacyWordTracked(file, schemaName, includeAuditFields, auditProfile).content();
     }
 
+    public byte[] generateFromLegacyWord(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms) throws IOException {
+        return generateFromLegacyWordTracked(file, schemaName, includeAuditFields, auditProfile, platforms).content();
+    }
+
     GenerationArchive generateFromLegacyWordTracked(MultipartFile file, String schemaName) throws IOException {
         return generateFromLegacyWordTracked(file, schemaName, null, "AUTO");
     }
@@ -163,6 +182,15 @@ public class SchemaForgeApiService {
             String schemaName,
             Boolean includeAuditFields,
             String auditProfile) throws IOException {
+        return generateFromLegacyWordTracked(file, schemaName, includeAuditFields, auditProfile, null);
+    }
+
+    GenerationArchive generateFromLegacyWordTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms) throws IOException {
         requireWordExtension(file);
         String schema = requireText(schemaName, "Legacy Word schema parameter is required");
         String fallback = file.getOriginalFilename() != null
@@ -175,7 +203,7 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         byte[] content = artifactGenerationService.generateLegacyWord(
-                file, sourceName, schema, context, auditOptions);
+                file, sourceName, schema, context, auditOptions, DatabasePlatform.parseSelection(platforms));
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
@@ -188,12 +216,22 @@ public class SchemaForgeApiService {
         return generateFromZipTracked(file, includeAuditFields, auditProfile).content();
     }
 
+    public byte[] generateFromZip(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
+        return generateFromZipTracked(file, includeAuditFields, auditProfile, platforms).content();
+    }
+
     GenerationArchive generateFromZipTracked(MultipartFile file) throws IOException {
         return generateFromZipTracked(file, null, "AUTO");
     }
 
     GenerationArchive generateFromZipTracked(
             MultipartFile file, Boolean includeAuditFields, String auditProfile) throws IOException {
+        return generateFromZipTracked(file, includeAuditFields, auditProfile, null);
+    }
+
+    GenerationArchive generateFromZipTracked(
+            MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
         requireExtension(file, ".zip");
         String sourceName = safeName(file.getOriginalFilename(), "input.zip");
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
@@ -201,7 +239,7 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         byte[] content = batchGenerationOrchestrator.generate(
-                file, stripExtension(sourceName), context, auditOptions);
+                file, stripExtension(sourceName), context, auditOptions, DatabasePlatform.parseSelection(platforms));
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 

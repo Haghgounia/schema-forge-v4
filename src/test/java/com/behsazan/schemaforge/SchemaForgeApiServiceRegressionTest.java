@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -170,6 +171,31 @@ class SchemaForgeApiServiceRegressionTest {
         assertFalse(mysqlSql.contains("ADD CONSTRAINT `FK_PROVINCES_CALENDAR_ID`"));
         assertFalse(mysqlSql.contains("U_DEVELOPER"));
         assertFalse(mysqlSql.contains("U_DESIGNER"));
+    }
+
+
+    @Test
+    void wordPlatformSelectionGeneratesOnlySelectedDatabaseArtifacts() throws Exception {
+        Path source = TestSamplePaths.PROVINCES_V1_2;
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        when(resolver.resolve(DatabasePlatform.ORACLE)).thenReturn(MetadataRepository.empty());
+        SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
+        spellCheck.setEnabled(false);
+        ObjectMapper mapper = new ObjectMapper();
+        SchemaForgeApiService service = new SchemaForgeApiService(
+                AuditProperties.defaults(), GrantProperties.defaults(), spellCheck, mapper, resolver);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", source.getFileName().toString(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                Files.readAllBytes(source));
+
+        Map<String, byte[]> entries = unzip(service.generateFromWord(file, null, "AUTO", List.of("oracle")));
+
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.startsWith("ddl/oracle/")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.startsWith("ddl/") && !name.startsWith("ddl/oracle/")));
+        JsonNode manifest = mapper.readTree(entries.get("manifest.json"));
+        assertEquals("oracle", manifest.path("extensions").path("generationOptions")
+                .path("platforms").get(0).asText());
     }
 
     private static Map<String, byte[]> unzip(byte[] content) throws Exception {

@@ -22,7 +22,7 @@ class SchemaForgeArchiveResponseNamingTest {
     @Test
     void wordResponseUsesCentralPortableArchiveName() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any())).thenReturn(new byte[] {1, 2, 3});
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1, 2, 3});
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new SchemaForgeController(service)).build();
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -30,7 +30,7 @@ class SchemaForgeArchiveResponseNamingTest {
                 MediaType.APPLICATION_OCTET_STREAM_VALUE,
                 "x".getBytes(StandardCharsets.UTF_8));
 
-        mvc.perform(multipart("/api/v1/generate/word").file(file))
+        mvc.perform(multipart("/api/v1/generate/word").file(file).param("platform", "oracle"))
                 .andExpect(status().isOk())
                 .andExpect(result -> {
                     String disposition = result.getResponse().getHeader(HttpHeaders.CONTENT_DISPOSITION);

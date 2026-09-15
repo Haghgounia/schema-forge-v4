@@ -67,12 +67,22 @@ public final class ArtifactGenerationService {
             String sourceName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
+        return generateStandardWord(file, sourceName, context, auditOptions, Set.of(DatabasePlatform.values()));
+    }
+
+    public byte[] generateStandardWord(
+            MultipartFile file,
+            String sourceName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(context, "context must not be null");
-        return generate(file, sourceName, "schemaforge-word-", context, auditOptions,
+        Objects.requireNonNull(platforms, "platforms must not be null");
+        return generate(file, sourceName, "schemaforge-word-", context, auditOptions, platforms,
                 (input, output) -> documentGenerationOrchestrator.generateStandardWord(
-                        input, output, context, auditOptions));
+                        input, output, context, auditOptions, platforms));
     }
 
     /** Generates and packages one Legacy Word specification using the required schema. */
@@ -90,13 +100,24 @@ public final class ArtifactGenerationService {
             String schemaName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
+        return generateLegacyWord(file, sourceName, schemaName, context, auditOptions, Set.of(DatabasePlatform.values()));
+    }
+
+    public byte[] generateLegacyWord(
+            MultipartFile file,
+            String sourceName,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         Objects.requireNonNull(context, "context must not be null");
-        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions,
+        Objects.requireNonNull(platforms, "platforms must not be null");
+        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions, platforms,
                 (input, output) -> documentGenerationOrchestrator.generateLegacyWord(
-                        input, output, schemaName, context, auditOptions));
+                        input, output, schemaName, context, auditOptions, platforms));
     }
 
     private byte[] generate(
@@ -105,6 +126,7 @@ public final class ArtifactGenerationService {
             String workPrefix,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
             DocumentGenerator generator) throws IOException {
         Path work = Files.createTempDirectory(workPrefix);
         try {
@@ -113,8 +135,8 @@ public final class ArtifactGenerationService {
             Path output = Files.createDirectories(work.resolve("output"));
             PreparedSchema prepared = generator.generate(input, output);
             generationSummaryReportWriter.write(
-                    output, context, prepared.schema(), Set.of(DatabasePlatform.values()));
-            writeStandardManifest(output, context, stripExtension(sourceName), sourceName, prepared, auditOptions);
+                    output, context, prepared.schema(), platforms);
+            writeStandardManifest(output, context, stripExtension(sourceName), sourceName, prepared, auditOptions, platforms);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
@@ -127,20 +149,26 @@ public final class ArtifactGenerationService {
             String logicalName,
             String sourceName,
             PreparedSchema prepared,
-            AuditGenerationOptions auditOptions) throws IOException {
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
         artifactManifestWriter.write(
                 output,
                 context,
                 logicalName,
                 List.of(new ArtifactManifestAssembler.ModelInput(
                         sourceName, prepared.schema(), prepared.validationReport())),
-                generationExtensions(auditOptions));
+                generationExtensions(auditOptions, platforms));
     }
 
 
-    private Map<String, Object> generationExtensions(AuditGenerationOptions auditOptions) {
+    private Map<String, Object> generationExtensions(
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) {
         Map<String, Object> generationOptions = new java.util.LinkedHashMap<>();
         generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
+        generationOptions.put("platforms", DatabasePlatform.values().length == platforms.size()
+                ? List.of("all")
+                : DatabasePlatform.valuesAsList(platforms));
         if (auditOptions != null) {
             generationOptions.put("audit", auditOptions.manifestValue());
         }

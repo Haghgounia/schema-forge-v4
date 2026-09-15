@@ -146,6 +146,19 @@ public final class DocumentGenerationOrchestrator {
             Path output,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
+        return generateStandardWord(input, output, context, auditOptions, Set.of(DatabasePlatform.values()));
+    }
+
+    public PreparedSchema generateStandardWord(
+            Path input,
+            Path output,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
+        Objects.requireNonNull(platforms, "platforms must not be null");
+        if (platforms.isEmpty()) {
+            throw new IllegalArgumentException("At least one database platform must be selected");
+        }
         DatabaseSchema parsed;
         try (InputStream stream = Files.newInputStream(input)) {
             parsed = new WordSpecificationParser().parse(
@@ -154,8 +167,8 @@ public final class DocumentGenerationOrchestrator {
         PreparedSchema prepared = auditOptions == null
                 ? preparationService.prepare(parsed)
                 : preparationService.prepare(parsed, auditOptions);
-        ValidationReport combinedReport = writeAllDatabaseOutputs(
-                prepared, output, stripExtension(input.getFileName().toString()), context);
+        ValidationReport combinedReport = writeDatabaseOutputs(
+                prepared, output, stripExtension(input.getFileName().toString()), context, platforms);
         return new PreparedSchema(prepared.schema(), combinedReport);
     }
 
@@ -175,21 +188,36 @@ public final class DocumentGenerationOrchestrator {
             String schemaName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
+        return generateLegacyWord(input, output, schemaName, context, auditOptions, Set.of(DatabasePlatform.values()));
+    }
+
+    public PreparedSchema generateLegacyWord(
+            Path input,
+            Path output,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
+        Objects.requireNonNull(platforms, "platforms must not be null");
+        if (platforms.isEmpty()) {
+            throw new IllegalArgumentException("At least one database platform must be selected");
+        }
         DatabaseSchema parsed = legacyWordSpecificationParser.parse(
                 input.getParent(), input, schemaName);
         PreparedSchema prepared = auditOptions == null
                 ? preparationService.prepare(parsed)
                 : preparationService.prepare(parsed, auditOptions);
-        ValidationReport combinedReport = writeAllDatabaseOutputs(
-                prepared, output, stripExtension(input.getFileName().toString()), context);
+        ValidationReport combinedReport = writeDatabaseOutputs(
+                prepared, output, stripExtension(input.getFileName().toString()), context, platforms);
         return new PreparedSchema(prepared.schema(), combinedReport);
     }
 
-    private ValidationReport writeAllDatabaseOutputs(
+    private ValidationReport writeDatabaseOutputs(
             PreparedSchema prepared,
             Path output,
             String baseName,
-            ArtifactGenerationContext context) throws IOException {
+            ArtifactGenerationContext context,
+            Set<DatabasePlatform> platforms) throws IOException {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
@@ -201,6 +229,9 @@ public final class DocumentGenerationOrchestrator {
         // is reused by migration, comparison and CRUD so live-table/schema caches survive phases.
         Map<DatabasePlatform, MetadataRepository> requestRepositories = new EnumMap<>(DatabasePlatform.class);
         for (DatabasePlatform platform : DatabasePlatform.values()) {
+            if (!platforms.contains(platform)) {
+                continue;
+            }
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
                     platform, metadataRepositoryResolver.resolve(platform));
@@ -235,7 +266,7 @@ public final class DocumentGenerationOrchestrator {
         }
 
         crudArtifactProducer.writeMetadataCrudArtifacts(
-                schema, output, baseName, timestamp, context, Set.of(DatabasePlatform.values()), requestRepositories);
+                schema, output, baseName, timestamp, context, platforms, requestRepositories);
         diagramArtifactProducer.writeMermaidArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeGraphvizArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);

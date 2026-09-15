@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -76,6 +77,31 @@ class SchemaForgeLegacyWordApiServiceTest {
                 .filter(name -> name.endsWith(".schema.json"))
                 .findFirst().orElseThrow();
         assertCanonicalObjectNaming(new ObjectMapper().readTree(entries.get(modelName)));
+    }
+
+
+    @Test
+    void legacyWordPlatformSelectionGeneratesOnlySelectedDatabaseArtifacts() throws Exception {
+        Path source = Path.of(getClass().getResource(
+                "/13970705_KrmzdSubD.sd.spc.TB.CTPIncomeParamActivityLog.doc").toURI());
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        when(resolver.resolve(DatabasePlatform.DB2_LUW)).thenReturn(MetadataRepository.empty());
+        SpellCheckProperties spellCheck = SpellCheckProperties.defaults();
+        spellCheck.setEnabled(false);
+        ObjectMapper mapper = new ObjectMapper();
+        SchemaForgeApiService service = new SchemaForgeApiService(
+                AuditProperties.defaults(), GrantProperties.defaults(), spellCheck, mapper, resolver);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", source.getFileName().toString(), "application/msword", Files.readAllBytes(source));
+
+        Map<String, byte[]> entries = unzip(service.generateFromLegacyWord(
+                file, "DPS", null, "AUTO", List.of("db2luw")));
+
+        assertTrue(entries.keySet().stream().anyMatch(name -> name.startsWith("ddl/db2luw/")));
+        assertTrue(entries.keySet().stream().noneMatch(name -> name.startsWith("ddl/") && !name.startsWith("ddl/db2luw/")));
+        JsonNode manifest = mapper.readTree(entries.get("manifest.json"));
+        assertEquals("db2luw", manifest.path("extensions").path("generationOptions")
+                .path("platforms").get(0).asText());
     }
 
     private static void assertCanonicalObjectNaming(JsonNode root) {

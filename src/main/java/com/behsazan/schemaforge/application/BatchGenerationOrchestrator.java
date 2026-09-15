@@ -96,8 +96,21 @@ public final class BatchGenerationOrchestrator {
             String logicalName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
+        return generate(file, logicalName, context, auditOptions, Set.of(DatabasePlatform.values()));
+    }
+
+    public byte[] generate(
+            MultipartFile file,
+            String logicalName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(context, "context must not be null");
+        Objects.requireNonNull(platforms, "platforms must not be null");
+        if (platforms.isEmpty()) {
+            throw new IllegalArgumentException("At least one database platform must be selected");
+        }
 
         Path work = Files.createTempDirectory("schemaforge-zip-");
         try {
@@ -157,7 +170,7 @@ public final class BatchGenerationOrchestrator {
                     ArtifactGenerationContext documentContext = context.isolatedChild(
                             ArtifactOrigin.ZIP_BATCH, relativeDocument);
                     PreparedSchema prepared = documentGenerationOrchestrator.generateStandardWord(
-                            document, documentOutput, documentContext, auditOptions);
+                            document, documentOutput, documentContext, auditOptions, platforms);
 
                     String duplicateLogicalTable = null;
                     String duplicateLogicalSource = null;
@@ -238,6 +251,9 @@ public final class BatchGenerationOrchestrator {
             Map<String, Object> manifestExtensions = new LinkedHashMap<>();
             Map<String, Object> generationOptions = new LinkedHashMap<>();
             generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
+            generationOptions.put("platforms", DatabasePlatform.values().length == platforms.size()
+                    ? List.of("all")
+                    : DatabasePlatform.valuesAsList(platforms));
             if (auditOptions != null) {
                 generationOptions.put("audit", auditOptions.manifestValue());
             }
@@ -264,7 +280,7 @@ public final class BatchGenerationOrchestrator {
                     .toList();
             generationSummaryReportWriter.write(
                     outputDir, context, extractedSchemas,
-                    Set.of(DatabasePlatform.values()),
+                    platforms,
                     summaryFacts, batchRequestStatus);
 
             artifactManifestWriter.write(

@@ -11,6 +11,7 @@ import com.behsazan.schemaforge.api.error.RestErrorCode;
 import com.behsazan.schemaforge.api.error.RestErrorResponse;
 import com.behsazan.schemaforge.api.error.SchemaForgeRequestCorrelationFilter;
 import com.behsazan.schemaforge.conformance.SchemaConformanceReport;
+import com.behsazan.schemaforge.conformance.SchemaConformanceMultiPlatformReport;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,26 +48,29 @@ class ApiContractFreezeTest {
         assertBasePath(SchemaForgeController.class, "/api/v1/generate");
 
         Method word = SchemaForgeController.class.getMethod(
-                "word", MultipartFile.class, Boolean.class, String.class);
+                "word", MultipartFile.class, List.class, Boolean.class, String.class);
         assertPost(word, "/word", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(word, 0, "file");
-        assertParam(word, 1, "includeAuditFields", false, null);
-        assertParam(word, 2, "auditProfile", false, "AUTO");
+        assertParam(word, 1, "platform", false, null);
+        assertParam(word, 2, "includeAuditFields", false, null);
+        assertParam(word, 3, "auditProfile", false, "AUTO");
 
         Method legacy = SchemaForgeController.class.getMethod(
-                "legacyWord", MultipartFile.class, String.class, Boolean.class, String.class);
+                "legacyWord", MultipartFile.class, String.class, List.class, Boolean.class, String.class);
         assertPost(legacy, "/legacy-word", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(legacy, 0, "file");
         assertParam(legacy, 1, "schema", true, null);
-        assertParam(legacy, 2, "includeAuditFields", false, null);
-        assertParam(legacy, 3, "auditProfile", false, "AUTO");
+        assertParam(legacy, 2, "platform", false, null);
+        assertParam(legacy, 3, "includeAuditFields", false, null);
+        assertParam(legacy, 4, "auditProfile", false, "AUTO");
 
         Method zip = SchemaForgeController.class.getMethod(
-                "zip", MultipartFile.class, Boolean.class, String.class);
+                "zip", MultipartFile.class, List.class, Boolean.class, String.class);
         assertPost(zip, "/zip", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(zip, 0, "file");
-        assertParam(zip, 1, "includeAuditFields", false, null);
-        assertParam(zip, 2, "auditProfile", false, "AUTO");
+        assertParam(zip, 1, "platform", false, null);
+        assertParam(zip, 2, "includeAuditFields", false, null);
+        assertParam(zip, 3, "auditProfile", false, "AUTO");
 
         Method ea = SchemaForgeController.class.getMethod(
                 "eaXml", MultipartFile.class, String.class, List.class, Boolean.class, String.class);
@@ -83,19 +87,21 @@ class ApiContractFreezeTest {
         assertBasePath(SchemaConformanceController.class, "/api/v1/conformance");
 
         Method table = SchemaConformanceController.class.getMethod(
-                "table", String.class, String.class, String.class);
+                "table", List.class, String.class, String.class);
         assertGet(table, "/table", MediaType.APPLICATION_JSON_VALUE);
-        assertParam(table, 0, "platform", true, null);
+        assertParam(table, 0, "platform", false, null);
         assertParam(table, 1, "schema", true, null);
         assertParam(table, 2, "table", true, null);
 
         Method schema = SchemaConformanceController.class.getMethod(
-                "schema", String.class, String.class);
+                "schema", List.class, String.class);
         assertGet(schema, "/schema", MediaType.APPLICATION_JSON_VALUE);
-        assertParam(schema, 0, "platform", true, null);
+        assertParam(schema, 0, "platform", false, null);
         assertParam(schema, 1, "schema", true, null);
 
         assertEquals("schemaforge-schema-conformance/v3", SchemaConformanceReport.CONTRACT);
+        assertEquals("schemaforge-schema-conformance-multi-platform/v1",
+                SchemaConformanceMultiPlatformReport.CONTRACT);
     }
 
     @Test

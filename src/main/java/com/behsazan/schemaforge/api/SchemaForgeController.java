@@ -2,6 +2,9 @@ package com.behsazan.schemaforge.api;
 
 import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -38,10 +41,18 @@ public class SchemaForgeController {
     @Operation(summary = "Generate from one Word specification")
     public ResponseEntity<byte[]> word(
             @RequestPart("file") MultipartFile file,
+            @Parameter(
+                    required = true,
+                    description = "Target database platforms. Select one or more values, or choose 'all'. At least one platform is required.",
+                    array = @ArraySchema(schema = @Schema(
+                            type = "string",
+                            allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
+            @RequestParam(value = "platform", required = false) List<String> platforms,
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
-        return zip(service.generateFromWord(file, includeAuditFields, auditProfile),
+        RestPlatformSelection.requirePresent(platforms);
+        return zip(service.generateFromWord(file, includeAuditFields, auditProfile, platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.WORD));
     }
 
@@ -50,10 +61,18 @@ public class SchemaForgeController {
     public ResponseEntity<byte[]> legacyWord(
             @RequestPart("file") MultipartFile file,
             @RequestParam("schema") String schema,
+            @Parameter(
+                    required = true,
+                    description = "Target database platforms. Select one or more values, or choose 'all'. At least one platform is required.",
+                    array = @ArraySchema(schema = @Schema(
+                            type = "string",
+                            allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
+            @RequestParam(value = "platform", required = false) List<String> platforms,
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
-        return zip(service.generateFromLegacyWord(file, schema, includeAuditFields, auditProfile),
+        RestPlatformSelection.requirePresent(platforms);
+        return zip(service.generateFromLegacyWord(file, schema, includeAuditFields, auditProfile, platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD));
     }
 
@@ -61,10 +80,18 @@ public class SchemaForgeController {
     @Operation(summary = "Generate from a ZIP containing Word specifications")
     public ResponseEntity<byte[]> zip(
             @RequestPart("file") MultipartFile file,
+            @Parameter(
+                    required = true,
+                    description = "Target database platforms. Select one or more values, or choose 'all'. At least one platform is required.",
+                    array = @ArraySchema(schema = @Schema(
+                            type = "string",
+                            allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
+            @RequestParam(value = "platform", required = false) List<String> platforms,
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
-        return zip(service.generateFromZip(file, includeAuditFields, auditProfile),
+        RestPlatformSelection.requirePresent(platforms);
+        return zip(service.generateFromZip(file, includeAuditFields, auditProfile, platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.BATCH));
     }
 
@@ -73,10 +100,17 @@ public class SchemaForgeController {
     public ResponseEntity<byte[]> eaXml(
             @RequestPart("file") MultipartFile file,
             @RequestParam(value = "schema", required = false) String schema,
+            @Parameter(
+                    required = true,
+                    description = "Target database platforms. Select one or more values, or choose 'all'. At least one platform is required.",
+                    array = @ArraySchema(schema = @Schema(
+                            type = "string",
+                            allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
             @RequestParam(value = "platform", required = false) List<String> platforms,
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
             throws IOException {
+        RestPlatformSelection.requirePresent(platforms);
         return zip(service.generateFromEaXml(file, schema, includeAuditFields, auditProfile, platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.EA));
     }

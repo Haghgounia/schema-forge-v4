@@ -1,3 +1,32 @@
+## 2026-09-15 - Generation REST platform selection parity
+
+- Added the required multi-select `platform` request parameter to all four general generation endpoints: `/word`, `/legacy-word`, `/zip`, and `/ea-xml`.
+- The selected platform set now controls actual DDL/migration/comparison/CRUD generation for Word, legacy Word, ZIP batch, and EA inputs.
+- REST requests fail closed with `400 INVALID_REQUEST` when no platform is selected; programmatic service overloads retain the historical all-platform default for backward compatibility.
+- Generation summaries/manifests record the selected platform set.
+
+## 2026-09-15 - REST-wide platform multi-select and fail-closed selection
+
+- Applies the evaluated OpenAPI `platform` array/enum UX to every current REST endpoint that accepts a `platform` input: `POST /api/v1/generate/ea-xml`, `GET /api/v1/conformance/table`, and `GET /api/v1/conformance/schema`.
+- All three endpoints now reject omitted/blank platform selections with HTTP 400 (`INVALID_REQUEST`) and the deterministic message `At least one database platform must be selected.`
+- Conformance endpoints now accept repeated or comma-separated platform values plus `all`; one selected platform preserves the existing `schemaforge-schema-conformance/v3` response shape, while multiple selections return `schemaforge-schema-conformance-multi-platform/v1` containing one report per platform.
+- OpenAPI restricts platform choices to `all`, `oracle`, `postgresql`, `db2zos`, `db2luw`, `sqlserver`, `mysql`, and `mariadb`.
+- Shared `DatabasePlatform.parseSelection(...)` fallback semantics remain unchanged for non-REST callers.
+
+## 2026-09-15 - Swagger UI platform multi-select fail-closed follow-up
+
+- Keeps the trial scoped to `POST /api/v1/generate/ea-xml` only.
+- Marks the OpenAPI `platform` array as required, adds an explicit `all` choice, and rejects omitted/blank selections with HTTP 400 (`INVALID_REQUEST`).
+- Error message is deterministic: `At least one database platform must be selected.`
+- Backward compatibility is preserved elsewhere: shared `DatabasePlatform.parseSelection(...)` semantics and all other REST endpoints remain unchanged.
+
+## 2026-09-15 - Swagger UI platform multi-select trial
+
+- Documents the existing multi-platform `platform` query parameter on `POST /api/v1/generate/ea-xml` as an OpenAPI array whose items are restricted to the seven supported SchemaForge platform values.
+- Intended as a reversible Swagger UI experiment so the generated control can be evaluated before applying the same UX pattern elsewhere.
+- Runtime behavior is unchanged: the endpoint already accepts multiple `platform` values and `DatabasePlatform.parseSelection(...)` continues to accept repeated or comma-separated values.
+- No conformance API, generation semantics, database behavior, or production service logic changes.
+
 ## 2026-09-14 - Db2 LUW DB2LUW-P11 connection-stability follow-up
 
 - Keeps the DB2LUW-P11 read-only audit phase on one explicitly owned JDBC connection via Spring `SingleConnectionDataSource`, avoiding per-query physical reconnect churn from `DriverManagerDataSource`.

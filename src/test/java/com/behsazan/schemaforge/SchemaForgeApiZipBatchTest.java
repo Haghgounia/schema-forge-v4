@@ -17,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -98,6 +99,21 @@ class SchemaForgeApiZipBatchTest {
         String errors = text(output, "reports/batch-generation-errors.log");
         assertTrue(errors.contains("Document : specifications/notes.docx"));
         assertTrue(errors.contains("Column specification table was not found"));
+    }
+
+
+    @Test
+    void zipPlatformSelectionGeneratesOnlySelectedDatabaseArtifacts() throws Exception {
+        byte[] valid = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
+        byte[] upload = inputZip(Map.of("specifications/MCB.BIM.TBL.PROVINCES.V1.2.docx", valid));
+
+        Map<String, byte[]> output = unzip(service().generateFromZip(
+                upload("selected.zip", upload), null, "AUTO", List.of("mysql")));
+
+        assertTrue(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/mysql/")));
+        assertFalse(output.keySet().stream().anyMatch(name -> name.startsWith("ddl/") && !name.startsWith("ddl/mysql/")));
+        String manifest = text(output, "manifest.json");
+        assertTrue(manifest.contains("\"platforms\"") && manifest.contains("\"mysql\""));
     }
 
     @Test
