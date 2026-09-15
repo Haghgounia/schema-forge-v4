@@ -1,0 +1,22 @@
+SchemaForge v4 - DB2LUW-P11 connection-stability hotfix v2
+Date: 2026-09-14
+
+Scope:
+- TEST + CHANGELOG only.
+- No production Java changes.
+
+Root cause addressed:
+- Db2 LUW live P11 used DriverManagerDataSource, opening a new physical JCC
+  connection for every JdbcTemplate metadata operation.
+- Live evidence showed findTableNames succeeded, then the next physical connection
+  timed out during findTable with SQLSTATE=08001 / ERRORCODE=-4499.
+
+Change:
+- The read-only audit phase now owns one JDBC Connection and wraps it in
+  Spring SingleConnectionDataSource(connection, suppressClose=true).
+- Production JdbcDb2LuwMetadataRepository and SchemaConformanceAuditService are unchanged.
+
+Expected effect:
+- Removes per-query connection-handshake churn from the qualification gate.
+- Preserves direct-JDBC external fixture creation, read-only audit semantics,
+  before/after table-set verification, FK read-back, findings, and cleanup.

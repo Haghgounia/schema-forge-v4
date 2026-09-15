@@ -1,3 +1,23 @@
+## 2026-09-14 - Db2 LUW DB2LUW-P11 connection-stability follow-up
+
+- Keeps the DB2LUW-P11 read-only audit phase on one explicitly owned JDBC connection via Spring `SingleConnectionDataSource`, avoiding per-query physical reconnect churn from `DriverManagerDataSource`.
+- Addresses live JCC `SQLSTATE=08001 / ERRORCODE=-4499` socket read timeouts observed after the initial catalog query while preserving the same production `JdbcDb2LuwMetadataRepository` and `SchemaConformanceAuditService`.
+- No production code, DDL generation, metadata semantics, audit rules, or Db2 LUW database behavior changed.
+
+## 2026-09-14 - Db2 LUW DB2LUW-P11 External Database Audit Qualification
+
+- Added `Db2LuwExternalDatabaseAuditP11IT` to qualify the existing read-only `SchemaConformanceAuditService` against a Db2 LUW schema created directly through JDBC outside SchemaForge.
+- The live gate verifies production `JdbcDb2LuwMetadataRepository` table/schema read-back, a materialized parent/child foreign key, missing-primary-key detection, execution of Db2 LUW datatype rules, and before/after no-mutation semantics.
+- Requires the opt-in `db2luw-live` Maven profile, a destructively isolated schema name prefixed `SFORGE_DBP11_`, explicit confirmation, and emits summary/CSV qualification evidence with cleanup status.
+- No production code or Db2 LUW P10 closed-baseline semantics are changed.
+
+## 2026-09-14 - MySQL MYSQL-P10 Live Qualification PASS
+
+- Live qualification passed against MySQL Community Server 8.4.11 on the isolated `SFORGE_MYP10_AUDIT` database.
+- Direct-JDBC external fixture: 3 tables before/after audit, 1 materialized FK, table-set unchanged, no audit mutation, and cleanup succeeded.
+- The schema audit intentionally detected `TABLE_PRIMARY_KEY_MISSING` and the negative-control `MYSQL_DATATYPE_UNSUPPORTED` finding for live `MEDIUMINT`; valid FK integrity errors remained zero.
+- Maven gate result: `MySqlExternalDatabaseAuditP10IT` = BUILD SUCCESS.
+
 ## 2026-09-14 - MySQL MYSQL-P10 External Database Audit Qualification
 
 - Added `MySqlExternalDatabaseAuditP10IT` to qualify the existing read-only `SchemaConformanceAuditService` against a MySQL database created directly through JDBC outside SchemaForge.
