@@ -87,11 +87,11 @@ class PhysicalPhase1DdlGeneratorTest {
         String db2 = new DdlGenerator(new Db2ZosDialect())
                 .generate(DatabaseSchema.builder("ACC").addTable(table).build());
 
-        assertTrue(db2.contains("OPTIONAL_TEXT VARCHAR(100) FOR MIXED DATA"));
-        assertTrue(db2.contains("CHAR_CODE CHAR(3) FOR MIXED DATA"));
-        assertTrue(db2.contains("EXPLICIT_DEFAULT VARCHAR(10) FOR MIXED DATA WITH DEFAULT 'X'"));
-        assertFalse(db2.contains("OPTIONAL_TEXT VARCHAR(100) FOR MIXED DATA WITH DEFAULT"));
-        assertFalse(db2.contains("CHAR_CODE CHAR(3) FOR MIXED DATA WITH DEFAULT"));
+        assertTrue(db2.contains("OPTIONAL_TEXT VARCHAR(100) FOR BIT DATA"));
+        assertTrue(db2.contains("CHAR_CODE CHAR(3) FOR BIT DATA"));
+        assertTrue(db2.contains("EXPLICIT_DEFAULT VARCHAR(10) FOR BIT DATA WITH DEFAULT 'X'"));
+        assertFalse(db2.contains("OPTIONAL_TEXT VARCHAR(100) FOR BIT DATA WITH DEFAULT"));
+        assertFalse(db2.contains("CHAR_CODE CHAR(3) FOR BIT DATA WITH DEFAULT"));
     }
 
     @Test

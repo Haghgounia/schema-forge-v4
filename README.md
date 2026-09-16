@@ -395,7 +395,7 @@ Upload one `*.schema.json` canonical snapshot or a ZIP containing a unique one-v
 
 ## Physical DDL phase 1
 
-SchemaForge can now enrich Oracle, PostgreSQL, Microsoft SQL Server, and Db2 for z/OS DDL with inline, non-executable physical-option blocks for DBA review. Existing active placement remains unchanged; new tuning/storage guidance is placed inside `/* ... */` at the DBMS-correct position in the statement. Phase 1 deliberately has no `REVIEW/APPLY` service mode and does not provision tablespaces, filegroups, stogroups, LOB storage, or partitions. Db2 for z/OS also renders `FOR MIXED DATA` for `CHAR`/`VARCHAR` and analyzes FK supporting-index coverage without creating indexes automatically. See `docs/PHYSICAL-PHASE1.md`.
+SchemaForge can now enrich Oracle, PostgreSQL, Microsoft SQL Server, and Db2 for z/OS DDL with inline, non-executable physical-option blocks for DBA review. Existing active placement remains unchanged; new tuning/storage guidance is placed inside `/* ... */` at the DBMS-correct position in the statement. Phase 1 deliberately has no `REVIEW/APPLY` service mode and does not provision tablespaces, filegroups, stogroups, LOB storage, or partitions. Db2 for z/OS also renders `FOR BIT DATA` for `CHAR`/`VARCHAR` and analyzes FK supporting-index coverage without creating indexes automatically. See `docs/PHYSICAL-PHASE1.md`.
 
 ### Physical Phase 1 corpus audit
 

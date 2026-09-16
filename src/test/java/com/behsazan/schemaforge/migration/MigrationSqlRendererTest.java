@@ -47,8 +47,8 @@ class MigrationSqlRendererTest {
     @Test
     void rendersDb2ZosColumnSyntax() {
         String sql = render(DatabasePlatform.DB2_ZOS);
-        assertTrue(sql.contains("ALTER TABLE APP.CUSTOMER ALTER COLUMN NAME SET DATA TYPE VARCHAR(100) FOR MIXED DATA;"));
-        assertTrue(sql.contains("ALTER TABLE APP.CUSTOMER ADD COLUMN MOBILE_NO VARCHAR(20) FOR MIXED DATA;"));
+        assertTrue(sql.contains("ALTER TABLE APP.CUSTOMER ALTER COLUMN NAME SET DATA TYPE VARCHAR(100) FOR BIT DATA;"));
+        assertTrue(sql.contains("ALTER TABLE APP.CUSTOMER ADD COLUMN MOBILE_NO VARCHAR(20) FOR BIT DATA;"));
     }
 
     @Test

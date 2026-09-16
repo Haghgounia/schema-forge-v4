@@ -41,9 +41,9 @@ public final class Db2ZosTypeMapper {
             case "INT", "INTEGER", "BINARY_INTEGER", "PLS_INTEGER" -> "INTEGER";
             case "BIGINT" -> "BIGINT";
 
-            case "VARCHAR", "VARCHAR2" -> withRequiredLength("VARCHAR", type) + " FOR MIXED DATA";
+            case "VARCHAR", "VARCHAR2" -> withRequiredLength("VARCHAR", type) + " FOR BIT DATA";
             case "NVARCHAR", "NVARCHAR2" -> withRequiredLength("VARGRAPHIC", type);
-            case "CHAR", "CHARACTER" -> withOptionalLength("CHAR", type) + " FOR MIXED DATA";
+            case "CHAR", "CHARACTER" -> withOptionalLength("CHAR", type) + " FOR BIT DATA";
             case "NCHAR" -> withOptionalLength("GRAPHIC", type);
 
             case "RAW" -> withRequiredLength("VARBINARY", type);
@@ -64,7 +64,7 @@ public final class Db2ZosTypeMapper {
             case "XMLTYPE", "XML" -> "XML";
             case "JSON" -> "CLOB";
             case "BOOLEAN" -> "SMALLINT";
-            case "ROWID", "UROWID" -> "VARCHAR(40) FOR MIXED DATA";
+            case "ROWID", "UROWID" -> "VARCHAR(40) FOR BIT DATA";
             case "DB2_ROWID" -> "ROWID";
             default -> renderUnknown(type, sourceName);
         };

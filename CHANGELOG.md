@@ -1,3 +1,10 @@
+## 2026-09-16 - Db2 z/OS character data qualifier policy: FOR BIT DATA
+
+- Db2 z/OS DDL now renders canonical `CHAR`/`CHARACTER` and `VARCHAR`/`VARCHAR2` columns with `FOR BIT DATA` instead of `FOR MIXED DATA`.
+- Oracle-compatible `ROWID`/`UROWID` fallback mapping is aligned to `VARCHAR(40) FOR BIT DATA`; native `DB2_ROWID` remains the Db2 `ROWID` type.
+- Migration SQL and all Db2 z/OS DDL paths inherit the same mapper contract, so ALTER/ADD column rendering is consistent with CREATE TABLE rendering.
+- Db2 LUW and every non-Db2-z/OS dialect are unchanged.
+
 ## 2026-09-15 - Generation REST platform selection parity
 
 ### 2026-09-15 - REST generation platform multi-select compatibility hotfix v5

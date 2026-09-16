@@ -1,1 +1,1 @@
-UNFROZEN  bin/schema-forge-v4-4.0.1.jar
+71d02c154d8852d4eb7bb6c9c34be5d31360227b794fdb4c0fc32d0201af6149  bin/schema-forge-v4-4.0.1.jar

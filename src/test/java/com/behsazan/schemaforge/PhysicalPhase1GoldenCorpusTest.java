@@ -71,7 +71,7 @@ class PhysicalPhase1GoldenCorpusTest {
         assertFalse(sqlServer.contains("SPACE_FREE_NAME"));
 
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
-        assertTrue(db2.contains("VOUCHER_TEMPLATE_HEADER_ROW_NAME VARCHAR(255) FOR MIXED DATA NOT NULL"));
+        assertTrue(db2.contains("VOUCHER_TEMPLATE_HEADER_ROW_NAME VARCHAR(255) FOR BIT DATA NOT NULL"));
         assertTrue(db2.contains("IS_MANDATORY DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
         assertTrue(db2.contains("IS_REPEATABLE DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
         assertTrue(db2.contains("IS_ACTIVE DECIMAL(1,0) NOT NULL WITH DEFAULT 0"));
@@ -99,8 +99,8 @@ class PhysicalPhase1GoldenCorpusTest {
         assertTrue(db2.contains("Foreign key FK_CTM_SOURCE_PERMISSION_DETAIL_BIC has no supporting index"));
         assertTrue(db2.contains("[PHYS-FK-INDEX-001]"));
 
-        assertTrue(db2.contains("BIC VARCHAR(11) FOR MIXED DATA"));
-        assertFalse(db2.contains("BIC VARCHAR(11) FOR MIXED DATA WITH DEFAULT"));
+        assertTrue(db2.contains("BIC VARCHAR(11) FOR BIT DATA"));
+        assertFalse(db2.contains("BIC VARCHAR(11) FOR BIT DATA WITH DEFAULT"));
     }
 
 
@@ -126,7 +126,7 @@ class PhysicalPhase1GoldenCorpusTest {
 
         String db2 = new DdlGenerator(new Db2ZosDialect()).generate(schema);
         assertTrue(db2.contains("CUSTOMER_IDENTIFIER_PHOTO BLOB NOT NULL"));
-        assertTrue(db2.contains("REMARKS VARCHAR(255) FOR MIXED DATA"));
+        assertTrue(db2.contains("REMARKS VARCHAR(255) FOR BIT DATA"));
         assertFalse(db2.toUpperCase().contains("AUXILIARY TABLE"));
         assertFalse(db2.toUpperCase().contains("LOB TABLESPACE"));
         assertFalse(db2.contains("SPACE_FREE_NAME"));

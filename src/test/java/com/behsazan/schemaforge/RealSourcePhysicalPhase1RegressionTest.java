@@ -41,7 +41,7 @@ class RealSourcePhysicalPhase1RegressionTest {
         assertTrue(out.oracle().contains("-- ORACLE INDEX PHYSICAL OPTIONS"));
 
         String db2 = upper(out.db2());
-        assertTrue(db2.contains("COUNTRY_ISO_CODE CHAR(3) FOR MIXED DATA"));
+        assertTrue(db2.contains("COUNTRY_ISO_CODE CHAR(3) FOR BIT DATA"));
         assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
         assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
         assertTrue(db2.contains("PADDING=<PADIX/SUBSYSTEM POLICY>"));
@@ -65,7 +65,7 @@ class RealSourcePhysicalPhase1RegressionTest {
         assertTrue(out.oracle().contains("INITRANS 2"));
 
         String db2 = upper(out.db2());
-        assertTrue(db2.contains("VOUCHER_TEMPLATE_HEADER_ROW_NAME VARCHAR(255) FOR MIXED DATA"));
+        assertTrue(db2.contains("VOUCHER_TEMPLATE_HEADER_ROW_NAME VARCHAR(255) FOR BIT DATA"));
         assertTrue(db2.contains("PADDING=<PADIX/SUBSYSTEM POLICY>"));
         assertFalse(db2.contains("<PADDED_OR_NOT_PADDED>"));
         assertTrue(db2.contains("FREEPAGE 0"));
@@ -86,7 +86,7 @@ class RealSourcePhysicalPhase1RegressionTest {
         assertTrue(oracle.contains("PRIMARY KEY"));
 
         String db2 = upper(out.db2());
-        assertTrue(db2.contains("VARCHAR(400) FOR MIXED DATA"));
+        assertTrue(db2.contains("VARCHAR(400) FOR BIT DATA"));
         assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
         assertTrue(db2.contains("-- DB2/ZOS DBA PHYSICAL REVIEW"));
     }
@@ -106,7 +106,7 @@ class RealSourcePhysicalPhase1RegressionTest {
         assertFalse(db2.contains("PERMITAMNT DECIMAL(20,5) WITH DEFAULT"));
         assertFalse(db2.contains("USEDAMNT DECIMAL(20,5) WITH DEFAULT"));
         assertFalse(db2.contains("WITH DEFAULT NULL"));
-        assertTrue(db2.contains("FOR MIXED DATA"));
+        assertTrue(db2.contains("FOR BIT DATA"));
 
         String oracle = upper(out.oracle());
         assertTrue(oracle.contains("CREATE TABLE ARZSHMA.CTMSOURCEPERMISSIONDETAIL"));

@@ -37,7 +37,7 @@ Included:
 - Compression candidates/defaults where suitable for Phase 1.
 - Space/fill options.
 - Vendor-default guidance and environment placeholders.
-- Db2 for z/OS `FOR MIXED DATA` rendering for `CHAR`/`VARCHAR`.
+- Db2 for z/OS `FOR BIT DATA` rendering for `CHAR`/`VARCHAR`.
 
 Out of scope:
 
@@ -194,7 +194,7 @@ ON [<INDEX_FILEGROUP>]
 
 ## Db2 for z/OS
 
-`CHAR` and `VARCHAR` are rendered with `FOR MIXED DATA`.
+`CHAR` and `VARCHAR` are rendered with `FOR BIT DATA`.
 
 Nullable columns without an explicit source default do **not** receive `WITH DEFAULT NULL`. Explicit source defaults use Db2 `WITH DEFAULT ...` syntax.
 

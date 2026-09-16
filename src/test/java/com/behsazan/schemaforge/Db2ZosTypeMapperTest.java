@@ -60,7 +60,7 @@ class Db2ZosTypeMapperTest {
     void shouldMapCommonOracleTypesToDb2ZosTypes() {
         Db2ZosTypeMapper mapper = new Db2ZosTypeMapper();
 
-        assertEquals("VARCHAR(50) FOR MIXED DATA", mapper.map(DataType.varchar("VARCHAR2", 50)));
+        assertEquals("VARCHAR(50) FOR BIT DATA", mapper.map(DataType.varchar("VARCHAR2", 50)));
         assertEquals("VARGRAPHIC(50)", mapper.map(DataType.varchar("NVARCHAR2", 50)));
         assertEquals("TIMESTAMP(0)", mapper.map(DataType.simple("DATE")));
         assertEquals("DATE", mapper.map(DataType.simple("DB2_DATE")));
@@ -72,6 +72,7 @@ class Db2ZosTypeMapperTest {
         assertEquals("CLOB", mapper.map(DataType.simple("LONGTEXT")));
         assertEquals("BLOB", mapper.map(DataType.simple("LONGBLOB")));
         assertEquals("SMALLINT", mapper.map(DataType.simple("BOOLEAN")));
+        assertEquals("VARCHAR(40) FOR BIT DATA", mapper.map(DataType.simple("ROWID")));
         assertEquals("ROWID", mapper.map(DataType.simple("DB2_ROWID")));
     }
 }
