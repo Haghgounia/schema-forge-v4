@@ -601,6 +601,8 @@ public final class WordSpecificationParser implements SpecificationParser {
                         "TIMESTAMP WITH LOCAL TIME ZONE($1)")
                 .replaceFirst("^TIMESTAMP\\s*\\(([^)]+)\\)\\s+WITH TIME ZONE$",
                         "TIMESTAMP WITH TIME ZONE($1)")
+                .replaceFirst("^(VARCHAR2|VARCHAR|CHAR|NVARCHAR2|NCHAR)\\s*\\(\\s*(\\d+)\\s*(CHAR|BYTE)\\s*\\)$",
+                        "$1($2 $3)")
                 .trim();
         Matcher matcher = DATA_TYPE.matcher(normalized);
         if (!matcher.matches()) {

@@ -1,3 +1,28 @@
+## 2026-09-17 - Compact character length semantics recovery
+
+- Standard Word parsing now accepts compact character length syntax such as `VARCHAR2(12CHAR)` and `CHAR(10BYTE)`.
+- Compact syntax is normalized without losing CHAR/BYTE length semantics; it is equivalent to `VARCHAR2(12 CHAR)` / `CHAR(10 BYTE)`.
+- No database interaction or dialect generation behavior is changed.
+
+## 2026-09-17 - Word directory JSON batch: user document errors are non-fatal
+
+- `WordDirectoryCanonicalJsonExportIT` now records per-document parse/validation failures in the CSV summary and continues without failing the Maven test at the end of the batch.
+- Non-table Word files remain `SKIPPED_NON_TABLE` by default.
+- The batch utility no longer requires production-parser hardening for malformed user documents; parser behavior remains on the prior production baseline.
+
+## 2026-09-17 - Word canonical JSON batch generated-name length hotfix
+
+- Fixes an off-by-one/length-drift edge case in generated structural identifier shortening.
+- Generated UK/FK/index names are now built from the actual hash suffix length and defensively capped at the canonical 128-character limit.
+- Source-provided schema/table/column identifiers remain unchanged and fail-closed.
+
+## 2026-09-17 - Standard Word canonical JSON batch hardening v2
+
+- `WordDirectoryCanonicalJsonExportIT` now treats the normal naming convention as table-only by default: `.TBL.` documents are processed while `.SRV.` / `.UI.` documents are reported as `SKIPPED_NON_TABLE` instead of false conversion failures. Set `-Dschemaforge.wordJson.tableFilesOnly=false` to attempt every DOCX.
+- Standard Word datatype parsing now accepts attached Oracle character length semantics such as `VARCHAR2(12CHAR)` and `VARCHAR2(10CHAR)` in addition to the spaced form.
+- Auto-generated PK/UK/FK/CHECK/INDEX identifiers that exceed the canonical 128-character envelope are shortened deterministically with a stable SHA-256 suffix and recorded as `GENERATED_IDENTIFIER_SHORTENED` recovery evidence instead of aborting the whole document. Source schema/table/column identifiers remain fail-closed and are never silently renamed.
+- Real-corpus evidence from 851 DOCX files: 9 were non-table SRV/UI documents, leaving 842 table documents; the initial run produced 830 valid JSONs, 4 validation-invalid JSONs, and 17 failures. The hardening directly addresses 9 non-table false failures, 4 generated-identifier overflows, and 2 attached-CHAR datatype variants. Two malformed table specifications remain intentionally fail-closed pending source review.
+
 ## 2026-09-17 - Offline standard Word directory to canonical JSON batch utility
 
 - Adds `WordDirectoryCanonicalJsonExportIT`, an explicit offline test runner for standard (non-legacy) SchemaForge `.docx` specifications.

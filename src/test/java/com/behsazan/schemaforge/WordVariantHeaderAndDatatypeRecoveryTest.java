@@ -2,6 +2,7 @@ package com.behsazan.schemaforge;
 
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.specification.parser.SpecificationSource;
 import com.behsazan.schemaforge.specification.parser.WordSpecificationParser;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -66,6 +67,43 @@ class WordVariantHeaderAndDatatypeRecoveryTest {
         assertEquals(1, table.uniqueKeys().size());
         assertTrue(table.columns().stream().noneMatch(column ->
                 column.name().normalized().equals("SPACE_FREE_NAME")));
+    }
+
+
+    @Test
+    void shouldRecoverCompactCharacterLengthSemantics() throws Exception {
+        byte[] documentBytes;
+        try (XWPFDocument document = new XWPFDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            XWPFTable metadata = document.createTable(2, 5);
+            setRow(metadata, 0,
+                    "Table Name", "نام فارسی جدول", "Schema", "Database RANGE", "هدف از طراحی جدول");
+            setRow(metadata, 1,
+                    "CHAR_SEMANTICS_VARIANT", "تست معناي طول", "CIF", "MCB", "parser regression");
+
+            XWPFTable columns = document.createTable(3, 11);
+            setRow(columns, 0,
+                    "Column Name", "نام فارسی ستون", "Data RANGE", "Primary/Foreign Key",
+                    "Unique", "Index", "Required", "Default", "Range", "Check | Constraint", "IsDenormal");
+            setRow(columns, 1,
+                    "CHAR_VALUE", "مقدار", "VARCHAR2(12CHAR)", "",
+                    "", "", "Y", "", "", "", "");
+            setRow(columns, 2,
+                    "BYTE_VALUE", "مقدار بايت", "CHAR(10BYTE)", "",
+                    "", "", "N", "", "", "", "");
+
+            document.write(output);
+            documentBytes = output.toByteArray();
+        }
+
+        DatabaseSchema schema = new WordSpecificationParser().parse(new SpecificationSource(
+                "compact-length-semantics.docx", new ByteArrayInputStream(documentBytes)));
+        Table table = schema.tables().getFirst();
+
+        assertEquals(12, table.columns().get(0).dataType().length());
+        assertEquals(LengthSemantics.CHAR, table.columns().get(0).dataType().lengthSemantics());
+        assertEquals(10, table.columns().get(1).dataType().length());
+        assertEquals(LengthSemantics.BYTE, table.columns().get(1).dataType().lengthSemantics());
     }
 
     private static void setRow(XWPFTable table, int rowIndex, String... values) {
