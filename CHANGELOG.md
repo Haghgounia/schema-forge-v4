@@ -1,3 +1,13 @@
+## 2026-09-17 - Offline standard Word directory to canonical JSON batch utility
+
+- Adds `WordDirectoryCanonicalJsonExportIT`, an explicit offline test runner for standard (non-legacy) SchemaForge `.docx` specifications.
+- Accepts an input directory through `-Dschemaforge.wordJson.inputDir=...`; recursively scans by default and ignores temporary `~$` Word files.
+- Produces one canonical JSON per Word document using the existing `WordSpecificationParser -> SpecificationNormalizer -> SpecificationValidator -> JsonExporter` pipeline.
+- Uses no Spring context, metadata repository, JDBC DataSource, or database connection.
+- Preserves relative input subdirectories in the JSON output, writes a CSV batch summary, continues after per-file failures, and fails only after all documents have been attempted.
+- Validation-invalid documents still receive JSON output with validation findings; parse/export failures are reported in the summary.
+- The class is named `*IT`, so it is not added to the default `mvn test` regression suite and must be invoked explicitly with `-Dtest=WordDirectoryCanonicalJsonExportIT`.
+
 ## 2026-09-16 - Db2 z/OS character data qualifier policy: FOR BIT DATA
 
 - Db2 z/OS DDL now renders canonical `CHAR`/`CHARACTER` and `VARCHAR`/`VARCHAR2` columns with `FOR BIT DATA` instead of `FOR MIXED DATA`.
