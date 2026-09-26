@@ -757,8 +757,10 @@ public final class EnterpriseArchitectXmlParser {
     }
 
     private static LengthSemantics lengthSemantics(Map<String, String> tags) {
+        String explicitValue = firstNonBlank(
+                tag(tags, "lengthSemantics"), tag(tags, "charSemantics"), tag(tags, "lengthType"));
         String value = firstNonBlank(
-                tag(tags, "lengthSemantics"), tag(tags, "charSemantics"), tag(tags, "lengthType"))
+                explicitValue, styleExValue(tag(tags, "styleex"), "LengthType"))
                 .toUpperCase(Locale.ROOT);
         if (value.contains("CHAR")) return LengthSemantics.CHAR;
         if (value.contains("BYTE")) return LengthSemantics.BYTE;

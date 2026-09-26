@@ -156,6 +156,42 @@ class MigrationSqlRendererTest {
     }
 
     @Test
+    void doesNotRenderOracleDefaultDropAheadOfUnresolvedIdentityTransition() {
+        Column liveId = new Column(
+                Identifier.of("EXT_REGISTRY_ID"), DataType.numeric("NUMBER", 19, 0), false,
+                new DefaultValue("DPS2.SEQ_DEPOSIT_ACCOUNT_EXT_REGISTRY.NEXTVAL"),
+                Description.empty(), false, 1);
+        Column liveStatus = new Column(
+                Identifier.of("REGISTRATION_STATUS_CODE"), DataType.varchar("VARCHAR2", 20), false,
+                new DefaultValue("0"), Description.empty(), false, 2);
+        Column desiredId = new Column(
+                Identifier.of("EXT_REGISTRY_ID"), DataType.numeric("NUMBER", 19, 0), false,
+                new DefaultValue(null), Description.empty(), true, 1);
+        Column desiredStatus = new Column(
+                Identifier.of("REGISTRATION_STATUS_CODE"), DataType.varchar("VARCHAR2", 20), false,
+                new DefaultValue("0"), Description.empty(), true, 2);
+
+        Table live = Table.builder("DPS2", "DEPOSIT_ACCOUNT_EXT_REGISTRY")
+                .addColumn(liveId)
+                .addColumn(liveStatus)
+                .build();
+        Table desired = Table.builder("DPS2", "DEPOSIT_ACCOUNT_EXT_REGISTRY")
+                .addColumn(desiredId)
+                .addColumn(desiredStatus)
+                .build();
+
+        String sql = new MigrationSqlRenderer().render(
+                new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired),
+                MigrationRenderOptions.safeDefaults());
+
+        assertFalse(sql.contains("ALTER_DEFAULT EXT_REGISTRY_ID"));
+        assertFalse(sql.contains("EXT_REGISTRY_ID DEFAULT NULL"));
+        assertTrue(sql.contains("ALTER_IDENTITY EXT_REGISTRY_ID"));
+        assertTrue(sql.contains("default transition is coupled and is not rendered independently"));
+        assertTrue(sql.contains("ALTER_IDENTITY REGISTRATION_STATUS_CODE"));
+    }
+
+    @Test
     void rendersOwnedStructuralAddsForOracleAndMySql() {
         String oracle = renderStructuralAdds(DatabasePlatform.ORACLE);
         assertTrue(oracle.contains("ALTER TABLE APP.CUSTOMER ADD CONSTRAINT PK_CUSTOMER PRIMARY KEY"));

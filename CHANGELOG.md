@@ -1,3 +1,35 @@
+## 2026-09-23 - Canonical naming validation warning de-duplication
+
+- Moves DBMS-independent table/column naming checks into the canonical specification-validation stage so EA/Word requests evaluate them once instead of once per selected database platform.
+- Per-dialect metadata comparison in the generation orchestrators now suppresses duplicate naming findings while retaining DBMS-specific metadata findings.
+- Adds configurable table naming policy `schemaforge.naming.table-convention` with `SINGULAR`, `PLURAL`, and `OFF`; the runtime configuration defaults the current project to `SINGULAR`.
+- Stops repeating a table naming warning on every foreign key that references the same table.
+- Refines plural-component detection to avoid the real-corpus false positives `EXPIRES`, `REQUIRES`, `DETAILS`, `FUNDS`, and `DAYS` while retaining detection of unambiguous plural nouns.
+- Adds approved technical terms `SUBLEDGER`, `TXN`, `RECON`, `PAYINST`, `ENR`, and `RECALC` to the runtime spell-check dictionary.
+- Adds conservative semantic rule `DEFAULT_CHECK_INCOMPATIBLE` for exact `COLUMN IN (literal, ...)` checks so a literal default outside the allowed domain is surfaced without guessing through compound predicates.
+- Adds focused regression coverage for canonical-once naming validation, per-dialect suppression, and the observed EA false-positive components.
+
+## 2026-09-22 - Migration identity/default transitions are atomic
+
+- ALTER/Migration M2 no longer renders an executable `ALTER_DEFAULT` for a column whose identity flag is also changing.
+- Identity/default drift is treated as one operational transition: the identity change remains `REVIEW`, while the related default change is held with it instead of being applied independently.
+- Prevents Oracle migrations from dropping a live `SEQ_<TABLE>.NEXTVAL` default before an unresolved identity transition is performed.
+- Adds regression coverage for `DPS2.DEPOSIT_ACCOUNT_EXT_REGISTRY`, including the two-identity-column source-model case that previously produced `EXT_REGISTRY_ID DEFAULT NULL`.
+
+## 2026-09-22 - EA platform table-validation failures are artifact-level blockers
+
+- Enterprise Architect per-table DDL generation now preflights the selected dialect table capability gate before rendering.
+- DBMS capability violations such as MySQL multiple `AUTO_INCREMENT` columns no longer escape `/api/v1/generate/ea-xml` as request-level runtime/HTTP 400 failures.
+- The affected per-table DDL is recorded as `BLOCKED`, generation continues, the run-all script remains fail-closed, and the manifest resolves to `PARTIAL_SUCCESS` with `failed=0` when other artifacts complete.
+- Adds deterministic blocker code `MYSQL_MULTIPLE_AUTO_INCREMENT` (and the corresponding MariaDB code) while preserving the dialect as the authority for table validation.
+- Adds a focused EA orchestration regression test using `DPS2.DEPOSIT_ACCOUNT_EXT_REGISTRY` with two identity columns.
+
+## 2026-09-17 - EA LengthType recovery from styleex
+
+- Enterprise Architect XML parsing now recovers character length semantics from `styleex` entries such as `LengthType=Char` and `LengthType=Byte` when no explicit length-semantics tagged value is present.
+- Explicit `lengthSemantics`, `charSemantics`, or `lengthType` tagged values remain authoritative and take precedence over the `styleex` fallback.
+- The change affects EA/XMI canonical import only; no database access, DDL mapping, Word parsing, or constraint-generation behavior is changed.
+
 ## 2026-09-17 - Compact character length semantics recovery
 
 - Standard Word parsing now accepts compact character length syntax such as `VARCHAR2(12CHAR)` and `CHAR(10BYTE)`.
@@ -2647,3 +2679,7 @@
 - Added `OraclePersistentCatalogConvergenceP9IT` for read-only Oracle catalog reread and residual diff evidence.
 - Added `OracleExternalDatabaseAuditP10IT` for direct-JDBC, external-object audit qualification using the production Oracle metadata repository and conformance service.
 - Preserved No-Guess / No-Lossy behavior: no synthetic PK/UK/FK, no inferred rename, no datatype coercion.
+### 2026-09-22 - EA MySQL AUTO_INCREMENT blocked handling v2
+- Corrected the regression-test fixture ordinal positions to the canonical 1-based contract (`1`, `2`).
+- No production behavior change from v1; this fixes the test setup so the new BLOCKED-path behavior can actually execute.
+

@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.application;
 
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
+import com.behsazan.schemaforge.config.NamingValidationProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.generation.enrichment.AuditColumnSchemaEnricher;
@@ -9,7 +10,11 @@ import com.behsazan.schemaforge.generation.enrichment.DefaultValueSchemaEnricher
 import com.behsazan.schemaforge.generation.enrichment.GrantSchemaEnricher;
 import com.behsazan.schemaforge.generation.enrichment.SchemaEnricher;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
+import com.behsazan.schemaforge.specification.validation.DefaultCheckCompatibilityValidator;
+import com.behsazan.schemaforge.specification.validation.NamingConventionValidator;
 import com.behsazan.schemaforge.specification.validation.SpecificationValidator;
+import com.behsazan.schemaforge.specification.validation.ValidationIssue;
+import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.specification.validation.spelling.LanguageToolSpellCheckService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -25,27 +30,38 @@ public final class SchemaPreparationService {
     private final AuditProperties auditProperties;
     private final List<SchemaEnricher> postAuditEnrichers;
     private final SpecificationValidator validator;
+    private final NamingConventionValidator namingConventionValidator;
+    private final DefaultCheckCompatibilityValidator defaultCheckCompatibilityValidator;
     private final boolean managedAuditPipeline;
 
     public SchemaPreparationService() {
-        this(AuditProperties.defaults(), GrantProperties.defaults(), SpellCheckProperties.defaults(), new ObjectMapper());
+        this(AuditProperties.defaults(), GrantProperties.defaults(), SpellCheckProperties.defaults(), NamingValidationProperties.defaults(), new ObjectMapper());
     }
 
     public SchemaPreparationService(AuditProperties auditProperties) {
-        this(auditProperties, GrantProperties.defaults(), SpellCheckProperties.defaults(), new ObjectMapper());
+        this(auditProperties, GrantProperties.defaults(), SpellCheckProperties.defaults(), NamingValidationProperties.defaults(), new ObjectMapper());
     }
 
     public SchemaPreparationService(
             AuditProperties auditProperties,
             SpellCheckProperties spellCheckProperties,
             ObjectMapper objectMapper) {
-        this(auditProperties, GrantProperties.defaults(), spellCheckProperties, objectMapper);
+        this(auditProperties, GrantProperties.defaults(), spellCheckProperties, NamingValidationProperties.defaults(), objectMapper);
     }
 
     public SchemaPreparationService(
             AuditProperties auditProperties,
             GrantProperties grantProperties,
             SpellCheckProperties spellCheckProperties,
+            ObjectMapper objectMapper) {
+        this(auditProperties, grantProperties, spellCheckProperties, NamingValidationProperties.defaults(), objectMapper);
+    }
+
+    public SchemaPreparationService(
+            AuditProperties auditProperties,
+            GrantProperties grantProperties,
+            SpellCheckProperties spellCheckProperties,
+            NamingValidationProperties namingValidationProperties,
             ObjectMapper objectMapper) {
         this.normalizer = new SpecificationNormalizer();
         this.auditProperties = Objects.requireNonNull(auditProperties, "audit properties must not be null");
@@ -54,6 +70,9 @@ public final class SchemaPreparationService {
                 new GrantSchemaEnricher(grantProperties));
         this.validator = new SpecificationValidator(
                 new LanguageToolSpellCheckService(spellCheckProperties, objectMapper));
+        this.namingConventionValidator = new NamingConventionValidator(
+                Objects.requireNonNull(namingValidationProperties, "naming validation properties must not be null"));
+        this.defaultCheckCompatibilityValidator = new DefaultCheckCompatibilityValidator();
         this.managedAuditPipeline = true;
     }
 
@@ -66,6 +85,8 @@ public final class SchemaPreparationService {
         this.auditProperties = null;
         this.postAuditEnrichers = List.copyOf(Objects.requireNonNull(enrichers, "enrichers must not be null"));
         this.validator = Objects.requireNonNull(validator, "validator must not be null");
+        this.namingConventionValidator = null;
+        this.defaultCheckCompatibilityValidator = null;
         this.managedAuditPipeline = false;
     }
 
@@ -90,7 +111,16 @@ public final class SchemaPreparationService {
                     "schema enricher returned null: " + enricher.getClass().getName());
         }
         current = normalizer.normalize(current);
-        return new PreparedSchema(current, validator.validate(current));
+        return new PreparedSchema(current, withCanonicalValidation(current, validator.validate(current)));
+    }
+
+    private ValidationReport withCanonicalValidation(DatabaseSchema schema, ValidationReport baseReport) {
+        List<ValidationIssue> issues = new java.util.ArrayList<>(baseReport.issues());
+        issues.addAll(namingConventionValidator.validate(schema));
+        issues.addAll(defaultCheckCompatibilityValidator.validate(schema));
+        return new ValidationReport(
+                issues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
+                issues);
     }
 
     private PreparedSchema prepareCustom(DatabaseSchema parsedSchema) {

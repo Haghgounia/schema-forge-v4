@@ -29,6 +29,12 @@ The SQL file contains all objects related to that Word specification in one file
 - grants
 - parser recovery warnings and generation footer
 
+## Canonical naming validation policy
+
+Identifier naming checks are DBMS-independent and are evaluated once on the prepared canonical model before per-dialect metadata comparison. Configure the table convention with `schemaforge.naming.table-convention` (`SINGULAR`, `PLURAL`, or `OFF`); the REST runtime currently defaults to `SINGULAR`. Column plural-component hints remain independently configurable with `schemaforge.naming.plural-column-components-enabled`. Per-dialect metadata validation does not duplicate these canonical naming findings.
+
+Canonical preparation also performs a conservative default-vs-CHECK compatibility check for exact literal domains such as `STATUS_CODE IN ('A','B')`. If a literal default is outside that exact domain, SchemaForge reports `DEFAULT_CHECK_INCOMPATIBLE`; compound boolean predicates and non-literal defaults are intentionally not guessed.
+
 ## Cross-DBMS physical object naming and EA round-trip convergence
 
 Generated/supporting object names (PK/UK/FK/CHECK/INDEX/SEQUENCE and related physical objects) use a DBMS-specific physical naming policy. Logical EA/Word names are preserved, including repeated underscores. Names that exceed the target limit are shortened with a deterministic hash suffix instead of plain truncation; business schema/table/column names are never silently renamed. The current limits are PostgreSQL 63, MySQL 64, and 128 for Oracle, SQL Server, Db2 LUW, and Db2 z/OS. Namespace collision checks follow the target DBMS scope. See [`docs/architecture/DBMS-OBJECT-NAMING-POLICY.md`](docs/architecture/DBMS-OBJECT-NAMING-POLICY.md).

@@ -745,6 +745,46 @@ class SchemaDiffEngineTest {
     }
 
     @Test
+    void couplesOracleDefaultChangeWithUnresolvedIdentityTransition() {
+        Column liveId = new Column(
+                Identifier.of("EXT_REGISTRY_ID"), DataType.numeric("NUMBER", 19, 0), false,
+                new DefaultValue("DPS2.SEQ_DEPOSIT_ACCOUNT_EXT_REGISTRY.NEXTVAL"),
+                Description.empty(), false, 1);
+        Column liveStatus = new Column(
+                Identifier.of("REGISTRATION_STATUS_CODE"), DataType.varchar("VARCHAR2", 20), false,
+                new DefaultValue("0"), Description.empty(), false, 2);
+
+        Column desiredId = new Column(
+                Identifier.of("EXT_REGISTRY_ID"), DataType.numeric("NUMBER", 19, 0), false,
+                new DefaultValue(null), Description.empty(), true, 1);
+        Column desiredStatus = new Column(
+                Identifier.of("REGISTRATION_STATUS_CODE"), DataType.varchar("VARCHAR2", 20), false,
+                new DefaultValue("0"), Description.empty(), true, 2);
+
+        Table live = Table.builder("DPS2", "DEPOSIT_ACCOUNT_EXT_REGISTRY")
+                .addColumn(liveId)
+                .addColumn(liveStatus)
+                .build();
+        Table desired = Table.builder("DPS2", "DEPOSIT_ACCOUNT_EXT_REGISTRY")
+                .addColumn(desiredId)
+                .addColumn(desiredStatus)
+                .build();
+
+        TableMigrationPlan plan = new SchemaDiffEngine().diff(DatabasePlatform.ORACLE, live, desired);
+
+        assertEquals(2, plan.columnChanges().size());
+        assertEquals(2, plan.columnChanges().stream()
+                .filter(change -> change.kind() == ColumnChangeKind.ALTER_IDENTITY)
+                .count());
+        assertTrue(plan.columnChanges().stream().noneMatch(change ->
+                change.kind() == ColumnChangeKind.ALTER_DEFAULT),
+                "default drift must stay coupled to the unresolved identity transition");
+        assertTrue(plan.columnChanges().stream()
+                .filter(change -> change.columnName().normalized().equals("EXT_REGISTRY_ID"))
+                .findFirst().orElseThrow().rationale().contains("default transition is coupled"));
+    }
+
+    @Test
     void ignoresSchemaForgeInlineWarningCommentInOracleCatalogDefault() {
         Table live = Table.builder("APP", "ORA_T2")
                 .addColumn(column("ERRORCODE", DataType.numeric("NUMBER", 8, 0), true,

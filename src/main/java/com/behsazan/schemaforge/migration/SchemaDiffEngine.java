@@ -101,6 +101,8 @@ public final class SchemaDiffEngine {
 
             boolean sequenceBackedIdentity = sequenceBackedIdentityEquivalent(
                     desiredTable, desired, live, dialect);
+            boolean identityTransition = !sequenceBackedIdentity && live.identity() != desired.identity();
+            boolean defaultChanged = !sameDefault(platform, dialect, live, desired);
 
             boolean desiredNullable = effectiveDesiredNullable(platform, desiredTable, desired);
             if (live.nullable() != desiredNullable) {
@@ -112,16 +114,23 @@ public final class SchemaDiffEngine {
                         ColumnChangeKind.ALTER_NULLABILITY, desired.name(), live, desired, risk, rationale));
             }
 
-            if (!sequenceBackedIdentity && !sameDefault(platform, dialect, live, desired)) {
+            // Identity/default changes are one operational transition. When identity itself
+            // changes, do not emit an independently executable ALTER_DEFAULT that could remove
+            // the current key-generation mechanism before the identity transition is performed.
+            if (!sequenceBackedIdentity && !identityTransition && defaultChanged) {
                 changes.add(new ColumnChange(
                         ColumnChangeKind.ALTER_DEFAULT, desired.name(), live, desired, MigrationRisk.REVIEW,
                         "default expression changes from " + defaultLabel(live) + " to " + defaultLabel(desired)));
             }
 
-            if (!sequenceBackedIdentity && live.identity() != desired.identity()) {
+            if (identityTransition) {
+                String rationale = "identity property changes; automatic identity transition requires operational review";
+                if (defaultChanged) {
+                    rationale += "; default transition is coupled and is not rendered independently";
+                }
                 changes.add(new ColumnChange(
                         ColumnChangeKind.ALTER_IDENTITY, desired.name(), live, desired, MigrationRisk.REVIEW,
-                        "identity property changes; automatic identity transition requires operational review"));
+                        rationale));
             }
 
             if (!Objects.equals(normalizeExpression(live.generatedExpression()),

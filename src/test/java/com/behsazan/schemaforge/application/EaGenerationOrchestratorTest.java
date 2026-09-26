@@ -12,8 +12,16 @@ import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
+import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.domain.model.PrimaryKey;
+import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.domain.valueobject.DataType;
+import com.behsazan.schemaforge.domain.valueobject.Description;
+import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
+import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -127,6 +135,60 @@ class EaGenerationOrchestratorTest {
         assertEquals("PARTIAL_SUCCESS", manifest.path("requestStatus").asText());
         assertEquals(2, manifest.path("artifactOutcomes").path("blocked").asInt(),
                 "one per-table DDL and the SQL Server run-all must be blocked");
+    }
+
+    @Test
+    void blocksMySqlMultipleAutoIncrementTableWithoutAbortingEaGeneration() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "DPS2");
+        ArtifactGenerationContext context = context("ea-mysql-multiple-auto-increment.xml");
+
+        Column registryId = new Column(
+                Identifier.of("EXT_REGISTRY_ID"),
+                DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), true, 1);
+        Column statusCode = new Column(
+                Identifier.of("REGISTRATION_STATUS_CODE"),
+                DataType.varchar("VARCHAR2", 20),
+                false, null, Description.empty(), true, 2);
+        Table table = Table.builder("DPS2", "DEPOSIT_ACCOUNT_EXT_REGISTRY")
+                .addColumn(registryId)
+                .addColumn(statusCode)
+                .primaryKey(new PrimaryKey(
+                        Identifier.of("PK_DEP_ACC_EXT_REG"),
+                        List.of(Identifier.of("EXT_REGISTRY_ID"))))
+                .build();
+        PreparedSchema prepared = new PreparedSchema(
+                DatabaseSchema.builder("DPS2").addTable(table).build(),
+                new ValidationReport(true, List.of()));
+
+        Map<String, byte[]> entries = unzip(orchestrator.generate(
+                prepared,
+                "ea-mysql-multiple-auto-increment",
+                context,
+                null,
+                java.util.Set.of(DatabasePlatform.MYSQL)));
+
+        assertTrue(entries.containsKey("manifest.json"));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".run-all.sql")));
+
+        ArtifactDescriptor blockedDdl = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.DDL)
+                .filter(descriptor -> descriptor.platform() == DatabasePlatform.MYSQL)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(blockedDdl.logicalName().contains("DPS2.DEPOSIT_ACCOUNT_EXT_REGISTRY"));
+        assertTrue(blockedDdl.outcomeReason().contains("PER_TABLE_DDL_BLOCKED"));
+        assertTrue(blockedDdl.outcomeReason().contains("MYSQL_MULTIPLE_AUTO_INCREMENT"));
+        assertTrue(blockedDdl.outcomeReason().contains("permits only one AUTO_INCREMENT column per table"));
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        assertEquals("PARTIAL_SUCCESS", manifest.path("requestStatus").asText());
+        assertEquals(0, manifest.path("artifactOutcomes").path("failed").asInt());
+        assertTrue(manifest.path("artifactOutcomes").path("blocked").asInt() >= 2,
+                "per-table DDL and MySQL run-all should be blocked, not failed");
     }
 
     @Test

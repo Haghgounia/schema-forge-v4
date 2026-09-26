@@ -22,6 +22,7 @@ import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.NumericMappingProperties;
+import com.behsazan.schemaforge.config.NamingValidationProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
@@ -82,7 +83,6 @@ public class SchemaForgeApiService {
                 metadataRepositoryResolver, eaImportProperties, NumericMappingProperties.defaults());
     }
 
-    @Autowired
     public SchemaForgeApiService(
             AuditProperties auditProperties,
             GrantProperties grantProperties,
@@ -91,9 +91,23 @@ public class SchemaForgeApiService {
             MetadataRepositoryResolver metadataRepositoryResolver,
             EaImportProperties eaImportProperties,
             NumericMappingProperties numericMappingProperties) {
+        this(auditProperties, grantProperties, spellCheckProperties, objectMapper, metadataRepositoryResolver,
+                eaImportProperties, numericMappingProperties, NamingValidationProperties.defaults());
+    }
+
+    @Autowired
+    public SchemaForgeApiService(
+            AuditProperties auditProperties,
+            GrantProperties grantProperties,
+            SpellCheckProperties spellCheckProperties,
+            ObjectMapper objectMapper,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            EaImportProperties eaImportProperties,
+            NumericMappingProperties numericMappingProperties,
+            NamingValidationProperties namingValidationProperties) {
         this.auditProperties = auditProperties;
         this.preparationService = new SchemaPreparationService(
-                auditProperties, grantProperties, spellCheckProperties, objectMapper);
+                auditProperties, grantProperties, spellCheckProperties, namingValidationProperties, objectMapper);
         this.metadataRepositoryResolver = metadataRepositoryResolver;
         this.eaImportProperties = eaImportProperties;
         this.artifactManifestWriter = new ArtifactManifestWriter(objectMapper);

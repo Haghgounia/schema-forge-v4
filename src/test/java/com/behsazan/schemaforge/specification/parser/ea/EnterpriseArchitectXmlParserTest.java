@@ -468,4 +468,91 @@ class EnterpriseArchitectXmlParserTest {
         assertFalse(column.nullable());
     }
 
+    @Test
+    void shouldRecoverLengthSemanticsFromStyleExWhenExplicitTagIsMissing() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="LENGTH_SEMANTICS_SAMPLE" xmi.id="TABLE_1">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="CHAR_VALUE">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="VARCHAR2"/>
+                                <UML:TaggedValue tag="length" value="30"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="styleex" value="volatile=0;LengthType=Char;union=0;"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="BYTE_VALUE">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="VARCHAR2"/>
+                                <UML:TaggedValue tag="length" value="40"/>
+                                <UML:TaggedValue tag="position" value="1"/>
+                                <UML:TaggedValue tag="styleex" value="LengthType=Byte;VisibleAttributeDetail=0;"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("FEE").parse(
+                "length-semantics-styleex.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var table = schema.findTable("LENGTH_SEMANTICS_SAMPLE").orElseThrow();
+        assertEquals(LengthSemantics.CHAR,
+                table.findColumn("CHAR_VALUE").orElseThrow().dataType().lengthSemantics());
+        assertEquals(LengthSemantics.BYTE,
+                table.findColumn("BYTE_VALUE").orElseThrow().dataType().lengthSemantics());
+    }
+
+    @Test
+    void shouldPreferExplicitLengthTypeOverStyleExFallback() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="LENGTH_SEMANTICS_PRECEDENCE" xmi.id="TABLE_1">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="VALUE_COL">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="VARCHAR2"/>
+                                <UML:TaggedValue tag="length" value="50"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="LengthType" value="BYTE"/>
+                                <UML:TaggedValue tag="styleex" value="LengthType=Char;"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("FEE").parse(
+                "length-semantics-precedence.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        assertEquals(LengthSemantics.BYTE,
+                schema.findTable("LENGTH_SEMANTICS_PRECEDENCE").orElseThrow()
+                        .findColumn("VALUE_COL").orElseThrow()
+                        .dataType().lengthSemantics());
+    }
+
 }

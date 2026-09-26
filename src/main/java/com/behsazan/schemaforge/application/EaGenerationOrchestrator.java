@@ -225,7 +225,7 @@ public final class EaGenerationOrchestrator {
             MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
                     platform, metadataRepositoryResolver.resolve(platform));
             requestRepositories.put(platform, repository);
-            MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, repository).validate(schema);
+            MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, repository, false).validate(schema);
             comparisonArtifactProducer.preloadLiveTables(schema, repository, metadata);
             metadata.issues().stream()
                     .map(issue -> new ValidationIssue(
@@ -238,7 +238,11 @@ public final class EaGenerationOrchestrator {
             for (Table table : schema.tables()) {
                 List<DialectForeignKeyCompatibilityIssue> perTableCompatibilityIssues =
                         foreignKeyCompatibilityValidator.validateTable(schema, table, dialect);
-                if (perTableCompatibilityIssues.isEmpty()) {
+                String tableBlockReason = perTableCompatibilityIssues.isEmpty()
+                        ? dialectTableValidationBlockReason(platform, dialect, table)
+                        : foreignKeyCompatibilityBlockReason(perTableCompatibilityIssues.getFirst());
+
+                if (tableBlockReason == null) {
                     DatabaseSchema tableSchema = singleTableSchema(schema, table);
                     ValidationReport tableReport = validationForTable(report, table);
                     MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
@@ -255,12 +259,11 @@ public final class EaGenerationOrchestrator {
                             tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
                             ArtifactPaths.relative(output, ddlPath), "application/sql", "DdlGenerator");
                 } else {
-                    DialectForeignKeyCompatibilityIssue first = perTableCompatibilityIssues.getFirst();
                     context.ledger().blocked(
                             context, ArtifactType.DDL, platform,
                             tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
                             "DdlGenerator",
-                            "PER_TABLE_DDL_BLOCKED: " + first.code() + ": " + first.message());
+                            tableBlockReason);
                 }
 
                 comparisonArtifactProducer.writeEaComparisonWorkbook(
@@ -326,6 +329,53 @@ public final class EaGenerationOrchestrator {
         } else if (platform == DatabasePlatform.MARIADB) {
             mariaDbDdlSanityChecker.requireValid(sql, source);
         }
+    }
+
+    private static String foreignKeyCompatibilityBlockReason(
+            DialectForeignKeyCompatibilityIssue issue) {
+        return "PER_TABLE_DDL_BLOCKED: " + issue.code() + ": " + issue.message();
+    }
+
+    /**
+     * Converts DBMS table-capability violations into artifact-level blockers instead of allowing
+     * renderer validation exceptions to escape the request boundary.
+     *
+     * <p>The dialect remains authoritative for the rule. This preflight only changes orchestration:
+     * a table rejected by the selected platform is recorded as BLOCKED and generation continues.
+     * The DDL generator still performs the same validation defensively when rendering accepted
+     * tables.</p>
+     */
+    private static String dialectTableValidationBlockReason(
+            DatabasePlatform platform, Dialect dialect, Table table) {
+        try {
+            dialect.validateTable(table);
+            return null;
+        } catch (IllegalArgumentException exception) {
+            return "PER_TABLE_DDL_BLOCKED: "
+                    + dialectTableValidationCode(platform, exception)
+                    + ": " + safeMessage(exception);
+        }
+    }
+
+    private static String dialectTableValidationCode(
+            DatabasePlatform platform, IllegalArgumentException exception) {
+        String message = safeMessage(exception).toUpperCase(Locale.ROOT);
+        if (platform == DatabasePlatform.MYSQL
+                && message.contains("PERMITS ONLY ONE AUTO_INCREMENT COLUMN PER TABLE")) {
+            return "MYSQL_MULTIPLE_AUTO_INCREMENT";
+        }
+        if (platform == DatabasePlatform.MARIADB
+                && message.contains("PERMITS ONLY ONE AUTO_INCREMENT COLUMN PER TABLE")) {
+            return "MARIADB_MULTIPLE_AUTO_INCREMENT";
+        }
+        return platform.name() + "_TABLE_VALIDATION";
+    }
+
+    private static String safeMessage(Exception exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank()
+                ? exception.getClass().getSimpleName()
+                : message.trim();
     }
 
     private void writeEaRunAll(

@@ -1,5 +1,6 @@
 package com.behsazan.schemaforge.metadata.validation;
 
+import com.behsazan.schemaforge.config.NamingValidationProperties;
 import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.domain.model.Column;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
@@ -10,6 +11,7 @@ import com.behsazan.schemaforge.metadata.repository.MetadataColumnProfile;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataTypeFrequency;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
+import com.behsazan.schemaforge.specification.validation.NamingConventionValidator;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 
 import java.util.ArrayList;
@@ -25,25 +27,32 @@ import java.util.stream.Collectors;
 /** Compares document definitions against database metadata. */
 public final class MetadataComparisonValidator {
     private static final int METADATA_PROFILE_BATCH_SIZE = 500;
-    private static final Set<String> S_ENDING_WORDS = Set.of(
-            "STATUS", "SUCCESS", "ADDRESS", "PROCESS", "CLASS", "BUSINESS", "ACCESS",
-            "ANALYSIS", "BASIS", "CRISIS", "DIAGNOSIS", "EMPHASIS", "THESIS");
-    private static final Set<String> VALID_NON_S_PLURAL_TABLE_WORDS = Set.of(
-            "DATA", "METADATA", "INFORMATION");
-
     private final Dialect dialect;
     private final MetadataRepository repository;
     private final NumericTypeEquivalenceService typeEquivalence = new NumericTypeEquivalenceService();
+    private final boolean includeNamingConventionWarnings;
 
     public MetadataComparisonValidator(Dialect dialect, MetadataRepository repository) {
+        this(dialect, repository, true);
+    }
+
+    public MetadataComparisonValidator(
+            Dialect dialect,
+            MetadataRepository repository,
+            boolean includeNamingConventionWarnings) {
         this.dialect = Objects.requireNonNull(dialect, "dialect must not be null");
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
+        this.includeNamingConventionWarnings = includeNamingConventionWarnings;
     }
 
     public MetadataComparisonResult validate(DatabaseSchema schema) {
         Objects.requireNonNull(schema, "schema must not be null");
         DatabaseSchema normalizedSchema = new SpecificationNormalizer().normalize(schema);
         List<ValidationIssue> issues = new ArrayList<>();
+        if (includeNamingConventionWarnings) {
+            issues.addAll(new NamingConventionValidator(NamingValidationProperties.defaults())
+                    .validate(normalizedSchema));
+        }
         Map<String, Long> frequencies = new LinkedHashMap<>();
         Map<String, String> resolvedForeignKeySchemas = new LinkedHashMap<>();
         Map<String, Boolean> schemaExistence = new LinkedHashMap<>();
@@ -81,8 +90,6 @@ public final class MetadataComparisonValidator {
         }
 
         for (Table table : normalizedSchema.tables()) {
-            validateSingularColumnNames(table, issues);
-            validateTableNames(table, issues);
             if (metadataAvailable) {
                 metadataAvailable = validateTableLocation(table, issues, schemaExistence);
                 if (metadataAvailable) {
@@ -282,48 +289,6 @@ public final class MetadataComparisonValidator {
         return true;
     }
 
-
-    private static void validateTableNames(Table table, List<ValidationIssue> issues) {
-        String tableName = table.qualifiedName().name().value();
-        if (!looksLikePluralTableName(tableName)) {
-            issues.add(new ValidationIssue("WARNING", "TABLE_NAME_NOT_PLURAL", tablePath(table),
-                    "Table name " + tableName + " appears to be singular. Table names should be plural."));
-        }
-        for (ForeignKey fk : table.foreignKeys()) {
-            String referencedTable = fk.referencedTable().name().value();
-            if (!looksLikePluralTableName(referencedTable)) {
-                issues.add(new ValidationIssue("WARNING", "TABLE_NAME_NOT_PLURAL", foreignKeyPath(table, fk),
-                        "Referenced table " + referencedTable
-                                + " appears to be singular. Table names should be plural."));
-            }
-        }
-    }
-
-    private static boolean looksLikePluralTableName(String identifier) {
-        String[] parts = identifier.toUpperCase(Locale.ROOT).split("_");
-        String word = parts[parts.length - 1];
-        if (VALID_NON_S_PLURAL_TABLE_WORDS.contains(word)) return true;
-        if (S_ENDING_WORDS.contains(word)) return false;
-        return word.endsWith("S");
-    }
-    private static void validateSingularColumnNames(Table table, List<ValidationIssue> issues) {
-        for (Column column : table.columns()) {
-            List<String> pluralParts = new ArrayList<>();
-            for (String part : column.name().value().toUpperCase(Locale.ROOT).split("_")) {
-                if (looksPlural(part)) pluralParts.add(part);
-            }
-            if (!pluralParts.isEmpty()) {
-                issues.add(new ValidationIssue("WARNING", "PLURAL_COLUMN_COMPONENT", path(table, column),
-                        "Plural identifier component(s) detected: " + String.join(", ", pluralParts) + "."));
-            }
-        }
-    }
-
-    private static boolean looksPlural(String word) {
-        if (word.length() < 4 || S_ENDING_WORDS.contains(word)) return false;
-        if (word.endsWith("SS") || word.endsWith("US") || word.endsWith("IS")) return false;
-        return word.endsWith("S");
-    }
 
     private static boolean containsIgnoreCase(List<String> values, String target) {
         return values.stream().anyMatch(value -> value.equalsIgnoreCase(target));

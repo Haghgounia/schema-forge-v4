@@ -52,6 +52,12 @@ schemaforge:
     #   - grantee: APP_READONLY
     #     privileges: [SELECT]
 
+  naming:
+    # Naming validation is DBMS-independent and runs once on the canonical model.
+    # Supported values: SINGULAR, PLURAL, OFF.
+    table-convention: ${SCHEMAFORGE_TABLE_NAMING_CONVENTION:SINGULAR}
+    plural-column-components-enabled: true
+
   spell-check:
     enabled: true
     endpoint: https://api.languagetool.org/v2/check
@@ -65,6 +71,12 @@ schemaforge:
       - BEHSAZAN
       - MELLAT
       - BNCP
+      - SUBLEDGER
+      - TXN
+      - RECON
+      - PAYINST
+      - ENR
+      - RECALC
 
   metadata:
     oracle:

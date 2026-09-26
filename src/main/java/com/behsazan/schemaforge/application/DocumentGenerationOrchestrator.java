@@ -237,7 +237,7 @@ public final class DocumentGenerationOrchestrator {
                     platform, metadataRepositoryResolver.resolve(platform));
             requestRepositories.put(platform, repository);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(
-                    dialect, repository).validate(schema);
+                    dialect, repository, false).validate(schema);
             comparisonArtifactProducer.preloadLiveTables(schema, repository, metadata);
             metadata.issues().stream()
                     .map(issue -> new ValidationIssue(

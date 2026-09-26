@@ -10,6 +10,7 @@ import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.MetadataProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
 import com.behsazan.schemaforge.config.NumericMappingProperties;
+import com.behsazan.schemaforge.config.NamingValidationProperties;
 
 /**
  * Provides the application entry point for Schema Forge Api.
@@ -17,7 +18,7 @@ import com.behsazan.schemaforge.config.NumericMappingProperties;
  * @since 4.1
  */
 @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
-@EnableConfigurationProperties({AuditProperties.class, GrantProperties.class, SpellCheckProperties.class, MetadataProperties.class, EaImportProperties.class, NumericMappingProperties.class})
+@EnableConfigurationProperties({AuditProperties.class, GrantProperties.class, SpellCheckProperties.class, MetadataProperties.class, EaImportProperties.class, NumericMappingProperties.class, NamingValidationProperties.class})
 public class SchemaForgeApiApplication {
     public static void main(String[] args) {
         SpringApplication.run(SchemaForgeApiApplication.class, args);
