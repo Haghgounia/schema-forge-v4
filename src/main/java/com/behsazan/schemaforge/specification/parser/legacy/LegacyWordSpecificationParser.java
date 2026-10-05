@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.ColumnPhysicalOptionKeys;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Index;
@@ -45,7 +46,7 @@ import java.util.regex.Pattern;
  * and foreign-key classes and the same generation pipeline.</p>
  */
 public final class LegacyWordSpecificationParser {
-    public static final String PARSER_VERSION = "0.7.2";
+    public static final String PARSER_VERSION = "0.10.0";
     private static final long DEFAULT_MAX_FILE_BYTES = 64L * 1024L * 1024L;
     private static final Pattern TYPE_DECLARATION = Pattern.compile(
             "(?i)^\\s*([A-Z][A-Z0-9_ ]*?)(?:\\s*\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\))?\\s*$");
@@ -212,6 +213,10 @@ public final class LegacyWordSpecificationParser {
                     + "|raw=" + safe(defaultResult.rawValue())
                     + "|normalized=" + safe(defaultResult.expression()));
         }
+        Map<String, String> physicalOptions = isCharacter(dataType.name().normalized())
+                && dataType.length() == null
+                ? Map.of(ColumnPhysicalOptionKeys.RECOVERY_UNRESOLVED_CHARACTER_LENGTH, "true")
+                : Map.of();
         Column column = new Column(
                 Identifier.of(columnName),
                 dataType,
@@ -220,7 +225,8 @@ public final class LegacyWordSpecificationParser {
                 new Description(description),
                 false,
                 source.sequence() > 0 ? source.sequence() : null,
-                null);
+                null,
+                physicalOptions);
         return new CanonicalColumn(source, column, columnName);
     }
 
@@ -246,6 +252,13 @@ public final class LegacyWordSpecificationParser {
                     + "|logical=" + safe(source.logicalTypeRaw())
                     + "|physical=" + safe(source.physicalTypeRaw())
                     + "|metadata=" + declaration);
+        }
+        if (selection == null
+                && source.logicalTypeConfidence() == DataTypeConfidence.NOT_PRESENT
+                && source.physicalTypeConfidence() == DataTypeConfidence.NOT_PRESENT) {
+            warnings.add("LEGACY_DATATYPE_NOT_PRESENT|column=" + columnName
+                    + "|fallback=MISSING_DATA_TYPE");
+            return DataType.simple("MISSING_DATA_TYPE");
         }
         if (selection == null) {
             throw new IllegalArgumentException("No reliable SQL data type for legacy column " + columnName
@@ -320,8 +333,13 @@ public final class LegacyWordSpecificationParser {
                         + "|metadata=" + metadataDeclaration(metadataType));
             }
             if (length == null) {
-                throw new IllegalArgumentException("Character length is missing for legacy column "
-                        + columnName + " type " + base + metadataDiagnosticSuffix(metadataStatus));
+                warnings.add("LEGACY_CHARACTER_LENGTH_NOT_PRESENT|column=" + columnName
+                        + "|type=" + base
+                        + "|fallback=UNRESOLVED_CHARACTER_LENGTH");
+                // The canonical DataType invariant does not allow non-default length semantics
+                // when the length itself is unresolved. Preserve the exact source type name,
+                // mark the column as unresolved in physicalOptions, and keep DataType valid.
+                return new DataType(Identifier.of(base), null, LengthSemantics.DEFAULT, null, null);
             }
             LengthSemantics semantics = (base.equals("NCHAR") || base.equals("NVARCHAR")
                     || base.equals("NVARCHAR2"))
@@ -845,6 +863,33 @@ public final class LegacyWordSpecificationParser {
                 warnings.add("FK_REFERENCE_MISSING|column=" + column.name());
                 continue;
             }
+
+            boolean dependencySection = column.source().keys().stream()
+                    .filter(Objects::nonNull)
+                    .anyMatch(value -> value.equalsIgnoreCase(LegacyRtl9DependencySectionResolver.DEPENDENCY_KEY_TOKEN));
+            if (dependencySection) {
+                DependencyReference dependency;
+                try {
+                    dependency = parseDependencyReference(reference, schemaName, warnings);
+                } catch (IllegalArgumentException exception) {
+                    warnings.add("LEGACY_DEPENDENCY_REFERENCE_INVALID|column=" + column.name()
+                            + "|value=" + safe(reference) + "|message=" + safe(exception.getMessage()));
+                    continue;
+                }
+                table.addForeignKey(new ForeignKey(
+                        Identifier.of(objectName("FK", tableName, column.name())),
+                        List.of(Identifier.of(column.name())),
+                        QualifiedName.of(dependency.schema(), dependency.table()),
+                        List.of(Identifier.of(dependency.column())),
+                        ReferentialAction.NO_ACTION,
+                        ReferentialAction.NO_ACTION,
+                        false,
+                        false,
+                        true,
+                        dependency.schemaExplicit()));
+                continue;
+            }
+
             ReferenceTable referencedTable;
             try {
                 referencedTable = parseReferenceTable(reference, schemaName, warnings);
@@ -865,6 +910,33 @@ public final class LegacyWordSpecificationParser {
                     true,
                     referencedTable.schemaExplicit()));
         }
+    }
+
+    private DependencyReference parseDependencyReference(
+            String raw,
+            String defaultSchema,
+            List<String> warnings) {
+        String cleaned = raw.trim().replaceAll("\\s*\\.\\s*", ".");
+        String[] parts = cleaned.split("\\.");
+        if (parts.length == 3) {
+            return new DependencyReference(
+                    recoverIdentifier(parts[0], "referenced schema", null, warnings),
+                    recoverIdentifier(parts[1], "referenced table", null, warnings),
+                    recoverIdentifier(parts[2], "referenced column", null, warnings),
+                    true);
+        }
+        if (parts.length == 2) {
+            if (parts[0].equalsIgnoreCase(defaultSchema)) {
+                throw new IllegalArgumentException(
+                        "Dependency reference names SCHEMA.TABLE but omits the referenced column");
+            }
+            return new DependencyReference(
+                    defaultSchema,
+                    recoverIdentifier(parts[0], "referenced table", null, warnings),
+                    recoverIdentifier(parts[1], "referenced column", null, warnings),
+                    false);
+        }
+        throw new IllegalArgumentException("Expected TABLE.COLUMN or SCHEMA.TABLE.COLUMN");
     }
 
     private ReferenceTable parseReferenceTable(String raw, String defaultSchema, List<String> warnings) {
@@ -1042,6 +1114,9 @@ public final class LegacyWordSpecificationParser {
     }
 
     private record TypeSelection(String type, boolean physicalFallback) {
+    }
+
+    private record DependencyReference(String schema, String table, String column, boolean schemaExplicit) {
     }
 
     private record ReferenceTable(String schema, String table, boolean schemaExplicit) {

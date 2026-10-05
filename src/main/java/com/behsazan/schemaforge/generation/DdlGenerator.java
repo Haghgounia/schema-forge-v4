@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.ColumnPhysicalOptionKeys;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.ForeignKey;
 import com.behsazan.schemaforge.domain.model.Index;
@@ -444,6 +445,13 @@ public final class DdlGenerator {
                     "Unresolved canonical datatype for "
                             + table.qualifiedName() + "." + column.name().value()
                             + "; source specification must provide an exact datatype before DDL generation");
+        }
+        if ("true".equalsIgnoreCase(column.physicalOptions().get(
+                ColumnPhysicalOptionKeys.RECOVERY_UNRESOLVED_CHARACTER_LENGTH))) {
+            throw new IllegalArgumentException(
+                    "Unresolved character length for "
+                            + table.qualifiedName() + "." + column.name().value()
+                            + "; source specification must provide an exact character length before DDL generation");
         }
         if (!column.generated() || dialect.generatedColumnIncludesDataType()) {
             sql.append(" ").append(dialect.sqlType(schemaContext, table, column));

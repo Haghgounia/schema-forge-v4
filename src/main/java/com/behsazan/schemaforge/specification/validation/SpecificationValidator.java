@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.specification.validation;
 
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.ColumnPhysicalOptionKeys;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.specification.validation.spelling.NoOpSpellCheckService;
@@ -51,6 +52,13 @@ public final class SpecificationValidator {
                         "COLUMN_DATATYPE_UNRESOLVED",
                         path,
                         "Column data type is unresolved; executable DDL must not be generated until the source specification provides an exact type."));
+            }
+            if ("true".equalsIgnoreCase(column.physicalOptions().get(
+                    ColumnPhysicalOptionKeys.RECOVERY_UNRESOLVED_CHARACTER_LENGTH))) {
+                issues.add(error(
+                        "COLUMN_CHARACTER_LENGTH_UNRESOLVED",
+                        path,
+                        "Character data type is known but its source length is unresolved; executable DDL must not be generated until an exact length is provided."));
             }
             addSpellingIssues(column.name().value(), path, issues);
         }

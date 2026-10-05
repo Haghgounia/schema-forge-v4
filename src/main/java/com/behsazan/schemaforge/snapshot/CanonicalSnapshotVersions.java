@@ -21,7 +21,7 @@ package com.behsazan.schemaforge.snapshot;
 public final class CanonicalSnapshotVersions {
     public static final String SNAPSHOT_VERSION = "1.0";
     public static final String MODEL_VERSION = "4";
-    public static final String PARSER_VERSION = "word-pipeline-v4-2026-08-29-legacy-constraint-key-routing-p7";
+    public static final String PARSER_VERSION = "word-pipeline-v4-2026-10-05-legacy-rtl9-fk-v0.1";
 
     private CanonicalSnapshotVersions() {
     }

@@ -1,0 +1,18 @@
+SchemaForge Legacy RTL 9-column field extraction v1
+
+Scope:
+- Prioritize table metadata and field extraction.
+- Do not add FK/dependency recovery in this patch.
+
+New recognized grid:
+ردیف | نام صفت خاصه | نام فیلد | نوع | طول | کلید | اجباری | پیش فرض | توضیحات
+
+Expected sample field counts from the supplied DOCX source grids:
+- CTFCNTRCT: 52 typed fields + 1 blank trailing row (52 fields)
+- CTFCLTRLTYP: 59 fields
+- CTFDSSTR: 24 fields, including one source field with no datatype -> MISSING_DATA_TYPE
+- CTFPRPSLTYP: 124 fields
+
+Validation:
+- Focused Java 21 layout harness: PASS (RTL9_LAYOUT_OK)
+- Full Maven gate not run in this environment because Maven Wrapper cannot download Maven 3.9.9.

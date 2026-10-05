@@ -1,3 +1,77 @@
+# 2026-10-05 - Legacy RTL9 dependency / FK recovery v0.1
+
+- Qualifies the Facility dependency syntax observed by the corpus probe: `SCHEMA.TABLE.COLUMN` and same-schema `TABLE.COLUMN`.
+- Maps only exact local-field matches and explicit referenced columns to canonical single-column foreign keys.
+- Keeps incomplete `SCHEMA.TABLE`, bare identifiers, descriptive prose, missing references, and unresolved local fields fail-closed with explicit warnings.
+- Preserves existing field defaults when dependency evidence is attached; no fuzzy field repair or same-name referenced-column inference is introduced.
+- External-schema references (for example a three-part `JAMSHMA...` path) preserve the explicit referenced schema in the canonical FK.
+- Adds `FacilityLegacyRtl9ForeignKeyRegressionIT` with the probe-derived first qualification contract: 24 single-column FKs across 11 Facility tables, 22 explicit-schema references and 5 external-schema references.
+- Bumps the legacy parser adapter to `0.10.0` and the Word snapshot cache parser version to `...legacy-rtl9-fk-v0.1`.
+- Composite FK grouping remains out of scope because the qualified dependency grid contains no constraint/group identifier.
+
+# 2026-10-05 - Legacy RTL9 dependency probe v0.1
+
+- Added a read-only probe for the RTL9 `وابستگی ها` grid.
+- The probe preserves raw `نام فیلد` / `فیلد خارجی` pairs and performs no FK inference.
+- Added a corpus integration probe that writes populated dependency rows to UTF-8 CSV.
+- No canonical parser behavior, snapshot version, or parser version changed in this diagnostic patch.
+
+## 2026-10-05 - Legacy RTL9 PK/index section recovery v1.1
+
+- Treats explicit generic labels `INDEX`, `ایندکس`, numbered `ایندکس 1/2`, and `معمولی` as normal/non-unique index evidence; these labels do not imply uniqueness.
+- Keeps rows with no index type fail-closed under `LEGACY_INDEX_SECTION_TYPE_NOT_PRESENT` instead of mixing them into the generic unsupported-type bucket.
+- Keeps bare `کلید ترکیبی` / `کلید ( ترکیبی)` fail-closed under `LEGACY_INDEX_SECTION_COMPOSITE_KEY_AMBIGUOUS` because the source does not establish primary/unique/non-unique semantics.
+- Leaves unresolved field membership fail-closed under `LEGACY_INDEX_SECTION_FIELD_UNRESOLVED`; no fuzzy field-name repair is introduced.
+- Adds `FacilityLegacyRtl9SnapshotRegressionIT`, a snapshot-level regression gate for the qualified 749-document Facility corpus, including table/field, unresolved recovery, PK/index, representative-table, parser-version, and warning-category contracts.
+- Bumps the legacy parser adapter to `0.9.1` and the Word snapshot cache parser version to `...legacy-rtl9-pk-index-v1.1`.
+- Foreign-key/dependency recovery remains intentionally out of scope for this patch.
+
+## 2026-10-05 - Legacy RTL9 PK/index section recovery v1
+
+- Recovers the separate Facility index grid headed by `نوع شاخص` / `نام فیلد` after the RTL9 field table is extracted.
+- Supports explicit primary-key, unique-index, non-unique-index, and composite-index rows; an optional leading `ماشین` column is accepted.
+- Composite field lists are mapped only when every referenced technical field resolves exactly to an extracted column; unresolved or unknown rows remain fail-closed and are reported as parser warnings.
+- Does not infer foreign keys, dependencies, unique constraints, missing index names, or missing column membership.
+- Existing field-row PK/index evidence remains authoritative; conflicting primary-key evidence is retained and the separate section is reported instead of silently overriding it.
+- Bumps the legacy parser adapter to `0.9.0` and the Word snapshot cache parser version to `...legacy-rtl9-pk-index-v1`.
+- Adds focused regression coverage for the observed CTFCNTRCT/CTFDSSTR Facility layouts and canonical PK/index mapping.
+
+## 2026-10-05 - Canonical table/field catalog workbook v1
+
+- Adds `CanonicalSnapshotCatalogExcelWriter` to consolidate any canonical `*.schema.json` directory into one Excel workbook.
+- Workbook sheets: `SUMMARY`, `TABLES`, `FIELDS`, `OBJECTS`, and `METADATA`.
+- `FIELDS` preserves datatype, length semantics, precision/scale, nullability, default, description, identity, generated expression, and field physical/recovery options.
+- `TABLES` preserves source identity, schema/table names, Persian name, description, column count, primary-key identity, object counts, and table physical options.
+- `OBJECTS` serializes already-recovered PK/FK/UK/CHECK/INDEX definitions without adding new FK inference or parser behavior.
+- `METADATA` preserves canonical schema/source parser metadata and recovery warnings for auditability.
+- Adds `CanonicalSnapshotDirectoryCatalogExportIT` for one-command export from a snapshot directory.
+
+## 2026-10-05 - Legacy RTL 9-column field extraction v2.1
+
+- Fixes the v2 unresolved-character-length recovery path so canonical `DataType` remains valid when `CHAR`/`VARCHAR` length is absent.
+- Uses `LengthSemantics.DEFAULT` only for the unresolved canonical placeholder because the domain invariant forbids CHAR/BYTE semantics without an actual length; the exact character type is preserved and `schemaforge.recovery.unresolvedCharacterLength=true` remains authoritative.
+- Keeps validation and DDL fail-closed through `COLUMN_CHARACTER_LENGTH_UNRESOLVED` and the existing DDL guard.
+- Bumps the legacy parser adapter version to `0.8.2` and snapshot parser/cache version to `...fields-v2.1`.
+- No FK/dependency behavior is changed.
+
+## 2026-10-05 - Legacy RTL 9-column field extraction v2
+
+- Retains RTL9 field rows whose technical field exists even when the source datatype cell is blank; canonical output uses `MISSING_DATA_TYPE` and remains fail-closed.
+- Retains known `CHAR`/`VARCHAR`-family fields whose source character length is blank instead of aborting the whole document; the canonical column is marked with `schemaforge.recovery.unresolvedCharacterLength=true`.
+- Adds validation error `COLUMN_CHARACTER_LENGTH_UNRESOLVED` and a DDL hard guard so unresolved character lengths cannot become executable SQL.
+- Removes the trailing RTL9 grid-header artifact `ردیف` from recovered Persian table/entity titles; a title consisting only of `ردیف` is rejected.
+- Bumps the legacy parser adapter version to `0.8.1` and the snapshot parser/cache version so older cached JSON cannot mask the recovery change.
+- FK/dependency recovery remains intentionally out of scope.
+
+## 2026-10-05 - Legacy RTL 9-column field extraction v1
+
+- Added `LEGACY_RTL_9` detection for old Persian Word table-definition grids.
+- Recovers table fields from the fixed 9-column layout: Persian attribute, technical field, type, length, key, mandatory, default, notes.
+- Normalizes unambiguous RTL9 legacy aliases (`S` -> `SMALLINT`, `C` -> `CHAR`, `VCH` -> `VARCHAR`, `TIM` -> `TIMESTAMP`).
+- Treats `X` in the RTL9 mandatory column as mandatory.
+- Preserves extraction when a source field has no datatype by emitting `MISSING_DATA_TYPE`; validation remains fail-closed via `COLUMN_DATATYPE_UNRESOLVED`.
+- FK/dependency recovery is intentionally not part of this patch.
+
 ## 2026-09-23 - Canonical naming validation warning de-duplication
 
 - Moves DBMS-independent table/column naming checks into the canonical specification-validation stage so EA/Word requests evaluate them once instead of once per selected database platform.

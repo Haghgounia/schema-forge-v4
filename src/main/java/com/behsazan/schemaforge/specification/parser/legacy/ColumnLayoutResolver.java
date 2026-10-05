@@ -45,6 +45,7 @@ final class ColumnLayoutResolver {
         SHIFTED_STANDARD,
         FLEXIBLE_STANDARD,
         REVERSED_SQL_7,
+        LEGACY_RTL_9,
         TECHNICAL_5
     }
 
@@ -56,6 +57,9 @@ final class ColumnLayoutResolver {
             if (kind == Kind.REVERSED_SQL_7) {
                 return isReversedSqlSevenDefinitionRow(cells);
             }
+            if (kind == Kind.LEGACY_RTL_9) {
+                return isLegacyRtlNineDefinitionRow(cells);
+            }
             return isShiftedStandardDefinitionRow(cells) || isAnyStandardDefinitionRow(cells);
         }
 
@@ -65,6 +69,9 @@ final class ColumnLayoutResolver {
             }
             if (kind == Kind.REVERSED_SQL_7) {
                 return resolveReversedSqlSevenColumn(cells);
+            }
+            if (kind == Kind.LEGACY_RTL_9) {
+                return resolveLegacyRtlNineColumn(cells);
             }
             if (isShiftedStandardDefinitionRow(cells)) {
                 return resolveShiftedStandardColumn(cells);
@@ -103,12 +110,17 @@ final class ColumnLayoutResolver {
         int thirteenColumnRows = 0;
         int shiftedRows = 0;
         int reversedSqlSevenRows = 0;
+        int legacyRtlNineRows = 0;
         int flexibleRows = 0;
         boolean fiveColumnHeader = false;
+        boolean legacyRtlNineHeader = false;
 
         for (List<String> row : table) {
             if (isFiveColumnHeader(row)) {
                 fiveColumnHeader = true;
+            }
+            if (isLegacyRtlNineHeader(row)) {
+                legacyRtlNineHeader = true;
             }
             if (isFiveColumnDefinitionRow(row)) {
                 fiveColumnRows++;
@@ -116,6 +128,10 @@ final class ColumnLayoutResolver {
             }
             if (isReversedSqlSevenDefinitionRow(row)) {
                 reversedSqlSevenRows++;
+                continue;
+            }
+            if (isLegacyRtlNineDefinitionRow(row)) {
+                legacyRtlNineRows++;
                 continue;
             }
             if (isShiftedStandardDefinitionRow(row)) {
@@ -143,6 +159,9 @@ final class ColumnLayoutResolver {
         }
         if (reversedSqlSevenRows >= 2) {
             return new Layout(Kind.REVERSED_SQL_7);
+        }
+        if (legacyRtlNineRows >= 2 || (legacyRtlNineHeader && legacyRtlNineRows >= 1)) {
+            return new Layout(Kind.LEGACY_RTL_9);
         }
         if (shiftedRows > 0 && shiftedRows >= Math.max(tenColumnRows, flexibleRows)) {
             return new Layout(Kind.SHIFTED_STANDARD);
@@ -196,6 +215,88 @@ final class ColumnLayoutResolver {
                 && second.contains("نوع")
                 && (third.contains("کلید اصلی") || third.contains("كليد اصلي"))
                 && (fourth.contains("کلید خارجی") || fourth.contains("كليد خارجي"));
+    }
+
+
+    private static boolean isLegacyRtlNineHeader(List<String> cells) {
+        if (cells.size() != 9) {
+            return false;
+        }
+        String attribute = TextNormalizer.compactForMatching(cell(cells, 1));
+        String field = TextNormalizer.compactForMatching(cell(cells, 2));
+        String type = TextNormalizer.compactForMatching(cell(cells, 3));
+        String length = TextNormalizer.compactForMatching(cell(cells, 4));
+        String mandatory = TextNormalizer.compactForMatching(cell(cells, 6));
+        return attribute.contains("نام صفت")
+                && (field.contains("نام فیلد") || field.contains("نام فيلد"))
+                && type.equals("نوع")
+                && length.equals("طول")
+                && (mandatory.contains("اجباری") || mandatory.contains("اجباري"));
+    }
+
+    /**
+     * Old Persian RTL table reports use a fixed nine-column grid:
+     * row, Persian attribute, technical field, type, length, key, mandatory, default, notes.
+     */
+    private static boolean isLegacyRtlNineDefinitionRow(List<String> cells) {
+        if (cells.size() != 9) {
+            return false;
+        }
+        String fieldName = TextNormalizer.normalizeTechnicalName(cell(cells, 2));
+        if (!isUsableFieldName(fieldName)) {
+            return false;
+        }
+        String type = normalizeLegacyRtlNineType(cell(cells, 3));
+        if (!type.isBlank() && !looksLikeDataTypeValue(type)) {
+            return false;
+        }
+        String length = cell(cells, 4);
+        if (!length.isBlank() && !looksLikeLength(length)) {
+            return false;
+        }
+        if (!type.isBlank()) {
+            return true;
+        }
+        // A real RTL9 source row can legitimately omit the datatype while still carrying
+        // a technical field, Persian attribute, mandatory/default value, or description.
+        // Retain such rows so the legacy adapter can emit MISSING_DATA_TYPE instead of
+        // silently dropping the field from the canonical snapshot.
+        return !cell(cells, 1).isBlank()
+                || !cell(cells, 6).isBlank()
+                || !cell(cells, 7).isBlank()
+                || !cell(cells, 8).isBlank();
+    }
+
+    private static ResolvedColumn resolveLegacyRtlNineColumn(List<String> cells) {
+        String mandatory = cell(cells, 6);
+        if ("X".equalsIgnoreCase(mandatory)) {
+            mandatory = "YES";
+        }
+        String defaultValue = cell(cells, 7);
+        String supplement = defaultValue.isBlank() ? "" : "default: " + defaultValue;
+        return normalizedColumn(
+                cell(cells, 1),
+                cell(cells, 2),
+                normalizeLegacyRtlNineType(cell(cells, 3)),
+                cell(cells, 4),
+                "",
+                "",
+                mandatory,
+                "",
+                "",
+                supplement
+        );
+    }
+
+    private static String normalizeLegacyRtlNineType(String raw) {
+        String value = TextNormalizer.cleanCell(raw).toUpperCase(Locale.ROOT);
+        return switch (value) {
+            case "S" -> "SMALLINT";
+            case "C" -> "CHAR";
+            case "VCH" -> "VARCHAR";
+            case "TIM" -> "TIMESTAMP";
+            default -> value;
+        };
     }
 
     /**

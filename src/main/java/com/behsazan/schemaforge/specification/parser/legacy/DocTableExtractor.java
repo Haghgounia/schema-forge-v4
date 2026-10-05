@@ -280,6 +280,8 @@ final class DocTableExtractor {
             List<ExtractionWarning> warnings = new ArrayList<>();
             List<ColumnDefinition> columns = extractColumns(parsed.tables(), warnings);
             columns = sanitizeColumnQuality(columns, warnings);
+            columns = LegacyRtl9IndexSectionResolver.apply(columns, parsed.tables(), warnings);
+            columns = LegacyRtl9DependencySectionResolver.apply(columns, parsed.tables(), warnings);
             columns = LegacyRevisionDefaultOverrideResolver.apply(columns, parsed.rawMainText(), warnings);
             MetadataSanitization metadataSanitization = sanitizeMetadataAgainstColumns(
                     metadata, columns, parsed.rawMainText()
@@ -1282,6 +1284,7 @@ final class DocTableExtractor {
                 .replaceFirst("^[\\s._:：-]+", "")
                 .replaceFirst("[\\s._:：-]+$", "");
         normalized = stripFieldDefinitionTail(normalized);
+        normalized = stripLegacyRowHeaderArtifact(normalized);
 
         if (normalized.length() > 180
                 || normalized.isBlank()
@@ -1295,6 +1298,14 @@ final class DocTableExtractor {
             return "";
         }
         return normalized;
+    }
+
+    private String stripLegacyRowHeaderArtifact(String value) {
+        String normalized = TextNormalizer.cleanCell(value);
+        if (normalized.matches("(?iu)^\\s*ردیف\\s*$")) {
+            return "";
+        }
+        return normalized.replaceFirst("(?iu)\\s+ردیف\\s*$", "").trim();
     }
 
     private String normalizeLegitimateHistoryTitle(String value) {
