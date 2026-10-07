@@ -1,3 +1,22 @@
+# 2026-10-07 - EA identity evidence / no-guess policy
+
+- Changes REST/EA identity handling to strict `EXPLICIT_ONLY` by default: a numeric primary key no longer implies identity/auto-increment/sequence semantics.
+- Adds optional request parameter `primaryKeyAsIdentity=true` to `/api/v1/generate/ea-xml` for controlled compatibility with the historical PK-to-identity inference.
+- Adds global compatibility property `schemaforge.ea.primary-key-as-identity` / `SCHEMAFORGE_EA_PRIMARY_KEY_AS_IDENTITY`, defaulting to `false`; a request parameter overrides the configured default.
+- Preserves explicit EA/XMI identity evidence and additionally accepts direct compatible-XMI attributes such as `identity="true"`, `autonum="true"`, `autoIncrement="true"`, and `dbAutoNum="true"`.
+- Records the effective policy in canonical metadata as `source.eaPrimaryKeyIdentityPolicy=EXPLICIT_ONLY` or `PK_INFERENCE_COMPATIBILITY`.
+- Keeps the historical inference algorithm unchanged when compatibility mode is explicitly enabled, including its existing shared-PK/FK and datatype safety guards.
+
+# 2026-10-07 - EA-compatible XMI direct-attribute compatibility
+
+- Extends `EnterpriseArchitectXmlParser` to accept direct `stereotype="..."` attributes after native nested/TaggedValue stereotype forms, covering compatible XMI that represents table/column/PK/FK/UK/check stereotypes as XML attributes.
+- Recovers explicit `notnull` tagged values when UML lower-bound evidence is absent.
+- Parses inline datatype parameters such as `NUMBER(8,0)`, `VARCHAR2(30)`, and timestamp precision without changing native EA tagged precision/length precedence.
+- Supports explicit portable FK mapping tags `fk_child_column` / `fk_parent_column`.
+- Resolves unlabelled two-end FK associations only when exactly one endpoint owns the exact FK operation named by the association; ambiguous cases remain fail-closed.
+- Adds focused regression coverage for the compatible-XMI representation.
+- Real-file qualification: `Core_Banking_Branch_Network_EA_XMI_v0_1.xml` parses as 35 tables, 256 columns, 35 PKs, 42 FKs, 19 UKs, 29 checks, and zero recovery warnings.
+
 # 2026-10-05 - Legacy RTL9 dependency / FK recovery v0.1
 
 - Qualifies the Facility dependency syntax observed by the corpus probe: `SCHEMA.TABLE.COLUMN` and same-schema `TABLE.COLUMN`.

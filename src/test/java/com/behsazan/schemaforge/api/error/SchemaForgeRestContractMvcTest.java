@@ -122,7 +122,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void eaPlatformSelectionIsForwardedToGenerationService() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromEaXml(any(), any(), any(), any(), any()))
+        when(service.generateFromEaXml(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new byte[] {1, 2, 3});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
@@ -134,7 +134,27 @@ class SchemaForgeRestContractMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/zip"));
 
-        verify(service).generateFromEaXml(any(), any(), any(), any(), eq(java.util.List.of("oracle")));
+        verify(service).generateFromEaXml(any(), any(), any(), any(), eq(java.util.List.of("oracle")), eq(null));
+    }
+
+
+    @Test
+    void eaPrimaryKeyIdentityCompatibilityOverrideIsForwarded() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromEaXml(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new byte[] {1, 2, 3});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "model.xml", MediaType.APPLICATION_XML_VALUE, "<x/>".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/ea-xml")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("primaryKeyAsIdentity", "true"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromEaXml(
+                any(), any(), any(), any(), eq(java.util.List.of("oracle")), eq(true));
     }
 
     @Test

@@ -73,13 +73,14 @@ class ApiContractFreezeTest {
         assertParam(zip, 3, "auditProfile", false, "AUTO");
 
         Method ea = SchemaForgeController.class.getMethod(
-                "eaXml", MultipartFile.class, String.class, List.class, Boolean.class, String.class);
+                "eaXml", MultipartFile.class, String.class, List.class, Boolean.class, String.class, Boolean.class);
         assertPost(ea, "/ea-xml", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(ea, 0, "file");
         assertParam(ea, 1, "schema", false, null);
         assertParam(ea, 2, "platform", false, null);
         assertParam(ea, 3, "includeAuditFields", false, null);
         assertParam(ea, 4, "auditProfile", false, "AUTO");
+        assertParam(ea, 5, "primaryKeyAsIdentity", false, null);
     }
 
     @Test

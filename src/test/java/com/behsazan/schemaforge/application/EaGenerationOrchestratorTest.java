@@ -250,6 +250,55 @@ class EaGenerationOrchestratorTest {
                 runScripts.stream().map(ArtifactDescriptor::platform).distinct().count());
     }
 
+
+    @Test
+    void usesExplicitOnlyIdentityByDefaultAndAllowsRequestCompatibilityOverride() throws Exception {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="Identity Policy" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="ACCOUNT" xmi.id="TABLE_1" stereotype="table">
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="ACCOUNT_ID" stereotype="column" type="NUMBER(12,0)">
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="notnull" value="true"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_ACCOUNT" stereotype="PK">
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="ACCOUNT_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "identity-policy.xmi", "application/xml",
+                xml.getBytes(StandardCharsets.UTF_8));
+        EaGenerationOrchestrator orchestrator = orchestrator(
+                new ObjectMapper(), emptyResolver(), "COL");
+
+        PreparedSchema strict = orchestrator.prepare(file, "identity-policy.xmi", null);
+        assertFalse(strict.schema().findTable("ACCOUNT").orElseThrow()
+                .findColumn("ACCOUNT_ID").orElseThrow().identity());
+        assertEquals("EXPLICIT_ONLY",
+                strict.schema().metadata().get("source.eaPrimaryKeyIdentityPolicy"));
+
+        PreparedSchema compatibility = orchestrator.prepare(
+                file, "identity-policy.xmi", null, null, true);
+        assertTrue(compatibility.schema().findTable("ACCOUNT").orElseThrow()
+                .findColumn("ACCOUNT_ID").orElseThrow().identity());
+        assertEquals("PK_INFERENCE_COMPATIBILITY",
+                compatibility.schema().metadata().get("source.eaPrimaryKeyIdentityPolicy"));
+    }
+
     private static EaGenerationOrchestrator orchestrator(
             ObjectMapper objectMapper,
             MetadataRepositoryResolver resolver,

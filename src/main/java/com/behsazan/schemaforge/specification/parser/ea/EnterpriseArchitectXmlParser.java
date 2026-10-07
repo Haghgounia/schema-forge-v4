@@ -120,7 +120,7 @@ public final class EnterpriseArchitectXmlParser {
                 tableElementCountsByQualifiedName.merge(logicalTableKey, 1, Integer::sum);
             }
 
-            List<EaAssociation> associations = parseAssociations(document);
+            List<EaAssociation> associations = parseAssociations(document, tablesById);
             List<String> warnings = new ArrayList<>();
             Map<String, EaAssociation> associationBySourceOperation = indexAssociations(
                     tablesById, associations, warnings);
@@ -131,6 +131,9 @@ public final class EnterpriseArchitectXmlParser {
                     .metadata("source.eaExporterVersion", exporterVersion(document))
                     .metadata("source.eaDefaultSchema", configuredDefaultSchema)
                     .metadata("source.eaRequestedSchema", requestedSchema)
+                    .metadata("source.eaPrimaryKeyIdentityPolicy", primaryKeyAsIdentity
+                            ? "PK_INFERENCE_COMPATIBILITY"
+                            : "EXPLICIT_ONLY")
                     .metadata("source.eaSchemaResolution", forceRequestedSchema
                             ? "API_PARAMETER"
                             : (globalXmlSchema.isBlank() ? "CONFIG_DEFAULT" : "XML"));
@@ -239,7 +242,10 @@ public final class EnterpriseArchitectXmlParser {
         int precision = nonNegativeInt(tag(tags, "precision"), 0);
         Integer scale = nullableNonNegativeInt(tag(tags, "scale"));
         String lower = firstNonBlank(tag(tags, "lowerBound"), attribute(attribute, "lower"));
-        boolean nullable = lower.isBlank() || nonNegativeInt(lower, 0) == 0;
+        String notNull = tag(tags, "notnull");
+        boolean nullable = !lower.isBlank()
+                ? nonNegativeInt(lower, 0) == 0
+                : (notNull.isBlank() || !truthy(notNull));
         String description = normalizeDocumentation(firstNonBlank(
                 tag(tags, "documentation"),
                 tag(tags, "notes"),
@@ -250,7 +256,9 @@ public final class EnterpriseArchitectXmlParser {
         boolean generated = truthy(tag(tags, "derived")) && !defaultExpression.isBlank();
         boolean identity = truthy(firstNonBlank(
                 tag(tags, "identity"), tag(tags, "autonum"), tag(tags, "autoIncrement"),
-                tag(tags, "dbAutoNum")));
+                tag(tags, "dbAutoNum"),
+                attribute(attribute, "identity"), attribute(attribute, "autonum"),
+                attribute(attribute, "autoIncrement"), attribute(attribute, "dbAutoNum")));
 
         DataType dataType = mapDataType(rawType, length, precision, scale, tags);
         return new EaColumn(
@@ -284,7 +292,8 @@ public final class EnterpriseArchitectXmlParser {
         return new EaOperation(name, stereotype, List.copyOf(parameters), tags);
     }
 
-    private static List<EaAssociation> parseAssociations(Document document) {
+    private static List<EaAssociation> parseAssociations(
+            Document document, Map<String, EaTable> tablesById) {
         List<EaAssociation> result = new ArrayList<>();
         for (Element association : elements(document, "Association")) {
             if (!isStereotype(association, "FK")) continue;
@@ -299,6 +308,7 @@ public final class EnterpriseArchitectXmlParser {
 
             String sourceId = "";
             String targetId = "";
+            List<String> unclassifiedEndIds = new ArrayList<>();
             for (Element end : directDescendants(association, "AssociationEnd")) {
                 Map<String, String> endTags = taggedValues(end);
                 String side = tag(endTags, "ea_end");
@@ -307,30 +317,49 @@ public final class EnterpriseArchitectXmlParser {
                 boolean explicitTarget = "target".equalsIgnoreCase(side);
                 boolean childSource = side.isBlank() && "child".equalsIgnoreCase(role);
                 boolean parentTarget = side.isBlank() && "parent".equalsIgnoreCase(role);
+                String endId = attribute(end, "type");
 
                 if (explicitSource || childSource) {
-                    sourceId = attribute(end, "type");
+                    sourceId = endId;
                     // In role-based exports the AssociationEnd name is a role/table name,
                     // not the FK operation name. Only use it for native EA source ends.
                     if (sourceOperation.isBlank() && explicitSource) {
                         sourceOperation = sanitizeIdentifier(attribute(end, "name"), "");
                     }
                 } else if (explicitTarget || parentTarget) {
-                    targetId = attribute(end, "type");
+                    targetId = endId;
                     if (targetOperation.isBlank() && explicitTarget) {
                         targetOperation = sanitizeIdentifier(attribute(end, "name"), "");
                     }
+                } else if (!endId.isBlank()) {
+                    unclassifiedEndIds.add(endId);
                 }
             }
 
-            // Portable XMI can omit EA's styleex/FKINFO and expose the FK name
-            // directly on the association. Apply this fallback only after the
-            // native ea_end=source path had a chance to recover the operation
-            // name from the source AssociationEnd; otherwise legacy EA exports
-            // can be shadowed by generic association metadata.
+            // Portable/compatible XMI can omit EA's styleex/FKINFO and expose the
+            // FK operation name directly on the association.
             if (sourceOperation.isBlank()) {
                 sourceOperation = sanitizeIdentifier(firstNonBlank(
                         tag(tags, "constraint"), attribute(association, "name")), "");
+            }
+
+            // Some compatible XMI variants provide two unlabelled AssociationEnd
+            // elements. Resolve their direction only when exactly one endpoint
+            // owns an FK operation with the association's exact operation name.
+            if ((sourceId.isBlank() || targetId.isBlank())
+                    && unclassifiedEndIds.size() == 2
+                    && !sourceOperation.isBlank()) {
+                String resolvedSourceOperation = sourceOperation;
+                List<String> sourceCandidates = unclassifiedEndIds.stream()
+                        .filter(id -> tableHasForeignKeyOperation(tablesById.get(id), resolvedSourceOperation))
+                        .toList();
+                if (sourceCandidates.size() == 1) {
+                    sourceId = sourceCandidates.getFirst();
+                    String resolvedSourceId = sourceId;
+                    targetId = unclassifiedEndIds.stream()
+                            .filter(id -> !id.equals(resolvedSourceId))
+                            .findFirst().orElse("");
+                }
             }
 
             List<ColumnPair> pairs = new ArrayList<>();
@@ -354,6 +383,18 @@ public final class EnterpriseArchitectXmlParser {
                 }
             }
 
+            // Another explicit portable form uses singular child/parent column tags.
+            // Accept it only when both sides are present and have the same arity.
+            if (pairs.isEmpty()) {
+                List<String> sourceColumns = taggedColumnList(tag(tags, "fk_child_column"));
+                List<String> targetColumns = taggedColumnList(tag(tags, "fk_parent_column"));
+                if (!sourceColumns.isEmpty() && sourceColumns.size() == targetColumns.size()) {
+                    for (int i = 0; i < sourceColumns.size(); i++) {
+                        pairs.add(new ColumnPair(sourceColumns.get(i), targetColumns.get(i)));
+                    }
+                }
+            }
+
             result.add(new EaAssociation(
                     firstNonBlank(attribute(association, "xmi.id"), attribute(association, "xmi:id"), ""),
                     sourceId,
@@ -366,6 +407,13 @@ public final class EnterpriseArchitectXmlParser {
                     tags));
         }
         return List.copyOf(result);
+    }
+
+    private static boolean tableHasForeignKeyOperation(EaTable table, String operationName) {
+        if (table == null || operationName == null || operationName.isBlank()) return false;
+        return table.operations().stream()
+                .filter(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY)
+                .anyMatch(operation -> operation.name().equalsIgnoreCase(operationName));
     }
 
     private static Map<String, EaAssociation> indexAssociations(
@@ -704,6 +752,13 @@ public final class EnterpriseArchitectXmlParser {
             Map<String, String> tags) {
         String normalized = rawType.trim().toUpperCase(Locale.ROOT)
                 .replaceAll("\\s+", " ");
+        InlineType inlineType = inlineType(normalized);
+        if (inlineType != null) {
+            normalized = inlineType.baseType();
+            if (length <= 0 && inlineType.length() != null) length = inlineType.length();
+            if (precision <= 0 && inlineType.precision() != null) precision = inlineType.precision();
+            if (scale == null && inlineType.scale() != null) scale = inlineType.scale();
+        }
         String canonicalName = switch (normalized) {
             case "VARCHAR", "VARCHAR2" -> "VARCHAR2";
             case "NVARCHAR", "NVARCHAR2" -> "NVARCHAR2";
@@ -739,6 +794,25 @@ public final class EnterpriseArchitectXmlParser {
                     precision, null);
         }
         return DataType.simple(canonicalName);
+    }
+
+    private static InlineType inlineType(String normalized) {
+        Matcher matcher = Pattern.compile(
+                "^([A-Z][A-Z0-9_ ]*)\\((\\d+)(?:\\s*,\\s*(\\d+))?\\)$")
+                .matcher(normalized);
+        if (!matcher.matches()) return null;
+        String baseType = matcher.group(1).trim();
+        int first = Integer.parseInt(matcher.group(2));
+        Integer second = matcher.group(3) == null ? null : Integer.parseInt(matcher.group(3));
+        boolean character = Set.of(
+                "VARCHAR", "VARCHAR2", "NVARCHAR", "NVARCHAR2", "CHAR", "NCHAR", "RAW")
+                .contains(baseType);
+        boolean numeric = Set.of("NUMBER", "NUMERIC", "DECIMAL").contains(baseType);
+        boolean temporal = baseType.startsWith("TIMESTAMP");
+        if (character) return new InlineType(baseType, first, null, null);
+        if (numeric) return new InlineType(baseType, null, first, second);
+        if (temporal) return new InlineType(baseType, null, first, null);
+        return null;
     }
 
     private static boolean isCharacterType(String name) {
@@ -879,7 +953,11 @@ public final class EnterpriseArchitectXmlParser {
                 }
             }
         }
-        return tag(taggedValues(element), "stereotype")
+        String tagged = tag(taggedValues(element), "stereotype");
+        if (!tagged.isBlank()) {
+            return tagged.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
+        }
+        return attribute(element, "stereotype")
                 .toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
     }
 
@@ -1064,6 +1142,8 @@ public final class EnterpriseArchitectXmlParser {
         for (String value : values) if (value != null && !value.isBlank()) return value;
         return "";
     }
+
+    private record InlineType(String baseType, Integer length, Integer precision, Integer scale) { }
 
     private enum OperationKind {
         PRIMARY_KEY, FOREIGN_KEY, UNIQUE_KEY, INDEX, UNIQUE_INDEX, CHECK, OTHER

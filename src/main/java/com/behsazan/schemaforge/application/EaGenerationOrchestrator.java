@@ -141,7 +141,7 @@ public final class EaGenerationOrchestrator {
             MultipartFile file,
             String sourceName,
             String schemaName) throws IOException {
-        return prepare(file, sourceName, schemaName, null);
+        return prepare(file, sourceName, schemaName, null, null);
     }
 
     public PreparedSchema prepare(
@@ -149,12 +149,28 @@ public final class EaGenerationOrchestrator {
             String sourceName,
             String schemaName,
             AuditGenerationOptions auditOptions) throws IOException {
+        return prepare(file, sourceName, schemaName, auditOptions, null);
+    }
+
+    /**
+     * Parses an EA model using explicit identity evidence by default. A request-level
+     * override can re-enable the historical PK-to-identity inference when required.
+     */
+    public PreparedSchema prepare(
+            MultipartFile file,
+            String sourceName,
+            String schemaName,
+            AuditGenerationOptions auditOptions,
+            Boolean primaryKeyAsIdentity) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
+        boolean inferPrimaryKeyIdentity = primaryKeyAsIdentity != null
+                ? primaryKeyAsIdentity
+                : eaImportProperties.isPrimaryKeyAsIdentity();
         DatabaseSchema parsed;
         try (InputStream inputStream = file.getInputStream()) {
             parsed = new EnterpriseArchitectXmlParser(
-                    eaImportProperties.getDefaultSchema(), true)
+                    eaImportProperties.getDefaultSchema(), inferPrimaryKeyIdentity)
                     .parse(sourceName, inputStream, schemaName);
         }
         return auditOptions == null

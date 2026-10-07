@@ -108,10 +108,13 @@ public class SchemaForgeController {
                             allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
             @RequestParam(value = "platform", required = false) List<String> platforms,
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
-            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile,
+            @Parameter(description = "Compatibility override. false forces strict explicit-only identity semantics; true enables legacy PK-to-identity inference; omitted uses the configured default (false by default).")
+            @RequestParam(value = "primaryKeyAsIdentity", required = false) Boolean primaryKeyAsIdentity)
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
-        return zip(service.generateFromEaXml(file, schema, includeAuditFields, auditProfile, platforms),
+        return zip(service.generateFromEaXml(
+                        file, schema, includeAuditFields, auditProfile, platforms, primaryKeyAsIdentity),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.EA));
     }
 

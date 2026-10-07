@@ -361,6 +361,7 @@ class SchemaForgeEaPerTableOutputTest {
         spellCheck.setEnabled(false);
         EaImportProperties ea = EaImportProperties.defaults();
         ea.setDefaultSchema("FEE");
+        ea.setPrimaryKeyAsIdentity(true);
         ObjectMapper objectMapper = new ObjectMapper();
 
         SchemaForgeApiService service = new SchemaForgeApiService(

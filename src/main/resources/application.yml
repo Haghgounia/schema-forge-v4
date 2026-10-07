@@ -20,6 +20,8 @@ schemaforge:
   # Override with SCHEMAFORGE_EA_DEFAULT_SCHEMA or edit this value.
   ea:
     default-schema: ${SCHEMAFORGE_EA_DEFAULT_SCHEMA:COL}
+    # Strict/no-guess default: PK does not imply identity. Enable only for legacy compatibility.
+    primary-key-as-identity: ${SCHEMAFORGE_EA_PRIMARY_KEY_AS_IDENTITY:false}
 
   standards:
     audit:

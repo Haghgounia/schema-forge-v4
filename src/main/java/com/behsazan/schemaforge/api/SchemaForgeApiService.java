@@ -279,7 +279,19 @@ public class SchemaForgeApiService {
             Boolean includeAuditFields,
             String auditProfile,
             List<String> platforms) throws IOException {
-        return generateFromEaXmlTracked(file, schemaName, includeAuditFields, auditProfile, platforms).content();
+        return generateFromEaXml(
+                file, schemaName, includeAuditFields, auditProfile, platforms, null);
+    }
+
+    public byte[] generateFromEaXml(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            Boolean primaryKeyAsIdentity) throws IOException {
+        return generateFromEaXmlTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms, primaryKeyAsIdentity).content();
     }
 
     GenerationArchive generateFromEaXmlTracked(MultipartFile file, String schemaName) throws IOException {
@@ -300,6 +312,17 @@ public class SchemaForgeApiService {
             Boolean includeAuditFields,
             String auditProfile,
             List<String> platforms) throws IOException {
+        return generateFromEaXmlTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms, null);
+    }
+
+    GenerationArchive generateFromEaXmlTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            Boolean primaryKeyAsIdentity) throws IOException {
         String name = safeName(file.getOriginalFilename(), "ea-model.xml");
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
@@ -308,7 +331,7 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         PreparedSchema prepared = eaGenerationOrchestrator.prepare(
-                file, name, schemaName, auditOptions);
+                file, name, schemaName, auditOptions, primaryKeyAsIdentity);
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.ENTERPRISE_ARCHITECT, name);
         byte[] content = eaGenerationOrchestrator.generate(

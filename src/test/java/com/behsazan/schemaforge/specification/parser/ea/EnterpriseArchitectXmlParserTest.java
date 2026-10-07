@@ -256,6 +256,7 @@ class EnterpriseArchitectXmlParserTest {
                 new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
 
         var child = schema.findTable("CHILD_TABLE").orElseThrow();
+        assertFalse(child.findColumn("CHILD_ID").orElseThrow().identity());
         assertEquals(1, child.foreignKeys().size());
         var foreignKey = child.foreignKeys().getFirst();
         assertEquals("FK_CHILD_TABLE_PARENT_ID", foreignKey.name().value());
@@ -553,6 +554,140 @@ class EnterpriseArchitectXmlParserTest {
                 schema.findTable("LENGTH_SEMANTICS_PRECEDENCE").orElseThrow()
                         .findColumn("VALUE_COL").orElseThrow()
                         .dataType().lengthSemantics());
+    }
+
+
+    @Test
+    void shouldParseCompatibleXmiWithDirectStereotypeAttributesAndExplicitFkTags() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="Compatible Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="PARENT_TABLE" xmi.id="TABLE_PARENT" stereotype="table">
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="PARENT_ID" stereotype="column" type="NUMBER(8,0)">
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="notnull" value="true"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="PARENT_CODE" stereotype="column" type="VARCHAR2(30)">
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="notnull" value="false"/>
+                                <UML:TaggedValue tag="position" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_PARENT_TABLE" stereotype="PK">
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="PARENT_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                        <UML:Class name="CHILD_TABLE" xmi.id="TABLE_CHILD" stereotype="table">
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="CHILD_ID" stereotype="column" type="NUMBER(10,0)">
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="notnull" value="true"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="PARENT_ID" stereotype="column" type="NUMBER(8,0)">
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="notnull" value="true"/>
+                                <UML:TaggedValue tag="position" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_CHILD_TABLE" stereotype="PK">
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="CHILD_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                            <UML:Operation name="FK_CHILD_PARENT" stereotype="FK">
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="PARENT_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                        <UML:Association name="FK_CHILD_PARENT" xmi.id="ASSOC_1" stereotype="FK">
+                          <UML:Association.connection>
+                            <UML:AssociationEnd xmi.id="END_CHILD" type="TABLE_CHILD" name="CHILD_TABLE"/>
+                            <UML:AssociationEnd xmi.id="END_PARENT" type="TABLE_PARENT" name="PARENT_TABLE"/>
+                          </UML:Association.connection>
+                          <UML:ModelElement.taggedValue>
+                            <UML:TaggedValue tag="fk_child_column" value="PARENT_ID"/>
+                            <UML:TaggedValue tag="fk_parent_column" value="PARENT_ID"/>
+                          </UML:ModelElement.taggedValue>
+                        </UML:Association>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("COL").parse(
+                "compatible-direct-stereotype.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        assertEquals(2, schema.tables().size());
+        assertEquals("EXPLICIT_ONLY", schema.metadata().get("source.eaPrimaryKeyIdentityPolicy"));
+        var parent = schema.findTable("PARENT_TABLE").orElseThrow();
+        assertFalse(parent.findColumn("PARENT_ID").orElseThrow().identity());
+        assertFalse(parent.findColumn("PARENT_ID").orElseThrow().nullable());
+        assertTrue(parent.findColumn("PARENT_CODE").orElseThrow().nullable());
+        assertEquals(8, parent.findColumn("PARENT_ID").orElseThrow().dataType().precision());
+        assertEquals(0, parent.findColumn("PARENT_ID").orElseThrow().dataType().scale());
+        assertEquals(30, parent.findColumn("PARENT_CODE").orElseThrow().dataType().length());
+
+        var child = schema.findTable("CHILD_TABLE").orElseThrow();
+        assertFalse(child.findColumn("CHILD_ID").orElseThrow().identity());
+        assertEquals(1, child.foreignKeys().size());
+        var foreignKey = child.foreignKeys().getFirst();
+        assertEquals("FK_CHILD_TABLE_PARENT_ID", foreignKey.name().value());
+        assertEquals("COL.PARENT_TABLE", foreignKey.referencedTable().toString());
+        assertEquals("PARENT_ID", foreignKey.columns().getFirst().value());
+        assertEquals("PARENT_ID", foreignKey.referencedColumns().getFirst().value());
+    }
+
+    @Test
+    void shouldHonorExplicitIdentityAttributeWithoutPrimaryKeyInference() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="Compatible Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="ACCOUNT" xmi.id="TABLE_1" stereotype="table">
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="ACCOUNT_ID" stereotype="column" type="NUMBER(12,0)" identity="true">
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="notnull" value="true"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="PK_ACCOUNT" stereotype="PK">
+                              <UML:BehavioralFeature.parameter>
+                                <UML:Parameter name="ACCOUNT_ID" kind="in"/>
+                              </UML:BehavioralFeature.parameter>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("COL").parse(
+                "explicit-identity-attribute.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        assertEquals("EXPLICIT_ONLY", schema.metadata().get("source.eaPrimaryKeyIdentityPolicy"));
+        assertTrue(schema.findTable("ACCOUNT").orElseThrow()
+                .findColumn("ACCOUNT_ID").orElseThrow().identity());
     }
 
 }
