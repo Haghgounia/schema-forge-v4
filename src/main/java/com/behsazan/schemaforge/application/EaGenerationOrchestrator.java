@@ -262,18 +262,30 @@ public final class EaGenerationOrchestrator {
                     DatabaseSchema tableSchema = singleTableSchema(schema, table);
                     ValidationReport tableReport = validationForTable(report, table);
                     MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
-                    String sql = new DdlGenerator(dialect, schema)
-                            .generate(tableSchema, tableReport, tableMetadata);
-                    Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
-                            eaArtifactBaseName(schema, table, platform), platform, timestamp);
-                    String sqlFileName = ddlRelativePath.getFileName().toString();
-                    requireValidDdl(platform, sql, sqlFileName);
-                    Path ddlPath = output.resolve(ddlRelativePath);
-                    Files.createDirectories(ddlPath.getParent());
-                    Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
-                    context.ledger().generated(context, ArtifactType.DDL, platform,
-                            tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
-                            ArtifactPaths.relative(output, ddlPath), "application/sql", "DdlGenerator");
+                    try {
+                        String sql = new DdlGenerator(dialect, schema)
+                                .generate(tableSchema, tableReport, tableMetadata);
+                        Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
+                                eaArtifactBaseName(schema, table, platform), platform, timestamp);
+                        String sqlFileName = ddlRelativePath.getFileName().toString();
+                        requireValidDdl(platform, sql, sqlFileName);
+                        Path ddlPath = output.resolve(ddlRelativePath);
+                        Files.createDirectories(ddlPath.getParent());
+                        Files.writeString(ddlPath, sql, StandardCharsets.UTF_8);
+                        context.ledger().generated(context, ArtifactType.DDL, platform,
+                                tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                                ArtifactPaths.relative(output, ddlPath), "application/sql", "DdlGenerator");
+                    } catch (IllegalArgumentException exception) {
+                        String renderBlockReason = ddlRenderBlockReason(platform, exception);
+                        if (renderBlockReason == null) {
+                            throw exception;
+                        }
+                        context.ledger().blocked(
+                                context, ArtifactType.DDL, platform,
+                                tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                                "DdlGenerator",
+                                renderBlockReason);
+                    }
                 } else {
                     context.ledger().blocked(
                             context, ArtifactType.DDL, platform,
@@ -385,6 +397,17 @@ public final class EaGenerationOrchestrator {
             return "MARIADB_MULTIPLE_AUTO_INCREMENT";
         }
         return platform.name() + "_TABLE_VALIDATION";
+    }
+
+    private static String ddlRenderBlockReason(
+            DatabasePlatform platform, IllegalArgumentException exception) {
+        String message = safeMessage(exception);
+        String normalized = message.toUpperCase(Locale.ROOT);
+        if (platform == DatabasePlatform.DB2_LUW
+                && normalized.contains("DOES NOT SUPPORT A LOSSLESS TIMESTAMP WITH TIME ZONE COLUMN MAPPING")) {
+            return "PER_TABLE_DDL_BLOCKED: DB2_LUW_TIMESTAMP_WITH_TIME_ZONE_UNSUPPORTED: " + message;
+        }
+        return null;
     }
 
     private static String safeMessage(Exception exception) {

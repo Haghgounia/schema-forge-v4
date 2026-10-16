@@ -42,7 +42,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Enterprise Architect XMI 1.x importer.
+ * Enterprise Architect XMI 1.x / 2.1 importer.
  *
  * <p>The importer is an input adapter only: it converts EA table/column/key/index
  * elements to the existing DBMS-neutral SchemaForge model. DDL and comparison
@@ -88,7 +88,8 @@ public final class EnterpriseArchitectXmlParser {
             Document document = secureFactory().newDocumentBuilder().parse(inputStream);
             document.getDocumentElement().normalize();
 
-            List<Element> tableElements = findTableClasses(document);
+            EaExtensionIndex extensionIndex = EaExtensionIndex.from(document);
+            List<Element> tableElements = findTableClasses(document, extensionIndex);
             if (tableElements.isEmpty()) {
                 throw new IllegalArgumentException(
                         "No Enterprise Architect table elements were found in XML/XMI: " + fileName);
@@ -97,10 +98,10 @@ public final class EnterpriseArchitectXmlParser {
             String requestedSchema = schemaOverride == null || schemaOverride.isBlank()
                     ? ""
                     : sanitizeIdentifier(schemaOverride, configuredDefaultSchema);
-            String globalXmlSchema = findExplicitSchema(document.getDocumentElement());
+            String globalXmlSchema = findExplicitSchema(document.getDocumentElement(), extensionIndex);
             if (globalXmlSchema.isBlank()) {
                 globalXmlSchema = tableElements.stream()
-                        .map(EnterpriseArchitectXmlParser::findExplicitSchema)
+                        .map(element -> findExplicitSchema(element, extensionIndex))
                         .filter(value -> !value.isBlank())
                         .findFirst().orElse("");
             }
@@ -113,14 +114,16 @@ public final class EnterpriseArchitectXmlParser {
             Map<String, EaTable> logicalTablesByQualifiedName = new LinkedHashMap<>();
             Map<String, Integer> tableElementCountsByQualifiedName = new LinkedHashMap<>();
             for (Element tableElement : tableElements) {
-                EaTable table = parseTableDefinition(tableElement, schemaName, forceRequestedSchema);
+                EaTable table = parseTableDefinition(
+                        tableElement, schemaName, forceRequestedSchema, extensionIndex);
                 tablesById.put(table.xmiId(), table);
                 String logicalTableKey = logicalTableKey(table);
                 logicalTablesByQualifiedName.putIfAbsent(logicalTableKey, table);
                 tableElementCountsByQualifiedName.merge(logicalTableKey, 1, Integer::sum);
             }
 
-            List<EaAssociation> associations = parseAssociations(document, tablesById);
+            List<EaAssociation> associations = parseAssociations(
+                    document, tablesById, extensionIndex);
             List<String> warnings = new ArrayList<>();
             Map<String, EaAssociation> associationBySourceOperation = indexAssociations(
                     tablesById, associations, warnings);
@@ -129,6 +132,7 @@ public final class EnterpriseArchitectXmlParser {
                     .metadata("source.format", "EA-XMI")
                     .metadata("source.eaExporter", exporter(document))
                     .metadata("source.eaExporterVersion", exporterVersion(document))
+                    .metadata("source.eaXmiDialect", xmiDialect(document))
                     .metadata("source.eaDefaultSchema", configuredDefaultSchema)
                     .metadata("source.eaRequestedSchema", requestedSchema)
                     .metadata("source.eaPrimaryKeyIdentityPolicy", primaryKeyAsIdentity
@@ -190,14 +194,15 @@ public final class EnterpriseArchitectXmlParser {
     }
 
     private EaTable parseTableDefinition(
-            Element tableElement, String defaultSchema, boolean forceDefaultSchema) {
-        Map<String, String> tableTags = taggedValues(tableElement);
+            Element tableElement, String defaultSchema, boolean forceDefaultSchema,
+            EaExtensionIndex extensionIndex) {
+        Map<String, String> tableTags = taggedValues(tableElement, extensionIndex);
         String tableName = sanitizeIdentifier(attribute(tableElement, "name"), "UNNAMED_TABLE");
         String tableSchema = forceDefaultSchema
                 ? defaultSchema
                 : sanitizeIdentifier(
                         firstNonBlank(schemaFromTags(tableTags),
-                                findExplicitSchema(parentElement(tableElement)), defaultSchema),
+                                findExplicitSchema(parentElement(tableElement), extensionIndex), defaultSchema),
                         defaultSchema);
         String persianName = normalizeDocumentation(tag(tableTags, "alias"));
         String description = normalizeDocumentation(firstNonBlank(
@@ -209,9 +214,10 @@ public final class EnterpriseArchitectXmlParser {
 
         List<EaColumn> columns = new ArrayList<>();
         int fallbackPosition = 0;
-        for (Element attribute : directDescendants(tableElement, "Attribute")) {
-            if (!isStereotype(attribute, "column")) continue;
-            columns.add(parseColumn(attribute, fallbackPosition++));
+        for (Element attribute : classifierMembers(
+                tableElement, "Attribute", "ownedAttribute", "Property")) {
+            if (!isStereotype(attribute, "column", extensionIndex)) continue;
+            columns.add(parseColumn(attribute, fallbackPosition++, extensionIndex));
         }
         columns.sort(Comparator.comparingInt(EaColumn::position));
         if (columns.isEmpty()) {
@@ -219,8 +225,9 @@ public final class EnterpriseArchitectXmlParser {
         }
 
         List<EaOperation> operations = new ArrayList<>();
-        for (Element operation : directDescendants(tableElement, "Operation")) {
-            operations.add(parseOperation(operation));
+        for (Element operation : classifierMembers(
+                tableElement, "Operation", "ownedOperation", "Operation")) {
+            operations.add(parseOperation(operation, extensionIndex));
         }
 
         return new EaTable(
@@ -233,8 +240,9 @@ public final class EnterpriseArchitectXmlParser {
                 List.copyOf(operations));
     }
 
-    private static EaColumn parseColumn(Element attribute, int fallbackPosition) {
-        Map<String, String> tags = taggedValues(attribute);
+    private static EaColumn parseColumn(
+            Element attribute, int fallbackPosition, EaExtensionIndex extensionIndex) {
+        Map<String, String> tags = taggedValues(attribute, extensionIndex);
         String name = sanitizeIdentifier(attribute(attribute, "name"), "COLUMN_" + (fallbackPosition + 1));
         String rawType = firstNonBlank(tag(tags, "type"), attribute(attribute, "type"), "VARCHAR2");
         int position = nonNegativeInt(tag(tags, "position"), fallbackPosition);
@@ -272,17 +280,20 @@ public final class EnterpriseArchitectXmlParser {
                 generated ? defaultExpression : null);
     }
 
-    private static EaOperation parseOperation(Element operation) {
-        Map<String, String> tags = taggedValues(operation);
+    private static EaOperation parseOperation(
+            Element operation, EaExtensionIndex extensionIndex) {
+        Map<String, String> tags = taggedValues(operation, extensionIndex);
         String name = sanitizeIdentifier(attribute(operation, "name"), "UNNAMED_OPERATION");
-        String stereotype = normalizedStereotype(operation);
+        String stereotype = normalizedStereotype(operation, extensionIndex);
         List<EaParameter> parameters = new ArrayList<>();
         int fallback = 0;
-        for (Element parameter : directDescendants(operation, "Parameter")) {
-            String kind = firstNonBlank(attribute(parameter, "kind"), "in");
+        for (Element parameter : classifierMembers(
+                operation, "Parameter", "ownedParameter", "Parameter")) {
+            String kind = firstNonBlank(
+                    attribute(parameter, "kind"), attribute(parameter, "direction"), "in");
             String parameterName = attribute(parameter, "name");
             if (!"in".equalsIgnoreCase(kind) || parameterName.isBlank()) continue;
-            Map<String, String> parameterTags = taggedValues(parameter);
+            Map<String, String> parameterTags = taggedValues(parameter, extensionIndex);
             int position = nonNegativeInt(tag(parameterTags, "pos"), fallback++);
             SortDirection direction = parseSortDirection(parameterTags);
             parameters.add(new EaParameter(
@@ -293,11 +304,12 @@ public final class EnterpriseArchitectXmlParser {
     }
 
     private static List<EaAssociation> parseAssociations(
-            Document document, Map<String, EaTable> tablesById) {
+            Document document, Map<String, EaTable> tablesById,
+            EaExtensionIndex extensionIndex) {
         List<EaAssociation> result = new ArrayList<>();
-        for (Element association : elements(document, "Association")) {
-            if (!isStereotype(association, "FK")) continue;
-            Map<String, String> tags = taggedValues(association);
+        for (Element association : associationElements(document)) {
+            if (!isStereotype(association, "FK", extensionIndex)) continue;
+            Map<String, String> tags = taggedValues(association, extensionIndex);
             String sourceOperation = "";
             String targetOperation = "";
             Matcher matcher = FK_INFO.matcher(tag(tags, "styleex"));
@@ -310,7 +322,7 @@ public final class EnterpriseArchitectXmlParser {
             String targetId = "";
             List<String> unclassifiedEndIds = new ArrayList<>();
             for (Element end : directDescendants(association, "AssociationEnd")) {
-                Map<String, String> endTags = taggedValues(end);
+                Map<String, String> endTags = taggedValues(end, extensionIndex);
                 String side = tag(endTags, "ea_end");
                 String role = tag(endTags, "role");
                 boolean explicitSource = "source".equalsIgnoreCase(side);
@@ -336,11 +348,28 @@ public final class EnterpriseArchitectXmlParser {
                 }
             }
 
+            // EA XMI 2.1 stores connector endpoint identities in xmi:Extension
+            // rather than UML:AssociationEnd elements. Extension endpoints are
+            // authoritative because they carry explicit source/target direction.
+            Element connector = extensionIndex.nodeFor(association);
+            if (connector != null && "connector".equalsIgnoreCase(localName(connector))) {
+                Element source = directChild(connector, "source");
+                Element target = directChild(connector, "target");
+                if (source != null) {
+                    sourceId = firstNonBlank(sourceId, xmiIdRef(source));
+                }
+                if (target != null) {
+                    targetId = firstNonBlank(targetId, xmiIdRef(target));
+                }
+            }
+
             // Portable/compatible XMI can omit EA's styleex/FKINFO and expose the
             // FK operation name directly on the association.
             if (sourceOperation.isBlank()) {
+                String explicitConstraint = tag(tags, "constraint");
+                boolean eaXmi2Connector = extensionIndex.nodeFor(association) != null;
                 sourceOperation = sanitizeIdentifier(firstNonBlank(
-                        tag(tags, "constraint"), attribute(association, "name")), "");
+                        explicitConstraint, eaXmi2Connector ? "" : attribute(association, "name")), "");
             }
 
             // Some compatible XMI variants provide two unlabelled AssociationEnd
@@ -395,14 +424,30 @@ public final class EnterpriseArchitectXmlParser {
                 }
             }
 
+            // Native EA XMI 2.1 commonly emits only the explicit child FK column
+            // on the connector extension. Preserve that evidence for deterministic
+            // operation binding; referenced columns are recovered later only from
+            // an explicit target PK of the same arity.
+            if (pairs.isEmpty()) {
+                for (String sourceColumn : taggedColumnList(tag(tags, "ForeignKeyColumn"))) {
+                    pairs.add(new ColumnPair(sourceColumn, ""));
+                }
+            }
+
+            Element connectorForNames = extensionIndex.nodeFor(association);
+            String extensionSourceName = connectorEndpointName(connectorForNames, "source");
+            String extensionTargetName = connectorEndpointName(connectorForNames, "target");
+
             result.add(new EaAssociation(
                     firstNonBlank(attribute(association, "xmi.id"), attribute(association, "xmi:id"), ""),
                     sourceId,
                     targetId,
                     sourceOperation,
                     targetOperation,
-                    firstNonBlank(tag(tags, "ea_sourceName"), tag(tags, "sourceTable"), ""),
-                    firstNonBlank(tag(tags, "ea_targetName"), tag(tags, "targetTable"), ""),
+                    firstNonBlank(tag(tags, "ea_sourceName"), tag(tags, "sourceTable"),
+                            extensionSourceName, ""),
+                    firstNonBlank(tag(tags, "ea_targetName"), tag(tags, "targetTable"),
+                            extensionTargetName, ""),
                     List.copyOf(pairs),
                     tags));
         }
@@ -456,7 +501,9 @@ public final class EnterpriseArchitectXmlParser {
             if (candidates.size() == 1) {
                 EaOperation operation = candidates.getFirst();
                 bindings.computeIfAbsent(operationKey(sourceTable.xmiId(), operation.name()), ignored -> new ArrayList<>())
-                        .add(new AssociationBinding(sourceTable, operation, association, true));
+                        .add(new AssociationBinding(
+                                sourceTable, operation, association,
+                                !association.sourceOperation().isBlank()));
             } else if (candidates.size() > 1) {
                 warnings.add("EA_FK_ASSOCIATION_STRUCTURAL_MATCH_AMBIGUOUS|table="
                         + sourceTable.name()
@@ -676,7 +723,27 @@ public final class EnterpriseArchitectXmlParser {
             }
         }
         if (referencedColumns.isEmpty()) {
-            referencedColumns = association.columnPairs().stream().map(ColumnPair::target).toList();
+            referencedColumns = association.columnPairs().stream()
+                    .map(ColumnPair::target)
+                    .filter(value -> value != null && !value.isBlank())
+                    .toList();
+        }
+        if (referencedColumns.isEmpty() && target != null && !localColumns.isEmpty()) {
+            int localArity = localColumns.size();
+            List<EaOperation> targetPrimaryKeys = target.operations().stream()
+                    .filter(candidate -> operationKind(candidate) == OperationKind.PRIMARY_KEY)
+                    .filter(candidate -> candidate.parameters().size() == localArity)
+                    .toList();
+            if (targetPrimaryKeys.size() == 1) {
+                referencedColumns = targetPrimaryKeys.getFirst().parameters().stream()
+                        .map(EaParameter::name)
+                        .toList();
+                warnings.add("EA_XMI21_FK_REFERENCED_COLUMNS_RECOVERED_FROM_TARGET_PK|table="
+                        + eaTable.name()
+                        + "|foreignKey=" + operation.name()
+                        + "|target=" + target.name()
+                        + "|columns=" + String.join(",", referencedColumns));
+            }
         }
 
         if (localColumns.isEmpty() || referencedColumns.isEmpty()
@@ -752,6 +819,7 @@ public final class EnterpriseArchitectXmlParser {
             Map<String, String> tags) {
         String normalized = rawType.trim().toUpperCase(Locale.ROOT)
                 .replaceAll("\\s+", " ");
+        LengthSemantics inlineLengthSemantics = inlineLengthSemantics(normalized);
         InlineType inlineType = inlineType(normalized);
         if (inlineType != null) {
             normalized = inlineType.baseType();
@@ -775,7 +843,9 @@ public final class EnterpriseArchitectXmlParser {
             return new DataType(
                     Identifier.of(canonicalName),
                     effectiveLength,
-                    lengthSemantics(tags),
+                    inlineLengthSemantics == LengthSemantics.DEFAULT
+                            ? lengthSemantics(tags)
+                            : inlineLengthSemantics,
                     null,
                     null);
         }
@@ -797,6 +867,26 @@ public final class EnterpriseArchitectXmlParser {
     }
 
     private static InlineType inlineType(String normalized) {
+        Matcher characterWithSemantics = Pattern.compile(
+                "^([A-Z][A-Z0-9_]*)\\((\\d+)\\s+(CHAR|BYTE)\\)$")
+                .matcher(normalized);
+        if (characterWithSemantics.matches()) {
+            return new InlineType(
+                    characterWithSemantics.group(1).trim(),
+                    Integer.parseInt(characterWithSemantics.group(2)), null, null);
+        }
+
+        Matcher timestampWithZone = Pattern.compile(
+                "^TIMESTAMP\\((\\d+)\\)\\s+WITH\\s+(LOCAL\\s+)?TIME\\s+ZONE$")
+                .matcher(normalized);
+        if (timestampWithZone.matches()) {
+            String base = timestampWithZone.group(2) == null
+                    ? "TIMESTAMP WITH TIME ZONE"
+                    : "TIMESTAMP WITH LOCAL TIME ZONE";
+            return new InlineType(
+                    base, null, Integer.parseInt(timestampWithZone.group(1)), null);
+        }
+
         Matcher matcher = Pattern.compile(
                 "^([A-Z][A-Z0-9_ ]*)\\((\\d+)(?:\\s*,\\s*(\\d+))?\\)$")
                 .matcher(normalized);
@@ -813,6 +903,12 @@ public final class EnterpriseArchitectXmlParser {
         if (numeric) return new InlineType(baseType, null, first, second);
         if (temporal) return new InlineType(baseType, null, first, null);
         return null;
+    }
+
+    private static LengthSemantics inlineLengthSemantics(String normalized) {
+        if (normalized.matches(".*\\(\\d+\\s+CHAR\\)$")) return LengthSemantics.CHAR;
+        if (normalized.matches(".*\\(\\d+\\s+BYTE\\)$")) return LengthSemantics.BYTE;
+        return LengthSemantics.DEFAULT;
     }
 
     private static boolean isCharacterType(String name) {
@@ -872,10 +968,23 @@ public final class EnterpriseArchitectXmlParser {
         return parameters.stream().map(EaParameter::name).map(Identifier::of).toList();
     }
 
-    private static List<Element> findTableClasses(Document document) {
+    private static List<Element> findTableClasses(
+            Document document, EaExtensionIndex extensionIndex) {
         List<Element> result = new ArrayList<>();
         for (Element element : elements(document, "Class")) {
-            if (isStereotype(element, "table")) result.add(element);
+            if (isStereotype(element, "table", extensionIndex)) result.add(element);
+        }
+        for (Element element : elements(document, "packagedElement")) {
+            if (!isXmiType(element, "Class")) continue;
+            if (isStereotype(element, "table", extensionIndex)) result.add(element);
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<Element> associationElements(Document document) {
+        List<Element> result = new ArrayList<>(elements(document, "Association"));
+        for (Element element : elements(document, "packagedElement")) {
+            if (isXmiType(element, "Association")) result.add(element);
         }
         return List.copyOf(result);
     }
@@ -903,10 +1012,24 @@ public final class EnterpriseArchitectXmlParser {
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
             if (!(node instanceof Element child)) continue;
-            if (child != root && "Class".equals(localName(child))) continue;
+            if (child != root && ("Class".equals(localName(child))
+                    || ("packagedElement".equals(localName(child)) && isXmiType(child, "Class")))) {
+                continue;
+            }
             if (localName.equals(localName(child))) result.add(child);
             else collectDirectDescendants(root, child, localName, result);
         }
+    }
+
+    private static List<Element> classifierMembers(
+            Element owner, String legacyLocalName, String xmi21LocalName, String xmi21Type) {
+        List<Element> result = new ArrayList<>(directDescendants(owner, legacyLocalName));
+        for (Element child : childElements(owner)) {
+            if (xmi21LocalName.equals(localName(child)) && isXmiType(child, xmi21Type)) {
+                result.add(child);
+            }
+        }
+        return List.copyOf(result);
     }
 
     private static List<Element> childElements(Element owner) {
@@ -918,8 +1041,23 @@ public final class EnterpriseArchitectXmlParser {
         return result;
     }
 
+    private static Element directChild(Element owner, String wantedLocalName) {
+        if (owner == null) return null;
+        for (Element child : childElements(owner)) {
+            if (wantedLocalName.equals(localName(child))) return child;
+        }
+        return null;
+    }
+
     private static Map<String, String> taggedValues(Element owner) {
+        return taggedValues(owner, EaExtensionIndex.empty());
+    }
+
+    private static Map<String, String> taggedValues(
+            Element owner, EaExtensionIndex extensionIndex) {
         Map<String, String> result = new LinkedHashMap<>();
+
+        // Native EA XMI 1.x tagged values.
         for (Element container : childElements(owner)) {
             if (!"ModelElement.taggedValue".equals(localName(container))) continue;
             for (Element element : childElements(container)) {
@@ -930,7 +1068,106 @@ public final class EnterpriseArchitectXmlParser {
                 }
             }
         }
+
+        // Native EA XMI 2.1 keeps physical metadata in xmi:Extension nodes that
+        // reference the core UML element by xmi:idref.
+        Element extension = extensionIndex.nodeFor(owner);
+        if (extension != null) {
+            addExtensionMetadata(result, extension);
+        }
+
+        // UML 2.1 comments carry descriptions in the core model.
+        for (Element child : childElements(owner)) {
+            if (!"ownedComment".equals(localName(child))) continue;
+            String body = firstNonBlank(attribute(child, "body"), child.getTextContent());
+            if (!body.isBlank()) result.putIfAbsent("DOCUMENTATION", body.trim());
+        }
+
+        // Core UML multiplicity is also explicit evidence for nullability.
+        Element lowerValue = directChild(owner, "lowerValue");
+        if (lowerValue != null) {
+            String value = attribute(lowerValue, "value");
+            if (!value.isBlank()) result.putIfAbsent("LOWERBOUND", value);
+        }
+        Element upperValue = directChild(owner, "upperValue");
+        if (upperValue != null) {
+            String value = attribute(upperValue, "value");
+            if (!value.isBlank()) result.putIfAbsent("UPPERBOUND", value);
+        }
+        Element defaultValue = directChild(owner, "defaultValue");
+        if (defaultValue != null) {
+            String value = firstNonBlank(
+                    attribute(defaultValue, "value"), attribute(defaultValue, "body"),
+                    defaultValue.getTextContent());
+            if (!value.isBlank()) result.putIfAbsent("DEFAULT", value.trim());
+        }
+
         return Map.copyOf(result);
+    }
+
+    private static void addExtensionMetadata(Map<String, String> result, Element extension) {
+        for (Element child : childElements(extension)) {
+            String childName = localName(child);
+            switch (childName) {
+                case "tags" -> {
+                    for (Element tagElement : childElements(child)) {
+                        if (!"tag".equals(localName(tagElement))) continue;
+                        String key = attribute(tagElement, "name");
+                        if (!key.isBlank()) {
+                            result.putIfAbsent(
+                                    key.toUpperCase(Locale.ROOT), attribute(tagElement, "value"));
+                        }
+                    }
+                }
+                case "properties" -> copyAttributesAsTags(result, child);
+                case "stereotype" -> {
+                    String value = attribute(child, "stereotype");
+                    if (!value.isBlank()) result.putIfAbsent("STEREOTYPE", value);
+                }
+                case "documentation" -> {
+                    String value = firstNonBlank(attribute(child, "value"), child.getTextContent());
+                    if (!value.isBlank()) result.putIfAbsent("DOCUMENTATION", value.trim());
+                }
+                case "containment" -> {
+                    String value = attribute(child, "position");
+                    if (!value.isBlank()) result.putIfAbsent("POSITION", value);
+                }
+                case "bounds" -> {
+                    String lower = attribute(child, "lower");
+                    String upper = attribute(child, "upper");
+                    if (!lower.isBlank()) result.putIfAbsent("LOWERBOUND", lower);
+                    if (!upper.isBlank()) result.putIfAbsent("UPPERBOUND", upper);
+                }
+                case "coords" -> {
+                    String scale = attribute(child, "scale");
+                    if (!scale.isBlank()) result.putIfAbsent("SCALE", scale);
+                }
+                case "styleex" -> {
+                    String value = attribute(child, "value");
+                    if (!value.isBlank()) result.putIfAbsent("STYLEEX", value);
+                }
+                case "extendedProperties" -> {
+                    String packageName = attribute(child, "package_name");
+                    if (!packageName.isBlank()) result.putIfAbsent("PACKAGE_NAME", packageName);
+                }
+                case "initial" -> {
+                    String value = firstNonBlank(attribute(child, "value"), child.getTextContent());
+                    if (!value.isBlank()) result.putIfAbsent("DEFAULT", value.trim());
+                }
+                default -> { }
+            }
+        }
+    }
+
+    private static void copyAttributesAsTags(Map<String, String> result, Element element) {
+        NamedNodeMap attributes = element.getAttributes();
+        for (int i = 0; i < attributes.getLength(); i++) {
+            Node attribute = attributes.item(i);
+            String key = firstNonBlank(attribute.getLocalName(), attribute.getNodeName());
+            if (!key.isBlank() && attribute.getNodeValue() != null && !attribute.getNodeValue().isBlank()) {
+                result.putIfAbsent(key.toUpperCase(Locale.ROOT), attribute.getNodeValue());
+            }
+        }
     }
 
     private static String tag(Map<String, String> tags, String name) {
@@ -938,11 +1175,21 @@ public final class EnterpriseArchitectXmlParser {
     }
 
     private static boolean isStereotype(Element element, String expected) {
-        String normalized = normalizedStereotype(element);
+        return isStereotype(element, expected, EaExtensionIndex.empty());
+    }
+
+    private static boolean isStereotype(
+            Element element, String expected, EaExtensionIndex extensionIndex) {
+        String normalized = normalizedStereotype(element, extensionIndex);
         return normalized.equals(expected.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", ""));
     }
 
     private static String normalizedStereotype(Element element) {
+        return normalizedStereotype(element, EaExtensionIndex.empty());
+    }
+
+    private static String normalizedStereotype(
+            Element element, EaExtensionIndex extensionIndex) {
         for (Element container : childElements(element)) {
             if (!"ModelElement.stereotype".equals(localName(container))) continue;
             for (Element stereotype : childElements(container)) {
@@ -953,7 +1200,7 @@ public final class EnterpriseArchitectXmlParser {
                 }
             }
         }
-        String tagged = tag(taggedValues(element), "stereotype");
+        String tagged = tag(taggedValues(element, extensionIndex), "stereotype");
         if (!tagged.isBlank()) {
             return tagged.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
         }
@@ -962,9 +1209,14 @@ public final class EnterpriseArchitectXmlParser {
     }
 
     private static String findExplicitSchema(Element element) {
+        return findExplicitSchema(element, EaExtensionIndex.empty());
+    }
+
+    private static String findExplicitSchema(
+            Element element, EaExtensionIndex extensionIndex) {
         Element current = element;
         while (current != null) {
-            String schema = schemaFromTags(taggedValues(current));
+            String schema = schemaFromTags(taggedValues(current, extensionIndex));
             if (!schema.isBlank()) return schema;
             current = parentElement(current);
         }
@@ -1008,13 +1260,34 @@ public final class EnterpriseArchitectXmlParser {
 
     private static String exporter(Document document) {
         List<Element> values = elements(document, "XMI.exporter");
-        if (!values.isEmpty()) return values.get(0).getTextContent().trim();
+        if (!values.isEmpty()) return values.getFirst().getTextContent().trim();
+        List<Element> documentation = elements(document, "Documentation");
+        for (Element element : documentation) {
+            String value = attribute(element, "exporter");
+            if (!value.isBlank()) return value.trim();
+        }
         return "Enterprise Architect";
     }
 
     private static String exporterVersion(Document document) {
         List<Element> values = elements(document, "XMI.exporterVersion");
-        return values.isEmpty() ? "" : values.get(0).getTextContent().trim();
+        if (!values.isEmpty()) return values.getFirst().getTextContent().trim();
+        List<Element> documentation = elements(document, "Documentation");
+        for (Element element : documentation) {
+            String value = attribute(element, "exporterVersion");
+            if (!value.isBlank()) return value.trim();
+        }
+        return "";
+    }
+
+    private static String xmiDialect(Document document) {
+        Element root = document.getDocumentElement();
+        String version = firstNonBlank(
+                attribute(root, "xmi.version"), attribute(root, "xmi:version"),
+                attribute(root, "version"));
+        if (version.startsWith("2.")) return "XMI_2_1";
+        if (!elements(document, "packagedElement").isEmpty()) return "XMI_2_1";
+        return "XMI_1_X";
     }
 
     private static String operationKey(String tableId, String operationName) {
@@ -1034,8 +1307,33 @@ public final class EnterpriseArchitectXmlParser {
         return matcher.find() ? matcher.group(1).trim() : "";
     }
 
+    private static boolean isXmiType(Element element, String expectedLocalType) {
+        String value = firstNonBlank(
+                attribute(element, "xmi:type"), attribute(element, "type"));
+        if (value.isBlank()) return false;
+        String normalized = value.contains(":")
+                ? value.substring(value.indexOf(':') + 1)
+                : value;
+        return normalized.equalsIgnoreCase(expectedLocalType);
+    }
+
     private static String xmiId(Element element) {
-        return firstNonBlank(attribute(element, "xmi.id"), attributeEndingWith(element, "id"));
+        return firstNonBlank(
+                attribute(element, "xmi.id"), attribute(element, "xmi:id"),
+                attributeEndingWith(element, "id"));
+    }
+
+    private static String xmiIdRef(Element element) {
+        return firstNonBlank(
+                attribute(element, "xmi.idref"), attribute(element, "xmi:idref"),
+                attributeEndingWith(element, "idref"));
+    }
+
+    private static String connectorEndpointName(Element connector, String endpointName) {
+        Element endpoint = directChild(connector, endpointName);
+        if (endpoint == null) return "";
+        Element model = directChild(endpoint, "model");
+        return model == null ? "" : attribute(model, "name");
     }
 
     private static String attribute(Element element, String name) {
@@ -1141,6 +1439,35 @@ public final class EnterpriseArchitectXmlParser {
     private static String firstNonBlank(String... values) {
         for (String value : values) if (value != null && !value.isBlank()) return value;
         return "";
+    }
+
+    private record EaExtensionIndex(Map<String, Element> nodesByModelId) {
+        private static EaExtensionIndex empty() {
+            return new EaExtensionIndex(Map.of());
+        }
+
+        private static EaExtensionIndex from(Document document) {
+            Map<String, Element> nodes = new LinkedHashMap<>();
+            for (Element extension : elements(document, "Extension")) {
+                indexExtensionNodes(extension, nodes);
+            }
+            return new EaExtensionIndex(Map.copyOf(nodes));
+        }
+
+        private static void indexExtensionNodes(
+                Element current, Map<String, Element> nodesByModelId) {
+            String idRef = xmiIdRef(current);
+            if (!idRef.isBlank()) nodesByModelId.putIfAbsent(idRef, current);
+            for (Element child : childElements(current)) {
+                indexExtensionNodes(child, nodesByModelId);
+            }
+        }
+
+        private Element nodeFor(Element modelElement) {
+            if (modelElement == null) return null;
+            String id = xmiId(modelElement);
+            return id.isBlank() ? null : nodesByModelId.get(id);
+        }
     }
 
     private record InlineType(String baseType, Integer length, Integer precision, Integer scale) { }

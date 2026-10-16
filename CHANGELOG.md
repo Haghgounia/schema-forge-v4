@@ -1,3 +1,22 @@
+# 2026-10-15 - Native Enterprise Architect XMI 2.1 import
+
+## 2026-10-15 - EA Db2 LUW timezone mapping becomes artifact-level blocker
+
+- Keeps `POST /api/v1/generate/ea-xml` artifact-first when Db2 LUW cannot losslessly map a canonical `TIMESTAMP WITH TIME ZONE` column.
+- Converts the known Db2 LUW mapper exception into a per-table `BLOCKED` DDL outcome with deterministic code `DB2_LUW_TIMESTAMP_WITH_TIME_ZONE_UNSUPPORTED` instead of aborting the whole REST request with HTTP 400.
+- Leaves the Db2 LUW run-all fail-closed; it remains `BLOCKED` when the integrated renderer encounters the same unsupported mapping.
+- Unknown `IllegalArgumentException` failures are still rethrown so unrelated programming/configuration defects are not hidden.
+- Adds focused EA orchestration regression coverage asserting `PARTIAL_SUCCESS`, `failed=0`, and blocked Db2 LUW artifacts.
+
+- Extends `EnterpriseArchitectXmlParser` beyond the existing XMI 1.x dialect to native EA XMI 2.1 exports using `packagedElement`, `ownedAttribute`, `ownedOperation`, and `xmi:Extension`.
+- Resolves table/column/key/FK stereotypes and physical metadata through EA `xmi:Extension` `xmi:idref` links while preserving the existing XMI 1.x code path.
+- Reads per-table schema ownership from EA extension tags (for example `Owner`) so one XMI document can preserve multiple schemas.
+- Adds Oracle-compatible inline type parsing for `VARCHAR2(n CHAR|BYTE)` and `TIMESTAMP(p) WITH [LOCAL] TIME ZONE`.
+- Resolves XMI 2.1 FK connector source/target endpoints from EA connector extensions. When the export provides an explicit child FK column but omits referenced columns, recovery is allowed only when the target has exactly one explicit primary key with matching arity; each such recovery is recorded as `EA_XMI21_FK_REFERENCED_COLUMNS_RECOVERED_FROM_TARGET_PK`. Ambiguous or incomplete cases remain fail-closed.
+- Adds `source.eaXmiDialect` metadata (`XMI_1_X` / `XMI_2_1`) and reads EA exporter/version from `xmi:Documentation`.
+- Adds focused regression coverage for native XMI 2.1 extension metadata.
+- Real-file qualification: `Core_Banking_Oracle_PST_LGR_ACC_RCN_EA_XMI_2_1.xml` parses as 48 tables / 333 columns across PST=16, LGR=10, ACC=16, RCN=6, with 48 PKs, 35 FKs, 35 UKs, zero inferred identities under the default no-guess policy, and 35 transparent target-PK reference recoveries.
+
 # 2026-10-07 - EA identity evidence / no-guess policy
 
 - Changes REST/EA identity handling to strict `EXPLICIT_ONLY` by default: a numeric primary key no longer implies identity/auto-increment/sequence semantics.

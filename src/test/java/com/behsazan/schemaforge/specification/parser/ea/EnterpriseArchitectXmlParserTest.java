@@ -653,6 +653,146 @@ class EnterpriseArchitectXmlParserTest {
     }
 
     @Test
+    void shouldParseNativeEaXmi21UsingExtensionMetadata() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <xmi:XMI xmlns:xmi="http://schema.omg.org/spec/XMI/2.1"
+                         xmlns:uml="http://schema.omg.org/spec/UML/2.1"
+                         xmi:version="2.1">
+                  <xmi:Documentation exporter="Enterprise Architect" exporterVersion="6.5"/>
+                  <uml:Model name="EA_Model" xmi:type="uml:Model" xmi:id="MODEL_1">
+                    <packagedElement name="PST" xmi:type="uml:Package" xmi:id="PKG_PST">
+                      <packagedElement name="PARENT_TABLE" xmi:type="uml:Class" xmi:id="T_PARENT">
+                        <ownedAttribute name="PARENT_ID" xmi:type="uml:Property" xmi:id="C_PARENT_ID">
+                          <lowerValue value="1" xmi:type="uml:LiteralInteger" xmi:id="L1"/>
+                          <upperValue value="1" xmi:type="uml:LiteralUnlimitedNatural" xmi:id="U1"/>
+                        </ownedAttribute>
+                        <ownedAttribute name="PARENT_CODE" xmi:type="uml:Property" xmi:id="C_PARENT_CODE">
+                          <lowerValue value="0" xmi:type="uml:LiteralInteger" xmi:id="L2"/>
+                          <upperValue value="1" xmi:type="uml:LiteralUnlimitedNatural" xmi:id="U2"/>
+                        </ownedAttribute>
+                        <ownedOperation name="primary_key_for_parent_table" xmi:type="uml:Operation" xmi:id="O_PARENT_PK">
+                          <ownedParameter name="PARENT_ID" direction="in" xmi:type="uml:Parameter" xmi:id="P_PARENT_PK"/>
+                        </ownedOperation>
+                      </packagedElement>
+                      <packagedElement name="CHILD_TABLE" xmi:type="uml:Class" xmi:id="T_CHILD">
+                        <ownedAttribute name="CHILD_ID" xmi:type="uml:Property" xmi:id="C_CHILD_ID">
+                          <lowerValue value="1" xmi:type="uml:LiteralInteger" xmi:id="L3"/>
+                          <upperValue value="1" xmi:type="uml:LiteralUnlimitedNatural" xmi:id="U3"/>
+                        </ownedAttribute>
+                        <ownedAttribute name="PARENT_ID" xmi:type="uml:Property" xmi:id="C_CHILD_PARENT">
+                          <lowerValue value="0" xmi:type="uml:LiteralInteger" xmi:id="L4"/>
+                          <upperValue value="1" xmi:type="uml:LiteralUnlimitedNatural" xmi:id="U4"/>
+                        </ownedAttribute>
+                        <ownedAttribute name="CREATED_AT" xmi:type="uml:Property" xmi:id="C_CREATED_AT">
+                          <lowerValue value="0" xmi:type="uml:LiteralInteger" xmi:id="L5"/>
+                          <upperValue value="1" xmi:type="uml:LiteralUnlimitedNatural" xmi:id="U5"/>
+                        </ownedAttribute>
+                        <ownedOperation name="primary_key_for_child_table" xmi:type="uml:Operation" xmi:id="O_CHILD_PK">
+                          <ownedParameter name="CHILD_ID" direction="in" xmi:type="uml:Parameter" xmi:id="P_CHILD_PK"/>
+                        </ownedOperation>
+                        <ownedOperation name="foreign_key_for_child_table_parent_id" xmi:type="uml:Operation" xmi:id="O_CHILD_FK">
+                          <ownedParameter name="PARENT_ID" direction="in" xmi:type="uml:Parameter" xmi:id="P_CHILD_FK"/>
+                        </ownedOperation>
+                      </packagedElement>
+                      <packagedElement name="references" xmi:type="uml:Association" xmi:id="A_FK"/>
+                    </packagedElement>
+                  </uml:Model>
+                  <xmi:Extension extender="Enterprise Architect">
+                    <elements>
+                      <element name="PARENT_TABLE" xmi:idref="T_PARENT" xmi:type="uml:Class">
+                        <properties stereotype="table" documentation="Schema=PST; parent"/>
+                        <tags><tag name="Owner" value="PST"/></tags>
+                        <attributes>
+                          <attribute name="PARENT_ID" xmi:idref="C_PARENT_ID">
+                            <properties type="NUMBER(19,0)" precision="0" length="0"/>
+                            <containment position="0"/><stereotype stereotype="column"/><bounds lower="1" upper="1"/>
+                          </attribute>
+                          <attribute name="PARENT_CODE" xmi:idref="C_PARENT_CODE">
+                            <properties type="VARCHAR2(160 CHAR)" precision="0" length="0"/>
+                            <containment position="1"/><stereotype stereotype="column"/><bounds lower="0" upper="1"/>
+                          </attribute>
+                        </attributes>
+                        <methods>
+                          <method name="primary_key_for_parent_table" xmi:idref="O_PARENT_PK">
+                            <properties stereotype="PK"/><stereotype stereotype="PK"/>
+                            <parameters><parameter name="PARENT_ID" xmi:idref="P_PARENT_PK"><properties pos="0"/></parameter></parameters>
+                          </method>
+                        </methods>
+                      </element>
+                      <element name="CHILD_TABLE" xmi:idref="T_CHILD" xmi:type="uml:Class">
+                        <properties stereotype="table" documentation="Schema=PST; child"/>
+                        <tags><tag name="Owner" value="PST"/></tags>
+                        <attributes>
+                          <attribute name="CHILD_ID" xmi:idref="C_CHILD_ID">
+                            <properties type="NUMBER(19,0)" precision="0" length="0"/>
+                            <containment position="0"/><stereotype stereotype="column"/><bounds lower="1" upper="1"/>
+                          </attribute>
+                          <attribute name="PARENT_ID" xmi:idref="C_CHILD_PARENT">
+                            <properties type="NUMBER(19,0)" precision="0" length="0"/>
+                            <containment position="1"/><stereotype stereotype="column"/><bounds lower="0" upper="1"/>
+                          </attribute>
+                          <attribute name="CREATED_AT" xmi:idref="C_CREATED_AT">
+                            <properties type="TIMESTAMP(6) WITH TIME ZONE" precision="0" length="0"/>
+                            <containment position="2"/><stereotype stereotype="column"/><bounds lower="0" upper="1"/>
+                          </attribute>
+                        </attributes>
+                        <methods>
+                          <method name="primary_key_for_child_table" xmi:idref="O_CHILD_PK">
+                            <properties stereotype="PK"/><stereotype stereotype="PK"/>
+                            <parameters><parameter name="CHILD_ID" xmi:idref="P_CHILD_PK"><properties pos="0"/></parameter></parameters>
+                          </method>
+                          <method name="foreign_key_for_child_table_parent_id" xmi:idref="O_CHILD_FK">
+                            <properties stereotype="FK"/><stereotype stereotype="FK"/>
+                            <tags><tag name="ReferencedTable" value="PST.PARENT_TABLE"/></tags>
+                            <parameters><parameter name="PARENT_ID" xmi:idref="P_CHILD_FK"><properties pos="0"/></parameter></parameters>
+                          </method>
+                        </methods>
+                      </element>
+                    </elements>
+                    <connectors>
+                      <connector xmi:idref="A_FK">
+                        <source xmi:idref="T_CHILD"><model type="Class" name="CHILD_TABLE"/></source>
+                        <target xmi:idref="T_PARENT"><model type="Class" name="PARENT_TABLE"/></target>
+                        <properties name="references" ea_type="Association" direction="Source -&gt; Destination" stereotype="FK"/>
+                        <tags><tag name="ForeignKeyColumn" value="PARENT_ID"/></tags>
+                      </connector>
+                    </connectors>
+                  </xmi:Extension>
+                </xmi:XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser("COL").parse(
+                "native-ea-xmi21.xmi",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        assertEquals(2, schema.tables().size());
+        assertEquals("Enterprise Architect", schema.metadata().get("source.eaExporter"));
+        assertEquals("6.5", schema.metadata().get("source.eaExporterVersion"));
+        assertEquals("XMI_2_1", schema.metadata().get("source.eaXmiDialect"));
+        assertEquals("XML", schema.metadata().get("source.eaSchemaResolution"));
+
+        var parent = schema.findTable("PARENT_TABLE").orElseThrow();
+        assertEquals("PST.PARENT_TABLE", parent.qualifiedName().toString());
+        assertEquals(160, parent.findColumn("PARENT_CODE").orElseThrow().dataType().length());
+        assertEquals(LengthSemantics.CHAR,
+                parent.findColumn("PARENT_CODE").orElseThrow().dataType().lengthSemantics());
+
+        var child = schema.findTable("CHILD_TABLE").orElseThrow();
+        assertEquals("TIMESTAMP_WITH_TIME_ZONE",
+                child.findColumn("CREATED_AT").orElseThrow().dataType().name().normalized());
+        assertEquals(6, child.findColumn("CREATED_AT").orElseThrow().dataType().precision());
+        assertEquals(1, child.foreignKeys().size());
+        var foreignKey = child.foreignKeys().getFirst();
+        assertEquals("FK_CHILD_TABLE_PARENT_ID", foreignKey.name().value());
+        assertEquals("PST.PARENT_TABLE", foreignKey.referencedTable().toString());
+        assertEquals("PARENT_ID", foreignKey.columns().getFirst().value());
+        assertEquals("PARENT_ID", foreignKey.referencedColumns().getFirst().value());
+        assertTrue(schema.metadata().get("recovery.warnings")
+                .contains("EA_XMI21_FK_REFERENCED_COLUMNS_RECOVERED_FROM_TARGET_PK"));
+    }
+
+    @Test
     void shouldHonorExplicitIdentityAttributeWithoutPrimaryKeyInference() {
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>

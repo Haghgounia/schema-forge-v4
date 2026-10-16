@@ -192,6 +192,61 @@ class EaGenerationOrchestratorTest {
     }
 
     @Test
+    void blocksDb2LuwTimestampWithTimeZoneTableWithoutAbortingEaGeneration() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "PST");
+        ArtifactGenerationContext context = context("ea-db2luw-tstz.xml");
+
+        Column identifier = new Column(
+                Identifier.of("IDENTIFIER"),
+                DataType.numeric("NUMBER", 19, 0),
+                false, null, Description.empty(), false, 1);
+        Column receivedAt = new Column(
+                Identifier.of("RECEIVED_AT"),
+                DataType.simple("TIMESTAMP_WITH_TIME_ZONE"),
+                true, null, Description.empty(), false, 2);
+        Table table = Table.builder("PST", "POSTING_INSTRUCTIONS")
+                .addColumn(identifier)
+                .addColumn(receivedAt)
+                .primaryKey(new PrimaryKey(
+                        Identifier.of("PK_POSTING_INSTRUCTIONS"),
+                        List.of(Identifier.of("IDENTIFIER"))))
+                .build();
+        PreparedSchema prepared = new PreparedSchema(
+                DatabaseSchema.builder("PST").addTable(table).build(),
+                new ValidationReport(true, List.of()));
+
+        Map<String, byte[]> entries = unzip(orchestrator.generate(
+                prepared,
+                "ea-db2luw-tstz",
+                context,
+                null,
+                java.util.Set.of(DatabasePlatform.DB2_LUW)));
+
+        assertTrue(entries.containsKey("manifest.json"));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".db2luw.sql")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".run-all.sql")));
+
+        ArtifactDescriptor blockedDdl = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.DDL)
+                .filter(descriptor -> descriptor.platform() == DatabasePlatform.DB2_LUW)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(blockedDdl.logicalName().contains("PST.POSTING_INSTRUCTIONS"));
+        assertTrue(blockedDdl.outcomeReason().contains("PER_TABLE_DDL_BLOCKED"));
+        assertTrue(blockedDdl.outcomeReason().contains("DB2_LUW_TIMESTAMP_WITH_TIME_ZONE_UNSUPPORTED"));
+        assertTrue(blockedDdl.outcomeReason().contains(
+                "Db2 LUW does not support a lossless TIMESTAMP WITH TIME ZONE column mapping"));
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        assertEquals("PARTIAL_SUCCESS", manifest.path("requestStatus").asText());
+        assertEquals(0, manifest.path("artifactOutcomes").path("failed").asInt());
+        assertTrue(manifest.path("artifactOutcomes").path("blocked").asInt() >= 2,
+                "per-table DDL and Db2 LUW run-all should be blocked, not failed");
+    }
+
+    @Test
     void reportsOnlyTrueCycleMembersAndKeepsDownstreamTablesOutOfCycleList() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "TST");
