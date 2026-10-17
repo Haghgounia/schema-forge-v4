@@ -149,16 +149,34 @@ public final class BatchArchiveSupport {
         return skippedInputReason(path) == null;
     }
 
+    public static boolean isProcessableLegacyWordDocument(Path path) {
+        return skippedLegacyWordInputReason(path) == null;
+    }
+
     public static String skippedInputReason(Path path) {
+        String commonReason = commonSkippedInputReason(path);
+        if (commonReason != null) return commonReason;
+        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!lower.endsWith(".docx")) return "UNSUPPORTED_EXTENSION";
+        return null;
+    }
+
+    public static String skippedLegacyWordInputReason(Path path) {
+        String commonReason = commonSkippedInputReason(path);
+        if (commonReason != null) return commonReason;
+        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!lower.endsWith(".doc") && !lower.endsWith(".docx")) return "UNSUPPORTED_EXTENSION";
+        return null;
+    }
+
+    private static String commonSkippedInputReason(Path path) {
         String name = path.getFileName().toString();
-        String lower = name.toLowerCase(Locale.ROOT);
         for (Path segment : path) {
             if ("__MACOSX".equalsIgnoreCase(segment.toString())) return "MACOSX_METADATA";
         }
         if (name.startsWith("~$") || name.startsWith("._") || name.startsWith(".")) {
             return "TEMPORARY_OR_HIDDEN_FILE";
         }
-        if (!lower.endsWith(".docx")) return "UNSUPPORTED_EXTENSION";
         return null;
     }
 

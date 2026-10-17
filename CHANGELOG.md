@@ -1,3 +1,50 @@
+## 2026-10-17 - Legacy Word ZIP batch service
+
+- Adds `POST /api/v1/generate/legacy-word/zip` for ZIP uploads containing Legacy Word `.doc` / `.docx` table specifications.
+- Requires one explicit `schema` for the batch and applies it to every legacy document; no per-file schema guessing is introduced.
+- Uses the Legacy Word parser explicitly for every processable entry and keeps per-document failure isolation: failed documents are diagnosed while valid documents continue.
+- Preserves duplicate-content / duplicate-logical-table suppression, collision-safe artifact merging, aggregate diagrams, Standard Manifest V1, batch summary/error reports, audit selection, and platform selection.
+- Introduces `LEGACY_WORD_BATCH` request origin and `schemaforge-legacy-word-batch-<timestamp>.zip` response naming.
+- Adds REST contract, archive naming, and real legacy `.doc` batch regression coverage.
+
+## 2026-10-17 - Manifest validation count parity
+
+- Aligns `manifest.validation.errorCount` / `warningCount` with the complete issue catalog used by canonical JSON and DDL rendering, including actionable parser-recovery findings after deduplication.
+- Keeps `manifest.validation.recoveryWarningCount` as a separate diagnostic subset; it is not additive to `warningCount`.
+- Fixes the observed ZIP-batch parity gap where canonical snapshots contained 314 warnings while the manifest reported 313 because `LEGACY_DEFAULT_DROPPED` was merged only during JSON export.
+- Adds focused manifest regression coverage for recovery-derived validation issues.
+
+## 2026-10-17 - Non-numeric identity validation
+
+- Adds canonical validation error `NON_NUMERIC_IDENTITY_COLUMN` when an identity marker is attached to a non-numeric column.
+- Blocks per-table DDL for that table on every selected DBMS instead of allowing platform-specific behavior to diverge.
+- Keeps the request artifact-first: affected per-table DDL and run-all artifacts become `BLOCKED`, the manifest becomes `PARTIAL_SUCCESS`, and unrelated tables/platforms continue.
+- Preserves the existing MySQL/MariaDB multiple-identity blocker for the separate case where more than one numeric identity column exists.
+- Adds focused validation and EA orchestration regression coverage.
+
+## 2026-10-17 - Swagger audit-field description clarity
+
+- Rewrites the `auditFields` Swagger help as short Markdown-style bullets so each option can be scanned independently.
+- Keeps behavior, defaults, allowed values, and REST compatibility unchanged.
+
+- Aligns audit enrichment with the Swagger contract: an existing source audit family is authoritative. Explicit `created-updated` / `created-last-modified` selections now apply only to tables without a recognizable audit family; they no longer fail with `AUDIT_PROFILE_CONFLICT` merely because another supported family already exists. Mixed source families still fail closed.
+## 2026-10-17 - Audit source-preservation selector
+
+- Adds `auditFields=source` to all artifact-generation Swagger forms and makes it the documented/default no-guess selection.
+- `source` preserves audit fields already present in the input and disables audit-field augmentation for tables that do not define an audit family.
+- Omitting all audit controls now resolves to source preservation; explicitly supplied legacy `includeAuditFields` / `auditProfile` parameters continue to retain their previous behavior.
+- Keeps `none` as an explicit "do not add audit fields" user choice; both `source` and `none` leave source-defined columns untouched.
+- Extends REST regression coverage for `source`, default source behavior, and legacy-option compatibility.
+
+# 2026-10-17 - Clearer generation form options
+
+- Replaces the two user-facing Swagger controls `includeAuditFields` and `auditProfile` with one `auditFields` selector offering `created-updated`, `created-last-modified`, and `none`.
+- Keeps the legacy audit parameters accepted by the HTTP API but hides them from Swagger for backward compatibility. Mixing the new and legacy forms fails closed with `AUDIT_OPTIONS_CONFLICT`.
+- Documents the exact audit columns added by each visible option.
+- Simplifies the `primaryKeyAsIdentity` help text: enable it only when database-generated PK values are wanted; the strict default remains disabled.
+- Clarifies that the EA `schema` field is an override: leaving it empty preserves schemas embedded in the XMI, while providing it moves all imported tables to that schema.
+- Adds REST/contract regression coverage for the new selector and conflict handling.
+
 # 2026-10-15 - Native Enterprise Architect XMI 2.1 import
 
 ## 2026-10-15 - EA Db2 LUW timezone mapping becomes artifact-level blocker

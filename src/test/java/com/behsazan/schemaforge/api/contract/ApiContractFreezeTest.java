@@ -48,39 +48,73 @@ class ApiContractFreezeTest {
         assertBasePath(SchemaForgeController.class, "/api/v1/generate");
 
         Method word = SchemaForgeController.class.getMethod(
-                "word", MultipartFile.class, List.class, Boolean.class, String.class);
+                "word", MultipartFile.class, List.class, String.class, Boolean.class, String.class);
         assertPost(word, "/word", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(word, 0, "file");
         assertParam(word, 1, "platform", false, null);
-        assertParam(word, 2, "includeAuditFields", false, null);
-        assertParam(word, 3, "auditProfile", false, "AUTO");
+        assertParam(word, 2, "auditFields", false, null);
+        assertParam(word, 3, "includeAuditFields", false, null);
+        assertParam(word, 4, "auditProfile", false, null);
 
         Method legacy = SchemaForgeController.class.getMethod(
-                "legacyWord", MultipartFile.class, String.class, List.class, Boolean.class, String.class);
+                "legacyWord", MultipartFile.class, String.class, List.class, String.class, Boolean.class, String.class);
         assertPost(legacy, "/legacy-word", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(legacy, 0, "file");
         assertParam(legacy, 1, "schema", true, null);
         assertParam(legacy, 2, "platform", false, null);
-        assertParam(legacy, 3, "includeAuditFields", false, null);
-        assertParam(legacy, 4, "auditProfile", false, "AUTO");
+        assertParam(legacy, 3, "auditFields", false, null);
+        assertParam(legacy, 4, "includeAuditFields", false, null);
+        assertParam(legacy, 5, "auditProfile", false, null);
+
+        Method legacyZip = SchemaForgeController.class.getMethod(
+                "legacyWordZip", MultipartFile.class, String.class, List.class, String.class, Boolean.class, String.class);
+        assertPost(legacyZip, "/legacy-word/zip", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
+        assertPart(legacyZip, 0, "file");
+        assertParam(legacyZip, 1, "schema", true, null);
+        assertParam(legacyZip, 2, "platform", false, null);
+        assertParam(legacyZip, 3, "auditFields", false, null);
+        assertParam(legacyZip, 4, "includeAuditFields", false, null);
+        assertParam(legacyZip, 5, "auditProfile", false, null);
 
         Method zip = SchemaForgeController.class.getMethod(
-                "zip", MultipartFile.class, List.class, Boolean.class, String.class);
+                "zip", MultipartFile.class, List.class, String.class, Boolean.class, String.class);
         assertPost(zip, "/zip", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(zip, 0, "file");
         assertParam(zip, 1, "platform", false, null);
-        assertParam(zip, 2, "includeAuditFields", false, null);
-        assertParam(zip, 3, "auditProfile", false, "AUTO");
+        assertParam(zip, 2, "auditFields", false, null);
+        assertParam(zip, 3, "includeAuditFields", false, null);
+        assertParam(zip, 4, "auditProfile", false, null);
 
         Method ea = SchemaForgeController.class.getMethod(
-                "eaXml", MultipartFile.class, String.class, List.class, Boolean.class, String.class, Boolean.class);
+                "eaXml", MultipartFile.class, String.class, List.class, String.class, Boolean.class, String.class, Boolean.class);
         assertPost(ea, "/ea-xml", MediaType.MULTIPART_FORM_DATA_VALUE, "application/zip");
         assertPart(ea, 0, "file");
         assertParam(ea, 1, "schema", false, null);
         assertParam(ea, 2, "platform", false, null);
-        assertParam(ea, 3, "includeAuditFields", false, null);
-        assertParam(ea, 4, "auditProfile", false, "AUTO");
-        assertParam(ea, 5, "primaryKeyAsIdentity", false, null);
+        assertParam(ea, 3, "auditFields", false, null);
+        assertParam(ea, 4, "includeAuditFields", false, null);
+        assertParam(ea, 5, "auditProfile", false, null);
+        assertParam(ea, 6, "primaryKeyAsIdentity", false, null);
+    }
+
+    @Test
+    void generationAuditSelectorIsNoGuessByDefault() throws Exception {
+        Method word = SchemaForgeController.class.getMethod(
+                "word", MultipartFile.class, List.class, String.class, Boolean.class, String.class);
+        Method legacy = SchemaForgeController.class.getMethod(
+                "legacyWord", MultipartFile.class, String.class, List.class, String.class, Boolean.class, String.class);
+        Method legacyZip = SchemaForgeController.class.getMethod(
+                "legacyWordZip", MultipartFile.class, String.class, List.class, String.class, Boolean.class, String.class);
+        Method zip = SchemaForgeController.class.getMethod(
+                "zip", MultipartFile.class, List.class, String.class, Boolean.class, String.class);
+        Method ea = SchemaForgeController.class.getMethod(
+                "eaXml", MultipartFile.class, String.class, List.class, String.class, Boolean.class, String.class, Boolean.class);
+
+        assertAuditSelector(word, 2);
+        assertAuditSelector(legacy, 3);
+        assertAuditSelector(legacyZip, 3);
+        assertAuditSelector(zip, 2);
+        assertAuditSelector(ea, 3);
     }
 
     @Test
@@ -174,6 +208,22 @@ class ApiContractFreezeTest {
                 .map(Enum::name)
                 .collect(Collectors.toSet());
         assertEquals(expected, actual);
+    }
+
+    private static void assertAuditSelector(Method method, int parameterIndex) {
+        io.swagger.v3.oas.annotations.Parameter openApi = method.getParameters()[parameterIndex]
+                .getAnnotation(io.swagger.v3.oas.annotations.Parameter.class);
+        assertNotNull(openApi, method.toString());
+        assertEquals("source", openApi.schema().defaultValue(), method.toString());
+        assertEquals(
+                List.of("source", "created-updated", "created-last-modified", "none"),
+                Arrays.asList(openApi.schema().allowableValues()),
+                method.toString());
+        assertTrue(openApi.description().contains("Audit Fields:"), method.toString());
+        assertTrue(openApi.description().contains("source - Recommended"), method.toString());
+        assertTrue(openApi.description().contains("created-updated"), method.toString());
+        assertTrue(openApi.description().contains("created-last-modified"), method.toString());
+        assertTrue(openApi.description().contains("Existing source-defined audit fields are always preserved"), method.toString());
     }
 
     private static void assertBasePath(Class<?> controller, String expected) {

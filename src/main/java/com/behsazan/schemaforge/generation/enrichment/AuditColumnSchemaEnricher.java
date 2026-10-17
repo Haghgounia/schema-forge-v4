@@ -22,9 +22,11 @@ import java.util.regex.Pattern;
 /**
  * Adds missing audit columns without overwriting audit semantics declared by the source model.
  *
- * <p>Two naming conventions are supported. AUTO detects the convention already present in each
- * table and completes only that family. If both families are present in one source table, enrichment
- * fails rather than creating a mixed six/seven-column audit set.</p>
+ * <p>Two naming conventions are supported. A source-declared audit family is authoritative and is
+ * completed without being replaced by a request-level profile. The requested profile is applied only
+ * to tables that do not already expose a recognizable audit family. AUTO detects the convention already
+ * present in each table. If both families are present in one source table, enrichment fails rather than
+ * creating a mixed six/seven-column audit set.</p>
  */
 public final class AuditColumnSchemaEnricher implements SchemaEnricher {
     private static final Pattern TYPE_WITH_SIZE = Pattern.compile(
@@ -117,15 +119,13 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
         if (createdUpdated && createdLastModified) {
             throw conflict(table, "source table contains fields from both supported audit profiles");
         }
-        if (requestedProfile == AuditProfile.CREATED_UPDATED && createdLastModified) {
-            throw conflict(table, "requested CREATED_UPDATED but source table uses CREATED_LAST_MODIFIED");
-        }
-        if (requestedProfile == AuditProfile.CREATED_LAST_MODIFIED && createdUpdated) {
-            throw conflict(table, "requested CREATED_LAST_MODIFIED but source table uses CREATED_UPDATED");
-        }
-        if (requestedProfile != AuditProfile.AUTO) return requestedProfile;
+        // Source-declared audit semantics are authoritative. An explicit request profile is used
+        // only for tables that do not already expose a recognizable audit family. This keeps
+        // request-level enrichment additive and prevents a user selection from rewriting an
+        // existing source convention. Mixed source families remain an error above.
         if (createdUpdated) return AuditProfile.CREATED_UPDATED;
         if (createdLastModified) return AuditProfile.CREATED_LAST_MODIFIED;
+        if (requestedProfile != AuditProfile.AUTO) return requestedProfile;
         // CREATED_BY alone is ambiguous. When the surrounding source model consistently uses one
         // family, inherit that family; otherwise preserve the historical configured/default family.
         return autoFallbackProfile;

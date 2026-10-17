@@ -70,6 +70,22 @@ class BatchArchiveSupportTest {
     }
 
     @Test
+    void legacyBatchAcceptsDocAndDocxWithoutChangingStandardZipContract() throws Exception {
+        Path legacyDoc = temp.resolve("legacy.doc");
+        Path legacyDocx = temp.resolve("legacy.docx");
+        Path text = temp.resolve("notes.txt");
+        Files.writeString(legacyDoc, "x");
+        Files.writeString(legacyDocx, "x");
+        Files.writeString(text, "x");
+
+        assertFalse(BatchArchiveSupport.isProcessableWordDocument(legacyDoc));
+        assertTrue(BatchArchiveSupport.isProcessableWordDocument(legacyDocx));
+        assertTrue(BatchArchiveSupport.isProcessableLegacyWordDocument(legacyDoc));
+        assertTrue(BatchArchiveSupport.isProcessableLegacyWordDocument(legacyDocx));
+        assertFalse(BatchArchiveSupport.isProcessableLegacyWordDocument(text));
+    }
+
+    @Test
     void collisionRemapAndLedgerMergePreserveGeneratedDescriptors() throws Exception {
         Path destination = Files.createDirectories(temp.resolve("out"));
         Path firstSource = Files.createDirectories(temp.resolve("first"));

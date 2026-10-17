@@ -34,6 +34,8 @@ class ArtifactNamingPolicyTest {
                 policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.WORD));
         assertEquals("schemaforge-legacy-word-20260823-010203-456.zip",
                 policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD));
+        assertEquals("schemaforge-legacy-word-batch-20260823-010203-456.zip",
+                policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD_BATCH));
         assertEquals("schemaforge-batch-20260823-010203-456.zip",
                 policy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.BATCH));
         assertEquals("schemaforge-ea-20260823-010203-456.zip",

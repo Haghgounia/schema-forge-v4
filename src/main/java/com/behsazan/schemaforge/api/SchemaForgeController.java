@@ -27,8 +27,15 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/generate")
-@Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, Db2 for z/OS, Db2 LUW, SQL Server, and MySQL DDL from Word, legacy Word, ZIP, or Enterprise Architect XML/XMI")
+@Tag(name = "Schema Generation", description = "Generate Oracle, PostgreSQL, Db2 for z/OS, Db2 LUW, SQL Server, and MySQL DDL from Word, legacy Word, legacy Word ZIP batches, ZIP, or Enterprise Architect XML/XMI")
 public class SchemaForgeController {
+    private static final String AUDIT_FIELDS_DESCRIPTION =
+            "Audit Fields:\n\n"
+                    + "- **source - Recommended**: Keep source audit fields; add nothing.\n"
+                    + "- **created-updated**: Add `CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY` when missing.\n"
+                    + "- **created-last-modified**: Add `CREATED_BY, CREATED_DATE, LAST_MODIFIED_BY, LAST_MODIFIED_DATE` when missing.\n"
+                    + "- **none**: Add no audit fields.\n\n"
+                    + "Existing source-defined audit fields are always preserved. Default: `source`.";
     private final SchemaForgeApiService service;
     private final ArtifactNamingPolicy archiveNamingPolicy;
 
@@ -48,11 +55,19 @@ public class SchemaForgeController {
                             type = "string",
                             allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
             @RequestParam(value = "platform", required = false) List<String> platforms,
+            @Parameter(
+                    description = AUDIT_FIELDS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "created-updated", "created-last-modified", "none"}))
+            @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
-            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            @Parameter(hidden = true)
+            @RequestParam(value = "auditProfile", required = false) String auditProfile)
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
-        return zip(service.generateFromWord(file, includeAuditFields, auditProfile, platforms),
+        AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
+        return zip(service.generateFromWord(file, audit.includeAuditFields(), audit.auditProfile(), platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.WORD));
     }
 
@@ -60,6 +75,7 @@ public class SchemaForgeController {
     @Operation(summary = "Generate from one legacy Word table specification")
     public ResponseEntity<byte[]> legacyWord(
             @RequestPart("file") MultipartFile file,
+            @Parameter(description = "Schema name used for this legacy Word import.")
             @RequestParam("schema") String schema,
             @Parameter(
                     required = true,
@@ -68,12 +84,54 @@ public class SchemaForgeController {
                             type = "string",
                             allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
             @RequestParam(value = "platform", required = false) List<String> platforms,
+            @Parameter(
+                    description = AUDIT_FIELDS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "created-updated", "created-last-modified", "none"}))
+            @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
-            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            @Parameter(hidden = true)
+            @RequestParam(value = "auditProfile", required = false) String auditProfile)
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
-        return zip(service.generateFromLegacyWord(file, schema, includeAuditFields, auditProfile, platforms),
+        AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
+        return zip(service.generateFromLegacyWord(file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD));
+    }
+
+    @PostMapping(value = "/legacy-word/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
+    @Operation(
+            summary = "Generate from a ZIP containing legacy Word table specifications",
+            description = "Processes each .doc or .docx file independently with the Legacy Word parser. "
+                    + "One failed document does not stop the remaining documents. The schema parameter is required "
+                    + "and is applied to every legacy document in the ZIP.")
+    public ResponseEntity<byte[]> legacyWordZip(
+            @RequestPart("file") MultipartFile file,
+            @Parameter(description = "Schema name applied to every legacy Word document in this ZIP batch.")
+            @RequestParam("schema") String schema,
+            @Parameter(
+                    required = true,
+                    description = "Target database platforms. Select one or more values, or choose 'all'. At least one platform is required.",
+                    array = @ArraySchema(schema = @Schema(
+                            type = "string",
+                            allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
+            @RequestParam(value = "platform", required = false) List<String> platforms,
+            @Parameter(
+                    description = AUDIT_FIELDS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "created-updated", "created-last-modified", "none"}))
+            @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(hidden = true)
+            @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
+            @Parameter(hidden = true)
+            @RequestParam(value = "auditProfile", required = false) String auditProfile)
+            throws IOException {
+        RestPlatformSelection.requirePresent(platforms);
+        AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
+        return zip(service.generateFromLegacyWordZip(
+                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms),
+                archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD_BATCH));
     }
 
     @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = "application/zip")
@@ -87,11 +145,19 @@ public class SchemaForgeController {
                             type = "string",
                             allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
             @RequestParam(value = "platform", required = false) List<String> platforms,
+            @Parameter(
+                    description = AUDIT_FIELDS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "created-updated", "created-last-modified", "none"}))
+            @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
-            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile)
+            @Parameter(hidden = true)
+            @RequestParam(value = "auditProfile", required = false) String auditProfile)
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
-        return zip(service.generateFromZip(file, includeAuditFields, auditProfile, platforms),
+        AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
+        return zip(service.generateFromZip(file, audit.includeAuditFields(), audit.auditProfile(), platforms),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.BATCH));
     }
 
@@ -99,6 +165,7 @@ public class SchemaForgeController {
     @Operation(summary = "Generate from Enterprise Architect XML/XMI")
     public ResponseEntity<byte[]> eaXml(
             @RequestPart("file") MultipartFile file,
+            @Parameter(description = "Optional schema override. Leave empty to keep schema names from the EA/XMI file. If provided, all imported tables are placed in this schema.")
             @RequestParam(value = "schema", required = false) String schema,
             @Parameter(
                     required = true,
@@ -107,15 +174,55 @@ public class SchemaForgeController {
                             type = "string",
                             allowableValues = {"all", "oracle", "postgresql", "db2zos", "db2luw", "sqlserver", "mysql", "mariadb"})))
             @RequestParam(value = "platform", required = false) List<String> platforms,
+            @Parameter(
+                    description = AUDIT_FIELDS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "created-updated", "created-last-modified", "none"}))
+            @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
-            @RequestParam(value = "auditProfile", required = false, defaultValue = "AUTO") String auditProfile,
-            @Parameter(description = "Compatibility override. false forces strict explicit-only identity semantics; true enables legacy PK-to-identity inference; omitted uses the configured default (false by default).")
+            @Parameter(hidden = true)
+            @RequestParam(value = "auditProfile", required = false) String auditProfile,
+            @Parameter(description = "Automatically generate values for primary-key columns. Enable only when PK values should be generated by the database. Leave disabled when the application or source model supplies the PK value. Default: disabled.")
             @RequestParam(value = "primaryKeyAsIdentity", required = false) Boolean primaryKeyAsIdentity)
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
+        AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
         return zip(service.generateFromEaXml(
-                        file, schema, includeAuditFields, auditProfile, platforms, primaryKeyAsIdentity),
+                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms, primaryKeyAsIdentity),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.EA));
+    }
+
+    private static AuditRequestOptions resolveAuditOptions(
+            String auditFields,
+            Boolean legacyIncludeAuditFields,
+            String legacyAuditProfile) {
+        boolean hasNewSelection = auditFields != null && !auditFields.isBlank();
+        boolean hasLegacySelection = legacyIncludeAuditFields != null
+                || (legacyAuditProfile != null && !legacyAuditProfile.isBlank());
+        if (hasNewSelection && hasLegacySelection) {
+            throw new IllegalArgumentException(
+                    "AUDIT_OPTIONS_CONFLICT: use auditFields or the legacy includeAuditFields/auditProfile parameters, not both");
+        }
+        if (!hasNewSelection) {
+            if (hasLegacySelection) {
+                return new AuditRequestOptions(legacyIncludeAuditFields, legacyAuditProfile);
+            }
+            return new AuditRequestOptions(false, null);
+        }
+
+        String normalized = auditFields.trim().toLowerCase(java.util.Locale.ROOT).replace('_', '-');
+        return switch (normalized) {
+            case "source", "none" -> new AuditRequestOptions(false, null);
+            case "created-updated" -> new AuditRequestOptions(true, "CREATED_UPDATED");
+            case "created-last-modified" -> new AuditRequestOptions(true, "CREATED_LAST_MODIFIED");
+            default -> throw new IllegalArgumentException(
+                    "Unsupported auditFields: " + auditFields
+                            + ". Expected source, created-updated, created-last-modified, or none");
+        };
+    }
+
+    private record AuditRequestOptions(Boolean includeAuditFields, String auditProfile) {
     }
 
     private static ResponseEntity<byte[]> zip(byte[] content, String fileName) {

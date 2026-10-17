@@ -87,6 +87,26 @@ class SchemaForgeManifestContractTest {
     }
 
     @Test
+    void legacyWordZipBatchManifestUsesDedicatedOriginAndRequiredSchema() throws Exception {
+        Path source = Path.of(getClass().getResource(
+                "/13970705_KrmzdSubD.sd.spc.TB.CTPIncomeParamActivityLog.doc").toURI());
+        byte[] zip = inputZip(Map.of(source.getFileName().toString(), Files.readAllBytes(source)));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "legacy-batch.zip", "application/zip", zip);
+
+        Map<String, byte[]> entries = unzip(service().generateFromLegacyWordZip(
+                file, "TASSHMA", false, null, List.of("oracle")));
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+
+        assertBaseContract(manifest, "LEGACY_WORD_BATCH", "legacy-batch.zip");
+        assertEquals(1, manifest.path("models").size());
+        assertEquals("TASSHMA", manifest.path("models").get(0).path("schema").asText());
+        assertEquals("LEGACY_WORD", manifest.path("extensions").path("batchInput").path("inputMode").asText());
+        assertEquals("TASSHMA", manifest.path("extensions").path("batchInput").path("schema").asText());
+        assertManifestMatchesArchive(entries, manifest);
+    }
+
+    @Test
     void zipBatchManifestKeepsAcceptedModelAndReportsSkippedDuplicateInput() throws Exception {
         byte[] word = Files.readAllBytes(TestSamplePaths.PROVINCES_V1_2);
         byte[] zip = inputZip(Map.of(

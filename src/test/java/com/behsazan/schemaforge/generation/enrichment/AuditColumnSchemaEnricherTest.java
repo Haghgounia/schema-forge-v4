@@ -129,6 +129,46 @@ class AuditColumnSchemaEnricherTest {
     }
 
     @Test
+    void explicitCreatedLastModifiedPreservesExistingCreatedUpdatedFamily() {
+        Table table = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.required("ID", DataType.simple("NUMBER")))
+                .addColumn(Column.required("CREATED_AT", DataType.numeric("TIMESTAMP", 6, null)))
+                .addColumn(Column.required("CREATED_BY", DataType.varchar("VARCHAR2", 50)))
+                .addColumn(Column.nullable("UPDATED_AT", DataType.numeric("TIMESTAMP", 6, null)))
+                .build();
+
+        AuditColumnSchemaEnricher enricher = new AuditColumnSchemaEnricher(
+                AuditProperties.defaults(), true, AuditProfile.CREATED_LAST_MODIFIED);
+        Table enriched = enricher.enrich(
+                DatabaseSchema.builder("TEST").addTable(table).build()).tables().getFirst();
+
+        assertTrue(enriched.findColumn("UPDATED_BY").isPresent());
+        assertTrue(enriched.findColumn("CREATED_DATE").isEmpty());
+        assertTrue(enriched.findColumn("LAST_MODIFIED_DATE").isEmpty());
+        assertTrue(enriched.findColumn("LAST_MODIFIED_BY").isEmpty());
+    }
+
+    @Test
+    void explicitCreatedUpdatedPreservesExistingCreatedLastModifiedFamily() {
+        Table table = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.required("ID", DataType.simple("NUMBER")))
+                .addColumn(Column.required("CREATED_BY", DataType.varchar("VARCHAR2", 50)))
+                .addColumn(Column.required("CREATED_DATE", DataType.simple("TIMESTAMP")))
+                .addColumn(Column.nullable("LAST_MODIFIED_DATE", DataType.simple("TIMESTAMP")))
+                .build();
+
+        AuditColumnSchemaEnricher enricher = new AuditColumnSchemaEnricher(
+                AuditProperties.defaults(), true, AuditProfile.CREATED_UPDATED);
+        Table enriched = enricher.enrich(
+                DatabaseSchema.builder("TEST").addTable(table).build()).tables().getFirst();
+
+        assertTrue(enriched.findColumn("LAST_MODIFIED_BY").isPresent());
+        assertTrue(enriched.findColumn("CREATED_AT").isEmpty());
+        assertTrue(enriched.findColumn("UPDATED_AT").isEmpty());
+        assertTrue(enriched.findColumn("UPDATED_BY").isEmpty());
+    }
+
+    @Test
     void mixedSourceFamiliesFailInsteadOfProducingSixAuditFields() {
         Table table = Table.builder("APP", "CUSTOMER")
                 .addColumn(Column.required("ID", DataType.simple("NUMBER")))

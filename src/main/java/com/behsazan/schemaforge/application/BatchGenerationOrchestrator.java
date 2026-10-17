@@ -35,9 +35,9 @@ import java.util.Set;
 /**
  * Orchestrates ZIP-batch generation while preserving the established batch artifact contract.
  *
- * <p>Request validation and public API signatures stay in the REST-facing facade. This class owns
- * only the existing batch workflow: safe extraction, per-document isolated generation, collision-safe
- * merge, aggregate diagrams, diagnostic reports, Standard Manifest V1 and final ZIP packaging.</p>
+ * <p>Standard Word ZIP batches and Legacy Word ZIP batches share the same safety, isolation,
+ * collision handling, diagnostics, manifest and packaging path. Parser selection is explicit;
+ * the legacy mode never falls back to the standard Word parser.</p>
  */
 public final class BatchGenerationOrchestrator {
     private static final Logger LOGGER = LoggerFactory.getLogger(
@@ -105,14 +105,53 @@ public final class BatchGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generateInternal(
+                file, logicalName, context, auditOptions, platforms, BatchInputMode.STANDARD_WORD, null);
+    }
+
+    /**
+     * Generates one isolated batch from a ZIP of legacy Word table specifications.
+     *
+     * <p>Both {@code .doc} and {@code .docx} inputs are accepted. The schema is mandatory and is
+     * applied to every legacy document in the batch; SchemaForge does not guess a schema per file.</p>
+     */
+    public byte[] generateLegacyWordBatch(
+            MultipartFile file,
+            String logicalName,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
+        if (schemaName == null || schemaName.isBlank()) {
+            throw new IllegalArgumentException("Legacy Word schema parameter is required");
+        }
+        return generateInternal(
+                file,
+                logicalName,
+                context,
+                auditOptions,
+                platforms,
+                BatchInputMode.LEGACY_WORD,
+                schemaName.trim());
+    }
+
+    private byte[] generateInternal(
+            MultipartFile file,
+            String logicalName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            BatchInputMode inputMode,
+            String legacySchemaName) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(platforms, "platforms must not be null");
+        Objects.requireNonNull(inputMode, "inputMode must not be null");
         if (platforms.isEmpty()) {
             throw new IllegalArgumentException("At least one database platform must be selected");
         }
 
-        Path work = Files.createTempDirectory("schemaforge-zip-");
+        Path work = Files.createTempDirectory(inputMode.tempDirectoryPrefix());
         try {
             Path inputDir = Files.createDirectories(work.resolve("input"));
             Path outputDir = Files.createDirectories(work.resolve("output"));
@@ -120,10 +159,10 @@ public final class BatchGenerationOrchestrator {
 
             List<Path> inputFiles = BatchArchiveSupport.regularInputFiles(inputDir);
             long processableDocuments = inputFiles.stream()
-                    .filter(BatchArchiveSupport::isProcessableWordDocument)
+                    .filter(inputMode::isProcessable)
                     .count();
             if (processableDocuments == 0) {
-                throw new IllegalArgumentException("ZIP does not contain any processable DOCX files");
+                throw new IllegalArgumentException(inputMode.emptyArchiveMessage());
             }
 
             List<String> summary = new ArrayList<>();
@@ -143,7 +182,7 @@ public final class BatchGenerationOrchestrator {
             for (Path document : inputFiles) {
                 sequence++;
                 String relativeDocument = artifactPackageBuilder.normalizePath(inputDir.relativize(document));
-                String skippedInputReason = BatchArchiveSupport.skippedInputReason(document);
+                String skippedInputReason = inputMode.skippedInputReason(document);
                 if (skippedInputReason != null) {
                     skippedCount++;
                     summary.add(BatchArchiveSupport.csvLine(
@@ -168,9 +207,15 @@ public final class BatchGenerationOrchestrator {
                         work.resolve("staging").resolve(String.format(Locale.ROOT, "%05d", sequence)));
                 try {
                     ArtifactGenerationContext documentContext = context.isolatedChild(
-                            ArtifactOrigin.ZIP_BATCH, relativeDocument);
-                    PreparedSchema prepared = documentGenerationOrchestrator.generateStandardWord(
-                            document, documentOutput, documentContext, auditOptions, platforms);
+                            inputMode.artifactOrigin(), relativeDocument);
+                    PreparedSchema prepared = generateDocument(
+                            inputMode,
+                            document,
+                            documentOutput,
+                            legacySchemaName,
+                            documentContext,
+                            auditOptions,
+                            platforms);
 
                     String duplicateLogicalTable = null;
                     String duplicateLogicalSource = null;
@@ -216,8 +261,8 @@ public final class BatchGenerationOrchestrator {
                 } catch (Exception exception) {
                     failedCount++;
                     String message = BatchArchiveSupport.safeMessage(exception);
-                    LOGGER.warn("ZIP document skipped after generation failure: {} - {}",
-                            relativeDocument, message);
+                    LOGGER.warn("{} document skipped after generation failure: {} - {}",
+                            inputMode.logLabel(), relativeDocument, message);
                     summary.add(BatchArchiveSupport.csvLine(
                             Integer.toString(sequence),
                             relativeDocument,
@@ -257,13 +302,21 @@ public final class BatchGenerationOrchestrator {
             if (auditOptions != null) {
                 generationOptions.put("audit", auditOptions.manifestValue());
             }
+            if (inputMode == BatchInputMode.LEGACY_WORD) {
+                generationOptions.put("legacyWordSchema", legacySchemaName);
+            }
             manifestExtensions.put("generationOptions", generationOptions);
-            manifestExtensions.put("batchInput", Map.of(
-                    "regularFileCount", inputFiles.size(),
-                    "processableDocumentCount", processableDocuments,
-                    "successCount", successCount,
-                    "failedCount", failedCount,
-                    "skippedCount", skippedCount));
+            Map<String, Object> batchInput = new LinkedHashMap<>();
+            batchInput.put("regularFileCount", inputFiles.size());
+            batchInput.put("processableDocumentCount", processableDocuments);
+            batchInput.put("successCount", successCount);
+            batchInput.put("failedCount", failedCount);
+            batchInput.put("skippedCount", skippedCount);
+            if (inputMode == BatchInputMode.LEGACY_WORD) {
+                batchInput.put("inputMode", inputMode.manifestValue());
+                batchInput.put("schema", legacySchemaName);
+            }
+            manifestExtensions.put("batchInput", batchInput);
 
             ArtifactRequestStatus batchRequestStatus =
                     failedCount > 0
@@ -275,6 +328,9 @@ public final class BatchGenerationOrchestrator {
             summaryFacts.put("Successful Documents", Integer.toString(successCount));
             summaryFacts.put("Failed Documents", Integer.toString(failedCount));
             summaryFacts.put("Skipped Inputs", Integer.toString(skippedCount));
+            if (inputMode == BatchInputMode.LEGACY_WORD) {
+                summaryFacts.put("Legacy Word Schema", legacySchemaName);
+            }
             List<DatabaseSchema> extractedSchemas = manifestModels.stream()
                     .map(ArtifactManifestAssembler.ModelInput::schema)
                     .toList();
@@ -297,6 +353,22 @@ public final class BatchGenerationOrchestrator {
         }
     }
 
+    private PreparedSchema generateDocument(
+            BatchInputMode inputMode,
+            Path document,
+            Path documentOutput,
+            String legacySchemaName,
+            ArtifactGenerationContext documentContext,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms) throws IOException {
+        return switch (inputMode) {
+            case STANDARD_WORD -> documentGenerationOrchestrator.generateStandardWord(
+                    document, documentOutput, documentContext, auditOptions, platforms);
+            case LEGACY_WORD -> documentGenerationOrchestrator.generateLegacyWord(
+                    document, documentOutput, legacySchemaName, documentContext, auditOptions, platforms);
+        };
+    }
+
     private static String logicalTableKey(Table table) {
         return table.qualifiedName().schemaName()
                 .map(schema -> schema.normalized() + ".")
@@ -317,6 +389,71 @@ public final class BatchGenerationOrchestrator {
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private enum BatchInputMode {
+        STANDARD_WORD(
+                ArtifactOrigin.ZIP_BATCH,
+                "schemaforge-zip-",
+                "ZIP",
+                "STANDARD_WORD",
+                "ZIP does not contain any processable DOCX files"),
+        LEGACY_WORD(
+                ArtifactOrigin.LEGACY_WORD_BATCH,
+                "schemaforge-legacy-word-batch-",
+                "Legacy Word ZIP",
+                "LEGACY_WORD",
+                "ZIP does not contain any processable Legacy Word .doc or .docx files");
+
+        private final ArtifactOrigin artifactOrigin;
+        private final String tempDirectoryPrefix;
+        private final String logLabel;
+        private final String manifestValue;
+        private final String emptyArchiveMessage;
+
+        BatchInputMode(
+                ArtifactOrigin artifactOrigin,
+                String tempDirectoryPrefix,
+                String logLabel,
+                String manifestValue,
+                String emptyArchiveMessage) {
+            this.artifactOrigin = artifactOrigin;
+            this.tempDirectoryPrefix = tempDirectoryPrefix;
+            this.logLabel = logLabel;
+            this.manifestValue = manifestValue;
+            this.emptyArchiveMessage = emptyArchiveMessage;
+        }
+
+        ArtifactOrigin artifactOrigin() {
+            return artifactOrigin;
+        }
+
+        String tempDirectoryPrefix() {
+            return tempDirectoryPrefix;
+        }
+
+        String logLabel() {
+            return logLabel;
+        }
+
+        String manifestValue() {
+            return manifestValue;
+        }
+
+        String emptyArchiveMessage() {
+            return emptyArchiveMessage;
+        }
+
+        boolean isProcessable(Path path) {
+            return skippedInputReason(path) == null;
+        }
+
+        String skippedInputReason(Path path) {
+            return switch (this) {
+                case STANDARD_WORD -> BatchArchiveSupport.skippedInputReason(path);
+                case LEGACY_WORD -> BatchArchiveSupport.skippedLegacyWordInputReason(path);
+            };
         }
     }
 }

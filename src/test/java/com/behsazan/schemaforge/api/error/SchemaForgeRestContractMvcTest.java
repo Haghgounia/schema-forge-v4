@@ -77,6 +77,110 @@ class SchemaForgeRestContractMvcTest {
     }
 
     @Test
+    void auditFieldsSelectionMapsToLegacyGenerationOptions() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("auditFields", "created-updated"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(any(), eq(true), eq("CREATED_UPDATED"), eq(java.util.List.of("oracle")));
+    }
+
+    @Test
+    void auditFieldsSourcePreservesSourceByDisablingAuditEnrichment() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("auditFields", "source"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")));
+    }
+
+    @Test
+    void omittedAuditFieldsDefaultsToSourcePreservation() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")));
+    }
+
+    @Test
+    void legacyAuditOptionsRemainAcceptedWhenNewSelectorIsOmitted() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("includeAuditFields", "true")
+                        .param("auditProfile", "CREATED_UPDATED"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(any(), eq(true), eq("CREATED_UPDATED"), eq(java.util.List.of("oracle")));
+    }
+
+    @Test
+    void auditFieldsNoneDisablesAuditEnrichment() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("auditFields", "none"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")));
+    }
+
+    @Test
+    void newAndLegacyAuditOptionsCannotBeMixed() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("auditFields", "created-last-modified")
+                        .param("includeAuditFields", "true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("AUDIT_OPTIONS_CONFLICT")));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
     void legacyWordPlatformSelectionIsForwardedAndRequired() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
         when(service.generateFromLegacyWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
@@ -95,6 +199,34 @@ class SchemaForgeRestContractMvcTest {
         mvc.perform(multipart("/api/v1/generate/legacy-word")
                         .file(file)
                         .param("schema", "BIM"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
+    }
+
+    @Test
+    void legacyWordZipForwardsSchemaAuditAndPlatformAndRequiresPlatform() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromLegacyWordZip(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "legacy-batch.zip", MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/legacy-word/zip")
+                        .file(file)
+                        .param("schema", "TASSHMA")
+                        .param("platform", "oracle", "db2luw")
+                        .param("auditFields", "source"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/zip"));
+
+        verify(service).generateFromLegacyWordZip(
+                any(), eq("TASSHMA"), eq(false), eq((String) null),
+                eq(java.util.List.of("oracle", "db2luw")));
+
+        mvc.perform(multipart("/api/v1/generate/legacy-word/zip")
+                        .file(file)
+                        .param("schema", "TASSHMA"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("At least one database platform must be selected."));
     }

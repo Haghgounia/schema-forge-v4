@@ -185,6 +185,8 @@ scripts/oracle/<source>_<timestamp>.oracle.run-all.sql
 
 See [`docs/architecture/ARTIFACT-NAMING-LAYOUT.md`](docs/architecture/ARTIFACT-NAMING-LAYOUT.md) for the complete C5 contract and collision rules.
 
+Manifest validation totals use the same complete, deduplicated issue catalog as canonical `*.schema.json` snapshots and DDL issue rendering. Therefore `validation.warningCount` includes actionable recovery findings that are rendered as validation warnings (for example `LEGACY_DEFAULT_DROPPED`). `validation.recoveryWarningCount` remains a separate parser-recovery diagnostic subset and must not be added to `warningCount`.
+
 ### Foreign-key reference flags
 - `TABLE/Y`: physical reference.
 - `TABLE/N`: logical reference.
@@ -360,9 +362,16 @@ SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect database-model exports in the qualified XMI 1.x dialect and native EA XMI 2.1 (`packagedElement` + `xmi:Extension`) dialect. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. Identity handling is strict/no-guess by default: primary-key membership alone does not imply identity. Explicit EA/XMI identity evidence remains authoritative. For controlled compatibility with older behavior, set request parameter `primaryKeyAsIdentity=true` (request override) or configuration `schemaforge.ea.primary-key-as-identity=true` / `SCHEMAFORGE_EA_PRIMARY_KEY_AS_IDENTITY=true`; integer-compatible primary-key columns may then be inferred as identity, while character/date primary keys and shared PK/FK columns remain protected by the existing inference guards. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP follows the common C5 artifact-first layout: one DDL file per table and dialect, comparison workbooks when metadata is available, one timestamped canonical `*.schema.json`, dialect-specific run-all scripts, diagrams/reports as applicable, and the Standard Manifest V1 `manifest.json`. C6.2 applies the same manifest contract to Word, Legacy Word, ZIP Batch, and EA.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect database-model exports in the qualified XMI 1.x dialect and native EA XMI 2.1 (`packagedElement` + `xmi:Extension`) dialect. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. Identity handling is strict/no-guess by default: primary-key membership alone does not imply identity. Explicit EA/XMI identity evidence remains authoritative. For controlled compatibility with older behavior, set request parameter `primaryKeyAsIdentity=true` (request override) or configuration `schemaforge.ea.primary-key-as-identity=true` / `SCHEMAFORGE_EA_PRIMARY_KEY_AS_IDENTITY=true`; integer-compatible primary-key columns may then be inferred as identity, while character/date primary keys and shared PK/FK columns remain protected by the existing inference guards. If the source explicitly marks a non-numeric column as identity, canonical validation reports `NON_NUMERIC_IDENTITY_COLUMN` as an error and DDL for that table is blocked on every selected DBMS; unrelated artifacts continue and the manifest records `PARTIAL_SUCCESS`. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP follows the common C5 artifact-first layout: one DDL file per table and dialect, comparison workbooks when metadata is available, one timestamped canonical `*.schema.json`, dialect-specific run-all scripts, diagrams/reports as applicable, and the Standard Manifest V1 `manifest.json`. C6.2 applies the same manifest contract to Word, Legacy Word, Legacy Word ZIP Batch, standard ZIP Batch, and EA.
 
-All four artifact-generation REST endpoints (`word`, `legacy-word`, `zip`, `ea-xml`) also accept request-level audit options: `includeAuditFields=true|false` and `auditProfile=AUTO|CREATED_UPDATED|CREATED_LAST_MODIFIED`. `AUTO` detects the audit family already present in the source model and completes only that family. Source-defined audit columns are preserved exactly; SchemaForge never replaces their datatype, nullability, default, description, identity, or physical options merely to match an audit profile. A table that mixes both supported audit families fails with `AUDIT_PROFILE_CONFLICT` instead of receiving a six/seven-column mixed audit set.
+All five artifact-generation REST endpoints (`word`, `legacy-word`, `legacy-word/zip`, `zip`, `ea-xml`) expose one user-facing `auditFields` selector in Swagger:
+
+- `source` - Recommended: keep source audit fields; add nothing.
+- `created-updated`: add `CREATED_AT`, `CREATED_BY`, `UPDATED_AT`, `UPDATED_BY` when an audit family is missing.
+- `created-last-modified`: add `CREATED_BY`, `CREATED_DATE`, `LAST_MODIFIED_BY`, `LAST_MODIFIED_DATE` when an audit family is missing.
+- `none`: add no audit fields.
+
+Existing source-defined audit fields are always preserved. The default is `source`. When a table already declares either supported audit family, that source family is authoritative and is preserved/completed rather than replaced by the request-level selection. The legacy request parameters `includeAuditFields` and `auditProfile` remain accepted by the HTTP API but are hidden from Swagger; they retain their previous behavior when explicitly supplied. Sending the new and legacy forms together fails with `AUDIT_OPTIONS_CONFLICT`.
 
 ```text
 ddl/oracle/<SCHEMA>.<TABLE>_<timestamp>.oracle.sql
@@ -402,7 +411,17 @@ Legacy Word documents that do not contain a schema use a separate REST entry poi
 POST /api/v1/generate/legacy-word?schema=DPS
 ```
 
-Upload one `.doc` or `.docx` file as multipart field `file`. The schema parameter is required. See `docs/integration/LEGACY-WORD-PARSER.md` for recursive Oracle-only and Oracle/PostgreSQL/SQL Server directory generation.
+Upload one `.doc` or `.docx` file as multipart field `file`. The schema parameter is required.
+
+For a ZIP containing multiple Legacy Word documents, use the dedicated batch endpoint:
+
+```text
+POST /api/v1/generate/legacy-word/zip?schema=TASSHMA&platform=all
+```
+
+The multipart field is again named `file`, but it must be a `.zip`. Each `.doc` / `.docx` entry is parsed explicitly with the Legacy Word parser; there is no fallback to the standard Word parser. The request-level `schema` is applied to every document in the ZIP. Documents are isolated from each other: a malformed Legacy Word file is recorded as `FAILED` in `reports/batch-generation-summary.csv` and `reports/batch-generation-errors.log`, while valid documents continue. Unsupported, temporary, duplicate-content, and duplicate-logical-table inputs are reported as `SKIPPED`. The final ZIP contains the aggregate `manifest.json`, batch summary/error reports, diagrams, and all collision-safe artifacts produced by successful documents.
+
+See `docs/integration/LEGACY-WORD-PARSER.md` for recursive Oracle-only and Oracle/PostgreSQL/SQL Server directory generation.
 
 ### Mermaid diagram export
 

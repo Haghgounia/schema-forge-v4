@@ -7,6 +7,7 @@ import com.behsazan.schemaforge.artifact.ArtifactRequestStatus;
 import com.behsazan.schemaforge.artifact.ArtifactStatus;
 import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 
@@ -247,8 +248,14 @@ public final class ArtifactManifestAssembler {
 
         for (ModelInput input : inputs) {
 
+            // Keep manifest validation totals aligned with canonical JSON and DDL issue
+            // rendering. Those surfaces use SqlIssueCatalog to merge validator findings
+            // with actionable parser-recovery findings and deduplicate them.
             for (ValidationIssue issue :
-                    input.validationReport().issues()) {
+                    SqlIssueCatalog.from(
+                                    input.schema(),
+                                    input.validationReport())
+                            .all()) {
 
                 if ("ERROR".equalsIgnoreCase(
                         issue.severity())) {
@@ -262,6 +269,8 @@ public final class ArtifactManifestAssembler {
                 }
             }
 
+            // This is a diagnostic subset and is not additive to warningCount.
+            // It reports how many source-recovery events were recorded by the parser.
             recoveryWarnings +=
                     recoveryWarningCount(
                             input.schema());

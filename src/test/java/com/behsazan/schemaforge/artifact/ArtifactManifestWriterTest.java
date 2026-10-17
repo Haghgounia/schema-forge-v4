@@ -2,7 +2,11 @@ package com.behsazan.schemaforge.artifact;
 
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifest;
+import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
+import com.behsazan.schemaforge.domain.model.DatabaseSchema;
+import com.behsazan.schemaforge.specification.validation.ValidationIssue;
+import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -88,6 +92,28 @@ class ArtifactManifestWriterTest {
         assertEquals("20260823_001500_123", json.path("generation").path("timestampToken").asText());
         assertEquals("2026-08-23T00:15:00.123-07:00",
                 json.path("generation").path("generatedAt").asText());
+    }
+
+    @Test
+    void manifestValidationTotalsIncludeActionableRecoveryIssues() throws Exception {
+        ArtifactGenerationContext context = context();
+        DatabaseSchema schema = DatabaseSchema.builder("BIM")
+                .metadata("recovery.warningCount", "1")
+                .metadata("recovery.warnings",
+                        "LEGACY_DEFAULT_DROPPED|column=CHANGE_DATE|reason=UNRECOGNIZED_DEFAULT_EXPRESSION|raw=Current Persian Date|normalized=")
+                .build();
+        ValidationReport report = new ValidationReport(true, List.of(
+                new ValidationIssue("WARNING", "BASE_WARNING", "schema.BIM", "base warning")));
+
+        ArtifactManifest manifest = new ArtifactManifestWriter(new ObjectMapper()).write(
+                temp,
+                context,
+                "sample",
+                List.of(new ArtifactManifestAssembler.ModelInput("sample.docx", schema, report)),
+                Map.of());
+
+        assertEquals(2, manifest.validation().warningCount());
+        assertEquals(1, manifest.validation().recoveryWarningCount());
     }
 
     @Test

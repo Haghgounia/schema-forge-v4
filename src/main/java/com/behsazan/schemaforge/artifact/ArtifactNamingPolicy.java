@@ -195,6 +195,7 @@ public final class ArtifactNamingPolicy {
     public enum ArchiveKind {
         WORD("word"),
         LEGACY_WORD("legacy-word"),
+        LEGACY_WORD_BATCH("legacy-word-batch"),
         BATCH("batch"),
         EA("ea");
 

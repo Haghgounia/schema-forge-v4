@@ -221,6 +221,39 @@ public class SchemaForgeApiService {
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
+    public byte[] generateFromLegacyWordZip(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms) throws IOException {
+        return generateFromLegacyWordZipTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms).content();
+    }
+
+    GenerationArchive generateFromLegacyWordZipTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms) throws IOException {
+        requireExtension(file, ".zip");
+        String schema = requireText(schemaName, "Legacy Word schema parameter is required");
+        String sourceName = safeName(file.getOriginalFilename(), "legacy-word-batch.zip");
+        ArtifactGenerationContext context = ArtifactGenerationContext.create(
+                ArtifactOrigin.LEGACY_WORD_BATCH, sourceName);
+        AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
+                auditProperties, includeAuditFields, auditProfile);
+        byte[] content = batchGenerationOrchestrator.generateLegacyWordBatch(
+                file,
+                stripExtension(sourceName),
+                schema,
+                context,
+                auditOptions,
+                DatabasePlatform.parseSelection(platforms));
+        return new GenerationArchive(content, context.ledger().snapshot());
+    }
+
     public byte[] generateFromZip(MultipartFile file) throws IOException {
         return generateFromZip(file, null, "AUTO");
     }

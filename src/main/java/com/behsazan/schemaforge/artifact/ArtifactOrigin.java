@@ -9,6 +9,7 @@ package com.behsazan.schemaforge.artifact;
 public enum ArtifactOrigin {
     STANDARD_WORD,
     LEGACY_WORD,
+    LEGACY_WORD_BATCH,
     ZIP_BATCH,
     ENTERPRISE_ARCHITECT,
     CANONICAL_JSON,
