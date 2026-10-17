@@ -34,6 +34,23 @@ class TextNormalizerTest {
     }
 
     @Test
+    void removesInvisibleFormatControlInsideTechnicalTokenWithoutJoiningRealSpaces() {
+        assertEquals(
+                "نام جدول: CTFCntrctInfo",
+                TextNormalizer.compactForMatching("نام جدول: CTF\u200DCntrctInfo")
+        );
+        assertEquals(
+                "نام جدول: LOG CTF28XPRPSLTYP",
+                TextNormalizer.compactForMatching("نام جدول: LOG CTF28XPRPSLTYP")
+        );
+    }
+
+    @Test
+    void normalizesTechnicalNameContainingUnicodeFormatControl() {
+        assertEquals("CTFCntrctInfo", TextNormalizer.normalizeTechnicalName("CTF\u200DCntrctInfo"));
+    }
+
+    @Test
     void normalizesArabicYehAndKafInCellsAndBlocks() {
         assertEquals("نام موجودیت: مشتریان", TextNormalizer.cleanCell("نام موجوديت: مشتريان"));
         assertEquals("کد مشتری", TextNormalizer.cleanBlock("كد مشتري"));

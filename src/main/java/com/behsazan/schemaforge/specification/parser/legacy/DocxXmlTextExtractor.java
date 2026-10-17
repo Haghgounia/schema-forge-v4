@@ -48,7 +48,9 @@ final class DocxXmlTextExtractor {
             for (ZipEntry header : headers) {
                 appendSeparated(out, extractEntry(zip, header));
             }
-            return TextNormalizer.cleanBlock(out.toString());
+            return TextNormalizer.cleanBlock(
+                    TextNormalizer.stripFormatCharactersInsideTechnicalTokens(out.toString())
+            );
         }
     }
 
@@ -92,7 +94,9 @@ final class DocxXmlTextExtractor {
         } catch (XMLStreamException e) {
             throw new IOException("Cannot read DOCX XML part: " + entry.getName(), e);
         }
-        return TextNormalizer.cleanBlock(out.toString());
+        return TextNormalizer.cleanBlock(
+                TextNormalizer.stripFormatCharactersInsideTechnicalTokens(out.toString())
+        );
     }
 
     private static void appendSeparated(StringBuilder target, String value) throws IOException {

@@ -1,3 +1,27 @@
+## 2026-10-17 - Legacy DOCX invisible identifier normalization v4
+
+- Moves ASCII technical-token format-control removal to the earliest DOCX XML extraction stage, before `cleanBlock()` can turn `U+200D` into a real space.
+- Aligns Apache POI DOCX fallback/header/cell extraction with the same rule.
+- Preserves real spaces, so `LOG CTF28XPRPSLTYP` is still not concatenated or reordered.
+- Closes the false `TABLE_NAME_FILENAME_MISMATCH` for `CTF<U+200D>CntrctInfo`.
+
+## 2026-10-17 - Legacy header Unicode pre-clean parity
+
+- Removes invisible Unicode format controls inside ASCII technical identifier tokens before block-level Word text cleanup.
+- Prevents `cleanBlock()` from converting `U+200D` to a real space before table-name matching, which previously caused `CTF\u200DCntrctInfo` to be parsed as `CTF` and then reported as `TABLE_NAME_FILENAME_MISMATCH`.
+- Keeps real whitespace untouched, so source headers such as `LOG CTF28XPRPSLTYP` remain separate tokens and still report a filename mismatch instead of being guessed/reordered.
+
+## 2026-10-17 - Legacy technical identifier Unicode format-control guard
+
+### Legacy Unicode identifier regression assertion
+- Corrected the real-file regression expectation for `CTF\u200DCNTRCTINFO.docx` to the canonical table name `CTFCNTRCTINFO`.
+- Production normalization is unchanged: the invisible Unicode format control is removed; downstream canonical table-name casing remains authoritative.
+
+- Legacy Word technical identifiers now ignore invisible Unicode format controls only when they occur inside an ASCII database identifier token.
+- Prevents names such as `CTF\u200DCntrctInfo` from being truncated to `CTF`.
+- Real whitespace is preserved; independent header tokens such as `LOG CTF28XPRPSLTYP` are not concatenated or reordered to match a filename.
+- Added regression fixtures from the reproduced Legacy Word cases.
+
 ## 2026-10-17 - Legacy Word ZIP batch service
 
 - Adds `POST /api/v1/generate/legacy-word/zip` for ZIP uploads containing Legacy Word `.doc` / `.docx` table specifications.

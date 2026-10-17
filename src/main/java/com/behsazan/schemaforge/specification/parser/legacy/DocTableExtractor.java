@@ -693,7 +693,9 @@ final class DocTableExtractor {
                 }
             }
         }
-        return TextNormalizer.cleanBlock(text.toString());
+        return TextNormalizer.cleanBlock(
+                TextNormalizer.stripFormatCharactersInsideTechnicalTokens(text.toString())
+        );
     }
 
     private String extractDocxHeaderTextFallback(XWPFDocument document) {
@@ -701,7 +703,9 @@ final class DocTableExtractor {
         for (XWPFHeader header : document.getHeaderList()) {
             appendLine(text, header.getText());
         }
-        return TextNormalizer.cleanBlock(text.toString());
+        return TextNormalizer.cleanBlock(
+                TextNormalizer.stripFormatCharactersInsideTechnicalTokens(text.toString())
+        );
     }
 
     private List<List<List<String>>> readDocxTables(XWPFDocument document) {
@@ -854,12 +858,16 @@ final class DocTableExtractor {
             }
             // Keep empty paragraphs because old Word grids use vertical paragraph
             // positions to align several logical field definitions inside one row.
-            paragraphs.add(TextNormalizer.cleanCell(paragraphText.toString()));
+            paragraphs.add(TextNormalizer.cleanCell(
+                    TextNormalizer.stripFormatCharactersInsideTechnicalTokens(paragraphText.toString())
+            ));
         }
         for (XWPFTable nestedTable : cell.getTables()) {
             for (XWPFTableRow nestedRow : nestedTable.getRows()) {
                 for (XWPFTableCell nestedCell : nestedRow.getTableCells()) {
-                    paragraphs.add(TextNormalizer.cleanCell(readDocxCellText(nestedCell)));
+                    paragraphs.add(TextNormalizer.cleanCell(
+                            TextNormalizer.stripFormatCharactersInsideTechnicalTokens(readDocxCellText(nestedCell))
+                    ));
                 }
             }
         }
@@ -877,7 +885,9 @@ final class DocTableExtractor {
                                          String authoritativeMetadata,
                                          String sourceFileName) {
         String rawSource = TextNormalizer.cleanBlock(
-                (headerText == null ? "" : headerText) + "\n" + (mainText == null ? "" : mainText)
+                TextNormalizer.stripFormatCharactersInsideTechnicalTokens(
+                        (headerText == null ? "" : headerText) + "\n" + (mainText == null ? "" : mainText)
+                )
         );
         String source = TextNormalizer.compactForMatching(rawSource);
         String fileNameTable = extractTableNameFromFileName(sourceFileName);
@@ -1832,7 +1842,9 @@ final class DocTableExtractor {
     }
 
     private String extractTableNameFromFileName(String sourceFileName) {
-        String value = sourceFileName == null ? "" : sourceFileName.trim();
+        String value = TextNormalizer.stripFormatCharactersInsideTechnicalTokens(
+                sourceFileName == null ? "" : sourceFileName
+        ).trim();
         Matcher matcher = FILE_NAME_TABLE.matcher(value);
         if (matcher.find()) {
             String normalized = normalizeFileNameTable(matcher.group(1));
@@ -1879,13 +1891,17 @@ final class DocTableExtractor {
     }
 
     private String normalizeFileNameTable(String rawValue) {
-        String value = TextNormalizer.cleanCell(rawValue)
+        String value = TextNormalizer.cleanCell(
+                        TextNormalizer.stripFormatCharactersInsideTechnicalTokens(rawValue)
+                )
                 .replaceFirst("(?i)^TABLES?[_-]+", "");
         return normalizeTableName(value);
     }
 
     private String normalizeTableName(String rawValue) {
-        String value = TextNormalizer.cleanCell(rawValue)
+        String value = TextNormalizer.cleanCell(
+                        TextNormalizer.stripFormatCharactersInsideTechnicalTokens(rawValue)
+                )
                 .replaceFirst("^[\\s._:：-]+", "")
                 .replaceAll("\\s*\\.\\s*", ".");
         if (value.isBlank()) {

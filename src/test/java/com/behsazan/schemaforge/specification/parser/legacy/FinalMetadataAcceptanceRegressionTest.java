@@ -59,6 +59,30 @@ class FinalMetadataAcceptanceRegressionTest {
     }
 
     @Test
+    void preservesTableNameAcrossZeroWidthJoinerInLegacyHeader() throws Exception {
+        ExtractionModels.FileResult result = extract(
+                "TashilatD.sd.spc.tb.CTF\u200DCNTRCTINFO.docx"
+        );
+
+        assertEquals("CTFCNTRCTINFO", result.metadata().tableName());
+        assertFalse(result.warnings().stream().anyMatch(warning ->
+                "TABLE_NAME_FILENAME_MISMATCH".equals(warning.code())
+        ));
+    }
+
+    @Test
+    void doesNotReorderRealHeaderTokensToMatchLegacyFileName() throws Exception {
+        ExtractionModels.FileResult result = extract(
+                "TashilatD.sd.spc.tb.CTF28XPRPSLTYPLOG.docx"
+        );
+
+        assertEquals("LOG", result.metadata().tableName());
+        assertTrue(result.warnings().stream().anyMatch(warning ->
+                "TABLE_NAME_FILENAME_MISMATCH".equals(warning.code())
+        ));
+    }
+
+    @Test
     void removesFieldNameTailFromPichakEntityAndClassifiesMissingTypeAsSourceAbsent()
             throws Exception {
         ExtractionModels.FileResult result = extract(

@@ -62,13 +62,61 @@ final class TextNormalizer {
     }
 
     static String compactForMatching(String value) {
-        return cleanCell(value)
+        return cleanCell(stripFormatCharactersInsideTechnicalTokens(value))
                 .replaceAll("\\s+", " ")
                 .trim();
     }
 
+    /**
+     * Removes Unicode format controls only when they occur inside an ASCII technical token.
+     *
+     * <p>Legacy Word files occasionally contain invisible bidi/joiner markers inside database
+     * identifiers (for example {@code CTF\u200DCntrctInfo}). Treating those markers as
+     * whitespace truncates the identifier during metadata matching. This method removes a
+     * format code point only when the nearest non-format code points on both sides are valid
+     * ASCII identifier characters. Real spaces remain untouched, so independent tokens such
+     * as {@code LOG CTF28XPRPSLTYP} are never concatenated.</p>
+     */
+    static String stripFormatCharactersInsideTechnicalTokens(String value) {
+        if (value == null || value.isEmpty()) {
+            return value == null ? "" : value;
+        }
+        int[] codePoints = value.codePoints().toArray();
+        StringBuilder result = new StringBuilder(value.length());
+        for (int index = 0; index < codePoints.length; index++) {
+            int codePoint = codePoints[index];
+            if (Character.getType(codePoint) == Character.FORMAT
+                    && hasTechnicalNeighbor(codePoints, index, -1)
+                    && hasTechnicalNeighbor(codePoints, index, 1)) {
+                continue;
+            }
+            result.appendCodePoint(codePoint);
+        }
+        return result.toString();
+    }
+
+    private static boolean hasTechnicalNeighbor(int[] codePoints, int index, int direction) {
+        for (int cursor = index + direction; cursor >= 0 && cursor < codePoints.length; cursor += direction) {
+            int candidate = codePoints[cursor];
+            if (Character.getType(candidate) == Character.FORMAT) {
+                continue;
+            }
+            return isAsciiTechnicalIdentifierChar(candidate);
+        }
+        return false;
+    }
+
+    private static boolean isAsciiTechnicalIdentifierChar(int codePoint) {
+        return codePoint >= 'A' && codePoint <= 'Z'
+                || codePoint >= 'a' && codePoint <= 'z'
+                || codePoint >= '0' && codePoint <= '9'
+                || codePoint == '_'
+                || codePoint == '$'
+                || codePoint == '#';
+    }
+
     static String normalizeTechnicalName(String raw) {
-        String cleaned = cleanCell(raw);
+        String cleaned = cleanCell(stripFormatCharactersInsideTechnicalTokens(raw));
         if (cleaned.isEmpty()) {
             return "";
         }

@@ -664,3 +664,8 @@ mvnw.cmd ^
 ```
 
 Reports are written below `target/postgresql-p4-keys-indexes-catalog/<timestamp>/`.
+
+### Legacy Word technical identifier normalization
+
+Legacy Word inputs may contain invisible Unicode format controls inside database identifiers. SchemaForge removes such controls only when they are embedded between ASCII identifier characters, so `CTF\u200DCntrctInfo` is normalized to `CTFCntrctInfo`. Real spaces remain boundaries; SchemaForge does not concatenate or reorder separate tokens merely to match a filename.
+
