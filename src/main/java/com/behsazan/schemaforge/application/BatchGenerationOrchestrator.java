@@ -105,8 +105,20 @@ public final class BatchGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generate(
+                file, logicalName, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generate(
+            MultipartFile file,
+            String logicalName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         return generateInternal(
-                file, logicalName, context, auditOptions, platforms, BatchInputMode.STANDARD_WORD, null);
+                file, logicalName, context, auditOptions, platforms, timestampSemantics,
+                BatchInputMode.STANDARD_WORD, null);
     }
 
     /**
@@ -122,6 +134,18 @@ public final class BatchGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generateLegacyWordBatch(
+                file, logicalName, schemaName, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateLegacyWordBatch(
+            MultipartFile file,
+            String logicalName,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         if (schemaName == null || schemaName.isBlank()) {
             throw new IllegalArgumentException("Legacy Word schema parameter is required");
         }
@@ -131,6 +155,7 @@ public final class BatchGenerationOrchestrator {
                 context,
                 auditOptions,
                 platforms,
+                timestampSemantics,
                 BatchInputMode.LEGACY_WORD,
                 schemaName.trim());
     }
@@ -141,11 +166,13 @@ public final class BatchGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics,
             BatchInputMode inputMode,
             String legacySchemaName) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(platforms, "platforms must not be null");
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
         Objects.requireNonNull(inputMode, "inputMode must not be null");
         if (platforms.isEmpty()) {
             throw new IllegalArgumentException("At least one database platform must be selected");
@@ -215,7 +242,8 @@ public final class BatchGenerationOrchestrator {
                             legacySchemaName,
                             documentContext,
                             auditOptions,
-                            platforms);
+                            platforms,
+                            timestampSemantics);
 
                     String duplicateLogicalTable = null;
                     String duplicateLogicalSource = null;
@@ -299,6 +327,7 @@ public final class BatchGenerationOrchestrator {
             generationOptions.put("platforms", DatabasePlatform.values().length == platforms.size()
                     ? List.of("all")
                     : DatabasePlatform.valuesAsList(platforms));
+            generationOptions.put("timestampSemantics", timestampSemantics.requestValue());
             if (auditOptions != null) {
                 generationOptions.put("audit", auditOptions.manifestValue());
             }
@@ -360,12 +389,13 @@ public final class BatchGenerationOrchestrator {
             String legacySchemaName,
             ArtifactGenerationContext documentContext,
             AuditGenerationOptions auditOptions,
-            Set<DatabasePlatform> platforms) throws IOException {
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         return switch (inputMode) {
             case STANDARD_WORD -> documentGenerationOrchestrator.generateStandardWord(
-                    document, documentOutput, documentContext, auditOptions, platforms);
+                    document, documentOutput, documentContext, auditOptions, platforms, timestampSemantics);
             case LEGACY_WORD -> documentGenerationOrchestrator.generateLegacyWord(
-                    document, documentOutput, legacySchemaName, documentContext, auditOptions, platforms);
+                    document, documentOutput, legacySchemaName, documentContext, auditOptions, platforms, timestampSemantics);
         };
     }
 

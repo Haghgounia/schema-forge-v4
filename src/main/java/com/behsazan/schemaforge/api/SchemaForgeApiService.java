@@ -18,6 +18,7 @@ import com.behsazan.schemaforge.application.EaGenerationOrchestrator;
 import com.behsazan.schemaforge.application.MigrationArtifactProducer;
 import com.behsazan.schemaforge.application.PreparedSchema;
 import com.behsazan.schemaforge.application.SchemaPreparationService;
+import com.behsazan.schemaforge.application.TimestampSemantics;
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
@@ -141,7 +142,18 @@ public class SchemaForgeApiService {
 
     public byte[] generateFromWord(
             MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
-        return generateFromWordTracked(file, includeAuditFields, auditProfile, platforms).content();
+        return generateFromWord(
+                file, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateFromWord(
+            MultipartFile file,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
+        return generateFromWordTracked(
+                file, includeAuditFields, auditProfile, platforms, timestampSemantics).content();
     }
 
     GenerationArchive generateFromWordTracked(MultipartFile file) throws IOException {
@@ -155,6 +167,16 @@ public class SchemaForgeApiService {
 
     GenerationArchive generateFromWordTracked(
             MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
+        return generateFromWordTracked(
+                file, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    GenerationArchive generateFromWordTracked(
+            MultipartFile file,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         requireExtension(file, ".docx");
         String sourceName = safeName(file.getOriginalFilename(), "input.docx");
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
@@ -162,7 +184,8 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         byte[] content = artifactGenerationService.generateStandardWord(
-                file, sourceName, context, auditOptions, DatabasePlatform.parseSelection(platforms));
+                file, sourceName, context, auditOptions, DatabasePlatform.parseSelection(platforms),
+                timestampSemantics);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
@@ -184,7 +207,19 @@ public class SchemaForgeApiService {
             Boolean includeAuditFields,
             String auditProfile,
             List<String> platforms) throws IOException {
-        return generateFromLegacyWordTracked(file, schemaName, includeAuditFields, auditProfile, platforms).content();
+        return generateFromLegacyWord(
+                file, schemaName, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateFromLegacyWord(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
+        return generateFromLegacyWordTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms, timestampSemantics).content();
     }
 
     GenerationArchive generateFromLegacyWordTracked(MultipartFile file, String schemaName) throws IOException {
@@ -205,6 +240,17 @@ public class SchemaForgeApiService {
             Boolean includeAuditFields,
             String auditProfile,
             List<String> platforms) throws IOException {
+        return generateFromLegacyWordTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    GenerationArchive generateFromLegacyWordTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         requireWordExtension(file);
         String schema = requireText(schemaName, "Legacy Word schema parameter is required");
         String fallback = file.getOriginalFilename() != null
@@ -217,7 +263,8 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         byte[] content = artifactGenerationService.generateLegacyWord(
-                file, sourceName, schema, context, auditOptions, DatabasePlatform.parseSelection(platforms));
+                file, sourceName, schema, context, auditOptions, DatabasePlatform.parseSelection(platforms),
+                timestampSemantics);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
@@ -227,8 +274,19 @@ public class SchemaForgeApiService {
             Boolean includeAuditFields,
             String auditProfile,
             List<String> platforms) throws IOException {
+        return generateFromLegacyWordZip(
+                file, schemaName, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateFromLegacyWordZip(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         return generateFromLegacyWordZipTracked(
-                file, schemaName, includeAuditFields, auditProfile, platforms).content();
+                file, schemaName, includeAuditFields, auditProfile, platforms, timestampSemantics).content();
     }
 
     GenerationArchive generateFromLegacyWordZipTracked(
@@ -237,6 +295,17 @@ public class SchemaForgeApiService {
             Boolean includeAuditFields,
             String auditProfile,
             List<String> platforms) throws IOException {
+        return generateFromLegacyWordZipTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    GenerationArchive generateFromLegacyWordZipTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         requireExtension(file, ".zip");
         String schema = requireText(schemaName, "Legacy Word schema parameter is required");
         String sourceName = safeName(file.getOriginalFilename(), "legacy-word-batch.zip");
@@ -250,7 +319,8 @@ public class SchemaForgeApiService {
                 schema,
                 context,
                 auditOptions,
-                DatabasePlatform.parseSelection(platforms));
+                DatabasePlatform.parseSelection(platforms),
+                timestampSemantics);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
@@ -265,7 +335,18 @@ public class SchemaForgeApiService {
 
     public byte[] generateFromZip(
             MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
-        return generateFromZipTracked(file, includeAuditFields, auditProfile, platforms).content();
+        return generateFromZip(
+                file, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateFromZip(
+            MultipartFile file,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
+        return generateFromZipTracked(
+                file, includeAuditFields, auditProfile, platforms, timestampSemantics).content();
     }
 
     GenerationArchive generateFromZipTracked(MultipartFile file) throws IOException {
@@ -279,6 +360,16 @@ public class SchemaForgeApiService {
 
     GenerationArchive generateFromZipTracked(
             MultipartFile file, Boolean includeAuditFields, String auditProfile, List<String> platforms) throws IOException {
+        return generateFromZipTracked(
+                file, includeAuditFields, auditProfile, platforms, TimestampSemantics.SOURCE);
+    }
+
+    GenerationArchive generateFromZipTracked(
+            MultipartFile file,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         requireExtension(file, ".zip");
         String sourceName = safeName(file.getOriginalFilename(), "input.zip");
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
@@ -286,7 +377,8 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         byte[] content = batchGenerationOrchestrator.generate(
-                file, stripExtension(sourceName), context, auditOptions, DatabasePlatform.parseSelection(platforms));
+                file, stripExtension(sourceName), context, auditOptions, DatabasePlatform.parseSelection(platforms),
+                timestampSemantics);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 
@@ -323,8 +415,22 @@ public class SchemaForgeApiService {
             String auditProfile,
             List<String> platforms,
             Boolean primaryKeyAsIdentity) throws IOException {
+        return generateFromEaXml(
+                file, schemaName, includeAuditFields, auditProfile, platforms,
+                primaryKeyAsIdentity, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateFromEaXml(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            Boolean primaryKeyAsIdentity,
+            TimestampSemantics timestampSemantics) throws IOException {
         return generateFromEaXmlTracked(
-                file, schemaName, includeAuditFields, auditProfile, platforms, primaryKeyAsIdentity).content();
+                file, schemaName, includeAuditFields, auditProfile, platforms,
+                primaryKeyAsIdentity, timestampSemantics).content();
     }
 
     GenerationArchive generateFromEaXmlTracked(MultipartFile file, String schemaName) throws IOException {
@@ -356,6 +462,19 @@ public class SchemaForgeApiService {
             String auditProfile,
             List<String> platforms,
             Boolean primaryKeyAsIdentity) throws IOException {
+        return generateFromEaXmlTracked(
+                file, schemaName, includeAuditFields, auditProfile, platforms,
+                primaryKeyAsIdentity, TimestampSemantics.SOURCE);
+    }
+
+    GenerationArchive generateFromEaXmlTracked(
+            MultipartFile file,
+            String schemaName,
+            Boolean includeAuditFields,
+            String auditProfile,
+            List<String> platforms,
+            Boolean primaryKeyAsIdentity,
+            TimestampSemantics timestampSemantics) throws IOException {
         String name = safeName(file.getOriginalFilename(), "ea-model.xml");
         String lower = name.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
@@ -364,11 +483,12 @@ public class SchemaForgeApiService {
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         PreparedSchema prepared = eaGenerationOrchestrator.prepare(
-                file, name, schemaName, auditOptions, primaryKeyAsIdentity);
+                file, name, schemaName, auditOptions, primaryKeyAsIdentity, timestampSemantics);
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.ENTERPRISE_ARCHITECT, name);
         byte[] content = eaGenerationOrchestrator.generate(
-                prepared, stripExtension(name), context, auditOptions, DatabasePlatform.parseSelection(platforms));
+                prepared, stripExtension(name), context, auditOptions, DatabasePlatform.parseSelection(platforms),
+                timestampSemantics);
         return new GenerationArchive(content, context.ledger().snapshot());
     }
 

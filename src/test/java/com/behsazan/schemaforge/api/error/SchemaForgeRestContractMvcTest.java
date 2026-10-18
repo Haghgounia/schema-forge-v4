@@ -10,6 +10,7 @@ import com.behsazan.schemaforge.api.SqlServerCrudController;
 import com.behsazan.schemaforge.application.OracleCrudGenerationService;
 import com.behsazan.schemaforge.application.ServiceUnavailableException;
 import com.behsazan.schemaforge.application.SqlServerCrudGenerationService;
+import com.behsazan.schemaforge.application.TimestampSemantics;
 import com.behsazan.schemaforge.conformance.SchemaConformanceAuditService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -37,7 +38,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void generationErrorsUseStandardContract() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any()))
+        when(service.generateFromWord(any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("invalid word"));
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
@@ -58,7 +59,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void wordPlatformSelectionIsForwardedAndRequired() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -68,7 +69,7 @@ class SchemaForgeRestContractMvcTest {
                         .param("platform", "oracle", "mysql"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromWord(any(), any(), any(), eq(java.util.List.of("oracle", "mysql")));
+        verify(service).generateFromWord(any(), any(), any(), eq(java.util.List.of("oracle", "mysql")), eq(TimestampSemantics.SOURCE));
 
         mvc.perform(multipart("/api/v1/generate/word").file(file))
                 .andExpect(status().isBadRequest())
@@ -79,7 +80,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void auditFieldsSelectionMapsToLegacyGenerationOptions() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -90,13 +91,13 @@ class SchemaForgeRestContractMvcTest {
                         .param("auditFields", "created-updated"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromWord(any(), eq(true), eq("CREATED_UPDATED"), eq(java.util.List.of("oracle")));
+        verify(service).generateFromWord(any(), eq(true), eq("CREATED_UPDATED"), eq(java.util.List.of("oracle")), eq(TimestampSemantics.SOURCE));
     }
 
     @Test
     void auditFieldsSourcePreservesSourceByDisablingAuditEnrichment() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -107,13 +108,13 @@ class SchemaForgeRestContractMvcTest {
                         .param("auditFields", "source"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")));
+        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")), eq(TimestampSemantics.SOURCE));
     }
 
     @Test
     void omittedAuditFieldsDefaultsToSourcePreservation() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -123,13 +124,51 @@ class SchemaForgeRestContractMvcTest {
                         .param("platform", "oracle"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")));
+        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")), eq(TimestampSemantics.SOURCE));
+    }
+
+    @Test
+    void timestampSemanticsSelectionIsForwardedAndDefaultsAreExplicit() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("timestampSemantics", "with-time-zone"))
+                .andExpect(status().isOk());
+
+        verify(service).generateFromWord(
+                any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")),
+                eq(TimestampSemantics.WITH_TIME_ZONE));
+    }
+
+    @Test
+    void invalidTimestampSemanticsIsRejectedBeforeGeneration() throws Exception {
+        SchemaForgeApiService service = mock(SchemaForgeApiService.class);
+        MockMvc mvc = mvc(new SchemaForgeController(service));
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/generate/word")
+                        .file(file)
+                        .param("platform", "oracle")
+                        .param("timestampSemantics", "utc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                        "Unsupported timestampSemantics")));
+
+        verifyNoInteractions(service);
     }
 
     @Test
     void legacyAuditOptionsRemainAcceptedWhenNewSelectorIsOmitted() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -141,13 +180,13 @@ class SchemaForgeRestContractMvcTest {
                         .param("auditProfile", "CREATED_UPDATED"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromWord(any(), eq(true), eq("CREATED_UPDATED"), eq(java.util.List.of("oracle")));
+        verify(service).generateFromWord(any(), eq(true), eq("CREATED_UPDATED"), eq(java.util.List.of("oracle")), eq(TimestampSemantics.SOURCE));
     }
 
     @Test
     void auditFieldsNoneDisablesAuditEnrichment() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "table.docx", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -158,7 +197,7 @@ class SchemaForgeRestContractMvcTest {
                         .param("auditFields", "none"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")));
+        verify(service).generateFromWord(any(), eq(false), eq((String) null), eq(java.util.List.of("oracle")), eq(TimestampSemantics.SOURCE));
     }
 
     @Test
@@ -183,7 +222,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void legacyWordPlatformSelectionIsForwardedAndRequired() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromLegacyWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromLegacyWord(any(), any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "legacy.doc", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -194,7 +233,7 @@ class SchemaForgeRestContractMvcTest {
                         .param("platform", "db2luw"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromLegacyWord(any(), eq("BIM"), any(), any(), eq(java.util.List.of("db2luw")));
+        verify(service).generateFromLegacyWord(any(), eq("BIM"), any(), any(), eq(java.util.List.of("db2luw")), eq(TimestampSemantics.SOURCE));
 
         mvc.perform(multipart("/api/v1/generate/legacy-word")
                         .file(file)
@@ -206,7 +245,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void legacyWordZipForwardsSchemaAuditAndPlatformAndRequiresPlatform() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromLegacyWordZip(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromLegacyWordZip(any(), any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "legacy-batch.zip", MediaType.APPLICATION_OCTET_STREAM_VALUE,
@@ -222,7 +261,7 @@ class SchemaForgeRestContractMvcTest {
 
         verify(service).generateFromLegacyWordZip(
                 any(), eq("TASSHMA"), eq(false), eq((String) null),
-                eq(java.util.List.of("oracle", "db2luw")));
+                eq(java.util.List.of("oracle", "db2luw")), eq(TimestampSemantics.SOURCE));
 
         mvc.perform(multipart("/api/v1/generate/legacy-word/zip")
                         .file(file)
@@ -234,7 +273,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void zipPlatformSelectionIsForwardedAndRequired() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromZip(any(), any(), any(), any())).thenReturn(new byte[] {1});
+        when(service.generateFromZip(any(), any(), any(), any(), any())).thenReturn(new byte[] {1});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "batch.zip", MediaType.APPLICATION_OCTET_STREAM_VALUE, "x".getBytes(StandardCharsets.UTF_8));
@@ -244,7 +283,7 @@ class SchemaForgeRestContractMvcTest {
                         .param("platform", "sqlserver"))
                 .andExpect(status().isOk());
 
-        verify(service).generateFromZip(any(), any(), any(), eq(java.util.List.of("sqlserver")));
+        verify(service).generateFromZip(any(), any(), any(), eq(java.util.List.of("sqlserver")), eq(TimestampSemantics.SOURCE));
 
         mvc.perform(multipart("/api/v1/generate/zip").file(file))
                 .andExpect(status().isBadRequest())
@@ -254,7 +293,7 @@ class SchemaForgeRestContractMvcTest {
     @Test
     void eaPlatformSelectionIsForwardedToGenerationService() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromEaXml(any(), any(), any(), any(), any(), any()))
+        when(service.generateFromEaXml(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new byte[] {1, 2, 3});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
@@ -266,14 +305,14 @@ class SchemaForgeRestContractMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/zip"));
 
-        verify(service).generateFromEaXml(any(), any(), any(), any(), eq(java.util.List.of("oracle")), eq(null));
+        verify(service).generateFromEaXml(any(), any(), any(), any(), eq(java.util.List.of("oracle")), eq(null), eq(TimestampSemantics.SOURCE));
     }
 
 
     @Test
     void eaPrimaryKeyIdentityCompatibilityOverrideIsForwarded() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromEaXml(any(), any(), any(), any(), any(), any()))
+        when(service.generateFromEaXml(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new byte[] {1, 2, 3});
         MockMvc mvc = mvc(new SchemaForgeController(service));
         MockMultipartFile file = new MockMultipartFile(
@@ -286,7 +325,7 @@ class SchemaForgeRestContractMvcTest {
                 .andExpect(status().isOk());
 
         verify(service).generateFromEaXml(
-                any(), any(), any(), any(), eq(java.util.List.of("oracle")), eq(true));
+                any(), any(), any(), any(), eq(java.util.List.of("oracle")), eq(true), eq(TimestampSemantics.SOURCE));
     }
 
     @Test

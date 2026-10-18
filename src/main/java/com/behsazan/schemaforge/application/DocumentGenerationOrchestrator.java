@@ -146,7 +146,8 @@ public final class DocumentGenerationOrchestrator {
             Path output,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
-        return generateStandardWord(input, output, context, auditOptions, Set.of(DatabasePlatform.values()));
+        return generateStandardWord(
+                input, output, context, auditOptions, Set.of(DatabasePlatform.values()), TimestampSemantics.SOURCE);
     }
 
     public PreparedSchema generateStandardWord(
@@ -155,7 +156,18 @@ public final class DocumentGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generateStandardWord(input, output, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public PreparedSchema generateStandardWord(
+            Path input,
+            Path output,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         Objects.requireNonNull(platforms, "platforms must not be null");
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
         if (platforms.isEmpty()) {
             throw new IllegalArgumentException("At least one database platform must be selected");
         }
@@ -165,8 +177,8 @@ public final class DocumentGenerationOrchestrator {
                     new SpecificationSource(input.getFileName().toString(), stream));
         }
         PreparedSchema prepared = auditOptions == null
-                ? preparationService.prepare(parsed)
-                : preparationService.prepare(parsed, auditOptions);
+                ? preparationService.prepare(parsed, timestampSemantics)
+                : preparationService.prepare(parsed, auditOptions, timestampSemantics);
         ValidationReport combinedReport = writeDatabaseOutputs(
                 prepared, output, stripExtension(input.getFileName().toString()), context, platforms);
         return new PreparedSchema(prepared.schema(), combinedReport);
@@ -188,7 +200,9 @@ public final class DocumentGenerationOrchestrator {
             String schemaName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
-        return generateLegacyWord(input, output, schemaName, context, auditOptions, Set.of(DatabasePlatform.values()));
+        return generateLegacyWord(
+                input, output, schemaName, context, auditOptions,
+                Set.of(DatabasePlatform.values()), TimestampSemantics.SOURCE);
     }
 
     public PreparedSchema generateLegacyWord(
@@ -198,15 +212,28 @@ public final class DocumentGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generateLegacyWord(
+                input, output, schemaName, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public PreparedSchema generateLegacyWord(
+            Path input,
+            Path output,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         Objects.requireNonNull(platforms, "platforms must not be null");
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
         if (platforms.isEmpty()) {
             throw new IllegalArgumentException("At least one database platform must be selected");
         }
         DatabaseSchema parsed = legacyWordSpecificationParser.parse(
                 input.getParent(), input, schemaName);
         PreparedSchema prepared = auditOptions == null
-                ? preparationService.prepare(parsed)
-                : preparationService.prepare(parsed, auditOptions);
+                ? preparationService.prepare(parsed, timestampSemantics)
+                : preparationService.prepare(parsed, auditOptions, timestampSemantics);
         ValidationReport combinedReport = writeDatabaseOutputs(
                 prepared, output, stripExtension(input.getFileName().toString()), context, platforms);
         return new PreparedSchema(prepared.schema(), combinedReport);

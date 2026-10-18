@@ -48,7 +48,9 @@ class ArtifactGenerationServiceTest {
         PreparedSchema prepared = prepared("APP");
         AtomicReference<Path> work = new AtomicReference<>();
 
-        when(orchestrator.generateStandardWord(any(Path.class), any(Path.class), same(context), isNull()))
+        when(orchestrator.generateStandardWord(
+                any(Path.class), any(Path.class), same(context), isNull(),
+                eq(Set.of(DatabasePlatform.values())), eq(TimestampSemantics.SOURCE)))
                 .thenAnswer(invocation -> {
                     Path input = invocation.getArgument(0);
                     Path output = invocation.getArgument(1);
@@ -91,7 +93,9 @@ class ArtifactGenerationServiceTest {
         ArtifactGenerationContext context = context(ArtifactOrigin.LEGACY_WORD, "legacy.doc");
         PreparedSchema prepared = prepared("DPS");
 
-        when(orchestrator.generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context), isNull()))
+        when(orchestrator.generateLegacyWord(
+                any(Path.class), any(Path.class), eq("DPS"), same(context), isNull(),
+                eq(Set.of(DatabasePlatform.values())), eq(TimestampSemantics.SOURCE)))
                 .thenReturn(prepared);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -105,7 +109,9 @@ class ArtifactGenerationServiceTest {
         assertTrue(summary.contains("Request Type         : LEGACY_WORD"));
         assertEquals("legacy.doc", manifest.path("source").path("name").asText());
         assertEquals("DPS", manifest.path("models").get(0).path("schema").asText());
-        verify(orchestrator).generateLegacyWord(any(Path.class), any(Path.class), eq("DPS"), same(context), isNull());
+        verify(orchestrator).generateLegacyWord(
+                any(Path.class), any(Path.class), eq("DPS"), same(context), isNull(),
+                eq(Set.of(DatabasePlatform.values())), eq(TimestampSemantics.SOURCE));
     }
 
     @Test
@@ -117,7 +123,8 @@ class ArtifactGenerationServiceTest {
         Set<DatabasePlatform> platforms = Set.of(DatabasePlatform.ORACLE, DatabasePlatform.MYSQL);
 
         when(orchestrator.generateStandardWord(
-                any(Path.class), any(Path.class), same(context), isNull(), eq(platforms)))
+                any(Path.class), any(Path.class), same(context), isNull(), eq(platforms),
+                eq(TimestampSemantics.SOURCE)))
                 .thenReturn(prepared);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -130,7 +137,8 @@ class ArtifactGenerationServiceTest {
 
         assertTrue(entries.containsKey("manifest.json"));
         verify(orchestrator).generateStandardWord(
-                any(Path.class), any(Path.class), same(context), isNull(), eq(platforms));
+                any(Path.class), any(Path.class), same(context), isNull(), eq(platforms),
+                eq(TimestampSemantics.SOURCE));
     }
 
     @Test
@@ -140,7 +148,9 @@ class ArtifactGenerationServiceTest {
         ArtifactGenerationContext context = context(ArtifactOrigin.STANDARD_WORD, "failure.docx");
         AtomicReference<Path> work = new AtomicReference<>();
 
-        when(orchestrator.generateStandardWord(any(Path.class), any(Path.class), same(context), isNull()))
+        when(orchestrator.generateStandardWord(
+                any(Path.class), any(Path.class), same(context), isNull(),
+                eq(Set.of(DatabasePlatform.values())), eq(TimestampSemantics.SOURCE)))
                 .thenAnswer(invocation -> {
                     Path input = invocation.getArgument(0);
                     work.set(input.getParent());

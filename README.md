@@ -362,7 +362,7 @@ SCHEMAFORGE_METADATA_SQLSERVER_PASSWORD=change-me
 
 ## Enterprise Architect XML/XMI input
 
-The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect database-model exports in the qualified XMI 1.x dialect and native EA XMI 2.1 (`packagedElement` + `xmi:Extension`) dialect. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. Identity handling is strict/no-guess by default: primary-key membership alone does not imply identity. Explicit EA/XMI identity evidence remains authoritative. For controlled compatibility with older behavior, set request parameter `primaryKeyAsIdentity=true` (request override) or configuration `schemaforge.ea.primary-key-as-identity=true` / `SCHEMAFORGE_EA_PRIMARY_KEY_AS_IDENTITY=true`; integer-compatible primary-key columns may then be inferred as identity, while character/date primary keys and shared PK/FK columns remain protected by the existing inference guards. If the source explicitly marks a non-numeric column as identity, canonical validation reports `NON_NUMERIC_IDENTITY_COLUMN` as an error and DDL for that table is blocked on every selected DBMS; unrelated artifacts continue and the manifest records `PARTIAL_SUCCESS`. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP follows the common C5 artifact-first layout: one DDL file per table and dialect, comparison workbooks when metadata is available, one timestamped canonical `*.schema.json`, dialect-specific run-all scripts, diagrams/reports as applicable, and the Standard Manifest V1 `manifest.json`. C6.2 applies the same manifest contract to Word, Legacy Word, Legacy Word ZIP Batch, standard ZIP Batch, and EA.
+The REST endpoint `POST /api/v1/generate/ea-xml` accepts Enterprise Architect database-model exports in the qualified XMI 1.x dialect and native EA XMI 2.1 (`packagedElement` + `xmi:Extension`) dialect. The multipart request accepts `file` and an optional `schema` parameter; an explicit API schema overrides schema/owner values embedded in EA and the configured fallback. Identity handling is strict/no-guess by default: primary-key membership alone does not imply identity. Explicit EA/XMI identity evidence remains authoritative. For controlled compatibility with older behavior, set request parameter `primaryKeyAsIdentity=true` (request override) or configuration `schemaforge.ea.primary-key-as-identity=true` / `SCHEMAFORGE_EA_PRIMARY_KEY_AS_IDENTITY=true`; integer-compatible primary-key columns may then be inferred as identity, while character/date primary keys and shared PK/FK columns remain protected by the existing inference guards. If the source explicitly marks a non-numeric column as identity, canonical validation reports `NON_NUMERIC_IDENTITY_COLUMN` as an error and executable CREATE/migration SQL for that table is blocked on every selected DBMS; unrelated artifacts continue and the manifest records `PARTIAL_SUCCESS`. CHECK expressions are also structurally validated without repair: unbalanced parentheses or unterminated string literals are reported as canonical errors; affected per-table CREATE/migration SQL and the EA run-all script are blocked rather than emitting malformed target SQL. EA tables and columns are converted to the same canonical model used by Word input. Because one EA export may contain many tables, the response ZIP follows the common C5 artifact-first layout: one DDL file per table and dialect, comparison workbooks when metadata is available, one timestamped canonical `*.schema.json`, dialect-specific run-all scripts, diagrams/reports as applicable, and the Standard Manifest V1 `manifest.json`. C6.2 applies the same manifest contract to Word, Legacy Word, Legacy Word ZIP Batch, standard ZIP Batch, and EA.
 
 All five artifact-generation REST endpoints (`word`, `legacy-word`, `legacy-word/zip`, `zip`, `ea-xml`) expose one user-facing `auditFields` selector in Swagger:
 
@@ -372,6 +372,15 @@ All five artifact-generation REST endpoints (`word`, `legacy-word`, `legacy-word
 - `none`: add no audit fields.
 
 Existing source-defined audit fields are always preserved. The default is `source`. When a table already declares either supported audit family, that source family is authoritative and is preserved/completed rather than replaced by the request-level selection. The legacy request parameters `includeAuditFields` and `auditProfile` remain accepted by the HTTP API but are hidden from Swagger; they retain their previous behavior when explicitly supplied. Sending the new and legacy forms together fails with `AUDIT_OPTIONS_CONFLICT`.
+
+All five artifact-generation endpoints also expose the optional `timestampSemantics` selector for source columns declared as an unqualified `TIMESTAMP`:
+
+- `source` - Recommended/default: preserve the source datatype semantics unchanged.
+- `without-time-zone`: keep an unqualified `TIMESTAMP` without timezone semantics.
+- `with-time-zone`: promote only an unqualified source `TIMESTAMP` to canonical `TIMESTAMP_WITH_TIME_ZONE`.
+- `with-local-time-zone`: promote only an unqualified source `TIMESTAMP` to canonical `TIMESTAMP_WITH_LOCAL_TIME_ZONE`.
+
+Explicit source qualifiers remain authoritative: a source `TIMESTAMP WITH TIME ZONE` or `TIMESTAMP WITH LOCAL TIME ZONE` is never downgraded or replaced by this request option. The selector is applied before audit enrichment, so SchemaForge-generated audit timestamp columns retain their existing contract. The chosen request value is recorded in `manifest.json` at `extensions.generationOptions.timestampSemantics`. Rendering remains DBMS-specific; if a selected target cannot safely represent the requested canonical timestamp semantic, the existing dialect validation/blocking policy remains authoritative rather than silently discarding timezone meaning.
 
 ```text
 ddl/oracle/<SCHEMA>.<TABLE>_<timestamp>.oracle.sql
@@ -669,3 +678,108 @@ Reports are written below `target/postgresql-p4-keys-indexes-catalog/<timestamp>
 
 Legacy Word inputs may contain invisible Unicode format controls inside database identifiers. SchemaForge removes such controls only when they are embedded between ASCII identifier characters, so `CTF\u200DCntrctInfo` is normalized to `CTFCntrctInfo`. Real spaces remain boundaries; SchemaForge does not concatenate or reorder separate tokens merely to match a filename.
 
+
+## External release-confidence gate v2 (EA + Standard Word + Legacy Word + Legacy RTL Word)
+
+Two explicit integration runners execute the real external corpora through the REST-controller contract without starting an HTTP server:
+
+- `ExternalZipBatchEndToEndIT`: processes three independent Word ZIP corpora in one test: Standard Word, Legacy Word, and Legacy RTL Word.
+- `EaDirectoryAllArtifactsIT`: recursively processes every `.xml` / `.xmi` file in an EA directory.
+
+The v2 gate is **collect-all**: a `PARTIAL_SUCCESS` or assertion failure in one corpus/input does not stop later Word corpora or later EA files. Each runner writes a CSV summary and raises one aggregate failure only after its complete corpus has been attempted.
+
+Both runners propagate and verify the current request-level generation options:
+
+- `schemaforge.e2e.platforms` (default `all`)
+- `schemaforge.e2e.auditFields` (`source`, `created-updated`, `created-last-modified`, `none`; default `source`)
+- `schemaforge.e2e.timestampSemantics` (`source`, `without-time-zone`, `with-time-zone`, `with-local-time-zone`; default `source`)
+- `schemaforge.e2e.failOnErrors` (default `true`; requires manifest `requestStatus=SUCCESS`)
+
+Word ZIP properties:
+
+- `schemaforge.e2e.standardZip`
+- `schemaforge.e2e.legacyZip`
+- `schemaforge.e2e.legacyRtlZip`
+- `schemaforge.e2e.legacySchema`
+- `schemaforge.e2e.legacyRtlSchema` (optional; defaults to `legacySchema`)
+- `schemaforge.e2e.outputDir`
+
+EA properties:
+
+- `schemaforge.ea.e2e.inputDir`
+- `schemaforge.ea.e2e.outputDir`
+- `schemaforge.ea.e2e.schema` (optional schema override)
+- `schemaforge.ea.e2e.primaryKeyAsIdentity` (default `false`)
+
+Example Windows CMD baseline/observation run over all four corpora:
+
+```cmd
+mvnw.cmd clean ^
+  -Dtest=ExternalZipBatchEndToEndIT,EaDirectoryAllArtifactsIT ^
+  -Dschemaforge.e2e.standardZip="D:\SchemaForge-Test\standard-word.zip" ^
+  -Dschemaforge.e2e.legacyZip="D:\SchemaForge-Test\legacy-word.zip" ^
+  -Dschemaforge.e2e.legacyRtlZip="D:\SchemaForge-Test\legacy-rtl-word.zip" ^
+  -Dschemaforge.e2e.legacySchema=TSTSHMA ^
+  -Dschemaforge.e2e.legacyRtlSchema=TSTSHMA ^
+  -Dschemaforge.ea.e2e.inputDir="D:\SchemaForge-Test\ea" ^
+  -Dschemaforge.e2e.platforms=oracle,postgresql,sqlserver,mysql,mariadb,db2luw,db2zos ^
+  -Dschemaforge.e2e.auditFields=source ^
+  -Dschemaforge.e2e.timestampSemantics=source ^
+  -Dschemaforge.ea.e2e.primaryKeyAsIdentity=false ^
+  -Dschemaforge.e2e.outputDir="D:\SchemaForge-Test\out\word" ^
+  -Dschemaforge.ea.e2e.outputDir="D:\SchemaForge-Test\out\ea" ^
+  -Dschemaforge.e2e.failOnErrors=false ^
+  test
+```
+
+Observation mode (`failOnErrors=false`) still enforces archive integrity, controller-contract propagation, canonical presence, Legacy schema propagation, and EA identity-policy assertions; it only permits a trustworthy `PARTIAL_SUCCESS` manifest so the complete corpus can be inventoried. Release mode uses the same command with `-Dschemaforge.e2e.failOnErrors=true`.
+
+Reports:
+
+- `<schemaforge.e2e.outputDir>/word-release-confidence-summary.csv`
+- `<schemaforge.ea.e2e.outputDir>/ea-release-confidence-summary.csv`
+
+The CSVs include request status, model count, artifact generated/blocked/skipped/failed counts, validation counters, batch document success/failure/skipped counts when applicable, and a compact blocking-outcome detail. The generated ZIP archives remain available beside the reports for exact manifest inspection.
+
+The runners are named `*IT`, so they do not run accidentally during the normal Surefire test scan unless explicitly selected with `-Dtest`. No production Java, canonical model, DDL generation logic, or database state is changed by this gate.
+
+## External release-confidence gate v3
+
+v3 keeps the same four real-input groups as v2 (Standard Word ZIP, Legacy Word ZIP, Legacy RTL Word ZIP, and an EA XML/XMI directory) but tightens the test-harness contract.
+
+`schemaforge.e2e.failOnErrors=false` is now a true observation mode. Every configured input is attempted, all detected runtime/contract failures are recorded in the corresponding CSV, and the Maven test remains green so the corpus inventory can finish. `schemaforge.e2e.failOnErrors=true` is the strict release mode and raises one aggregate assertion only after the complete selected corpus has been attempted.
+
+The Word runner validates each of its three input properties independently. A bad or missing Legacy RTL path no longer prevents Standard Word and normal Legacy Word from running; the configuration problem is recorded as a `HARNESS_ERROR` row. In strict mode the same recorded failure makes the final gate fail.
+
+EA output ZIP names are deterministic and collision-safe. The output name includes a 12-hex SHA-256 suffix derived from the input path relative to `schemaforge.ea.e2e.inputDir`, so inputs such as `a\\Final.xml` and `b\\Final.xml` cannot overwrite one another.
+
+The v3 CSV columns are:
+
+```text
+corpus,input,inputName,output,status,models,generated,blocked,skipped,failed,
+validationErrors,validationWarnings,recoveryWarnings,regularFiles,processableDocuments,
+documentSuccess,documentFailed,documentSkipped,exceptionClass,exceptionMessage,detail
+```
+
+Recommended observation command (replace all three ZIP paths with real files):
+
+```cmd
+mvnw.cmd clean ^
+  -Dtest=ExternalGenerationAcceptanceSupportTest,ExternalZipBatchEndToEndIT,EaDirectoryAllArtifactsIT ^
+  -Dschemaforge.e2e.standardZip="D:\\SchemaForge-Test\\standard-word.zip" ^
+  -Dschemaforge.e2e.legacyZip="D:\\SchemaForge-Test\\legacy-word.zip" ^
+  -Dschemaforge.e2e.legacyRtlZip="D:\\SchemaForge-Test\\legacy-rtl-word.zip" ^
+  -Dschemaforge.e2e.legacySchema=TSTSHMA ^
+  -Dschemaforge.e2e.legacyRtlSchema=TSTSHMA ^
+  -Dschemaforge.ea.e2e.inputDir="D:\\SchemaForge-Test\\ea" ^
+  -Dschemaforge.e2e.platforms=oracle,postgresql,sqlserver,mysql,mariadb,db2luw,db2zos ^
+  -Dschemaforge.e2e.auditFields=source ^
+  -Dschemaforge.e2e.timestampSemantics=source ^
+  -Dschemaforge.ea.e2e.primaryKeyAsIdentity=false ^
+  -Dschemaforge.e2e.outputDir="D:\\SchemaForge-Test\\out\\word-v3" ^
+  -Dschemaforge.ea.e2e.outputDir="D:\\SchemaForge-Test\\out\\ea-v3" ^
+  -Dschemaforge.e2e.failOnErrors=false ^
+  test
+```
+
+After the observation summaries are reviewed and expected source/dialect blockers are baselined, rerun the same command with `-Dschemaforge.e2e.failOnErrors=true` for the strict release gate.

@@ -2,6 +2,7 @@ package com.behsazan.schemaforge.api;
 
 import com.behsazan.schemaforge.TestSamplePaths;
 import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.application.TimestampSemantics;
 import com.behsazan.schemaforge.config.AuditProperties;
 import com.behsazan.schemaforge.config.GrantProperties;
 import com.behsazan.schemaforge.config.EaImportProperties;
@@ -69,6 +70,22 @@ class SchemaForgeManifestContractTest {
 
         assertEquals("OPTIMIZED", manifest.path("extensions")
                 .path("generationOptions").path("numericMapping").path("strategy").asText());
+    }
+
+    @Test
+    void timestampSemanticsSelectionIsRecordedInManifest() throws Exception {
+        Path source = TestSamplePaths.PROVINCES_V1_2;
+        MockMultipartFile file = new MockMultipartFile(
+                "file", source.getFileName().toString(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                Files.readAllBytes(source));
+
+        Map<String, byte[]> entries = unzip(service().generateFromWord(
+                file, false, null, List.of("oracle"), TimestampSemantics.WITH_TIME_ZONE));
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+
+        assertEquals("with-time-zone", manifest.path("extensions")
+                .path("generationOptions").path("timestampSemantics").asText());
     }
 
     @Test
@@ -174,6 +191,8 @@ class SchemaForgeManifestContractTest {
         assertTrue(manifest.path("generation").path("generatedAt").asText().contains("T"));
         assertEquals("SAFE", manifest.path("extensions")
                 .path("generationOptions").path("numericMapping").path("strategy").asText());
+        assertEquals("source", manifest.path("extensions")
+                .path("generationOptions").path("timestampSemantics").asText());
     }
 
     private static void assertManifestMatchesArchive(Map<String, byte[]> entries, JsonNode manifest) throws Exception {

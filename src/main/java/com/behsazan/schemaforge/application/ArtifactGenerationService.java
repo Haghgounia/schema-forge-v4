@@ -67,13 +67,9 @@ public final class ArtifactGenerationService {
             String sourceName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
-        Objects.requireNonNull(file, "file must not be null");
-        Objects.requireNonNull(sourceName, "sourceName must not be null");
-        Objects.requireNonNull(context, "context must not be null");
-        Set<DatabasePlatform> platforms = Set.of(DatabasePlatform.values());
-        return generate(file, sourceName, "schemaforge-word-", context, auditOptions, platforms,
-                (input, output) -> documentGenerationOrchestrator.generateStandardWord(
-                        input, output, context, auditOptions));
+        return generateStandardWord(
+                file, sourceName, context, auditOptions,
+                Set.of(DatabasePlatform.values()), TimestampSemantics.SOURCE);
     }
 
     public byte[] generateStandardWord(
@@ -82,13 +78,25 @@ public final class ArtifactGenerationService {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generateStandardWord(
+                file, sourceName, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateStandardWord(
+            MultipartFile file,
+            String sourceName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(platforms, "platforms must not be null");
-        return generate(file, sourceName, "schemaforge-word-", context, auditOptions, platforms,
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
+        return generate(file, sourceName, "schemaforge-word-", context, auditOptions, platforms, timestampSemantics,
                 (input, output) -> documentGenerationOrchestrator.generateStandardWord(
-                        input, output, context, auditOptions, platforms));
+                        input, output, context, auditOptions, platforms, timestampSemantics));
     }
 
     /** Generates and packages one Legacy Word specification using the required schema. */
@@ -106,14 +114,9 @@ public final class ArtifactGenerationService {
             String schemaName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions) throws IOException {
-        Objects.requireNonNull(file, "file must not be null");
-        Objects.requireNonNull(sourceName, "sourceName must not be null");
-        Objects.requireNonNull(schemaName, "schemaName must not be null");
-        Objects.requireNonNull(context, "context must not be null");
-        Set<DatabasePlatform> platforms = Set.of(DatabasePlatform.values());
-        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions, platforms,
-                (input, output) -> documentGenerationOrchestrator.generateLegacyWord(
-                        input, output, schemaName, context, auditOptions));
+        return generateLegacyWord(
+                file, sourceName, schemaName, context, auditOptions,
+                Set.of(DatabasePlatform.values()), TimestampSemantics.SOURCE);
     }
 
     public byte[] generateLegacyWord(
@@ -123,14 +126,27 @@ public final class ArtifactGenerationService {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generateLegacyWord(
+                file, sourceName, schemaName, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generateLegacyWord(
+            MultipartFile file,
+            String sourceName,
+            String schemaName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(schemaName, "schemaName must not be null");
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(platforms, "platforms must not be null");
-        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions, platforms,
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
+        return generate(file, sourceName, "schemaforge-legacy-word-", context, auditOptions, platforms, timestampSemantics,
                 (input, output) -> documentGenerationOrchestrator.generateLegacyWord(
-                        input, output, schemaName, context, auditOptions, platforms));
+                        input, output, schemaName, context, auditOptions, platforms, timestampSemantics));
     }
 
     private byte[] generate(
@@ -140,6 +156,7 @@ public final class ArtifactGenerationService {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics,
             DocumentGenerator generator) throws IOException {
         Path work = Files.createTempDirectory(workPrefix);
         try {
@@ -149,7 +166,9 @@ public final class ArtifactGenerationService {
             PreparedSchema prepared = generator.generate(input, output);
             generationSummaryReportWriter.write(
                     output, context, prepared.schema(), platforms);
-            writeStandardManifest(output, context, stripExtension(sourceName), sourceName, prepared, auditOptions, platforms);
+            writeStandardManifest(
+                    output, context, stripExtension(sourceName), sourceName, prepared,
+                    auditOptions, platforms, timestampSemantics);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
@@ -163,25 +182,28 @@ public final class ArtifactGenerationService {
             String sourceName,
             PreparedSchema prepared,
             AuditGenerationOptions auditOptions,
-            Set<DatabasePlatform> platforms) throws IOException {
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         artifactManifestWriter.write(
                 output,
                 context,
                 logicalName,
                 List.of(new ArtifactManifestAssembler.ModelInput(
                         sourceName, prepared.schema(), prepared.validationReport())),
-                generationExtensions(auditOptions, platforms));
+                generationExtensions(auditOptions, platforms, timestampSemantics));
     }
 
 
     private Map<String, Object> generationExtensions(
             AuditGenerationOptions auditOptions,
-            Set<DatabasePlatform> platforms) {
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) {
         Map<String, Object> generationOptions = new java.util.LinkedHashMap<>();
         generationOptions.put("numericMapping", Map.of("strategy", numericMappingStrategy.name()));
         generationOptions.put("platforms", DatabasePlatform.values().length == platforms.size()
                 ? List.of("all")
                 : DatabasePlatform.valuesAsList(platforms));
+        generationOptions.put("timestampSemantics", timestampSemantics.requestValue());
         if (auditOptions != null) {
             generationOptions.put("audit", auditOptions.manifestValue());
         }

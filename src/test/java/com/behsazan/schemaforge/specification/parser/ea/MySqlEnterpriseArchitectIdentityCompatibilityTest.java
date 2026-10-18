@@ -3,6 +3,7 @@ package com.behsazan.schemaforge.specification.parser.ea;
 import com.behsazan.schemaforge.dialect.mysql.MySqlDialect;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.specification.validation.SpecificationValidator;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -10,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Protects MySQL rendering of the representative EA NUMBER(19) AutoNum model. */
@@ -38,6 +40,48 @@ class MySqlEnterpriseArchitectIdentityCompatibilityTest {
         assertTrue(sql.contains("NUMBER(19,0) identity -> BIGINT UNSIGNED"));
         assertTrue(sql.contains("FK type adaptation: NUMBER(19,0) -> BIGINT UNSIGNED"));
     }
+    @Test
+    void shouldPreserveExplicitCharacterAutoNumForCanonicalFailClosedValidation() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="DEPOSIT_ACCOUNT_EXT_REGISTRY" xmi.id="TABLE_REGISTRY">
+                          <UML:ModelElement.stereotype><UML:Stereotype name="table"/></UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="REGISTRATION_STATUS_CODE">
+                              <UML:ModelElement.stereotype><UML:Stereotype name="column"/></UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="VARCHAR2"/>
+                                <UML:TaggedValue tag="length" value="20"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                                <UML:TaggedValue tag="AutoNum" value="True"/>
+                                <UML:TaggedValue tag="property" value="AutoNum=1;StartNum=1;Increment=1;"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        DatabaseSchema schema = new EnterpriseArchitectXmlParser("DPS", false).parse(
+                "registry.xml", new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        assertTrue(schema.findTable("DEPOSIT_ACCOUNT_EXT_REGISTRY").orElseThrow()
+                .findColumn("REGISTRATION_STATUS_CODE").orElseThrow().identity());
+        var report = new SpecificationValidator().validate(schema);
+        assertFalse(report.valid());
+        assertTrue(report.issues().stream().anyMatch(issue ->
+                "NON_NUMERIC_IDENTITY_COLUMN".equals(issue.code())
+                        && issue.path().endsWith("REGISTRATION_STATUS_CODE")));
+    }
+
     @Test
     void shouldNotTreatCharacterPrimaryKeyAsAutoIncrementWhenPrimaryKeyInferenceIsEnabled() {
         String xml = """

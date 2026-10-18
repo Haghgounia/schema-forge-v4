@@ -21,6 +21,7 @@ import com.behsazan.schemaforge.domain.valueobject.Description;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
+import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -189,6 +190,71 @@ class EaGenerationOrchestratorTest {
         assertEquals(0, manifest.path("artifactOutcomes").path("failed").asInt());
         assertTrue(manifest.path("artifactOutcomes").path("blocked").asInt() >= 2,
                 "per-table DDL and MySQL run-all should be blocked, not failed");
+    }
+
+    @Test
+    void blocksCanonicalValidationErrorPerTableAndRunAllAcrossSelectedPlatforms() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "DPS2");
+        ArtifactGenerationContext context = context("ea-canonical-validation-error.xml");
+
+        Column statusCode = new Column(
+                Identifier.of("REGISTRATION_STATUS_CODE"),
+                DataType.varchar("VARCHAR2", 20),
+                false, null, Description.empty(), true, 1);
+        Table table = Table.builder("DPS2", "DEPOSIT_ACCOUNT_EXT_REGISTRY")
+                .addColumn(statusCode)
+                .build();
+        ValidationIssue issue = new ValidationIssue(
+                "ERROR",
+                "NON_NUMERIC_IDENTITY_COLUMN",
+                "tables.DEPOSIT_ACCOUNT_EXT_REGISTRY.columns.REGISTRATION_STATUS_CODE",
+                "Identity is explicitly attached to non-numeric datatype VARCHAR2.");
+        PreparedSchema prepared = new PreparedSchema(
+                DatabaseSchema.builder("DPS2").addTable(table).build(),
+                new ValidationReport(false, List.of(issue)));
+
+        Map<String, byte[]> entries = unzip(orchestrator.generate(
+                prepared,
+                "ea-canonical-validation-error",
+                context,
+                null,
+                java.util.Set.of(DatabasePlatform.ORACLE, DatabasePlatform.MYSQL)));
+
+        assertTrue(entries.containsKey("manifest.json"));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".oracle.sql")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".mysql.sql")));
+        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".run-all.sql")));
+
+        List<ArtifactDescriptor> blockedDdl = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.DDL)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
+                .toList();
+        assertEquals(2, blockedDdl.size());
+        assertTrue(blockedDdl.stream().allMatch(descriptor ->
+                descriptor.outcomeReason().contains("NON_NUMERIC_IDENTITY_COLUMN")));
+
+        List<ArtifactDescriptor> blockedRunAll = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.RUN_SCRIPT)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
+                .toList();
+        assertEquals(2, blockedRunAll.size());
+        assertTrue(blockedRunAll.stream().allMatch(descriptor ->
+                descriptor.outcomeReason().contains("CANONICAL_VALIDATION_ERROR")
+                        && descriptor.outcomeReason().contains("NON_NUMERIC_IDENTITY_COLUMN")));
+
+        List<ArtifactDescriptor> blockedMigrations = context.ledger().snapshot().stream()
+                .filter(descriptor -> descriptor.type() == ArtifactType.MIGRATION)
+                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
+                .toList();
+        assertEquals(2, blockedMigrations.size());
+        assertTrue(blockedMigrations.stream().allMatch(descriptor ->
+                descriptor.outcomeReason().contains("CANONICAL_VALIDATION_ERROR")
+                        && descriptor.outcomeReason().contains("NON_NUMERIC_IDENTITY_COLUMN")));
+
+        JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
+        assertEquals("PARTIAL_SUCCESS", manifest.path("requestStatus").asText());
+        assertEquals(0, manifest.path("artifactOutcomes").path("failed").asInt());
     }
 
     @Test

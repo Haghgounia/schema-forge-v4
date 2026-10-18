@@ -14,6 +14,8 @@ import com.behsazan.schemaforge.migration.MigrationGenerationService;
 import com.behsazan.schemaforge.migration.MigrationRenderOptions;
 import com.behsazan.schemaforge.migration.TableMigrationPlan;
 import com.behsazan.schemaforge.migration.TableObjectChangeKind;
+import com.behsazan.schemaforge.specification.validation.ValidationIssue;
+import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Produces Flyway-compatible migration artifacts from a prepared desired schema and live metadata.
@@ -72,6 +75,21 @@ public final class MigrationArtifactProducer {
             Path output,
             DatabasePlatform platform,
             ArtifactGenerationContext context) throws IOException {
+        writeMigrationArtifacts(schema, repository, output, platform, context, null);
+    }
+
+    /**
+     * Writes migration artifacts while honoring canonical fail-closed table validation.
+     * Existing callers may use the five-argument overload; EA generation supplies its canonical
+     * validation report so invalid desired tables cannot leak into executable ALTER scripts.
+     */
+    public void writeMigrationArtifacts(
+            DatabaseSchema schema,
+            MetadataRepository repository,
+            Path output,
+            DatabasePlatform platform,
+            ArtifactGenerationContext context,
+            ValidationReport validationReport) throws IOException {
         Objects.requireNonNull(schema, "schema must not be null");
         Objects.requireNonNull(repository, "repository must not be null");
         Objects.requireNonNull(output, "output must not be null");
@@ -80,10 +98,15 @@ public final class MigrationArtifactProducer {
 
         if (!repository.available()) {
             for (Table table : schema.tables()) {
-                context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
-                        tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
-                        "MigrationGenerationService",
-                        "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
+                Optional<ValidationIssue> canonicalError = canonicalTableError(validationReport, table);
+                if (canonicalError.isPresent()) {
+                    blockCanonicalMigration(schema, table, platform, context, canonicalError.get());
+                } else {
+                    context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
+                            tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                            "MigrationGenerationService",
+                            "METADATA_UNAVAILABLE: Metadata repository is disabled or unavailable");
+                }
             }
             return;
         }
@@ -93,6 +116,13 @@ public final class MigrationArtifactProducer {
         int sourceOrder = 0;
 
         for (Table desiredTable : schema.tables()) {
+            Optional<ValidationIssue> canonicalError = canonicalTableError(validationReport, desiredTable);
+            if (canonicalError.isPresent()) {
+                blockCanonicalMigration(schema, desiredTable, platform, context, canonicalError.get());
+                sourceOrder++;
+                continue;
+            }
+
             String schemaName = desiredTable.qualifiedName().schemaName()
                     .map(identifier -> identifier.value())
                     .orElse(schema.name().value());
@@ -102,7 +132,7 @@ public final class MigrationArtifactProducer {
             if (!repository.available()) {
                 LOGGER.warn("[{}] Migration metadata connection unavailable; remaining migration artifacts will be skipped.",
                         platform.name());
-                markRemainingSkipped(schema, desiredTable, platform, context);
+                markRemainingSkipped(schema, desiredTable, platform, context, validationReport);
                 break;
             }
             if (liveTable.isEmpty()) {
@@ -146,10 +176,36 @@ public final class MigrationArtifactProducer {
             LOGGER.info("[{}] Flyway migration generated: {}",
                     platform.name(), output.relativize(written));
         }
-
     }
 
+    private static Optional<ValidationIssue> canonicalTableError(
+            ValidationReport report, Table table) {
+        if (report == null) {
+            return Optional.empty();
+        }
+        String tablePath = "tables." + table.qualifiedName().name().value();
+        return report.issues().stream()
+                .filter(issue -> "ERROR".equalsIgnoreCase(issue.severity()))
+                .filter(issue -> issue.path() != null
+                        && (issue.path().equals(tablePath) || issue.path().startsWith(tablePath + ".")))
+                .findFirst();
+    }
 
+    private static void blockCanonicalMigration(
+            DatabaseSchema schema,
+            Table table,
+            DatabasePlatform platform,
+            ArtifactGenerationContext context,
+            ValidationIssue issue) {
+        context.ledger().blocked(
+                context,
+                ArtifactType.MIGRATION,
+                platform,
+                tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
+                "MigrationGenerationService",
+                "MIGRATION_BLOCKED: CANONICAL_VALIDATION_ERROR " + issue.code()
+                        + ": " + issue.message());
+    }
 
     private static boolean containsRename(TableMigrationPlan plan) {
         return plan.objectChanges().stream()
@@ -163,13 +219,20 @@ public final class MigrationArtifactProducer {
             DatabaseSchema schema,
             Table currentTable,
             DatabasePlatform platform,
-            ArtifactGenerationContext context) {
+            ArtifactGenerationContext context,
+            ValidationReport validationReport) {
         boolean currentReached = false;
         for (Table table : schema.tables()) {
             if (table == currentTable) {
                 currentReached = true;
             }
-            if (currentReached) {
+            if (!currentReached) {
+                continue;
+            }
+            Optional<ValidationIssue> canonicalError = canonicalTableError(validationReport, table);
+            if (canonicalError.isPresent()) {
+                blockCanonicalMigration(schema, table, platform, context, canonicalError.get());
+            } else {
                 context.ledger().skipped(context, ArtifactType.MIGRATION, platform,
                         tableSchema(schema, table) + "." + table.qualifiedName().name().value(),
                         "MigrationGenerationService",

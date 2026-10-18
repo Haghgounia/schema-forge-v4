@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.api;
 
 import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
+import com.behsazan.schemaforge.application.TimestampSemantics;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -36,6 +37,15 @@ public class SchemaForgeController {
                     + "- **created-last-modified**: Add `CREATED_BY, CREATED_DATE, LAST_MODIFIED_BY, LAST_MODIFIED_DATE` when missing.\n"
                     + "- **none**: Add no audit fields.\n\n"
                     + "Existing source-defined audit fields are always preserved. Default: `source`.";
+    private static final String TIMESTAMP_SEMANTICS_DESCRIPTION =
+            "Timestamp Semantics for source columns declared as unqualified `TIMESTAMP`:\n\n"
+                    + "- **source - Recommended**: Keep source semantics unchanged.\n"
+                    + "- **without-time-zone**: Keep unqualified `TIMESTAMP` without timezone semantics.\n"
+                    + "- **with-time-zone**: Treat unqualified `TIMESTAMP` as `TIMESTAMP WITH TIME ZONE`.\n"
+                    + "- **with-local-time-zone**: Treat unqualified `TIMESTAMP` as `TIMESTAMP WITH LOCAL TIME ZONE`.\n\n"
+                    + "Explicit source qualifiers are authoritative and are never overwritten. "
+                    + "Target DBMS mappings remain authoritative; unsupported lossless mappings are not silently downgraded. "
+                    + "Default: `source`.";
     private final SchemaForgeApiService service;
     private final ArtifactNamingPolicy archiveNamingPolicy;
 
@@ -60,6 +70,11 @@ public class SchemaForgeController {
                     schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
                             "source", "created-updated", "created-last-modified", "none"}))
             @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(
+                    description = TIMESTAMP_SEMANTICS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "without-time-zone", "with-time-zone", "with-local-time-zone"}))
+            @RequestParam(value = "timestampSemantics", required = false) String timestampSemantics,
             @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @Parameter(hidden = true)
@@ -67,7 +82,9 @@ public class SchemaForgeController {
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
         AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
-        return zip(service.generateFromWord(file, audit.includeAuditFields(), audit.auditProfile(), platforms),
+        return zip(service.generateFromWord(
+                        file, audit.includeAuditFields(), audit.auditProfile(), platforms,
+                        TimestampSemantics.parse(timestampSemantics)),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.WORD));
     }
 
@@ -89,6 +106,11 @@ public class SchemaForgeController {
                     schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
                             "source", "created-updated", "created-last-modified", "none"}))
             @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(
+                    description = TIMESTAMP_SEMANTICS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "without-time-zone", "with-time-zone", "with-local-time-zone"}))
+            @RequestParam(value = "timestampSemantics", required = false) String timestampSemantics,
             @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @Parameter(hidden = true)
@@ -96,7 +118,9 @@ public class SchemaForgeController {
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
         AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
-        return zip(service.generateFromLegacyWord(file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms),
+        return zip(service.generateFromLegacyWord(
+                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms,
+                        TimestampSemantics.parse(timestampSemantics)),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD));
     }
 
@@ -122,6 +146,11 @@ public class SchemaForgeController {
                     schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
                             "source", "created-updated", "created-last-modified", "none"}))
             @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(
+                    description = TIMESTAMP_SEMANTICS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "without-time-zone", "with-time-zone", "with-local-time-zone"}))
+            @RequestParam(value = "timestampSemantics", required = false) String timestampSemantics,
             @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @Parameter(hidden = true)
@@ -130,7 +159,8 @@ public class SchemaForgeController {
         RestPlatformSelection.requirePresent(platforms);
         AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
         return zip(service.generateFromLegacyWordZip(
-                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms),
+                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms,
+                        TimestampSemantics.parse(timestampSemantics)),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.LEGACY_WORD_BATCH));
     }
 
@@ -150,6 +180,11 @@ public class SchemaForgeController {
                     schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
                             "source", "created-updated", "created-last-modified", "none"}))
             @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(
+                    description = TIMESTAMP_SEMANTICS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "without-time-zone", "with-time-zone", "with-local-time-zone"}))
+            @RequestParam(value = "timestampSemantics", required = false) String timestampSemantics,
             @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @Parameter(hidden = true)
@@ -157,7 +192,9 @@ public class SchemaForgeController {
             throws IOException {
         RestPlatformSelection.requirePresent(platforms);
         AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
-        return zip(service.generateFromZip(file, audit.includeAuditFields(), audit.auditProfile(), platforms),
+        return zip(service.generateFromZip(
+                        file, audit.includeAuditFields(), audit.auditProfile(), platforms,
+                        TimestampSemantics.parse(timestampSemantics)),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.BATCH));
     }
 
@@ -179,6 +216,11 @@ public class SchemaForgeController {
                     schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
                             "source", "created-updated", "created-last-modified", "none"}))
             @RequestParam(value = "auditFields", required = false) String auditFields,
+            @Parameter(
+                    description = TIMESTAMP_SEMANTICS_DESCRIPTION,
+                    schema = @Schema(type = "string", defaultValue = "source", allowableValues = {
+                            "source", "without-time-zone", "with-time-zone", "with-local-time-zone"}))
+            @RequestParam(value = "timestampSemantics", required = false) String timestampSemantics,
             @Parameter(hidden = true)
             @RequestParam(value = "includeAuditFields", required = false) Boolean includeAuditFields,
             @Parameter(hidden = true)
@@ -189,7 +231,8 @@ public class SchemaForgeController {
         RestPlatformSelection.requirePresent(platforms);
         AuditRequestOptions audit = resolveAuditOptions(auditFields, includeAuditFields, auditProfile);
         return zip(service.generateFromEaXml(
-                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms, primaryKeyAsIdentity),
+                        file, schema, audit.includeAuditFields(), audit.auditProfile(), platforms,
+                        primaryKeyAsIdentity, TimestampSemantics.parse(timestampSemantics)),
                 archiveNamingPolicy.archiveFileName(ArtifactNamingPolicy.ArchiveKind.EA));
     }
 

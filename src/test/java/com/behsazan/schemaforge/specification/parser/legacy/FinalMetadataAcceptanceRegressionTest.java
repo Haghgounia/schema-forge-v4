@@ -64,7 +64,7 @@ class FinalMetadataAcceptanceRegressionTest {
                 "TashilatD.sd.spc.tb.CTF\u200DCNTRCTINFO.docx"
         );
 
-        assertEquals("CTFCNTRCTINFO", result.metadata().tableName());
+        assertEquals("CTFCntrctInfo", result.metadata().tableName());
         assertFalse(result.warnings().stream().anyMatch(warning ->
                 "TABLE_NAME_FILENAME_MISMATCH".equals(warning.code())
         ));

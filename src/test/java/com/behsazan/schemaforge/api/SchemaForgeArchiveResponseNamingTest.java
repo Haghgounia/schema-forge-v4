@@ -22,7 +22,7 @@ class SchemaForgeArchiveResponseNamingTest {
     @Test
     void wordResponseUsesCentralPortableArchiveName() throws Exception {
         SchemaForgeApiService service = mock(SchemaForgeApiService.class);
-        when(service.generateFromWord(any(), any(), any(), any())).thenReturn(new byte[] {1, 2, 3});
+        when(service.generateFromWord(any(), any(), any(), any(), any())).thenReturn(new byte[] {1, 2, 3});
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new SchemaForgeController(service)).build();
         MockMultipartFile file = new MockMultipartFile(
                 "file",

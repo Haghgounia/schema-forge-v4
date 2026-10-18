@@ -9,6 +9,7 @@ import com.behsazan.schemaforge.generation.enrichment.AuditColumnSchemaEnricher;
 import com.behsazan.schemaforge.generation.enrichment.DefaultValueSchemaEnricher;
 import com.behsazan.schemaforge.generation.enrichment.GrantSchemaEnricher;
 import com.behsazan.schemaforge.generation.enrichment.SchemaEnricher;
+import com.behsazan.schemaforge.generation.enrichment.TimestampSemanticsSchemaEnricher;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
 import com.behsazan.schemaforge.specification.validation.DefaultCheckCompatibilityValidator;
 import com.behsazan.schemaforge.specification.validation.NamingConventionValidator;
@@ -92,13 +93,43 @@ public final class SchemaPreparationService {
 
     public PreparedSchema prepare(DatabaseSchema parsedSchema) {
         if (!managedAuditPipeline) return prepareCustom(parsedSchema);
-        return prepare(parsedSchema, AuditGenerationOptions.defaults(auditProperties));
+        return prepare(parsedSchema, AuditGenerationOptions.defaults(auditProperties), TimestampSemantics.SOURCE);
+    }
+
+    public PreparedSchema prepare(DatabaseSchema parsedSchema, TimestampSemantics timestampSemantics) {
+        if (!managedAuditPipeline) {
+            DatabaseSchema current = normalizer.normalize(
+                    Objects.requireNonNull(parsedSchema, "parsedSchema must not be null"));
+            current = new TimestampSemanticsSchemaEnricher(
+                    Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null")).enrich(current);
+            for (SchemaEnricher enricher : postAuditEnrichers) {
+                current = Objects.requireNonNull(enricher.enrich(current),
+                        "schema enricher returned null: " + enricher.getClass().getName());
+            }
+            current = normalizer.normalize(current);
+            return new PreparedSchema(current, validator.validate(current));
+        }
+        return prepare(parsedSchema, AuditGenerationOptions.defaults(auditProperties), timestampSemantics);
     }
 
     public PreparedSchema prepare(DatabaseSchema parsedSchema, AuditGenerationOptions auditOptions) {
+        return prepare(parsedSchema, auditOptions, TimestampSemantics.SOURCE);
+    }
+
+    public PreparedSchema prepare(
+            DatabaseSchema parsedSchema,
+            AuditGenerationOptions auditOptions,
+            TimestampSemantics timestampSemantics) {
         Objects.requireNonNull(auditOptions, "auditOptions must not be null");
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
         DatabaseSchema current = normalizer.normalize(
                 Objects.requireNonNull(parsedSchema, "parsedSchema must not be null"));
+
+        // Request-level timestamp semantics apply only to source-declared, unqualified TIMESTAMP
+        // columns. This runs before audit enrichment so synthesized audit timestamps retain their
+        // established contract. Explicit source WITH TIME ZONE / WITH LOCAL TIME ZONE declarations
+        // are preserved by the enricher.
+        current = new TimestampSemanticsSchemaEnricher(timestampSemantics).enrich(current);
 
         if (managedAuditPipeline) {
             current = new AuditColumnSchemaEnricher(

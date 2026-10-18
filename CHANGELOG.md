@@ -1,3 +1,22 @@
+## 2026-10-18 - EA canonical fail-closed source-safety restoration
+
+- Restores the documented `NON_NUMERIC_IDENTITY_COLUMN` canonical validation path in production code; the 2026-10-17 changelog/README contract existed but the validator implementation was absent from the current source baseline.
+- Adds structural CHECK validation codes `CHECK_EXPRESSION_UNBALANCED_PARENTHESES` and `CHECK_EXPRESSION_UNTERMINATED_STRING_LITERAL`; SchemaForge preserves the source expression and never guesses a repair.
+- EA per-table CREATE DDL now checks canonical table errors before dialect rendering and records affected DDL as `BLOCKED` on every selected DBMS.
+- EA migration/ALTER SQL now applies the same per-table canonical gate, so a source-invalid table cannot leak into executable migration artifacts even when live metadata is available.
+- EA run-all SQL is blocked when the canonical model contains any ERROR, while unrelated per-table artifacts continue and the manifest remains artifact-first/`PARTIAL_SUCCESS`.
+- Real source evidence: both `Party_14050514.xml` and `Party-Operation_Froms-1.xml` contain the same `FINANCIAL_PROFILE` CHECK with one missing closing parenthesis; `Deposit_Account_Operations_6_RC_2026-09-22` explicitly marks `REGISTRATION_STATUS_CODE VARCHAR2(20)` as `AutoNum=True`. Those source defects are reported, not silently corrected.
+- Adds focused validator, EA parser identity, real Party-source, and EA orchestration regression coverage.
+
+## 2026-10-18 - Request-level timestamp semantics selector
+
+- Adds optional `timestampSemantics` to all five artifact-generation REST endpoints: `source` (default), `without-time-zone`, `with-time-zone`, and `with-local-time-zone`.
+- Applies the request selection only to source columns whose canonical datatype is exactly unqualified `TIMESTAMP`; explicit source `WITH TIME ZONE` / `WITH LOCAL TIME ZONE` qualifiers remain authoritative and are never overwritten.
+- Runs timestamp semantic enrichment before audit enrichment so SchemaForge-generated audit timestamps preserve their established datatype contract.
+- Records the selected request value in `manifest.json` under `extensions.generationOptions.timestampSemantics` for Word, Legacy Word, Legacy Word ZIP Batch, standard ZIP Batch, and EA generation.
+- Keeps existing DBMS-specific mapping and fail-closed behavior authoritative when a target cannot safely represent the selected timezone semantic.
+- Adds parser/value, canonical enrichment, preparation-order, REST forwarding/validation, Swagger contract, and manifest regression coverage.
+
 ## 2026-10-17 - Legacy DOCX invisible identifier normalization v4
 
 - Moves ASCII technical-token format-control removal to the earliest DOCX XML extraction stage, before `cleanBlock()` can turn `U+200D` into a real space.
@@ -2866,3 +2885,41 @@
 - Corrected the regression-test fixture ordinal positions to the canonical 1-based contract (`1`, `2`).
 - No production behavior change from v1; this fixes the test setup so the new BLOCKED-path behavior can actually execute.
 
+### 2026-10-17 - Legacy Unicode identifier guard v5
+- Corrected the real-file regression expectation to preserve the source table-name casing (`CTFCntrctInfo`) after removing U+200D.
+- Kept the assertion that no `TABLE_NAME_FILENAME_MISMATCH` is emitted, so the production Unicode fix remains fully covered.
+- No production code changes from v4.
+
+### 2026-10-18 - Timestamp semantics test compatibility fix
+- Updated `ArtifactGenerationServiceTest` mocks/verifications to target the timestamp-aware orchestrator overloads.
+- Legacy/default service overloads are expected to delegate with `TimestampSemantics.SOURCE` and the full platform set unless callers specify otherwise.
+- No production behavior changed in this patch.
+
+### 2026-10-18 - External release-confidence corpus runners
+
+- Added `ExternalZipBatchEndToEndIT` to execute real Standard Word ZIP and Legacy Word ZIP corpora in one Maven run.
+- Added `EaDirectoryAllArtifactsIT` to recursively execute real Enterprise Architect XML/XMI corpora.
+- Both runners use the public controller contract so `auditFields`, `timestampSemantics`, platform selection, Legacy schema and EA `primaryKeyAsIdentity` are exercised exactly as request options.
+- Added archive/manifest SHA-256 integrity checks and assertions for generation options, request status, canonical JSON presence, Legacy schema propagation and EA identity-policy metadata.
+- The release runners default to all supported DBMS platforms and `failOnErrors=true`, but remain property-driven for controlled partial-success investigations.
+
+### 2026-10-18 - External release-confidence corpus runners v2
+
+- Expanded the Word release gate from two to three real ZIP corpora: Standard Word, Legacy Word, and Legacy RTL Word.
+- Added `schemaforge.e2e.legacyRtlZip` and optional `schemaforge.e2e.legacyRtlSchema` (defaults to the normal Legacy schema).
+- Changed the EA directory runner from fail-fast to collect-all: every `.xml` / `.xmi` file is attempted before one aggregate assertion is raised.
+- Changed the Word runner to collect all three corpus outcomes before one aggregate assertion is raised.
+- Added `word-release-confidence-summary.csv` and `ea-release-confidence-summary.csv` with request/artifact/validation/batch counters and compact blocking details.
+- `failOnErrors=false` is the observation mode for known `PARTIAL_SUCCESS` corpora; contract, integrity, canonical, schema and EA identity-policy checks remain strict.
+- No production Java or generation semantics changed.
+
+### 2026-10-18 - External release-confidence corpus runners v3
+
+- Corrected observation semantics: `schemaforge.e2e.failOnErrors=false` now always completes the selected corpus inventory and keeps the Maven gate green after recording runtime/assertion failures in the CSV summary.
+- Preserved strict release semantics: `schemaforge.e2e.failOnErrors=true` still raises one aggregate assertion after the complete corpus has been attempted.
+- Word corpus configuration is now isolated per corpus: an invalid/missing Standard, Legacy, or Legacy RTL input is recorded as `HARNESS_ERROR` without preventing the other configured Word corpora from running in observation mode.
+- Added deterministic collision-safe EA output names using the input-relative path hash, preventing same-basename XML/XMI files in different directories from overwriting one another.
+- Expanded CSV evidence with exact input name, generated output path, exception class, and exception message while retaining request/artifact/validation/batch counters and compact blocker detail.
+- Added `ExternalGenerationAcceptanceSupportTest` for observation-vs-strict gate behavior, deterministic EA output naming, collision avoidance, and summary evidence fields.
+- Post-manifest contract/integrity failures now enrich the same CSV row with exception evidence instead of losing the already-collected request/artifact counters.
+- No production Java, canonical schema behavior, parser logic, or DDL generation semantics changed.

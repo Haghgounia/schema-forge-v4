@@ -15,3 +15,7 @@ Layout:
 - `checksums/` - immutable GA binary checksum
 
 The runtime start script deliberately uses `spring.config.location` so the distribution runs from `config/application.yml` rather than the development defaults embedded in the executable JAR. The shipped configuration contains no database passwords and keeps every live metadata repository disabled until explicitly enabled with environment variables.
+
+### Release-confidence external corpus gate v3
+
+The test source now includes a v3 external corpus harness for Standard Word ZIP, Legacy Word ZIP, Legacy RTL Word ZIP, and EA XML/XMI directories. Observation mode (`schemaforge.e2e.failOnErrors=false`) records all issues without failing Maven; strict mode aggregates failures after full corpus processing. EA outputs use collision-safe deterministic names and CSV summaries include input/output plus exception class/message evidence.

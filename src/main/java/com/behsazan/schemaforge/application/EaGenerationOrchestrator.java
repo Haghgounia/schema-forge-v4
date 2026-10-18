@@ -162,8 +162,20 @@ public final class EaGenerationOrchestrator {
             String schemaName,
             AuditGenerationOptions auditOptions,
             Boolean primaryKeyAsIdentity) throws IOException {
+        return prepare(
+                file, sourceName, schemaName, auditOptions, primaryKeyAsIdentity, TimestampSemantics.SOURCE);
+    }
+
+    public PreparedSchema prepare(
+            MultipartFile file,
+            String sourceName,
+            String schemaName,
+            AuditGenerationOptions auditOptions,
+            Boolean primaryKeyAsIdentity,
+            TimestampSemantics timestampSemantics) throws IOException {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
         boolean inferPrimaryKeyIdentity = primaryKeyAsIdentity != null
                 ? primaryKeyAsIdentity
                 : eaImportProperties.isPrimaryKeyAsIdentity();
@@ -174,8 +186,8 @@ public final class EaGenerationOrchestrator {
                     .parse(sourceName, inputStream, schemaName);
         }
         return auditOptions == null
-                ? preparationService.prepare(parsed)
-                : preparationService.prepare(parsed, auditOptions);
+                ? preparationService.prepare(parsed, timestampSemantics)
+                : preparationService.prepare(parsed, auditOptions, timestampSemantics);
     }
 
     /** Generates and packages all established EA artifacts for an already prepared schema. */
@@ -200,10 +212,22 @@ public final class EaGenerationOrchestrator {
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms) throws IOException {
+        return generate(
+                prepared, baseName, context, auditOptions, platforms, TimestampSemantics.SOURCE);
+    }
+
+    public byte[] generate(
+            PreparedSchema prepared,
+            String baseName,
+            ArtifactGenerationContext context,
+            AuditGenerationOptions auditOptions,
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         Objects.requireNonNull(prepared, "prepared must not be null");
         Objects.requireNonNull(baseName, "baseName must not be null");
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(platforms, "platforms must not be null");
+        Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
         if (platforms.isEmpty()) {
             throw new IllegalArgumentException("At least one database platform must be selected");
         }
@@ -211,7 +235,8 @@ public final class EaGenerationOrchestrator {
         Path work = Files.createTempDirectory("schemaforge-ea-");
         try {
             Path output = Files.createDirectories(work.resolve("output"));
-            writeEaPerTableOutputs(prepared, output, baseName, context, auditOptions, platforms);
+            writeEaPerTableOutputs(
+                    prepared, output, baseName, context, auditOptions, platforms, timestampSemantics);
             return artifactPackageBuilder.zipDirectory(output);
         } finally {
             artifactPackageBuilder.deleteRecursively(work);
@@ -224,7 +249,8 @@ public final class EaGenerationOrchestrator {
             String baseName,
             ArtifactGenerationContext context,
             AuditGenerationOptions auditOptions,
-            Set<DatabasePlatform> platforms) throws IOException {
+            Set<DatabasePlatform> platforms,
+            TimestampSemantics timestampSemantics) throws IOException {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
@@ -252,15 +278,18 @@ public final class EaGenerationOrchestrator {
                     .forEach(jsonIssues::add);
 
             for (Table table : schema.tables()) {
-                List<DialectForeignKeyCompatibilityIssue> perTableCompatibilityIssues =
-                        foreignKeyCompatibilityValidator.validateTable(schema, table, dialect);
-                String tableBlockReason = perTableCompatibilityIssues.isEmpty()
-                        ? dialectTableValidationBlockReason(platform, dialect, table)
-                        : foreignKeyCompatibilityBlockReason(perTableCompatibilityIssues.getFirst());
+                ValidationReport tableReport = validationForTable(report, table);
+                String tableBlockReason = canonicalTableValidationBlockReason(tableReport);
+                if (tableBlockReason == null) {
+                    List<DialectForeignKeyCompatibilityIssue> perTableCompatibilityIssues =
+                            foreignKeyCompatibilityValidator.validateTable(schema, table, dialect);
+                    tableBlockReason = perTableCompatibilityIssues.isEmpty()
+                            ? dialectTableValidationBlockReason(platform, dialect, table)
+                            : foreignKeyCompatibilityBlockReason(perTableCompatibilityIssues.getFirst());
+                }
 
                 if (tableBlockReason == null) {
                     DatabaseSchema tableSchema = singleTableSchema(schema, table);
-                    ValidationReport tableReport = validationForTable(report, table);
                     MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
                     try {
                         String sql = new DdlGenerator(dialect, schema)
@@ -299,10 +328,11 @@ public final class EaGenerationOrchestrator {
                         context, timestamp);
             }
 
-            // Per-table CREATE scripts are emitted unless a DBMS-specific compatibility gate
-            // blocks an unsafe artifact. Live-table migrations remain independent artifacts.
-            migrationArtifactProducer.writeMigrationArtifacts(schema, repository, output, platform, context);
-            writeEaRunAll(schema, platform, dependencyOrder, baseName, timestamp, output, context);
+            // Per-table CREATE and live-table migration SQL both honor canonical fail-closed
+            // validation. Dialect-specific compatibility remains an additional CREATE-DDL gate.
+            migrationArtifactProducer.writeMigrationArtifacts(
+                    schema, repository, output, platform, context, report);
+            writeEaRunAll(schema, report, platform, dependencyOrder, baseName, timestamp, output, context);
         }
 
         crudArtifactProducer.writeMetadataCrudArtifacts(
@@ -338,6 +368,7 @@ public final class EaGenerationOrchestrator {
         generationOptions.put("platforms", DatabasePlatform.values().length == platforms.size()
                 ? List.of("all")
                 : DatabasePlatform.valuesAsList(platforms));
+        generationOptions.put("timestampSemantics", timestampSemantics.requestValue());
         if (auditOptions != null) {
             generationOptions.put("audit", auditOptions.manifestValue());
         }
@@ -364,9 +395,36 @@ public final class EaGenerationOrchestrator {
         return "PER_TABLE_DDL_BLOCKED: " + issue.code() + ": " + issue.message();
     }
 
+    private static String canonicalTableValidationBlockReason(ValidationReport tableReport) {
+        return tableReport.issues().stream()
+                .filter(issue -> "ERROR".equalsIgnoreCase(issue.severity()))
+                .findFirst()
+                .map(issue -> "PER_TABLE_DDL_BLOCKED: " + issue.code() + ": " + issue.message())
+                .orElse(null);
+    }
+
+    private static String canonicalRunAllValidationBlockReason(ValidationReport report) {
+        List<ValidationIssue> errors = report.issues().stream()
+                .filter(issue -> "ERROR".equalsIgnoreCase(issue.severity()))
+                .toList();
+        if (errors.isEmpty()) {
+            return null;
+        }
+        String codes = errors.stream()
+                .map(ValidationIssue::code)
+                .filter(Objects::nonNull)
+                .distinct()
+                .limit(8)
+                .collect(java.util.stream.Collectors.joining(","));
+        return "RUN_ALL_BLOCKED: CANONICAL_VALIDATION_ERROR"
+                + (codes.isBlank() ? "" : " [" + codes + "]")
+                + ": source canonical model contains validation error(s); integrated SQL was not emitted.";
+    }
+
     /**
      * Converts DBMS table-capability violations into artifact-level blockers instead of allowing
-     * renderer validation exceptions to escape the request boundary.
+     * renderer validation exceptions to escape the request boundary. Canonical structural errors
+     * are preflighted separately and take precedence before this dialect-specific gate.
      *
      * <p>The dialect remains authoritative for the rule. This preflight only changes orchestration:
      * a table rejected by the selected platform is recorded as BLOCKED and generation continues.
@@ -419,6 +477,7 @@ public final class EaGenerationOrchestrator {
 
     private void writeEaRunAll(
             DatabaseSchema schema,
+            ValidationReport report,
             DatabasePlatform platform,
             DependencyOrder order,
             String sourceBaseName,
@@ -428,6 +487,14 @@ public final class EaGenerationOrchestrator {
 
         Path runAllRelativePath = artifactNamingPolicy.runAllRelativePath(
                 sourceBaseName, platform, timestamp);
+
+        String canonicalBlockReason = canonicalRunAllValidationBlockReason(report);
+        if (canonicalBlockReason != null) {
+            context.ledger().blocked(
+                    context, ArtifactType.RUN_SCRIPT, platform, sourceBaseName,
+                    LEGACY_RUN_SCRIPT_PRODUCER, canonicalBlockReason);
+            return;
+        }
 
         IntegratedSqlScript integrated;
         try {
