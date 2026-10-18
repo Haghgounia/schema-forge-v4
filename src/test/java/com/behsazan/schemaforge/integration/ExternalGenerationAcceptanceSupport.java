@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 final class ExternalGenerationAcceptanceSupport {
     static final String PLATFORMS = "schemaforge.e2e.platforms";
@@ -229,9 +230,42 @@ final class ExternalGenerationAcceptanceSupport {
                 batch.path("successCount").asLong(-1),
                 batch.path("failedCount").asLong(-1),
                 batch.path("skippedCount").asLong(-1),
+                -1,
+                -1,
+                -1,
+                -1,
                 "",
                 "",
                 detail == null ? "" : detail);
+    }
+
+    static RunSummaryRow skippedNoPhysicalTablesRow(String corpus, Path input, Path output) {
+        return new RunSummaryRow(
+                corpus,
+                input.toString(),
+                input.getFileName() == null ? input.toString() : input.getFileName().toString(),
+                output == null ? "" : output.toString(),
+                "SKIPPED_NO_PHYSICAL_TABLES",
+                0, 0, 0, 1, 0, 0, 0, 0,
+                -1, -1, -1, -1, -1,
+                -1, -1, -1, -1,
+                "",
+                "",
+                "EA XML/XMI contains no <<table>>-stereotyped physical table elements; "
+                        + "logical/entity UML is outside the physical-schema import contract");
+    }
+
+    static boolean isNoPhysicalEaTableFailure(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            String message = trimToNull(current.getMessage());
+            if (message != null
+                    && message.contains("No Enterprise Architect table elements were found in XML/XMI")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     static RunSummaryRow failureSummaryRow(String corpus, Path input, Path output, Throwable failure) {
@@ -247,6 +281,7 @@ final class ExternalGenerationAcceptanceSupport {
                 "HARNESS_ERROR",
                 -1, -1, -1, -1, -1, -1, -1, -1,
                 -1, -1, -1, -1, -1,
+                -1, -1, -1, -1,
                 exceptionClass,
                 exceptionMessage,
                 conciseFailure(failure));
@@ -274,7 +309,9 @@ final class ExternalGenerationAcceptanceSupport {
                     row.models(), row.generated(), row.blocked(), row.skipped(), row.failed(),
                     row.validationErrors(), row.validationWarnings(), row.recoveryWarnings(),
                     row.regularFiles(), row.processableDocuments(), row.documentSuccess(),
-                    row.documentFailed(), row.documentSkipped(), exceptionClass, exceptionMessage, detail));
+                    row.documentFailed(), row.documentSkipped(), row.tableSpecDocuments(),
+                    row.nonTableDocuments(), row.inputFilteredDocuments(), row.classificationFailed(),
+                    exceptionClass, exceptionMessage, detail));
             return;
         }
         rows.add(failureSummaryRow(corpus, input, output, failure));
@@ -302,7 +339,9 @@ final class ExternalGenerationAcceptanceSupport {
         Path output = outputRoot.resolve(fileName);
         StringBuilder csv = new StringBuilder();
         csv.append("corpus,input,inputName,output,status,models,generated,blocked,skipped,failed,validationErrors,validationWarnings,recoveryWarnings,")
-                .append("regularFiles,processableDocuments,documentSuccess,documentFailed,documentSkipped,exceptionClass,exceptionMessage,detail\n");
+                .append("regularFiles,processableDocuments,documentSuccess,documentFailed,documentSkipped,")
+                .append("tableSpecDocuments,nonTableDocuments,inputFilteredDocuments,classificationFailed,")
+                .append("exceptionClass,exceptionMessage,detail\n");
         for (RunSummaryRow row : rows) {
             csv.append(csv(row.corpus())).append(',')
                     .append(csv(row.input())).append(',')
@@ -322,12 +361,101 @@ final class ExternalGenerationAcceptanceSupport {
                     .append(row.documentSuccess()).append(',')
                     .append(row.documentFailed()).append(',')
                     .append(row.documentSkipped()).append(',')
+                    .append(row.tableSpecDocuments()).append(',')
+                    .append(row.nonTableDocuments()).append(',')
+                    .append(row.inputFilteredDocuments()).append(',')
+                    .append(row.classificationFailed()).append(',')
                     .append(csv(row.exceptionClass())).append(',')
                     .append(csv(row.exceptionMessage())).append(',')
                     .append(csv(row.detail())).append('\n');
         }
         Files.writeString(output, csv.toString(), StandardCharsets.UTF_8);
         return output;
+    }
+
+    static RunSummaryRow legacyDirectorySummaryRow(
+            String corpus,
+            Path input,
+            Path output,
+            JsonNode manifest,
+            LegacyDirectoryCounts counts,
+            String detail) {
+        RunSummaryRow base = summaryRow(corpus, input, output, manifest, detail);
+        long manifestSkipped = Math.max(0, base.documentSkipped());
+        long manifestFailed = Math.max(0, base.documentFailed());
+        return new RunSummaryRow(
+                base.corpus(), base.input(), base.inputName(), base.output(), base.status(),
+                base.models(), base.generated(), base.blocked(), base.skipped(), base.failed(),
+                base.validationErrors(), base.validationWarnings(), base.recoveryWarnings(),
+                counts.discoveredWordDocuments(),
+                counts.tableSpecDocuments(),
+                base.documentSuccess(),
+                manifestFailed + counts.classificationFailed(),
+                manifestSkipped + counts.nonTableDocuments() + counts.inputFilteredDocuments(),
+                counts.tableSpecDocuments(),
+                counts.nonTableDocuments(),
+                counts.inputFilteredDocuments(),
+                counts.classificationFailed(),
+                base.exceptionClass(), base.exceptionMessage(), base.detail());
+    }
+
+    static Path createLegacyDirectoryTableSpecZip(
+            Path inputRoot,
+            Path outputZip,
+            List<Path> tableDocuments) throws IOException {
+        Files.createDirectories(outputZip.toAbsolutePath().normalize().getParent());
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(outputZip))) {
+            for (Path document : tableDocuments) {
+                Path relative = inputRoot.toAbsolutePath().normalize()
+                        .relativize(document.toAbsolutePath().normalize());
+                String entryName = relative.toString().replace('\\', '/');
+                ZipEntry entry = new ZipEntry(entryName);
+                zip.putNextEntry(entry);
+                Files.copy(document, zip);
+                zip.closeEntry();
+            }
+        }
+        return outputZip;
+    }
+
+    static Path writeLegacyDirectoryDocumentSummary(
+            Path outputRoot,
+            String fileName,
+            List<LegacyDirectoryDocumentRow> rows) throws IOException {
+        Path output = outputRoot.resolve(fileName);
+        StringBuilder csv = new StringBuilder();
+        csv.append("relativePath,fileName,classification,parserStatus,columnCount,issueCodes,errorClass,errorMessage\n");
+        for (LegacyDirectoryDocumentRow row : rows) {
+            csv.append(csv(row.relativePath())).append(',')
+                    .append(csv(row.fileName())).append(',')
+                    .append(csv(row.classification())).append(',')
+                    .append(csv(row.parserStatus())).append(',')
+                    .append(row.columnCount()).append(',')
+                    .append(csv(row.issueCodes())).append(',')
+                    .append(csv(row.errorClass())).append(',')
+                    .append(csv(row.errorMessage())).append('\n');
+        }
+        Files.writeString(output, csv.toString(), StandardCharsets.UTF_8);
+        return output;
+    }
+
+    record LegacyDirectoryCounts(
+            long discoveredWordDocuments,
+            long tableSpecDocuments,
+            long nonTableDocuments,
+            long inputFilteredDocuments,
+            long classificationFailed) {
+    }
+
+    record LegacyDirectoryDocumentRow(
+            String relativePath,
+            String fileName,
+            String classification,
+            String parserStatus,
+            int columnCount,
+            String issueCodes,
+            String errorClass,
+            String errorMessage) {
     }
 
     static String combinedFailureMessage(String heading, Path summary, List<String> failures) {
@@ -424,6 +552,10 @@ final class ExternalGenerationAcceptanceSupport {
             long documentSuccess,
             long documentFailed,
             long documentSkipped,
+            long tableSpecDocuments,
+            long nonTableDocuments,
+            long inputFilteredDocuments,
+            long classificationFailed,
             String exceptionClass,
             String exceptionMessage,
             String detail) {

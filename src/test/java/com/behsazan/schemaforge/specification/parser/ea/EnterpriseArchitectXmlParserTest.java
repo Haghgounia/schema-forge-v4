@@ -132,6 +132,85 @@ class EnterpriseArchitectXmlParserTest {
     }
 
     @Test
+    void shouldIgnoreEaCheckPseudoColumnsAndRecoverCheckExpressionFromDocumentation() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+                  <XMI.content>
+                    <UML:Model name="EA Model" xmi.id="MODEL_1">
+                      <UML:Namespace.ownedElement>
+                        <UML:Class name="REF_SAMPLE" xmi.id="TABLE_1">
+                          <UML:ModelElement.stereotype>
+                            <UML:Stereotype name="table"/>
+                          </UML:ModelElement.stereotype>
+                          <UML:Classifier.feature>
+                            <UML:Attribute name="IS_ACTIVE">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="column"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="NUMBER"/>
+                                <UML:TaggedValue tag="precision" value="1"/>
+                                <UML:TaggedValue tag="scale" value="0"/>
+                                <UML:TaggedValue tag="position" value="0"/>
+                                <UML:TaggedValue tag="lowerBound" value="1"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="CK_REF_IS_ACTIVE">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="column"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="CHECK"/>
+                                <UML:TaggedValue tag="position" value="10"/>
+                                <UML:TaggedValue tag="lowerBound" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Attribute name="CK_REF_VALID_DATES">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="column"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="type" value="CHECK"/>
+                                <UML:TaggedValue tag="position" value="11"/>
+                                <UML:TaggedValue tag="lowerBound" value="0"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Attribute>
+                            <UML:Operation name="CK_REF_SAMPLE_ACTIVE">
+                              <UML:ModelElement.stereotype>
+                                <UML:Stereotype name="check"/>
+                              </UML:ModelElement.stereotype>
+                              <UML:ModelElement.taggedValue>
+                                <UML:TaggedValue tag="documentation" value="IS_ACTIVE IN (0,1)"/>
+                              </UML:ModelElement.taggedValue>
+                            </UML:Operation>
+                          </UML:Classifier.feature>
+                        </UML:Class>
+                      </UML:Namespace.ownedElement>
+                    </UML:Model>
+                  </XMI.content>
+                </XMI>
+                """;
+
+        var schema = new EnterpriseArchitectXmlParser().parse(
+                "reference-data.xml",
+                new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        var table = schema.findTable("REF_SAMPLE").orElseThrow();
+        assertEquals(1, table.columns().size());
+        assertTrue(table.findColumn("IS_ACTIVE").isPresent());
+        assertFalse(table.findColumn("CK_REF_IS_ACTIVE").isPresent());
+        assertFalse(table.findColumn("CK_REF_VALID_DATES").isPresent());
+        assertEquals(1, table.checkConstraints().size());
+        assertEquals("IS_ACTIVE IN (0,1)", table.checkConstraints().getFirst().expression());
+
+        String warnings = schema.metadata().getOrDefault("recovery.warnings", "");
+        assertTrue(warnings.contains("EA_CHECK_PSEUDO_COLUMN_IGNORED|table=REF_SAMPLE|attribute=CK_REF_IS_ACTIVE|type=CHECK"));
+        assertTrue(warnings.contains("EA_CHECK_PSEUDO_COLUMN_IGNORED|table=REF_SAMPLE|attribute=CK_REF_VALID_DATES|type=CHECK"));
+        assertTrue(warnings.contains("EA_CHECK_EXPRESSION_RECOVERED_FROM_DOCUMENTATION|table=REF_SAMPLE|check=CK_REF_SAMPLE_ACTIVE"));
+    }
+
+    @Test
     void shouldHonorExplicitSchemaOverrideAndInferPrimaryKeyIdentityWhenEnabled() throws Exception {
         Path source = TestSamplePaths.EA_SAMPLE;
         try (var input = Files.newInputStream(source)) {

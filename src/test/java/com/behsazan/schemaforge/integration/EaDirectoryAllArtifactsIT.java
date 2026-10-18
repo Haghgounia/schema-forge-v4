@@ -124,6 +124,12 @@ class EaDirectoryAllArtifactsIT {
                 ExternalGenerationAcceptanceSupport.assertRequestStatus(manifest, failOnErrors, label);
                 System.out.println("[E2E] EA output: " + output);
             } catch (Exception | AssertionError failure) {
+                if (ExternalGenerationAcceptanceSupport.isNoPhysicalEaTableFailure(failure)) {
+                    rows.add(ExternalGenerationAcceptanceSupport.skippedNoPhysicalTablesRow(
+                            label, input, null));
+                    System.out.println("[E2E] EA skipped non-physical model: " + input);
+                    continue;
+                }
                 failures.add(label + " - " + ExternalGenerationAcceptanceSupport.conciseFailure(failure));
                 ExternalGenerationAcceptanceSupport.recordFailure(rows, label, input, output, failure);
             }

@@ -783,3 +783,57 @@ mvnw.cmd clean ^
 ```
 
 After the observation summaries are reviewed and expected source/dialect blockers are baselined, rerun the same command with `-Dschemaforge.e2e.failOnErrors=true` for the strict release gate.
+
+
+## Enterprise Architect CHECK pseudo-column recovery
+
+Some EA XMI 1.x exports can serialize database CHECK constraints twice: as synthetic `UML:Attribute` elements whose datatype is `CHECK`, and as `UML:Operation` elements stereotyped `check`. SchemaForge does not treat `CK_*` / `CHK_*` attributes with datatype `CHECK` as physical database columns. They are ignored with `EA_CHECK_PSEUDO_COLUMN_IGNORED` recovery evidence.
+
+For an operation explicitly stereotyped `check`, the parser prefers explicit expression fields (`expression`, `condition`, `check`, `definition`, `body`, `code`). If none is present, condition-like EA documentation may be recovered as the source CHECK expression and is reported with `EA_CHECK_EXPRESSION_RECOVERED_FROM_DOCUMENTATION`. Descriptive documentation that does not look like a condition is not guessed into SQL; `EA_CHECK_EXPRESSION_UNRESOLVED` is recorded instead.
+
+This policy prevents pseudo-datatype `CHECK` from reaching DBMS type mappers while preserving source-authored constraint expressions and the project No-Guess contract.
+
+#### EA release-confidence: logical/entity-only XMI
+The external EA corpus runner distinguishes physical EA database models from logical UML models. If the production parser reports that no EA physical `<<table>>` elements exist, the corpus summary records `SKIPPED_NO_PHYSICAL_TABLES` rather than a harness failure. Logical `entity` classes are not inferred to be physical database tables.
+
+## Word release-confidence gate v7: ZIP + recursive Legacy directory
+
+The Word release-confidence runner now matches the real corpus layout instead of assuming that all three Word inputs are ZIP archives:
+
+- `schemaforge.e2e.standardZip`: Standard Word ZIP.
+- `schemaforge.e2e.legacyDir`: recursive Legacy Word directory containing `.doc` / `.docx` files in nested subdirectories.
+- `schemaforge.e2e.legacyRtlZip`: Legacy RTL Word ZIP.
+
+The Legacy directory is content-classified before generation with the production Legacy Word extraction rules. A `.doc` / `.docx` file is **not** treated as a table specification merely because of its extension or file name. Outcomes are:
+
+- `TABLE_SPEC`: accepted by the Legacy parser and submitted to the strict `LEGACY_WORD` batch pipeline.
+- `SKIPPED_NOT_TABLE_SPEC`: the production parser deliberately classified the Word file as `IGNORED`; it is recorded and not submitted to generation.
+- `SKIPPED_INPUT_FILTER`: temporary/hidden/Mac metadata input excluded by the same batch-input filter contract.
+- `CLASSIFICATION_FAILED`: the parser could not classify the document; this remains release-gate evidence and is not silently converted to a skip.
+
+Accepted table specifications are packed into a temporary ZIP with their paths relative to `schemaforge.e2e.legacyDir` preserved, then sent through the existing production Legacy Word ZIP batch path. This reuses the production generation contract without flattening nested directories or inventing a new parser mode.
+
+Two reports are written under `schemaforge.e2e.outputDir`:
+
+- `word-release-confidence-summary.csv`: corpus-level request/artifact/validation counts plus `tableSpecDocuments`, `nonTableDocuments`, `inputFilteredDocuments`, and `classificationFailed`.
+- `legacy-directory-document-summary.csv`: one row per discovered Legacy Word document with relative path, classification, parser status, column count, issue codes, and parser error evidence.
+
+Example observation run:
+
+```cmd
+mvnw.cmd clean ^
+  -Dtest=ExternalGenerationAcceptanceSupportTest,LegacyWordDirectoryClassifierTest,ExternalZipBatchEndToEndIT ^
+  -Dschemaforge.e2e.standardZip="D:\PATH\TO\STANDARD.zip" ^
+  -Dschemaforge.e2e.legacyDir="D:\PATH\TO\LEGACY-DIRECTORY" ^
+  -Dschemaforge.e2e.legacyRtlZip="D:\PATH\TO\LEGACY-RTL.zip" ^
+  -Dschemaforge.e2e.legacySchema=TASSHMA ^
+  -Dschemaforge.e2e.legacyRtlSchema=TASSHMA ^
+  -Dschemaforge.e2e.platforms=oracle,postgresql,sqlserver,mysql,mariadb,db2luw,db2zos ^
+  -Dschemaforge.e2e.auditFields=source ^
+  -Dschemaforge.e2e.timestampSemantics=source ^
+  -Dschemaforge.e2e.outputDir="D:\Sample-Docs-Scripts\Test-All\out\word-v7" ^
+  -Dschemaforge.e2e.failOnErrors=false ^
+  test
+```
+
+`schemaforge.e2e.legacyZip` is no longer used by this v7 release-confidence runner. The production Legacy ZIP endpoint itself is unchanged.

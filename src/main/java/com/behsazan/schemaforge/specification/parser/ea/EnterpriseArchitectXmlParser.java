@@ -110,12 +110,13 @@ public final class EnterpriseArchitectXmlParser {
                     configuredDefaultSchema);
             boolean forceRequestedSchema = !requestedSchema.isBlank();
 
+            List<String> warnings = new ArrayList<>();
             Map<String, EaTable> tablesById = new LinkedHashMap<>();
             Map<String, EaTable> logicalTablesByQualifiedName = new LinkedHashMap<>();
             Map<String, Integer> tableElementCountsByQualifiedName = new LinkedHashMap<>();
             for (Element tableElement : tableElements) {
                 EaTable table = parseTableDefinition(
-                        tableElement, schemaName, forceRequestedSchema, extensionIndex);
+                        tableElement, schemaName, forceRequestedSchema, extensionIndex, warnings);
                 tablesById.put(table.xmiId(), table);
                 String logicalTableKey = logicalTableKey(table);
                 logicalTablesByQualifiedName.putIfAbsent(logicalTableKey, table);
@@ -124,7 +125,6 @@ public final class EnterpriseArchitectXmlParser {
 
             List<EaAssociation> associations = parseAssociations(
                     document, tablesById, extensionIndex);
-            List<String> warnings = new ArrayList<>();
             Map<String, EaAssociation> associationBySourceOperation = indexAssociations(
                     tablesById, associations, warnings);
             DatabaseSchema.Builder schema = DatabaseSchema.builder(schemaName)
@@ -195,7 +195,7 @@ public final class EnterpriseArchitectXmlParser {
 
     private EaTable parseTableDefinition(
             Element tableElement, String defaultSchema, boolean forceDefaultSchema,
-            EaExtensionIndex extensionIndex) {
+            EaExtensionIndex extensionIndex, List<String> warnings) {
         Map<String, String> tableTags = taggedValues(tableElement, extensionIndex);
         String tableName = sanitizeIdentifier(attribute(tableElement, "name"), "UNNAMED_TABLE");
         String tableSchema = forceDefaultSchema
@@ -217,6 +217,12 @@ public final class EnterpriseArchitectXmlParser {
         for (Element attribute : classifierMembers(
                 tableElement, "Attribute", "ownedAttribute", "Property")) {
             if (!isStereotype(attribute, "column", extensionIndex)) continue;
+            if (isEaCheckPseudoColumn(attribute, extensionIndex)) {
+                warnings.add("EA_CHECK_PSEUDO_COLUMN_IGNORED|table=" + tableName
+                        + "|attribute=" + sanitizeIdentifier(attribute(attribute, "name"), "UNNAMED_CHECK")
+                        + "|type=CHECK");
+                continue;
+            }
             columns.add(parseColumn(attribute, fallbackPosition++, extensionIndex));
         }
         columns.sort(Comparator.comparingInt(EaColumn::position));
@@ -640,7 +646,7 @@ public final class EnterpriseArchitectXmlParser {
             switch (kind) {
                 case UNIQUE_KEY -> addUniqueKey(builder, operation);
                 case INDEX, UNIQUE_INDEX -> addIndex(builder, operation, kind == OperationKind.UNIQUE_INDEX);
-                case CHECK -> addCheck(builder, operation);
+                case CHECK -> addCheck(builder, eaTable, operation, warnings);
                 case FOREIGN_KEY -> addForeignKey(
                         builder, eaTable, operation, tablesById,
                         associationBySourceOperation, warnings);
@@ -651,7 +657,8 @@ public final class EnterpriseArchitectXmlParser {
     }
 
 
-    private static void addCheck(Table.Builder builder, EaOperation operation) {
+    private static void addCheck(
+            Table.Builder builder, EaTable table, EaOperation operation, List<String> warnings) {
         String expression = normalizeCheckExpression(firstNonBlank(
                 tag(operation.tags(), "expression"),
                 tag(operation.tags(), "condition"),
@@ -659,7 +666,19 @@ public final class EnterpriseArchitectXmlParser {
                 tag(operation.tags(), "definition"),
                 tag(operation.tags(), "body"),
                 tag(operation.tags(), "code")));
-        if (expression.isBlank()) return;
+        if (expression.isBlank()) {
+            String documentation = normalizeDocumentation(tag(operation.tags(), "documentation"));
+            if (looksLikeCheckExpression(documentation)) {
+                expression = normalizeCheckExpression(documentation);
+                warnings.add("EA_CHECK_EXPRESSION_RECOVERED_FROM_DOCUMENTATION|table="
+                        + table.name() + "|check=" + operation.name());
+            }
+        }
+        if (expression.isBlank()) {
+            warnings.add("EA_CHECK_EXPRESSION_UNRESOLVED|table=" + table.name()
+                    + "|check=" + operation.name());
+            return;
+        }
         builder.addCheck(new CheckConstraint(Identifier.of(operation.name()), expression));
     }
 
@@ -1407,6 +1426,28 @@ public final class EnterpriseArchitectXmlParser {
                 .replace('\u00A0', ' ')
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+
+    private static boolean isEaCheckPseudoColumn(
+            Element attribute, EaExtensionIndex extensionIndex) {
+        Map<String, String> tags = taggedValues(attribute, extensionIndex);
+        String rawType = firstNonBlank(tag(tags, "type"), attribute(attribute, "type"));
+        if (!"CHECK".equalsIgnoreCase(rawType.trim())) return false;
+        String name = sanitizeIdentifier(attribute(attribute, "name"), "").toUpperCase(Locale.ROOT);
+        return name.startsWith("CK_") || name.startsWith("CHK_");
+    }
+
+    private static boolean looksLikeCheckExpression(String value) {
+        if (value == null || value.isBlank()) return false;
+        String normalized = " " + value.trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", " ") + " ";
+        return normalized.contains(" IN ")
+                || normalized.contains(" IS ")
+                || normalized.contains(" LIKE ")
+                || normalized.contains(" BETWEEN ")
+                || normalized.contains("=")
+                || normalized.contains("<")
+                || normalized.contains(">");
     }
 
     private static String normalizeCheckExpression(String value) {

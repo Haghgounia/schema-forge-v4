@@ -1,3 +1,11 @@
+## 2026-10-18 - EA CHECK pseudo-column recovery v5
+
+- Treats EA/XMI attributes named like `CK_*` / `CHK_*` with source datatype `CHECK` as constraint pseudo-columns, not physical database columns.
+- Preserves No-Guess behavior: pseudo-columns are ignored with explicit `EA_CHECK_PSEUDO_COLUMN_IGNORED` recovery evidence; no datatype coercion or invented constraint expression is performed.
+- For operations explicitly stereotyped as `check`, recovers a CHECK expression from EA `documentation` only when no explicit expression/code field exists and the documentation is syntactically condition-like; recovery is recorded as `EA_CHECK_EXPRESSION_RECOVERED_FROM_DOCUMENTATION`.
+- Emits `EA_CHECK_EXPRESSION_UNRESOLVED` when an explicit EA check operation still has no usable expression instead of silently inventing one.
+- Real `Reference Data.xml` evidence contains 50 tables, 100 `CHECK` pseudo-columns and 50 check operations whose documentation is `IS_ACTIVE IN (0,1)`. A direct Java 21 probe now parses it as 500 physical columns, zero `CHECK` datatype columns, and 50 canonical CHECK constraints.
+
 ## 2026-10-18 - EA canonical fail-closed source-safety restoration
 
 - Restores the documented `NON_NUMERIC_IDENTITY_COLUMN` canonical validation path in production code; the 2026-10-17 changelog/README contract existed but the validator implementation was absent from the current source baseline.
@@ -2923,3 +2931,22 @@
 - Added `ExternalGenerationAcceptanceSupportTest` for observation-vs-strict gate behavior, deterministic EA output naming, collision avoidance, and summary evidence fields.
 - Post-manifest contract/integrity failures now enrich the same CSV row with exception evidence instead of losing the already-collected request/artifact counters.
 - No production Java, canonical schema behavior, parser logic, or DDL generation semantics changed.
+
+### 2026-10-18 - EA release-confidence non-physical model classification
+- Release-confidence EA directory runs now classify XML/XMI inputs that contain no EA `<<table>>`-stereotyped physical table elements as `SKIPPED_NO_PHYSICAL_TABLES` instead of `HARNESS_ERROR`.
+- The production EA physical-schema parser remains strict: logical UML `entity` classes are not silently promoted to database tables.
+- This preserves No-Guess semantics for logical XMI models whose primitive types, PK/FK semantics, and physical mappings are not explicit database metadata.
+
+### 2026-10-18 - Word release-confidence corpus runner v7
+
+- Changed the external Word release-confidence input contract to the real corpus layout: Standard Word ZIP, recursive Legacy Word directory, and Legacy RTL Word ZIP.
+- Added `schemaforge.e2e.legacyDir`; the v7 Word runner no longer assumes a normal Legacy ZIP input.
+- Added content-based Legacy Word classification using the production Legacy extractor contract. `.doc` / `.docx` extension alone no longer implies that a document is a table specification.
+- Parser-ignored Word files are recorded as `SKIPPED_NOT_TABLE_SPEC` and excluded from generation without counting as table-parser failures.
+- Temporary/hidden/Mac metadata Word inputs are recorded as `SKIPPED_INPUT_FILTER` using the existing production batch-input filter policy.
+- Parser classification failures remain explicit `CLASSIFICATION_FAILED` evidence and are never silently skipped.
+- Accepted table specifications are repackaged with their recursive relative paths preserved and are generated through the existing strict `LEGACY_WORD` ZIP batch pipeline.
+- Added `legacy-directory-document-summary.csv` for per-document classification evidence.
+- Expanded `word-release-confidence-summary.csv` with `tableSpecDocuments`, `nonTableDocuments`, `inputFilteredDocuments`, and `classificationFailed` counters.
+- Added `LegacyWordDirectoryClassifierTest` and expanded `ExternalGenerationAcceptanceSupportTest` for nested-path preservation and document-summary evidence.
+- No production Java, parser heuristics, canonical model, DDL rendering, or REST endpoint semantics changed in this patch.

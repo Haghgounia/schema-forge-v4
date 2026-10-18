@@ -46,6 +46,58 @@ class ExternalGenerationAcceptanceSupportTest {
     }
 
     @Test
+    void noPhysicalTableEaInputIsClassifiedAsIntentionalSkip() throws Exception {
+        Path input = tempDir.resolve("logical-model.xml").toAbsolutePath();
+        IllegalArgumentException parserFailure = new IllegalArgumentException(
+                "No Enterprise Architect table elements were found in XML/XMI: logical-model.xml");
+
+        assertTrue(ExternalGenerationAcceptanceSupport.isNoPhysicalEaTableFailure(parserFailure));
+        assertTrue(ExternalGenerationAcceptanceSupport.isNoPhysicalEaTableFailure(
+                new RuntimeException("wrapped", parserFailure)));
+        assertFalse(ExternalGenerationAcceptanceSupport.isNoPhysicalEaTableFailure(
+                new IllegalArgumentException("different parser failure")));
+
+        var row = ExternalGenerationAcceptanceSupport.skippedNoPhysicalTablesRow(
+                "EA logical-model.xml", input, null);
+        assertEquals("SKIPPED_NO_PHYSICAL_TABLES", row.status());
+        assertEquals(1, row.skipped());
+        assertEquals(0, row.failed());
+
+        Path csv = ExternalGenerationAcceptanceSupport.writeSummaryCsv(
+                tempDir, "skip-summary.csv", List.of(row));
+        String text = Files.readString(csv);
+        assertTrue(text.contains("SKIPPED_NO_PHYSICAL_TABLES"));
+        assertTrue(text.contains("outside the physical-schema import contract"));
+    }
+
+    @Test
+    void legacyDirectoryTableSpecZipPreservesRelativePathsAndSummaryCounts() throws Exception {
+        Path inputRoot = Files.createDirectories(tempDir.resolve("legacy"));
+        Path nested = Files.createDirectories(inputRoot.resolve("a/b"));
+        Path first = nested.resolve("one.docx");
+        Path second = inputRoot.resolve("two.doc");
+        Files.writeString(first, "one");
+        Files.writeString(second, "two");
+        Path zip = ExternalGenerationAcceptanceSupport.createLegacyDirectoryTableSpecZip(
+                inputRoot, tempDir.resolve("filtered.zip"), List.of(first, second));
+
+        var entries = ExternalGenerationAcceptanceSupport.unzip(Files.readAllBytes(zip));
+        assertTrue(entries.containsKey("a/b/one.docx"));
+        assertTrue(entries.containsKey("two.doc"));
+
+        var docRows = List.of(
+                new ExternalGenerationAcceptanceSupport.LegacyDirectoryDocumentRow(
+                        "a/b/one.docx", "one.docx", "TABLE_SPEC", "SUCCESS", 3, "", "", ""),
+                new ExternalGenerationAcceptanceSupport.LegacyDirectoryDocumentRow(
+                        "notes.docx", "notes.docx", "SKIPPED_NOT_TABLE_SPEC", "IGNORED", 0, "", "", ""));
+        Path summary = ExternalGenerationAcceptanceSupport.writeLegacyDirectoryDocumentSummary(
+                tempDir, "legacy-docs.csv", docRows);
+        String text = Files.readString(summary);
+        assertTrue(text.contains("SKIPPED_NOT_TABLE_SPEC"));
+        assertTrue(text.contains("a/b/one.docx"));
+    }
+
+    @Test
     void summaryCsvCarriesExactInputOutputAndExceptionFields() throws Exception {
         Path input = tempDir.resolve("broken.xml").toAbsolutePath();
         Path output = tempDir.resolve("broken-result.zip").toAbsolutePath();

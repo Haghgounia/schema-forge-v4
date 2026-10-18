@@ -19,3 +19,7 @@ The runtime start script deliberately uses `spring.config.location` so the distr
 ### Release-confidence external corpus gate v3
 
 The test source now includes a v3 external corpus harness for Standard Word ZIP, Legacy Word ZIP, Legacy RTL Word ZIP, and EA XML/XMI directories. Observation mode (`schemaforge.e2e.failOnErrors=false`) records all issues without failing Maven; strict mode aggregates failures after full corpus processing. EA outputs use collision-safe deterministic names and CSV summaries include input/output plus exception class/message evidence.
+
+### Word release-confidence external corpus gate v7
+
+The test harness now accepts the real Word corpus layout: Standard ZIP, recursive Legacy Word directory, and Legacy RTL ZIP. Legacy directory Word files are classified by the production legacy extraction rules before generation; non-table Word documents are reported as `SKIPPED_NOT_TABLE_SPEC` instead of being forced through table generation. Accepted table documents retain their recursive relative paths and are exercised through the existing strict Legacy ZIP batch pipeline. Production runtime behavior is unchanged.
