@@ -39,6 +39,11 @@ public class GlossaryConfiguration {
     }
 
     @Bean
+    GlossaryReviewService glossaryReviewService(@Qualifier("glossaryDataSource") DataSource datasource) {
+        return new GlossaryReviewService(datasource);
+    }
+
+    @Bean
     GlossaryExcelImporter glossaryExcelImporter(GlossaryRepository repository) {
         return new GlossaryExcelImporter(repository);
     }

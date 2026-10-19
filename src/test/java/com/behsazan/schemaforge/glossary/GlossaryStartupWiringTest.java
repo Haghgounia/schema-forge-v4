@@ -23,6 +23,8 @@ class GlossaryStartupWiringTest {
         assertNotNull(repository);
         assertNotNull(context.getBean(GlossaryReportWriter.class));
         assertNotNull(context.getBean(GlossaryController.class));
+        assertNotNull(context.getBean(GlossaryReviewService.class));
+        assertNotNull(context.getBean(GlossaryReviewController.class));
         assertNotNull(context.getBean(SchemaForgeApiService.class));
         assertTrue(repository.search(null, null, null, 0, 10).total() >= 804);
         assertEquals("ECOBANK_ATOMIC_XLSX", repository.getByKey(

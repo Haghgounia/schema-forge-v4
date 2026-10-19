@@ -1,3 +1,30 @@
+## 2026-10-19 – V4.14.3 Standard Word ZIP Glossary audit (test-only)
+
+- Added `GlossaryStandardWordZipAuditTest` to inspect an externally supplied ZIP
+  containing **standard DOCX specifications with descriptive, non-abbreviated
+  identifiers** through the existing canonical Word parser and GlossaryScanner.
+- Reads existing project H2 `glossary_term` only with `IFEXISTS=TRUE` and
+  `ACCESS_MODE_DATA=r`, respects APPROVED/CANDIDATE/REJECTED and Atomic-only
+  phrase scope; no DDL generation, seeding, import, approval or H2 mutation.
+- Writes per-document and per-identifier evidence, exact workflow-compatible
+  eight-column `unknown-terms.csv`, frequencies, summary, errors and SHA-256
+  report manifest. Large CSV exports receive separately validated import chunks.
+- Rejects Legacy DOC, invalid/duplicate ZIP paths, malformed Word documents and
+  resource limit violations with fail-closed JUnit errors after evidence output.
+- Added Windows wrapper `distribution/bin/audit-standard-word-zip.cmd` and
+  `docs/GLOSSARY_STANDARD_WORD_ZIP_AUDIT.md`; normal Maven suite skips the external
+  corpus test when no ZIP property is supplied (two fixture/safety tests run).
+- No Production Java, DBMS dialect, Excel, H2 dependency, REST API or artifact
+  generation contract changes.
+
+## V4.14.3 — Glossary operational acceptance + review workflow (2026-10-19)
+
+- Added a steward-only, admin-key-protected `/api/v1/glossary/review` workflow to intake generated unknown-terms CSV, deduplicate evidence, create unapproved atomic candidates, review all 804 initial Atomic worksheet entries (including four phrases), approve/reject one term with a reason, and read append-only workflow events.
+- Added H2 `glossary_review_occurrence` and `glossary_review_event` schema; CSV strict-validation is performed before transactional persistence; previously curated and soft-deleted terms are never overwritten.
+- Added operational acceptance tests against the embedded 804-entry Atomic worksheet and actual file-based H2, plus generated Artifact/Manifest-to-review tests and dedicated Windows smoke scripts.
+- Retained HF9/H2 2.4.240 and all existing production artifact-generation semantics. Glossary remains opt-in and `02_Canonical_Phrases` is not imported.
+- Limit: review history audits the new workflow, not every legacy direct write API. Full principal attribution, role-based governance and database conformance integration remain separate future work.
+
 ## 2026-10-19 — Glossary V4.14.2-HF9: additive contract freeze alignment
 
 - Windows HF8: H2 2.4.240 passed all 17 dedicated Glossary tests and persistent 804-row reopen checks. The full 972-test suite had only two stale enumeration Contract Freeze failures (REST error codes and Artifact Type).

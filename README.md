@@ -1,3 +1,30 @@
+### Standard Word ZIP – Glossary audit (external corpus)
+
+To check meaningful standard `.docx` table/column names from a ZIP against the
+current read-only project H2 Glossary (no legacy Word or DDL generation), run:
+
+```cmd
+call distribution\bin\audit-standard-word-zip.cmd "D:\Sample-Docs-Scripts\Standard-Word-Meaningful.zip" "D:\Sample-Docs-Scripts\Glossary-Word-Audit"
+```
+
+Outputs are `summary.json`, `files.csv`, `identifiers.csv`, `unknown-terms.csv`,
+`terms-summary.csv`, `errors.csv` and SHA-256 evidence manifest. Any unapproved
+terms remain review findings; the test never changes H2 approval states.
+See `docs/GLOSSARY_STANDARD_WORD_ZIP_AUDIT.md`.
+
+### Glossary V4.14.3 — Operational acceptance and review workflow
+
+HF9 remains the verified regression baseline. This release adds a report-driven,
+admin-key-protected review queue for the initial 804 Atomic-sheet candidates
+and newly discovered terms in `reports/glossary/unknown-terms.csv`,
+explicit APPROVED/REJECTED decisions with reasons, persistent evidence and
+workflow history; no automatic approval or import of `02_Canonical_Phrases`.
+For safe acceptance use `call distribution\bin\accept-glossary.cmd` and
+for a running local server additionally use
+`call distribution\bin\accept-glossary.cmd --live`.
+See `docs/GLOSSARY_V14_3_OPERATIONAL_AND_WORKFLOW.md` for the complete API,
+operational prerequisites, and the explicit audit-scope limitations.
+
 > **Glossary H2 persistence HF8:** H2 2.3.232 could lose recently inserted rows on file close/reopen (upstream issue #4247). This branch pins H2 2.4.240, with a dedicated runtime-version and 804-row persistence regression gate. Back up `data/schemaforge-glossary.mv.db` before opening it with the new driver. See `docs/GLOSSARY_HF8_H2_DATA_PERSISTENCE.md`.
 
 > **HF7 diagnostics:** For a repeatable probe of the remaining Windows Glossary Atomic bootstrap inconsistency, run `distribution\bin\diagnose-glossary-h2.cmd`. This is an investigation-only update (no Production behavior changes). See `docs/GLOSSARY_HF7_DIAGNOSTIC.md`.
