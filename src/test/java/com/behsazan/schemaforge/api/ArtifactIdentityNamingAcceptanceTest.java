@@ -138,7 +138,7 @@ class ArtifactIdentityNamingAcceptanceTest {
             case DDL, MIGRATION, CRUD, COMPARISON_WORKBOOK, RUN_SCRIPT ->
                     assertNotNull(artifact.platform(), artifact.type() + " must declare a DBMS platform");
             case CANONICAL_JSON, MERMAID_DIAGRAM, GRAPHVIZ_DIAGRAM, MANIFEST,
-                 SUMMARY_REPORT, ERROR_REPORT, ISSUE_REPORT ->
+                 SUMMARY_REPORT, ERROR_REPORT, ISSUE_REPORT, GLOSSARY_REPORT ->
                     assertNull(artifact.platform(), artifact.type() + " must be platform-neutral");
         }
     }
@@ -174,7 +174,7 @@ class ArtifactIdentityNamingAcceptanceTest {
             }
             case MANIFEST -> assertEquals("manifest.json", path);
             case RUN_SCRIPT -> assertTrue(path.startsWith("scripts/" + platform + "/"), path);
-            case SUMMARY_REPORT, ERROR_REPORT, ISSUE_REPORT -> assertTrue(path.startsWith("reports/"), path);
+            case SUMMARY_REPORT, ERROR_REPORT, ISSUE_REPORT, GLOSSARY_REPORT -> assertTrue(path.startsWith("reports/"), path);
         }
     }
 

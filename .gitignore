@@ -98,3 +98,9 @@ $RECYCLE.BIN/
 *.trace.db
 *.sqlite
 *.sqlite3
+
+# Embedded H2 glossary storage (local only; never commit business vocabulary mutations)
+/data/*
+!/data/README.md
+*.mv.db
+*.trace.db

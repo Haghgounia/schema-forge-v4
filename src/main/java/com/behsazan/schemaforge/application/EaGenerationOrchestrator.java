@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
 import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifest;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
@@ -79,6 +80,7 @@ public final class EaGenerationOrchestrator {
             new DialectForeignKeyCompatibilityValidator();
     private final NumericMappingStrategy numericMappingStrategy;
     private final GenerationSummaryReportWriter generationSummaryReportWriter;
+    private final GlossaryReportWriter glossaryReportWriter;
 
     public EaGenerationOrchestrator(
             SchemaPreparationService preparationService,
@@ -111,6 +113,27 @@ public final class EaGenerationOrchestrator {
             CrudArtifactProducer crudArtifactProducer,
             OracleDdlSanityChecker oracleDdlSanityChecker,
             NumericMappingStrategy numericMappingStrategy) {
+        this(preparationService, metadataRepositoryResolver, eaImportProperties, artifactManifestWriter,
+                artifactNamingPolicy, artifactPackageBuilder, diagramArtifactProducer, migrationArtifactProducer,
+                comparisonArtifactProducer, crudArtifactProducer, oracleDdlSanityChecker,
+                numericMappingStrategy, null);
+    }
+
+    public EaGenerationOrchestrator(
+            SchemaPreparationService preparationService,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            EaImportProperties eaImportProperties,
+            ArtifactManifestWriter artifactManifestWriter,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            ArtifactPackageBuilder artifactPackageBuilder,
+            DiagramArtifactProducer diagramArtifactProducer,
+            MigrationArtifactProducer migrationArtifactProducer,
+            ComparisonArtifactProducer comparisonArtifactProducer,
+            CrudArtifactProducer crudArtifactProducer,
+            OracleDdlSanityChecker oracleDdlSanityChecker,
+            NumericMappingStrategy numericMappingStrategy,
+            GlossaryReportWriter glossaryReportWriter) {
+        this.glossaryReportWriter = glossaryReportWriter;
         this.preparationService = Objects.requireNonNull(preparationService, "preparationService must not be null");
         this.metadataRepositoryResolver = Objects.requireNonNull(
                 metadataRepositoryResolver, "metadataRepositoryResolver must not be null");
@@ -375,11 +398,10 @@ public final class EaGenerationOrchestrator {
         manifestExtensions.put("generationOptions", generationOptions);
         generationSummaryReportWriter.write(output, context, schema, platforms);
 
-        artifactManifestWriter.write(
-                output, context, baseName,
-                List.of(new ArtifactManifestAssembler.ModelInput(
-                        context.sourceName(), schema, jsonReport)),
-                manifestExtensions);
+        List<ArtifactManifestAssembler.ModelInput> models = List.of(
+                new ArtifactManifestAssembler.ModelInput(context.sourceName(), schema, jsonReport));
+        if (glossaryReportWriter != null) glossaryReportWriter.write(output, context, models);
+        artifactManifestWriter.write(output, context, baseName, models, manifestExtensions);
     }
 
     private void requireValidDdl(DatabasePlatform platform, String sql, String source) {

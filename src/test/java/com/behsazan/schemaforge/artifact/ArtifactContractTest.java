@@ -146,8 +146,8 @@ class ArtifactContractTest {
     }
 
     @Test
-    void artifactTypesShouldCoverEveryC41InventoryFamilyWithoutTransportSpecificZipType() {
-        EnumSet<ArtifactType> expected = EnumSet.of(
+    void artifactTypesShouldPreserveC41BaselineAndAddTheApprovedGlossaryFamily() {
+        EnumSet<ArtifactType> originalC41Inventory = EnumSet.of(
                 ArtifactType.DDL,
                 ArtifactType.MIGRATION,
                 ArtifactType.CRUD,
@@ -161,6 +161,10 @@ class ArtifactContractTest {
                 ArtifactType.ERROR_REPORT,
                 ArtifactType.ISSUE_REPORT);
 
+        // Preserve every frozen C4.1 family; V4.14.2 explicitly adds a tracked,
+        // platform-neutral Glossary report without introducing transport ZIP type.
+        EnumSet<ArtifactType> expected = originalC41Inventory.clone();
+        expected.add(ArtifactType.GLOSSARY_REPORT);
         assertEquals(expected, EnumSet.allOf(ArtifactType.class));
     }
 

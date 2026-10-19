@@ -19,5 +19,6 @@ public enum ArtifactType {
     RUN_SCRIPT,
     SUMMARY_REPORT,
     ERROR_REPORT,
-    ISSUE_REPORT
+    ISSUE_REPORT,
+    GLOSSARY_REPORT
 }

@@ -26,6 +26,7 @@ import com.behsazan.schemaforge.config.NumericMappingProperties;
 import com.behsazan.schemaforge.config.NamingValidationProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
+import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Coordinates schema forge api operations.
@@ -96,7 +98,6 @@ public class SchemaForgeApiService {
                 eaImportProperties, numericMappingProperties, NamingValidationProperties.defaults());
     }
 
-    @Autowired
     public SchemaForgeApiService(
             AuditProperties auditProperties,
             GrantProperties grantProperties,
@@ -106,6 +107,23 @@ public class SchemaForgeApiService {
             EaImportProperties eaImportProperties,
             NumericMappingProperties numericMappingProperties,
             NamingValidationProperties namingValidationProperties) {
+        this(auditProperties, grantProperties, spellCheckProperties, objectMapper,
+                metadataRepositoryResolver, eaImportProperties, numericMappingProperties,
+                namingValidationProperties, Optional.empty());
+    }
+
+    @Autowired
+    public SchemaForgeApiService(
+            AuditProperties auditProperties,
+            GrantProperties grantProperties,
+            SpellCheckProperties spellCheckProperties,
+            ObjectMapper objectMapper,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            EaImportProperties eaImportProperties,
+            NumericMappingProperties numericMappingProperties,
+            NamingValidationProperties namingValidationProperties,
+            Optional<GlossaryReportWriter> glossaryReportWriter) {
+        GlossaryReportWriter glossary = glossaryReportWriter.orElse(null);
         this.auditProperties = auditProperties;
         this.preparationService = new SchemaPreparationService(
                 auditProperties, grantProperties, spellCheckProperties, namingValidationProperties, objectMapper);
@@ -121,14 +139,14 @@ public class SchemaForgeApiService {
                 diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
                 crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy);
         this.artifactGenerationService = new ArtifactGenerationService(
-                documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy);
+                documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy, glossary);
         this.batchGenerationOrchestrator = new BatchGenerationOrchestrator(
                 documentGenerationOrchestrator, diagramArtifactProducer, artifactNamingPolicy,
-                artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy);
+                artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy, glossary);
         this.eaGenerationOrchestrator = new EaGenerationOrchestrator(
                 preparationService, metadataRepositoryResolver, eaImportProperties, artifactManifestWriter,
                 artifactNamingPolicy, artifactPackageBuilder, diagramArtifactProducer, migrationArtifactProducer,
-                comparisonArtifactProducer, crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy);
+                comparisonArtifactProducer, crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy, glossary);
     }
 
     public byte[] generateFromWord(MultipartFile file) throws IOException {

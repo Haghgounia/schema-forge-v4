@@ -1,3 +1,96 @@
+## 2026-10-19 — Glossary V4.14.2-HF9: additive contract freeze alignment
+
+- Windows HF8: H2 2.4.240 passed all 17 dedicated Glossary tests and persistent 804-row reopen checks. The full 972-test suite had only two stale enumeration Contract Freeze failures (REST error codes and Artifact Type).
+- Kept Production and schema/data unchanged. Explicitly re-froze REST enum with `UNAUTHORIZED`/`CONFLICT`, preserving `schemaforge-rest-error/v1` and every old code; extended C4.1 inventory list by `GLOSSARY_REPORT` only.
+- Tightened the Glossary HTTP 401/409 test to verify machine-readable JSON error codes and v1 response contract.
+- See `docs/GLOSSARY_HF9_CONTRACT_FREEZE_ALIGNMENT.md`. Full Windows Maven regression pending.
+
+## 2026-10-19 — Glossary V4.14.2-HF8: H2 persisted-data loss after connection close
+
+- Investigated HF7 direct SQL snapshots: 804/4 immediately after Atomic import, then 0/0 on reopened database connections.
+- Matched H2 2.3.232 on-close MVStore compaction data-loss symptom to upstream h2database/h2database#4247, fixed by H2 2.4.240.
+- Pinned `h2.version=2.4.240` for runtime/test and aligned offline bootstrap JAR path with a known-vulnerable version guard.
+- Added H2 engine version/persistent-reopen gate; extended HF7 804-row diagnostic to report and enforce the correct engine version.
+- Kept all domain logic, glossary records, validation report generation and Manifest validation unchanged; Windows test gate pending.
+
+## 2026-10-19 - V4.14.2-HF7 H2 search diagnostic (production unchanged)
+
+- User Windows HF6 run: 14/15 Glossary tests passed; `GlossaryAtomicBootstrapTest:52` reports 0 rather than 4 for PHRASE search with page size 2, even though earlier identical filters with size 1000 returned four exact keys. In the HF6 source `total` is computed before page slicing, so the result cannot be explained by pagination alone without a data/state or source mismatch.
+- Added isolated `GlossaryAtomicSnapshotDiagnosticTest` to capture raw SQL counts, domain search results, page sizes and repeated connections, including both ordinary open/close and a pinned H2 connection. It uses an isolated JUnit `@TempDir` database, not the project's existing H2 file.
+- Added `distribution/bin/diagnose-glossary-h2.cmd` to print Repository source SHA-256 and invoke the diagnostic test.
+- No changes to production code, Maven dependencies, Atomic Excel, schema, REST, artifacts or existing regression tests; no speculative Production fix claimed.
+- Full H2 integration test must be run on the user's Windows Maven environment; local source-level Java syntax and package gates only.
+
+## 2026-10-19 - V4.14.2-HF6 Glossary mapped-term search parity
+
+- User's HF5 Windows Maven execution reached 14/15 passing glossary checks (343 production and 340 test sources compiled); `GlossaryAtomicBootstrapTest:62` returned 0 for `search("LEDGER", PHRASE)` despite previously enumerating and asserting keys `GENERAL_LEDGER` and `SUBSIDIARY_LEDGER` on the same seeded glossary. The root cause remains unproven from a log alone.
+- Search now materializes the same `GlossaryTerm` values used by unfiltered REST results **before** applying kind, status, and case-insensitive English/Persian search predicates. The legacy `ECOBANK_XLSX` PHRASE exclusion and soft-delete exclusion remain before mapping; sorting, `total`, and page selection still derive from one result cursor.
+- Bootstrap regression now compares filtered search with keys directly observed in the prior unfiltered domain snapshot, with detailed failure diagnostics. Search consistency test covers both uppercase and lowercase LEDGER queries as well as exact-key and Persian searches.
+- No changes to H2 schema, import data, bootstrap scripts, approval workflow, Artifact manifests or API signatures. Does not require database removal or reimport.
+- Compile and source-packaging gates are not a substitute for a passing live H2/Spring Windows test. No live H2 test was run in the producing environment.
+
+## 2026-10-19 - V4.14.2-HF5 Glossary consistent search snapshot
+
+- Replaced the inconsistent separate SQL count/paged selection in `GlossaryRepository.search` with one read-only JDBC cursor, in-process equivalent filters, deterministic ordering, and bounded page slicing. The known H2 2.3.232 regression returned 4 PHRASE records in COUNT but zero in list on both LIMIT/OFFSET (HF3) and OFFSET/FETCH (HF4). The exact underlying JDBC/H2 planner cause is still unproven; this change avoids both suspected paths instead of asserting an unproven cause.
+- Retained source exclusion (`ECOBANK_XLSX` legacy PHRASE rows), kind/status/case-insensitive literal search, 1..1000 page size, deterministic ordering, and unchanged REST data model. Initial glossary contains only 804 active entries; inactive history is streamed past without constructing domain records.
+- Expanded Atomic bootstrap test to check the 804-row list and count consistency. Added isolated `GlossarySearchConsistencyTest` for phrase/atomic record retrieval, deterministic multi-page results, literal underscores, Persian search, approval status, and historical phrase exclusion.
+- No changes to H2 physical schema, import rules, approval statuses, data, report writer, SQL seed, or Manifest gates. No H2 migration or Excel reimport needed. Requires real H2 Maven test gate on Windows before claiming runtime success.
+
+## 2026-10-19 - V4.14.2-HF4 H2 glossary pagination result repair
+
+- Replaced the GlossaryRepository paged list SQL's LIMIT/OFFSET parameter form with H2-supported ANSI `OFFSET n ROWS FETCH NEXT m ROWS ONLY`, using bounded integer values only. All text and enum search filters remain JDBC parameterized.
+- Regression test now asserts that the 4 Atomic-worksheet multiword PHRASE records are actually returned, across page boundaries, and checks filtered and literal-underscore searches. It verifies all 800 ATOMIC rows are returned on a page of 1000.
+- No change to Excel Import, glossary normalization, seed SQL, H2 schema, approval decisions, REST contract, or Manifest integration. Existing H2 data must be preserved.
+- Acknowledgment: HF3 logs prove accurate row counts and empty page items, but do not provide H2 SQL trace; this patch addresses the pagination path implicated by that mismatch. See docs/GLOSSARY_HF4_PAGINATION_REPAIR.md.
+
+## 2026-10-19 - V4.14.2-HF3 Glossary test gate
+
+- Replaced batched INSERT-SELECT Atomic glossary import with per-key JDBC transactional lookup/insert; preserved idempotency, soft-delete and curated statuses.
+- Strengthened baseline test for four exact multiword source terms and provenance.
+- Isolated H2 datastore from manifest-controlled artifact output in test fixture, without changing the fail-closed manifest rule.
+- Added `docs/GLOSSARY_HF3_TEST_GATE_REPAIR.md` and Windows validation instructions.
+
+## 2026-10-19 - V4.14.2 HF2 | Glossary complete-source restoration
+
+- Restored 13 omitted Glossary production classes and two regression test classes in the 11:46 local ZIP baseline, resolving the 46 reported missing-type errors.
+- Reinstated the H2 runtime dependency, opt-in Glossary Artifact/Manifest integrations, and REST status handling that were missing from that baseline.
+- Corrected the Legacy Word fixture filename (restored exact Unicode codepoint) without changing fixture contents.
+- Kept the Atomic-only baseline and the supported H2 RunScript invocation from HF1; no changes to existing DBMS DDL rules.
+- See `docs/GLOSSARY_HF2_SOURCE_CLOSURE_REPAIR.md` for exact installation, test and verification steps.
+
+## 2026-10-19 - V4.14.2 HF1 | H2 standalone RunScript CLI compatibility
+
+- Removed unsupported `-charset UTF-8` from `distribution/bin/bootstrap-glossary-h2.cmd`; H2 2.3.232 rejects it before executing the seed SQL.
+- H2 `RunScript` defaults to UTF-8 when reading the existing SQL file. No seed data, glossary schema, business status or REST logic changed.
+- Added `GlossaryOfflineH2ScriptTest` to enforce supported CLI options, exercise the SQL seed with H2, verify 800 ATOMIC + 4 PHRASE, Persian UTF-8 integrity, idempotency and persisted approval status.
+- On Windows, rerun only `call distribution\bin\bootstrap-glossary-h2.cmd` after applying HF1; the H2 JDBC jar is already resolved according to the received Maven log.
+
+## V4.14.2 | Persistent H2 initial bootstrap from 01_Atomic_Terms
+
+- Added `src/main/resources/glossary/01_Atomic_Terms.xlsx`, generated solely from the 946 rows in the reference Atomic worksheet (804 unique English keys).
+- When glossary is enabled, an ApplicationRunner now creates `./data/schemaforge-glossary.mv.db` and executes an idempotent import from that worksheet on first and subsequent starts. No REST import request is needed.
+- Unified startup and REST import parsing through a stream-based `GlossaryExcelImporter` overload. Initial statuses remain CANDIDATE; existing curated data is not overwritten.
+- Added independent H2 SQL script and Windows CMD bootstrap helper plus provenance SHA-256 manifest.
+- Added H2 bootstrap acceptance test, including idempotence and manual approval preservation.
+- Kept `02_Canonical_Phrases` out of the seed and of active naming decisions.
+
+## 2026-10-19 - V4.14.1 Atomic-only glossary reference correction
+
+- Restricted Glossary XLSX import to `01_Atomic_Terms` only: 946 data rows, 804 normalized unique terms; `02_Canonical_Phrases` is not imported.
+- Kept the four genuine multiword entries from the Atomic worksheet as PHRASE-shaped terms; no second-sheet phrase is allowed to authorize a naming component.
+- Changed the import source marker to `ECOBANK_ATOMIC_XLSX`; existing V4.14 `ECOBANK_XLSX` phrases are excluded from active naming/search/export/bulk approval until independently re-confirmed on the Atomic worksheet.
+- Re-import safely reclassifies matching historical terms without overwriting approval status or curated content; historical second-sheet rows remain retained but inactive.
+- Added atomic-only workbook, ignored-sheet, idempotence, and legacy H2 scoping regression tests.
+- Glossary report summary records `referenceWorksheet=01_Atomic_Terms`. No DBMS DDL generation rules changed.
+
+## 2026-10-19 - V4.14 Glossary naming governance (opt-in)
+
+- Added dedicated persistent H2 glossary, status-aware canonical naming scanner and manual review report artifacts for Word, Legacy Word, ZIP batch and EA requests.
+- Added versioned Glossary REST API: paginated listing/search, complete CSV export, CRUD, XLSX import and explicit steward bulk status update.
+- Reports are nonblocking and Manifest/Ledger-tracked; default-off behavior preserves existing output contracts.
+- Added isolated tests and the deployment/API/limitations guide in `docs/GLOSSARY_NAMING_GOVERNANCE_V14.md`.
+- Restored the preexisting ZIP-escaped `CTF?CNTRCTINFO.docx` test fixture filename to the zero-width-joiner form referenced by the existing regression test; bytes unchanged, resulting full archive extractable on Windows.
+
 ## 2026-10-19 - Legacy Word targeted v8 replay
 
 - Added `LegacyWordProblemReplayIT` for fast replay of only v7 `CLASSIFICATION_FAILED` Legacy Word documents.

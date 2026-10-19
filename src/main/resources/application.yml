@@ -12,6 +12,16 @@ springdoc:
     path: /v3/api-docs
 
 schemaforge:
+  # Glossary remains opt-in to preserve existing artifact packages until its reference
+  # vocabulary is reviewed and loaded. When enabled it adds two manifest-tracked reports.
+  glossary:
+    enabled: ${SCHEMAFORGE_GLOSSARY_ENABLED:false}
+    database-path: ${SCHEMAFORGE_GLOSSARY_DATABASE_PATH:./data/schemaforge-glossary}
+    # When glossary is enabled, create H2 on disk and import the embedded
+    # 01_Atomic_Terms worksheet as CANDIDATE; safe to repeat on every startup.
+    seed-on-startup: ${SCHEMAFORGE_GLOSSARY_SEED_ON_STARTUP:true}
+    admin-key: ${SCHEMAFORGE_GLOSSARY_ADMIN_KEY:}
+
   numeric-mapping:
     # SAFE preserves NUMBER as NUMERIC/DECIMAL. OPTIMIZED narrows scale-zero values losslessly.
     strategy: ${SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY:SAFE}

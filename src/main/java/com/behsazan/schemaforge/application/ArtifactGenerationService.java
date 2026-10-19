@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
+import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -29,6 +30,7 @@ public final class ArtifactGenerationService {
     private final ArtifactManifestWriter artifactManifestWriter;
     private final NumericMappingStrategy numericMappingStrategy;
     private final GenerationSummaryReportWriter generationSummaryReportWriter;
+    private final GlossaryReportWriter glossaryReportWriter;
 
     public ArtifactGenerationService(
             DocumentGenerationOrchestrator documentGenerationOrchestrator,
@@ -43,6 +45,17 @@ public final class ArtifactGenerationService {
             ArtifactPackageBuilder artifactPackageBuilder,
             ArtifactManifestWriter artifactManifestWriter,
             NumericMappingStrategy numericMappingStrategy) {
+        this(documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter,
+                numericMappingStrategy, null);
+    }
+
+    public ArtifactGenerationService(
+            DocumentGenerationOrchestrator documentGenerationOrchestrator,
+            ArtifactPackageBuilder artifactPackageBuilder,
+            ArtifactManifestWriter artifactManifestWriter,
+            NumericMappingStrategy numericMappingStrategy,
+            GlossaryReportWriter glossaryReportWriter) {
+        this.glossaryReportWriter = glossaryReportWriter;
         this.documentGenerationOrchestrator = Objects.requireNonNull(
                 documentGenerationOrchestrator, "documentGenerationOrchestrator must not be null");
         this.artifactPackageBuilder = Objects.requireNonNull(
@@ -184,12 +197,12 @@ public final class ArtifactGenerationService {
             AuditGenerationOptions auditOptions,
             Set<DatabasePlatform> platforms,
             TimestampSemantics timestampSemantics) throws IOException {
+        List<ArtifactManifestAssembler.ModelInput> models = List.of(
+                new ArtifactManifestAssembler.ModelInput(
+                        sourceName, prepared.schema(), prepared.validationReport()));
+        if (glossaryReportWriter != null) glossaryReportWriter.write(output, context, models);
         artifactManifestWriter.write(
-                output,
-                context,
-                logicalName,
-                List.of(new ArtifactManifestAssembler.ModelInput(
-                        sourceName, prepared.schema(), prepared.validationReport())),
+                output, context, logicalName, models,
                 generationExtensions(auditOptions, platforms, timestampSemantics));
     }
 

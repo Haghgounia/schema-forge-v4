@@ -24,6 +24,8 @@
         <springdoc.version>2.8.13</springdoc.version>
         <!-- Legacy Word Parser 0.6.0 is regression-tested with Apache POI 5.5.1. -->
         <poi.version>5.5.1</poi.version>
+        <!-- H2 2.3.232 has documented file compaction data-loss bug #4247. -->
+        <h2.version>2.4.240</h2.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <archunit.version>1.4.1</archunit.version>
         <mssql.jdbc.version>13.4.0.jre11</mssql.jdbc.version>
@@ -51,6 +53,13 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+        <!-- Separate, opt-in glossary DB; pin a version with the H2 #4247 fix. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>

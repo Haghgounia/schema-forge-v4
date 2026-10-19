@@ -8,6 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import com.behsazan.schemaforge.glossary.GlossaryConflictException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -47,6 +49,30 @@ public class SchemaForgeRestExceptionHandler {
             IllegalArgumentException exception, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, RestErrorCode.INVALID_REQUEST,
                 message(exception, "Invalid request"), request, Map.of());
+    }
+
+    @ExceptionHandler(GlossaryConflictException.class)
+    public ResponseEntity<RestErrorResponse> conflict(
+            GlossaryConflictException exception, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, RestErrorCode.CONFLICT,
+                "Glossary term already exists for this kind and canonical key", request, Map.of());
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<RestErrorResponse> explicitStatus(
+            ResponseStatusException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+        RestErrorCode code = switch (status) {
+            case UNAUTHORIZED -> RestErrorCode.UNAUTHORIZED;
+            case NOT_FOUND -> RestErrorCode.NOT_FOUND;
+            case SERVICE_UNAVAILABLE -> RestErrorCode.SERVICE_UNAVAILABLE;
+            case CONFLICT -> RestErrorCode.CONFLICT;
+            default -> RestErrorCode.INVALID_REQUEST;
+        };
+        return build(status, code,
+                exception.getReason() == null ? "Request rejected" : exception.getReason(),
+                request, Map.of());
     }
 
     @ExceptionHandler(IOException.class)

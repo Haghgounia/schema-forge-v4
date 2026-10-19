@@ -1,3 +1,7 @@
+> **Glossary H2 persistence HF8:** H2 2.3.232 could lose recently inserted rows on file close/reopen (upstream issue #4247). This branch pins H2 2.4.240, with a dedicated runtime-version and 804-row persistence regression gate. Back up `data/schemaforge-glossary.mv.db` before opening it with the new driver. See `docs/GLOSSARY_HF8_H2_DATA_PERSISTENCE.md`.
+
+> **HF7 diagnostics:** For a repeatable probe of the remaining Windows Glossary Atomic bootstrap inconsistency, run `distribution\bin\diagnose-glossary-h2.cmd`. This is an investigation-only update (no Production behavior changes). See `docs/GLOSSARY_HF7_DIAGNOSTIC.md`.
+
 # SchemaForge v4 - Multi-dialect schema generation
 
 ## PostgreSQL final live validation status
@@ -841,3 +845,7 @@ mvnw.cmd clean ^
 ## Fast Legacy Word v8 targeted replay
 
 When a prior v7 run already produced `legacy-directory-document-summary.csv`, do not repeat the multi-hour full Word corpus. Run `LegacyWordProblemReplayIT` with `schemaforge.e2e.legacyReplaySummary` pointing to that v7 CSV. The replay directly opens only rows previously marked `CLASSIFICATION_FAILED`, writes `legacy-directory-problem-replay.csv`, `legacy-directory-problem-replay-totals.csv`, and a merged `legacy-directory-document-summary-v8.csv`, and leaves all unchanged v7 rows untouched. It does not run Standard Word, Legacy RTL, or Legacy batch generation.
+
+## Glossary / Naming Governance (V4.14.2 opt-in, Atomic Terms only)
+
+A separate on-disk H2 glossary validates table/column naming terms in the canonical model, generates nonblocking review reports, and exposes read/search/export/CRUD/import/approval REST APIs. The Excel importer now reads **only `01_Atomic_Terms`** (946 source rows / 804 unique terms), never `02_Canonical_Phrases`; old second-sheet entries are excluded from active checks. Disabled by default to preserve existing artifacts. When enabled, H2 automatically creates `data/schemaforge-glossary.mv.db` at first startup and loads the packaged Atomic-only Excel as CANDIDATE (804 unique terms), without requiring a REST upload. A reproducible offline SQL bootstrap is supplied in `distribution/glossary/`. See [docs/GLOSSARY_NAMING_GOVERNANCE_V14.md](docs/GLOSSARY_NAMING_GOVERNANCE_V14.md) for Excel baseline, deployment, governance controls, API contract, output reports, and test commands.

@@ -212,6 +212,9 @@ class ApiContractFreezeTest {
                 "NOT_ACCEPTABLE",
                 "METHOD_NOT_ALLOWED",
                 "NOT_FOUND",
+                // V4.14.2 additive Glossary REST error-code extension, explicitly re-frozen:
+                "UNAUTHORIZED",
+                "CONFLICT",
                 "PAYLOAD_TOO_LARGE",
                 "SERVICE_UNAVAILABLE",
                 "INTERNAL_ERROR");

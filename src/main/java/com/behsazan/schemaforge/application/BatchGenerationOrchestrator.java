@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.artifact.ArtifactOrigin;
 import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactRequestStatus;
 import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
 import com.behsazan.schemaforge.artifact.CollisionSafeArtifactTargetAllocator;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
@@ -51,6 +52,7 @@ public final class BatchGenerationOrchestrator {
     private final ArtifactManifestWriter artifactManifestWriter;
     private final NumericMappingStrategy numericMappingStrategy;
     private final GenerationSummaryReportWriter generationSummaryReportWriter;
+    private final GlossaryReportWriter glossaryReportWriter;
 
     public BatchGenerationOrchestrator(
             DocumentGenerationOrchestrator documentGenerationOrchestrator,
@@ -69,6 +71,19 @@ public final class BatchGenerationOrchestrator {
             ArtifactPackageBuilder artifactPackageBuilder,
             ArtifactManifestWriter artifactManifestWriter,
             NumericMappingStrategy numericMappingStrategy) {
+        this(documentGenerationOrchestrator, diagramArtifactProducer, artifactNamingPolicy,
+                artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy, null);
+    }
+
+    public BatchGenerationOrchestrator(
+            DocumentGenerationOrchestrator documentGenerationOrchestrator,
+            DiagramArtifactProducer diagramArtifactProducer,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            ArtifactPackageBuilder artifactPackageBuilder,
+            ArtifactManifestWriter artifactManifestWriter,
+            NumericMappingStrategy numericMappingStrategy,
+            GlossaryReportWriter glossaryReportWriter) {
+        this.glossaryReportWriter = glossaryReportWriter;
         this.documentGenerationOrchestrator = Objects.requireNonNull(
                 documentGenerationOrchestrator, "documentGenerationOrchestrator must not be null");
         this.diagramArtifactProducer = Objects.requireNonNull(
@@ -368,6 +383,9 @@ public final class BatchGenerationOrchestrator {
                     platforms,
                     summaryFacts, batchRequestStatus);
 
+            if (glossaryReportWriter != null) {
+                glossaryReportWriter.write(outputDir, context, manifestModels);
+            }
             artifactManifestWriter.write(
                     outputDir,
                     context,
