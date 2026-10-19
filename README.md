@@ -1,3 +1,21 @@
+### Glossary inline SQL column hints (V4.14.3-H1)
+
+When `SCHEMAFORGE_GLOSSARY_ENABLED=true`, newly generated `CREATE TABLE` DDL
+from Standard Word, Legacy Word, ZIP batch, and EA (including EA integrated SQL)
+places a safe `/* GLOSSARY_HINT: MISSING=... */` comment immediately before
+the affected column name, on the very same SQL row. Only `NEW` vocabulary
+components absent from the authoritative `01_Atomic_Terms` H2 glossary are
+marked; `CANDIDATE` and `REJECTED` are already present and remain findings in
+`reports/glossary/unknown-terms.csv`. Approved multiword phrases are matched
+by the same longest-phrase rule as that report.
+
+Example: `  /* GLOSSARY_HINT: MISSING=ACTIVE */ IS_ACTIVE NUMBER NOT NULL,`
+
+Hints are non-blocking, ASCII-only and do not change executable DDL. No hint is
+added when Glossary is disabled. ALTER/Flyway migration scripts, CRUD scripts,
+and scripts generated outside the opt-in REST generation path are unchanged.
+See `docs/GLOSSARY_INLINE_DDL_COLUMN_HINTS.md` for tests, scope and semantics.
+
 ### Standard Word ZIP – Glossary audit (external corpus)
 
 To check meaningful standard `.docx` table/column names from a ZIP against the

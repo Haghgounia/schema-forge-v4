@@ -16,10 +16,7 @@ public final class GlossaryScanner {
         Objects.requireNonNull(schema, "schema");
         Objects.requireNonNull(lexicon, "lexicon");
         List<UnknownGlossaryTerm> result = new ArrayList<>();
-        int maxPhraseLength = Stream.of(lexicon.phrases(), lexicon.candidatePhrases(), lexicon.rejectedPhrases())
-                .flatMap(java.util.Collection::stream)
-                .mapToInt(value -> (int) value.chars().filter(c -> c == '_').count() + 1)
-                .max().orElse(1);
+        int maxPhraseLength = maxPhraseLength(lexicon);
         for (Table table : schema.tables()) {
             String tableName = table.qualifiedName().name().value();
             scanIdentifier(sourceName, "TABLE", tableName, "", tableName, lexicon, maxPhraseLength, result);
@@ -29,6 +26,23 @@ public final class GlossaryScanner {
             }
         }
         return List.copyOf(result);
+    }
+
+    /** Uses the same longest-phrase rules as the glossary reports, on one column identifier. */
+    public List<UnknownGlossaryTerm> scanColumn(String identifier, GlossaryLexicon lexicon) {
+        Objects.requireNonNull(identifier, "identifier");
+        Objects.requireNonNull(lexicon, "lexicon");
+        List<UnknownGlossaryTerm> result = new ArrayList<>();
+        scanIdentifier("", "COLUMN", "", identifier, identifier, lexicon,
+                maxPhraseLength(lexicon), result);
+        return List.copyOf(result);
+    }
+
+    private static int maxPhraseLength(GlossaryLexicon lexicon) {
+        return Stream.of(lexicon.phrases(), lexicon.candidatePhrases(), lexicon.rejectedPhrases())
+                .flatMap(java.util.Collection::stream)
+                .mapToInt(value -> (int) value.chars().filter(c -> c == '_').count() + 1)
+                .max().orElse(1);
     }
 
     private static void scanIdentifier(

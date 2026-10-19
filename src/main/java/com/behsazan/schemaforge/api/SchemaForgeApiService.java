@@ -137,7 +137,7 @@ public class SchemaForgeApiService {
         this.documentGenerationOrchestrator = new DocumentGenerationOrchestrator(
                 preparationService, metadataRepositoryResolver, artifactNamingPolicy,
                 diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
-                crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy);
+                crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy, glossary);
         this.artifactGenerationService = new ArtifactGenerationService(
                 documentGenerationOrchestrator, artifactPackageBuilder, artifactManifestWriter, numericMappingStrategy, glossary);
         this.batchGenerationOrchestrator = new BatchGenerationOrchestrator(

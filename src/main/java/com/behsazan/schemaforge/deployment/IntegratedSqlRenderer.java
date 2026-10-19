@@ -5,6 +5,7 @@ import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.domain.model.Table;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.glossary.GlossaryDdlHints;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,8 +27,13 @@ public final class IntegratedSqlRenderer {
     private final DialectForeignKeyCompatibilityValidator foreignKeyCompatibilityValidator;
 
     public IntegratedSqlRenderer(Dialect dialect) {
+        this(dialect, null);
+    }
+
+    /** Optional SQL comments before missing column vocabulary; disabled for legacy callers. */
+    public IntegratedSqlRenderer(Dialect dialect, GlossaryDdlHints hints) {
         this.dialect = Objects.requireNonNull(dialect, "dialect must not be null");
-        this.ddlGenerator = new DdlGenerator(this.dialect);
+        this.ddlGenerator = new DdlGenerator(this.dialect).withGlossaryHints(hints);
         this.foreignKeyCompatibilityValidator = new DialectForeignKeyCompatibilityValidator();
     }
 

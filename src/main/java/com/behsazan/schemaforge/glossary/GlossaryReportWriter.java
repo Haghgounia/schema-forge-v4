@@ -31,6 +31,11 @@ public final class GlossaryReportWriter {
         this.mapper = mapper;
     }
 
+    /** Captures the currently governed terms once for an individual generation request. */
+    public GlossaryDdlHints ddlHints() {
+        return new GlossaryDdlHints(repository.approvedLexicon());
+    }
+
     public void write(Path output, ArtifactGenerationContext context,
                       List<ArtifactManifestAssembler.ModelInput> models) throws IOException {
         GlossaryLexicon snapshot = repository.approvedLexicon();

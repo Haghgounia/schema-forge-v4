@@ -1,3 +1,19 @@
+## 2026-10-19 - V4.14.3-H1 Glossary inline column hints in CREATE TABLE scripts
+
+- Built from user-provided 2026-10-19 19:33 project ZIP; keeps the existing H2
+  2.4.240 / Atomic-only glossary, reviewed-term statuses and report contract.
+- Added a request-scoped `GlossaryDdlHints` formatter sharing the existing
+  `GlossaryScanner` phrase/token/status classification. Missing (`NEW`) atomic
+  components are rendered as SQL block comments before their column name.
+- Wired the opt-in hints into Standard Word, Legacy Word, ZIP batch and EA
+  per-table / integrated CREATE TABLE generation; unchanged for a disabled
+  Glossary or for direct DdlGenerator callers without an explicit snapshot.
+- Added cross-DBMS SQL-equivalence, Oracle/MariaDB syntax, integrated-SQL, and
+  H2 + Standard Word API acceptance tests. No DB schema, Excel, API/Manifest,
+  migration/CRUD SQL, field datatype, PK, FK or output path changes.
+- Full Maven tests must be executed on the Windows development machine. Local
+  Java 21 smoke validation covers the seven DBMS generators and integrated SQL.
+
 ## 2026-10-19 – V4.14.3 Standard Word ZIP Glossary audit (test-only)
 
 - Added `GlossaryStandardWordZipAuditTest` to inspect an externally supplied ZIP

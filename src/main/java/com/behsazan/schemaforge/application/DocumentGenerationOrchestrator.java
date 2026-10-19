@@ -8,6 +8,8 @@ import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.model.DatabaseSchema;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.glossary.GlossaryDdlHints;
+import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
 import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
@@ -54,6 +56,7 @@ public final class DocumentGenerationOrchestrator {
     private final OracleDdlSanityChecker oracleDdlSanityChecker;
     private final MariaDbDdlSanityChecker mariaDbDdlSanityChecker = new MariaDbDdlSanityChecker();
     private final NumericMappingStrategy numericMappingStrategy;
+    private final GlossaryReportWriter glossaryReportWriter;
 
     public DocumentGenerationOrchestrator(
             SchemaPreparationService preparationService,
@@ -80,11 +83,26 @@ public final class DocumentGenerationOrchestrator {
             CrudArtifactProducer crudArtifactProducer,
             OracleDdlSanityChecker oracleDdlSanityChecker,
             NumericMappingStrategy numericMappingStrategy) {
-        this(
-                preparationService, metadataRepositoryResolver, artifactNamingPolicy,
+        this(preparationService, metadataRepositoryResolver, artifactNamingPolicy,
+                diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
+                crudArtifactProducer, oracleDdlSanityChecker, numericMappingStrategy, null);
+    }
+
+    public DocumentGenerationOrchestrator(
+            SchemaPreparationService preparationService,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            DiagramArtifactProducer diagramArtifactProducer,
+            MigrationArtifactProducer migrationArtifactProducer,
+            ComparisonArtifactProducer comparisonArtifactProducer,
+            CrudArtifactProducer crudArtifactProducer,
+            OracleDdlSanityChecker oracleDdlSanityChecker,
+            NumericMappingStrategy numericMappingStrategy,
+            GlossaryReportWriter glossaryReportWriter) {
+        this(preparationService, metadataRepositoryResolver, artifactNamingPolicy,
                 diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
                 crudArtifactProducer, new LegacyWordSpecificationParser(), oracleDdlSanityChecker,
-                numericMappingStrategy);
+                numericMappingStrategy, glossaryReportWriter);
     }
 
     DocumentGenerationOrchestrator(
@@ -115,6 +133,25 @@ public final class DocumentGenerationOrchestrator {
             LegacyWordSpecificationParser legacyWordSpecificationParser,
             OracleDdlSanityChecker oracleDdlSanityChecker,
             NumericMappingStrategy numericMappingStrategy) {
+        this(preparationService, metadataRepositoryResolver, artifactNamingPolicy,
+                diagramArtifactProducer, migrationArtifactProducer, comparisonArtifactProducer,
+                crudArtifactProducer, legacyWordSpecificationParser, oracleDdlSanityChecker,
+                numericMappingStrategy, null);
+    }
+
+    private DocumentGenerationOrchestrator(
+            SchemaPreparationService preparationService,
+            MetadataRepositoryResolver metadataRepositoryResolver,
+            ArtifactNamingPolicy artifactNamingPolicy,
+            DiagramArtifactProducer diagramArtifactProducer,
+            MigrationArtifactProducer migrationArtifactProducer,
+            ComparisonArtifactProducer comparisonArtifactProducer,
+            CrudArtifactProducer crudArtifactProducer,
+            LegacyWordSpecificationParser legacyWordSpecificationParser,
+            OracleDdlSanityChecker oracleDdlSanityChecker,
+            NumericMappingStrategy numericMappingStrategy,
+            GlossaryReportWriter glossaryReportWriter) {
+        this.glossaryReportWriter = glossaryReportWriter;
         this.preparationService = Objects.requireNonNull(preparationService, "preparationService must not be null");
         this.metadataRepositoryResolver = Objects.requireNonNull(
                 metadataRepositoryResolver, "metadataRepositoryResolver must not be null");
@@ -248,6 +285,7 @@ public final class DocumentGenerationOrchestrator {
         DatabaseSchema schema = prepared.schema();
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
+        GlossaryDdlHints ddlHints = glossaryReportWriter == null ? null : glossaryReportWriter.ddlHints();
 
         // All normal artifacts in one top-level request share the same timestamp.
         String timestamp = context.generationTimestamp();
@@ -274,7 +312,8 @@ public final class DocumentGenerationOrchestrator {
                             "[" + platform.name() + "] " + issue.message()))
                     .forEach(jsonIssues::add);
 
-            String sql = new DdlGenerator(dialect).generate(schema, report, metadata);
+            String sql = new DdlGenerator(dialect).withGlossaryHints(ddlHints)
+                    .generate(schema, report, metadata);
             Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(baseName, platform, timestamp);
             String sqlFileName = ddlRelativePath.getFileName().toString();
             requireValidDdl(platform, sql, sqlFileName);

@@ -4,6 +4,7 @@ import com.behsazan.schemaforge.artifact.ArtifactGenerationContext;
 import com.behsazan.schemaforge.artifact.ArtifactNamingPolicy;
 import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactType;
+import com.behsazan.schemaforge.glossary.GlossaryDdlHints;
 import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifest;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
@@ -278,6 +279,7 @@ public final class EaGenerationOrchestrator {
         ValidationReport report = prepared.validationReport();
         List<ValidationIssue> jsonIssues = new ArrayList<>(report.issues());
         String timestamp = context.generationTimestamp();
+        GlossaryDdlHints ddlHints = glossaryReportWriter == null ? null : glossaryReportWriter.ddlHints();
 
         DependencyOrder dependencyOrder = dependencyOrder(schema.tables());
         Map<DatabasePlatform, MetadataRepository> requestRepositories = new EnumMap<>(DatabasePlatform.class);
@@ -315,7 +317,7 @@ public final class EaGenerationOrchestrator {
                     DatabaseSchema tableSchema = singleTableSchema(schema, table);
                     MetadataComparisonResult tableMetadata = metadataForTable(metadata, table);
                     try {
-                        String sql = new DdlGenerator(dialect, schema)
+                        String sql = new DdlGenerator(dialect, schema).withGlossaryHints(ddlHints)
                                 .generate(tableSchema, tableReport, tableMetadata);
                         Path ddlRelativePath = artifactNamingPolicy.ddlRelativePath(
                                 eaArtifactBaseName(schema, table, platform), platform, timestamp);
@@ -355,7 +357,7 @@ public final class EaGenerationOrchestrator {
             // validation. Dialect-specific compatibility remains an additional CREATE-DDL gate.
             migrationArtifactProducer.writeMigrationArtifacts(
                     schema, repository, output, platform, context, report);
-            writeEaRunAll(schema, report, platform, dependencyOrder, baseName, timestamp, output, context);
+            writeEaRunAll(schema, report, platform, dependencyOrder, baseName, timestamp, output, context, ddlHints);
         }
 
         crudArtifactProducer.writeMetadataCrudArtifacts(
@@ -505,7 +507,8 @@ public final class EaGenerationOrchestrator {
             String sourceBaseName,
             String timestamp,
             Path artifactRoot,
-            ArtifactGenerationContext context) throws IOException {
+            ArtifactGenerationContext context,
+            GlossaryDdlHints ddlHints) throws IOException {
 
         Path runAllRelativePath = artifactNamingPolicy.runAllRelativePath(
                 sourceBaseName, platform, timestamp);
@@ -522,7 +525,7 @@ public final class EaGenerationOrchestrator {
         try {
             IntegratedSchemaDeploymentPlan plan = new IntegratedSchemaDeploymentPlanner().plan(schema);
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
-            integrated = new IntegratedSqlRenderer(dialect).render(schema, plan);
+            integrated = new IntegratedSqlRenderer(dialect, ddlHints).render(schema, plan);
         } catch (IllegalStateException | IllegalArgumentException exception) {
             context.ledger().blocked(
                     context, ArtifactType.RUN_SCRIPT, platform, sourceBaseName,

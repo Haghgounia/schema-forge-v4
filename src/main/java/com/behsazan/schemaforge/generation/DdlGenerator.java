@@ -22,6 +22,7 @@ import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.generation.issue.InlineIssueRenderer;
 import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
+import com.behsazan.schemaforge.glossary.GlossaryDdlHints;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonResult;
 import com.behsazan.schemaforge.metadata.validation.MetadataComparisonValidator;
@@ -63,6 +64,7 @@ public final class DdlGenerator {
     private final InlineIssueRenderer inlineIssueRenderer;
     private final PhysicalCommentRenderer physicalCommentRenderer;
     private final DatatypeCompatibilityAnalyzer datatypeCompatibilityAnalyzer;
+    private GlossaryDdlHints glossaryDdlHints;
 
     public DdlGenerator(Dialect dialect) {
         this(dialect, Clock.systemDefaultZone(), null);
@@ -90,6 +92,15 @@ public final class DdlGenerator {
         this.inlineIssueRenderer = new InlineIssueRenderer();
         this.physicalCommentRenderer = PhysicalCommentRendererResolver.resolve(dialect);
         this.datatypeCompatibilityAnalyzer = new DatatypeCompatibilityAnalyzer();
+    }
+
+    /**
+     * Opt-in, request-scoped SQL comments for vocabulary not present in Glossary.
+     * A generator created without this setting remains byte-for-byte compatible.
+     */
+    public DdlGenerator withGlossaryHints(GlossaryDdlHints hints) {
+        this.glossaryDdlHints = hints;
+        return this;
     }
 
     /**
@@ -436,6 +447,9 @@ public final class DdlGenerator {
             long metadataFrequency,
             boolean metadataAvailable) {
         StringBuilder sql = new StringBuilder("  ");
+        if (glossaryDdlHints != null) {
+            sql.append(glossaryDdlHints.beforeColumn(column.name().value()));
+        }
         if (metadataAvailable) {
             sql.append("/* ").append(String.format(Locale.ROOT, "%3d", metadataFrequency)).append("*/  ");
         }
