@@ -45,6 +45,18 @@ public final class LegacyWordDirectoryClassifier {
                         "",
                         "");
             }
+            if (result.status() == WordTableParseStatus.FAILED
+                    && isSecurityPolicySkip(result.errorClass(), result.errorMessage())) {
+                return new Classification(
+                        document,
+                        result.relativePath(),
+                        Outcome.SECURITY_SKIPPED,
+                        result.status().name(),
+                        0,
+                        issueCodes,
+                        safe(result.errorClass()),
+                        safe(result.errorMessage()));
+            }
             return new Classification(
                     document,
                     result.relativePath(),
@@ -67,6 +79,14 @@ public final class LegacyWordDirectoryClassifier {
         }
     }
 
+    static boolean isSecurityPolicySkip(String errorClass, String errorMessage) {
+        String type = safe(errorClass);
+        String message = safe(errorMessage);
+        return "java.io.IOException".equals(type)
+                && message.contains("Zip bomb detected!")
+                && message.contains("MIN_INFLATE_RATIO");
+    }
+
     private static String relative(Path inputRoot, Path document) {
         if (inputRoot == null || document == null) {
             return document == null ? "" : document.toString();
@@ -87,6 +107,7 @@ public final class LegacyWordDirectoryClassifier {
     public enum Outcome {
         TABLE_SPEC,
         NOT_TABLE_SPEC,
+        SECURITY_SKIPPED,
         CLASSIFICATION_FAILED
     }
 

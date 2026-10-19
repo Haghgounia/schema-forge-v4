@@ -9,11 +9,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyWordDirectoryClassifierTest {
     @TempDir
     Path tempDir;
+
+    @Test
+    void classifiesPoiZipBombGuardAsSecuritySkipWithoutWeakeningTheGuard() {
+        String message = "Zip bomb detected! The file would exceed the max. ratio of compressed file size "
+                + "to the size of the expanded data. Limits: MIN_INFLATE_RATIO: 0.010000";
+
+        assertTrue(LegacyWordDirectoryClassifier.isSecurityPolicySkip("java.io.IOException", message));
+        assertFalse(LegacyWordDirectoryClassifier.isSecurityPolicySkip(
+                "java.io.IOException", "other IO failure"));
+        assertFalse(LegacyWordDirectoryClassifier.isSecurityPolicySkip(
+                "java.lang.RuntimeException", message));
+    }
 
     @Test
     void classifiesRealLegacyTableAndContentOnlyWordWithoutFilenameGuessing() throws Exception {

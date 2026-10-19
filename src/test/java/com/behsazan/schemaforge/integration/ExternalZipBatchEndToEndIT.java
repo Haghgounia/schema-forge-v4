@@ -33,7 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * <p>The recursive Legacy directory is content-classified with the production legacy parser
  * before generation. A Word file is not assumed to be a table specification merely because it
  * has a .doc/.docx extension. Parser-ignored documents are reported as SKIPPED_NOT_TABLE_SPEC
- * and are not submitted to generation. Accepted table specifications are packed with their
+ * and are not submitted to generation. Documents rejected by Apache POI's explicit ZIP-bomb
+ * inflate-ratio guard are reported as SKIPPED_SECURITY_POLICY rather than as table-classification
+ * failures; the harness never weakens or overrides that security guard. Accepted table specifications are packed with their
  * relative directory paths intact and sent through the strict LEGACY_WORD batch pipeline.</p>
  */
 @SpringBootTest(
@@ -155,6 +157,7 @@ class ExternalZipBatchEndToEndIT {
             List<ExternalGenerationAcceptanceSupport.LegacyDirectoryDocumentRow> documentRows = new ArrayList<>();
             long nonTable = 0;
             long inputFiltered = 0;
+            long securitySkipped = 0;
             long classificationFailed = 0;
 
             for (Path document : documents) {
@@ -182,6 +185,13 @@ class ExternalZipBatchEndToEndIT {
                         nonTable++;
                         documentRows.add(new ExternalGenerationAcceptanceSupport.LegacyDirectoryDocumentRow(
                                 normalize(relative), document.getFileName().toString(), "SKIPPED_NOT_TABLE_SPEC",
+                                classification.parserStatus(), classification.columnCount(), issueCodes,
+                                classification.errorClass(), classification.errorMessage()));
+                    }
+                    case SECURITY_SKIPPED -> {
+                        securitySkipped++;
+                        documentRows.add(new ExternalGenerationAcceptanceSupport.LegacyDirectoryDocumentRow(
+                                normalize(relative), document.getFileName().toString(), "SKIPPED_SECURITY_POLICY",
                                 classification.parserStatus(), classification.columnCount(), issueCodes,
                                 classification.errorClass(), classification.errorMessage()));
                     }
@@ -221,11 +231,13 @@ class ExternalZipBatchEndToEndIT {
             JsonNode manifest = ExternalGenerationAcceptanceSupport.manifest(objectMapper, entries);
             ExternalGenerationAcceptanceSupport.LegacyDirectoryCounts counts =
                     new ExternalGenerationAcceptanceSupport.LegacyDirectoryCounts(
-                            documents.size(), tableDocuments.size(), nonTable, inputFiltered, classificationFailed);
+                            documents.size(), tableDocuments.size(), nonTable, inputFiltered,
+                            securitySkipped, classificationFailed);
             String detail = ExternalGenerationAcceptanceSupport.blockingOutcomeSummary(manifest);
             String classificationDetail = "directoryClassification: tableSpecs=" + tableDocuments.size()
                     + ", nonTable=" + nonTable
                     + ", inputFiltered=" + inputFiltered
+                    + ", securitySkipped=" + securitySkipped
                     + ", classificationFailed=" + classificationFailed;
             rows.add(ExternalGenerationAcceptanceSupport.legacyDirectorySummaryRow(
                     label, input, output, manifest, counts,

@@ -391,7 +391,8 @@ final class ExternalGenerationAcceptanceSupport {
                 counts.tableSpecDocuments(),
                 base.documentSuccess(),
                 manifestFailed + counts.classificationFailed(),
-                manifestSkipped + counts.nonTableDocuments() + counts.inputFilteredDocuments(),
+                manifestSkipped + counts.nonTableDocuments() + counts.inputFilteredDocuments()
+                        + counts.securitySkippedDocuments(),
                 counts.tableSpecDocuments(),
                 counts.nonTableDocuments(),
                 counts.inputFilteredDocuments(),
@@ -444,6 +445,7 @@ final class ExternalGenerationAcceptanceSupport {
             long tableSpecDocuments,
             long nonTableDocuments,
             long inputFilteredDocuments,
+            long securitySkippedDocuments,
             long classificationFailed) {
     }
 

@@ -98,6 +98,15 @@ class ExternalGenerationAcceptanceSupportTest {
     }
 
     @Test
+    void legacyDirectorySecurityPolicySkipsAreNotCountedAsClassificationFailures() {
+        var counts = new ExternalGenerationAcceptanceSupport.LegacyDirectoryCounts(
+                100, 10, 80, 2, 7, 1);
+
+        assertEquals(7, counts.securitySkippedDocuments());
+        assertEquals(1, counts.classificationFailed());
+    }
+
+    @Test
     void summaryCsvCarriesExactInputOutputAndExceptionFields() throws Exception {
         Path input = tempDir.resolve("broken.xml").toAbsolutePath();
         Path output = tempDir.resolve("broken-result.zip").toAbsolutePath();

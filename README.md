@@ -809,13 +809,14 @@ The Legacy directory is content-classified before generation with the production
 - `TABLE_SPEC`: accepted by the Legacy parser and submitted to the strict `LEGACY_WORD` batch pipeline.
 - `SKIPPED_NOT_TABLE_SPEC`: the production parser deliberately classified the Word file as `IGNORED`; it is recorded and not submitted to generation.
 - `SKIPPED_INPUT_FILTER`: temporary/hidden/Mac metadata input excluded by the same batch-input filter contract.
-- `CLASSIFICATION_FAILED`: the parser could not classify the document; this remains release-gate evidence and is not silently converted to a skip.
+- `SKIPPED_SECURITY_POLICY`: Apache POI rejected the document under its ZIP-bomb inflate-ratio guard. The harness records the document as an explicit security-policy skip and never lowers the POI security threshold.
+- `CLASSIFICATION_FAILED`: the parser could not classify the document for any other reason; this remains release-gate evidence and is not silently converted to a skip.
 
 Accepted table specifications are packed into a temporary ZIP with their paths relative to `schemaforge.e2e.legacyDir` preserved, then sent through the existing production Legacy Word ZIP batch path. This reuses the production generation contract without flattening nested directories or inventing a new parser mode.
 
 Two reports are written under `schemaforge.e2e.outputDir`:
 
-- `word-release-confidence-summary.csv`: corpus-level request/artifact/validation counts plus `tableSpecDocuments`, `nonTableDocuments`, `inputFilteredDocuments`, and `classificationFailed`.
+- `word-release-confidence-summary.csv`: corpus-level request/artifact/validation counts plus `tableSpecDocuments`, `nonTableDocuments`, `inputFilteredDocuments`, and `classificationFailed`. Security-policy skips are included in `documentSkipped` and remain individually visible in `legacy-directory-document-summary.csv`.
 - `legacy-directory-document-summary.csv`: one row per discovered Legacy Word document with relative path, classification, parser status, column count, issue codes, and parser error evidence.
 
 Example observation run:
@@ -837,3 +838,6 @@ mvnw.cmd clean ^
 ```
 
 `schemaforge.e2e.legacyZip` is no longer used by this v7 release-confidence runner. The production Legacy ZIP endpoint itself is unchanged.
+## Fast Legacy Word v8 targeted replay
+
+When a prior v7 run already produced `legacy-directory-document-summary.csv`, do not repeat the multi-hour full Word corpus. Run `LegacyWordProblemReplayIT` with `schemaforge.e2e.legacyReplaySummary` pointing to that v7 CSV. The replay directly opens only rows previously marked `CLASSIFICATION_FAILED`, writes `legacy-directory-problem-replay.csv`, `legacy-directory-problem-replay-totals.csv`, and a merged `legacy-directory-document-summary-v8.csv`, and leaves all unchanged v7 rows untouched. It does not run Standard Word, Legacy RTL, or Legacy batch generation.

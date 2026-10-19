@@ -1,3 +1,18 @@
+## 2026-10-19 - Legacy Word targeted v8 replay
+
+- Added `LegacyWordProblemReplayIT` for fast replay of only v7 `CLASSIFICATION_FAILED` Legacy Word documents.
+- The replay reads `legacy-directory-document-summary.csv`, resolves only the prior failing relative paths, and does not rescan the full nested Legacy corpus.
+- Standard Word ZIP, Legacy RTL ZIP, and the 5,433-document Legacy production batch are not rerun by this gate.
+- Writes a 209-row problem replay report plus a merged v8 document summary while preserving all unchanged v7 rows.
+- Keeps Apache POI ZIP-bomb security limits unchanged.
+
+## 2026-10-19 - Word release-confidence v8 security-policy classification
+
+- Reclassified Apache POI `Zip bomb detected!` / `MIN_INFLATE_RATIO` document-open failures as `SKIPPED_SECURITY_POLICY` in the recursive Legacy Word release-confidence harness.
+- The harness does not call `ZipSecureFile.setMinInflateRatio()` and does not weaken Apache POI security limits.
+- Security-policy skips contribute to `documentSkipped`, not `classificationFailed` / `documentFailed`; any other classification exception remains explicit `CLASSIFICATION_FAILED` evidence.
+- Production parser and generation behavior are unchanged.
+
 ## 2026-10-18 - EA CHECK pseudo-column recovery v5
 
 - Treats EA/XMI attributes named like `CK_*` / `CHK_*` with source datatype `CHECK` as constraint pseudo-columns, not physical database columns.

@@ -22,4 +22,7 @@ The test source now includes a v3 external corpus harness for Standard Word ZIP,
 
 ### Word release-confidence external corpus gate v7
 
-The test harness now accepts the real Word corpus layout: Standard ZIP, recursive Legacy Word directory, and Legacy RTL ZIP. Legacy directory Word files are classified by the production legacy extraction rules before generation; non-table Word documents are reported as `SKIPPED_NOT_TABLE_SPEC` instead of being forced through table generation. Accepted table documents retain their recursive relative paths and are exercised through the existing strict Legacy ZIP batch pipeline. Production runtime behavior is unchanged.
+The test harness now accepts the real Word corpus layout: Standard ZIP, recursive Legacy Word directory, and Legacy RTL ZIP. Legacy directory Word files are classified by the production legacy extraction rules before generation; non-table Word documents are reported as `SKIPPED_NOT_TABLE_SPEC` instead of being forced through table generation. Accepted table documents retain their recursive relative paths and are exercised through the existing strict Legacy ZIP batch pipeline. Production runtime behavior is unchanged. Apache POI ZIP-bomb inflate-ratio rejections are now surfaced by the release-confidence harness as `SKIPPED_SECURITY_POLICY`; the security threshold is never weakened or overridden.
+## v8 targeted Legacy replay
+
+For a completed v7 corpus run, use `LegacyWordProblemReplayIT` with `schemaforge.e2e.legacyReplaySummary` pointing to the v7 `legacy-directory-document-summary.csv`. The targeted gate reopens only prior `CLASSIFICATION_FAILED` documents and does not rerun Standard Word, Legacy RTL, or Legacy batch generation.
