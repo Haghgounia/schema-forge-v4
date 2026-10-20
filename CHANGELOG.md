@@ -1,3 +1,27 @@
+## 2026-10-20 | Standard Word Glossary Six-Sheet Review XLSX - Persian column
+
+- The ZIP auditing test now produces the exact six-sheet human-review workbook used previously,
+  rather than a separate simplified Excel layout.
+- `Identifiers` gains `نام فارسی فیلد` from source Word; `Term Review Queue` gains
+  `Example Field Persian Name`. Missing Persian descriptions remain blank.
+- XLSX included in evidence manifest; existing CSV/JSON contracts and H2 remain unchanged.
+- See `docs/GLOSSARY_REVIEW_XLSX_PERSIAN_FIELD_NAME.md`.
+
+## 2026-10-20 - V4.14.3-H2 Standard Word ZIP audit Persian field labels (test-side only)
+
+- The `audit-standard-word-zip.cmd` workflow now writes an additional Excel workbook,
+  `reports/glossary/standard-word-glossary-audit.xlsx`, next to the existing six CSV/JSON reports.
+- The `Identifiers` worksheet adds **نام فارسی فیلد** next to the English field name.
+  Values are extracted from the actual standard DOCX column-description cell through
+  `WordSpecificationParser`/`Column.description()`, not translated or guessed from the glossary.
+  The original source description is retained in its own column for traceability.
+- Workbook includes Overview, Identifiers, Term Review Queue, Source Documents and Errors;
+  the XLSX is registered with size and SHA-256 in `audit-evidence-manifest.json`.
+- Existing `unknown-terms.csv`/CSV columns, imported workflow contract, read-only H2, DDL,
+  inline SQL glossary hints, production Java and the underlying `01_Atomic_Terms` data are unchanged.
+- Real DOCX fixture regression now checks the Persian field name in the generated XLSX.
+  Full Maven runtime verification remains to be performed on the Windows development machine.
+
 ## 2026-10-19 - V4.14.3-H1 Glossary inline column hints in CREATE TABLE scripts
 
 - Built from user-provided 2026-10-19 19:33 project ZIP; keeps the existing H2

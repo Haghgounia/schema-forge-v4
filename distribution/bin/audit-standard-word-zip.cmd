@@ -1,6 +1,7 @@
 @echo off
 setlocal EnableExtensions
 rem Read-only Glossary audit of STANDARD DOCX files inside an external ZIP.
+rem Produces schemaforge-glossary-word-audit-review.xlsx (includes Persian field name from DOCX).
 rem Usage: audit-standard-word-zip.cmd "D:\Input\standard-word.zip" ["D:\Output\reports"] ["D:\Project\data\schemaforge-glossary"]
 cd /d "%~dp0\..\.." || exit /b 1
 if "%~1"=="" (
@@ -25,5 +26,6 @@ if not exist "%AUDIT_H2_BASE%.mv.db" (
 echo [INFO] Standard DOCX ZIP: %WORD_ZIP%
 echo [INFO] Glossary H2 read-only: %AUDIT_H2_BASE%.mv.db
 echo [INFO] Output root: %AUDIT_REPORT_ROOT%
+echo [INFO] Excel in each audit run: reports\glossary\schemaforge-glossary-word-audit-review.xlsx
 call mvnw.cmd -Dschemaforge.glossary.wordZip.file="%WORD_ZIP%" -Dschemaforge.glossary.wordZip.h2Base="%AUDIT_H2_BASE%" -Dschemaforge.glossary.wordZip.outputDir="%AUDIT_REPORT_ROOT%" -Dschemaforge.glossary.wordZip.required=true -Dtest=GlossaryStandardWordZipAuditTest test
 exit /b %ERRORLEVEL%

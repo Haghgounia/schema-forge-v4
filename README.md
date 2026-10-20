@@ -1,3 +1,19 @@
+### Standard Word ZIP - six-sheet glossary review XLSX (V4.14.3-H2)
+
+The `GlossaryStandardWordZipAuditTest` class, invoked through
+`distribution/bin/audit-standard-word-zip.cmd`, now automatically generates
+`reports/glossary/schemaforge-glossary-word-audit-review.xlsx`.
+This follows the **six worksheets** of the previous human-review workbook:
+`Overview`, `Term Review Queue`, `Plural Review Hints`, `Source Documents`,
+`Identifiers`, and `Short and Acronym Hints`.
+The `Identifiers` sheet includes `نام فارسی فیلد` directly from the matching
+standard Word column-description cell; the `Term Review Queue` shows
+`Example Field Persian Name` for each available example. No Persian value is
+invented if it is absent from the Word document. Previous CSV/JSON contracts,
+H2, and production generation paths are unchanged. The workbook is included
+in the SHA-256 evidence manifest. See
+[`docs/GLOSSARY_REVIEW_XLSX_PERSIAN_FIELD_NAME.md`](docs/GLOSSARY_REVIEW_XLSX_PERSIAN_FIELD_NAME.md).
+
 ### Glossary inline SQL column hints (V4.14.3-H1)
 
 When `SCHEMAFORGE_GLOSSARY_ENABLED=true`, newly generated `CREATE TABLE` DDL

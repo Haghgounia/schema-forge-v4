@@ -7,11 +7,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,6 +78,8 @@ class GlossaryStandardWordZipAuditTest {
     private static final long MAX_TOTAL_DOC_BYTES = 2L * 1024 * 1024 * 1024;
     private static final int MAX_SOURCE_NAME = 1024; // GlossaryReviewService contract
     private static final int MAX_IMPORT_ROWS = 20_000;
+    private static final int MAX_EXCEL_DATA_ROWS_PER_SHEET = 1_048_575;
+    private static final String EXCEL_REPORT = "schemaforge-glossary-word-audit-review.xlsx";
     private static final String UNKNOWN_HEADER = GlossaryCsv.row(
             "source_name", "object_type", "table_name", "column_name", "identifier",
             "unknown_term", "token_position", "review_status");
@@ -112,6 +126,8 @@ class GlossaryStandardWordZipAuditTest {
             problems.add("ZIP_READ_FAILED: " + concise(exception));
         }
         writeReports(output, zip, h2Base, snapshot, results, problems);
+        System.out.println("[GLOSSARY_WORD_ZIP] Excel (Persian field names): "
+                + output.resolve("reports/glossary/" + EXCEL_REPORT));
 
         System.out.printf(Locale.ROOT,
                 "[GLOSSARY_WORD_ZIP] scanned=%d, identifiers=%d, new=%d, pending=%d, rejected=%d, errors=%d%n",
@@ -156,6 +172,61 @@ class GlossaryStandardWordZipAuditTest {
         assertTrue(Files.readString(output.resolve("reports/glossary/summary.json"))
                 .contains("01_Atomic_Terms"));
         assertTrue(Files.isRegularFile(output.resolve("audit-evidence-manifest.json")));
+        Path excelPath = output.resolve("reports/glossary/" + EXCEL_REPORT);
+        assertTrue(Files.isRegularFile(excelPath), "Excel audit workbook must be generated");
+        try (InputStream input = Files.newInputStream(excelPath);
+             XSSFWorkbook excel = new XSSFWorkbook(input)) {
+            Sheet identifiers = excel.getSheet("Identifiers");
+            assertNotNull(identifiers, "Identifiers sheet must exist");
+            assertEquals("نام فارسی فیلد", identifiers.getRow(0).getCell(4).getStringCellValue());
+            assertEquals(results.identifiers.size() + 1, identifiers.getLastRowNum() + 1);
+            boolean countryIdFound = false;
+            for (int index = 1; index <= identifiers.getLastRowNum(); index++) {
+                Row row = identifiers.getRow(index);
+                if (row != null && "COUNTRY_ID".equals(row.getCell(3).getStringCellValue())) {
+                    assertEquals("شناسه کشور", row.getCell(4).getStringCellValue(),
+                            "Persian field name must come from Word, not from a translation");
+                    countryIdFound = true;
+                }
+            }
+            assertTrue(countryIdFound, "Expected a COUNTRY_ID field in the real Word fixture");
+            assertEquals(6, excel.getNumberOfSheets(),
+                    "Must reproduce the six sheets of the user's review workbook");
+            assertEquals("Term Review Queue", excel.getSheetAt(1).getSheetName());
+            assertEquals("Plural Review Hints", excel.getSheetAt(2).getSheetName());
+            assertEquals("Source Documents", excel.getSheetAt(3).getSheetName());
+            assertEquals("Identifiers", excel.getSheetAt(4).getSheetName());
+            assertEquals("Short and Acronym Hints", excel.getSheetAt(5).getSheetName());
+            assertEquals("Example Field Persian Name", excel.getSheet("Term Review Queue")
+                    .getRow(0).getCell(6).getStringCellValue());
+            assertEquals("Reviewer Decision", excel.getSheet("Term Review Queue")
+                    .getRow(0).getCell(7).getStringCellValue());
+            boolean persianExampleFound = false;
+            Sheet queue = excel.getSheet("Term Review Queue");
+            for (int index = 1; index <= queue.getLastRowNum(); index++) {
+                Row row = queue.getRow(index);
+                if (row != null && "COUNTRY_ID".equals(row.getCell(4).getStringCellValue())
+                        && "\u0634\u0646\u0627\u0633\u0647 \u06a9\u0634\u0648\u0631".equals(
+                                row.getCell(6).getStringCellValue())) {
+                    persianExampleFound = true;
+                    break;
+                }
+            }
+            assertTrue(persianExampleFound,
+                    "Queue should show the Persian description for a matching example field");
+        }
+        assertTrue(Files.readString(output.resolve("audit-evidence-manifest.json"))
+                .contains("reports/glossary/" + EXCEL_REPORT),
+                "Excel must be included in the evidence manifest with a SHA-256");
+    }
+
+    @Test
+    void extractsOnlyActualPersianLabelsWithoutInventingTranslations() {
+        assertEquals("نام خانوادگی", persianFieldName(" نام خانوادگی "));
+        assertEquals("شناسه‌مشتری", persianFieldName("شناسه‌مشتری"));
+        assertEquals("", persianFieldName("Account number"));
+        assertEquals("", persianFieldName(""));
+        assertEquals("", persianFieldName(null));
     }
 
     @Test
@@ -285,13 +356,13 @@ class GlossaryStandardWordZipAuditTest {
                     for (var table : schema.tables()) {
                         String tableName = table.qualifiedName().name().value();
                         int tableFindings = addIdentifier(name, "TABLE", tableName, "", tableName,
-                                findings, results.identifiers);
+                                "", findings, results.identifiers);
                         identifiers++;
                         if (tableFindings == 0) approvedIdentifiers++;
                         for (var column : table.columns()) {
                             String identifier = column.name().value();
                             int columnFindings = addIdentifier(name, "COLUMN", tableName, identifier,
-                                    identifier, findings, results.identifiers);
+                                    identifier, column.description().value(), findings, results.identifiers);
                             identifiers++;
                             if (columnFindings == 0) approvedIdentifiers++;
                         }
@@ -311,7 +382,8 @@ class GlossaryStandardWordZipAuditTest {
     }
 
     private static int addIdentifier(String source, String type, String table, String column,
-                                     String identifier, List<UnknownGlossaryTerm> findings,
+                                     String identifier, String wordDescription,
+                                     List<UnknownGlossaryTerm> findings,
                                      List<IdentifierAudit> result) {
         List<UnknownGlossaryTerm> current = findings.stream()
                 .filter(finding -> finding.objectType().equals(type)
@@ -324,8 +396,32 @@ class GlossaryStandardWordZipAuditTest {
         long rejected = current.stream().filter(f -> f.reviewStatus().equals("REJECTED")).count();
         result.add(new IdentifierAudit(source, type, table, column, identifier,
                 current.isEmpty() ? "APPROVED" : "REVIEW_REQUIRED",
-                current.size(), (int) newlyFound, (int) pending, (int) rejected));
+                current.size(), (int) newlyFound, (int) pending, (int) rejected,
+                type.equals("COLUMN") ? persianFieldName(wordDescription) : "",
+                type.equals("COLUMN") ? cleanWordDescription(wordDescription) : ""));
         return current.size();
+    }
+
+    /** The standard DOCX column-description cell is the source of Persian field names.
+     * Keep Latin-only descriptions as source evidence, but never mislabel them as Persian.
+     * No Glossary translation or guessed expansion is used here.
+     */
+    private static String persianFieldName(String description) {
+        String cleaned = cleanWordDescription(description);
+        for (int index = 0; index < cleaned.length(); index++) {
+            char letter = cleaned.charAt(index);
+            if (letter >= '\u0621' && letter <= '\u064A'
+                    || letter >= '\u0671' && letter <= '\u06D3') {
+                return cleaned;
+            }
+        }
+        return "";
+    }
+
+    private static String cleanWordDescription(String description) {
+        return description == null ? "" : description.replace('\r', ' ')
+                .replace('\n', ' ').replace('\t', ' ')
+                .replace('\u00A0', ' ').replaceAll(" {2,}", " ").strip();
     }
 
     private static void validateEntryName(String name) {
@@ -364,6 +460,11 @@ class GlossaryStandardWordZipAuditTest {
         StringBuilder unknown = new StringBuilder(UNKNOWN_HEADER);
         Map<String, TermOccurrence> frequencies = new TreeMap<>();
         List<Path> importReadyParts = new ArrayList<>();
+        Map<String, IdentifierAudit> identifiersByKey = new LinkedHashMap<>();
+        for (IdentifierAudit audit : results.identifiers) {
+            identifiersByKey.putIfAbsent(identifierKey(audit.source(), audit.type(), audit.table(),
+                    audit.column(), audit.identifier()), audit);
+        }
         StringBuilder importPart = new StringBuilder(UNKNOWN_HEADER);
         int partBytes = UNKNOWN_HEADER.getBytes(StandardCharsets.UTF_8).length;
         int partRows = 0;
@@ -391,8 +492,11 @@ class GlossaryStandardWordZipAuditTest {
             partBytes += rowBytes;
             partRows++;
             String key = term.reviewStatus() + ":" + term.term();
+            IdentifierAudit identifier = identifiersByKey.get(identifierKey(term.sourceName(),
+                    term.objectType(), term.tableName(), term.columnName(), term.identifier()));
+            String persian = identifier == null ? "" : identifier.persianName();
             frequencies.computeIfAbsent(key, ignored -> new TermOccurrence(term.reviewStatus(), term.term()))
-                    .add(term.sourceName());
+                    .add(term.sourceName(), term.identifier(), persian);
         }
         Path unknownFile = dir.resolve("unknown-terms.csv");
         Files.writeString(unknownFile, unknown.toString(), StandardCharsets.UTF_8);
@@ -470,6 +574,9 @@ class GlossaryStandardWordZipAuditTest {
         summary.put("zipEntriesRecorded", results.files.size());
         summary.put("tablesChecked", results.files.stream().mapToInt(FileAudit::tables).sum());
         summary.put("identifiersChecked", results.identifiers.size());
+        summary.put("fieldsWithPersianNames", results.identifiers.stream()
+                .filter(entry -> entry.type().equals("COLUMN") && !entry.persianName().isBlank()).count());
+        summary.put("xlsxReport", "reports/glossary/" + EXCEL_REPORT);
         summary.put("fullyApprovedIdentifiers", results.identifiers.stream()
                 .filter(entry -> entry.status().equals("APPROVED")).count());
         summary.put("reviewOccurrences", results.findings.size());
@@ -490,6 +597,10 @@ class GlossaryStandardWordZipAuditTest {
         mapper.writerWithDefaultPrettyPrinter().writeValue(summaryJson.toFile(), summary);
         reports.add(summaryJson);
 
+        Path xlsx = dir.resolve(EXCEL_REPORT);
+        writeExcelReport(xlsx, summary, snapshot, results, frequencies, problems);
+        reports.add(xlsx);
+
         List<Map<String, Object>> reportMetadata = new ArrayList<>();
         for (Path report : reports) {
             Map<String, Object> item = new LinkedHashMap<>();
@@ -505,6 +616,274 @@ class GlossaryStandardWordZipAuditTest {
         manifest.put("reports", reportMetadata);
         mapper.writerWithDefaultPrettyPrinter().writeValue(
                 output.resolve("audit-evidence-manifest.json").toFile(), manifest);
+    }
+
+    private static String identifierKey(String source, String type, String table, String column,
+                                        String identifier) {
+        return String.join(String.valueOf((char) 0), source, type, table, column, identifier);
+    }
+
+    /**
+     * Persist the SAME six-sheet manual review workbook as the previously shared
+     * schemaforge-glossary-word-audit-review-*.xlsx. The only source for Persian field
+     * labels is each DOCX column-description cell (captured in IdentifierAudit).
+     */
+    private static void writeExcelReport(Path target, Map<String, Object> summary,
+                                         Snapshot snapshot, AuditResults results,
+                                         Map<String, TermOccurrence> frequencies,
+                                         List<String> problems) throws IOException {
+        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+        workbook.setCompressTempFiles(true);
+        try {
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setFont(headerFont);
+            headerStyle.setWrapText(true);
+
+            CellStyle persianStyle = workbook.createCellStyle();
+            persianStyle.setAlignment(HorizontalAlignment.RIGHT);
+            persianStyle.setWrapText(true);
+            Font persianFont = workbook.createFont();
+            persianFont.setFontName("Tahoma");
+            persianStyle.setFont(persianFont);
+
+            CellStyle reviewStyle = workbook.createCellStyle();
+            Font reviewFont = workbook.createFont();
+            reviewFont.setColor(IndexedColors.BLUE.getIndex());
+            reviewStyle.setFont(reviewFont);
+            reviewStyle.setWrapText(true);
+
+            // Sheet 1: original audit summary, with explicit Persian extraction evidence.
+            Sheet overview = workbook.createSheet("Overview");
+            overview.setColumnWidth(0, 45 * 256);
+            overview.setColumnWidth(1, 100 * 256);
+            for (int i = 2; i < 5; i++) overview.setColumnWidth(i, 20 * 256);
+            Row title = overview.createRow(0);
+            title.createCell(0).setCellValue("SchemaForge | Standard Word Glossary Audit");
+            title.getCell(0).setCellStyle(headerStyle);
+            overview.addMergedRegion(new CellRangeAddress(0, 0, 0, 4));
+            excelRow(overview, 2, persianStyle, -1,
+                    "Read-only evidence review - manual decisions only; no changes to H2.");
+            Object[][] metrics = {
+                    {"Source ZIP", summary.get("zipPath")},
+                    {"ZIP SHA-256", summary.get("zipSha256")},
+                    {"Glossary H2 Engine", summary.get("glossaryEngine")},
+                    {"Glossary entries", summary.get("glossaryTerms")},
+                    {"Approved terms", snapshot.lexicon().atomic().size()
+                            + snapshot.lexicon().phrases().size()},
+                    {"Candidate atomic terms", summary.get("candidateAtomic")},
+                    {"Candidate phrase terms", summary.get("candidatePhrases")},
+                    {"Parsed standard DOCX", summary.get("documentsParsed")},
+                    {"Tables", summary.get("tablesChecked")},
+                    {"Identifiers", summary.get("identifiersChecked")},
+                    {"Fields with Persian names from Word", summary.get("fieldsWithPersianNames")},
+                    {"Fully approved identifiers", summary.get("fullyApprovedIdentifiers")},
+                    {"Review occurrences", summary.get("reviewOccurrences")},
+                    {"NEW occurrences", summary.get("newOccurrences")},
+                    {"PENDING_APPROVAL occurrences", summary.get("pendingOccurrences")},
+                    {"Unique review terms", summary.get("uniqueReviewTerms")},
+                    {"Unique NEW terms", frequencies.values().stream()
+                            .filter(f -> f.status.equals("NEW")).count()},
+                    {"Unique PENDING_APPROVAL terms", frequencies.values().stream()
+                            .filter(f -> f.status.equals("PENDING_APPROVAL")).count()},
+                    {"Parser errors", summary.get("errors")},
+                    {"Reference sheet", summary.get("referenceWorksheet")},
+                    {"Audit status", summary.get("status")}
+            };
+            int metricRow = 4;
+            for (Object[] metric : metrics) {
+                excelRow(overview, metricRow++, persianStyle, -1, metric);
+            }
+            metricRow += 2;
+            excelRow(overview, metricRow++, persianStyle, -1, "Review and interpretation notes");
+            String[] notes = {
+                    "Persian field names come ONLY from the corresponding standard DOCX column label; never from automatic translation.",
+                    "If a Word column lacks Persian text, the Persian field name is blank; the field is not auto-translated.",
+                    "The original CSV report contracts remain unchanged, including unknown-terms.csv for import.",
+                    "Successful standard DOCX parsing does NOT establish that all identifiers are meaningful or unabbreviated.",
+                    "Plural Review Hints and Short and Acronym Hints are heuristic candidates, not automatic approval.",
+                    "Reviewer Decision and Reviewer Notes are manual worksheet cells; this file does not alter H2.",
+                    "This workbook is included in audit-evidence-manifest.json with SHA-256 evidence."
+            };
+            for (String note : notes) excelRow(overview, metricRow++, persianStyle, -1, note);
+
+            List<TermOccurrence> byFrequency = frequencies.values().stream()
+                    .sorted(Comparator.comparingInt((TermOccurrence f) -> f.count).reversed()
+                            .thenComparing(f -> f.term).thenComparing(f -> f.status))
+                    .toList();
+
+            // Sheet 2: same review queue as the user's example, plus a Persian
+            // label from the EXAMPLE column (where one is present in the Word).
+            String[] termHeaders = {"Current Status", "Term", "Occurrences", "Affected DOCX",
+                    "Example Identifier", "Example Source Document",
+                    "Example Field Persian Name", "Reviewer Decision", "Reviewer Notes"};
+            int[] termWidths = {26, 28, 18, 20, 45, 65, 55, 25, 55};
+            int termPart = 1;
+            Sheet terms = excelSheet(workbook, "Term Review Queue", headerStyle,
+                    termHeaders, termWidths);
+            int termRow = 1;
+            for (TermOccurrence f : byFrequency) {
+                if (termRow > MAX_EXCEL_DATA_ROWS_PER_SHEET) {
+                    applyFilter(terms, termRow, termHeaders.length);
+                    terms = excelSheet(workbook, "Term Review " + (++termPart), headerStyle,
+                            termHeaders, termWidths);
+                    termRow = 1;
+                }
+                excelRow(terms, termRow, persianStyle, 6,
+                        f.status, f.term, f.count, f.sources.size(), f.exampleIdentifier,
+                        f.exampleSource, f.examplePersian, "", "");
+                Row row = terms.getRow(termRow);
+                row.getCell(7).setCellStyle(reviewStyle);
+                row.getCell(8).setCellStyle(reviewStyle);
+                termRow++;
+            }
+            applyFilter(terms, termRow, termHeaders.length);
+
+            // Sheet 3: inflection hints only, based on already-existing candidate
+            // ATOMIC terms. These hints never add/approve Glossary entries.
+            Sheet plurals = excelSheet(workbook, "Plural Review Hints", headerStyle,
+                    new String[]{"New Term", "Existing CANDIDATE Base", "Occurrences",
+                            "Affected DOCX", "Interpretation"},
+                    new int[]{35, 38, 19, 21, 50});
+            int pluralRow = 1;
+            for (TermOccurrence f : byFrequency) {
+                if (!f.status.equals("NEW")) continue;
+                String base = pluralCandidateBase(f.term, snapshot.lexicon().candidateAtomic());
+                if (base == null) continue;
+                excelRow(plurals, pluralRow++, persianStyle, -1,
+                        f.term, base, f.count, f.sources.size(),
+                        "HEURISTIC_ONLY_DO_NOT_AUTO_APPROVE");
+            }
+            applyFilter(plurals, pluralRow, 5);
+
+            // Sheet 4: original 6-column source-document summary.
+            Sheet documents = excelSheet(workbook, "Source Documents", headerStyle,
+                    new String[]{"Source DOCX", "Parser Status", "Tables", "Identifiers",
+                            "Approved Identifiers", "Diagnostic"},
+                    new int[]{70, 30, 16, 20, 28, 65});
+            int documentRow = 1;
+            for (FileAudit file : results.files) {
+                excelRow(documents, documentRow++, persianStyle, -1,
+                        file.source(), file.status(), file.tables(), file.identifiers(),
+                        file.approved(), file.message());
+            }
+            applyFilter(documents, documentRow, 6);
+
+            // Sheet 5: IDENTICAL identifiers.csv row order, with precisely one
+            // extra column E containing the Persian name from each source DOCX.
+            String[] identifierHeaders = {"Source DOCX", "Object Type", "Table", "Column",
+                    "\u0646\u0627\u0645 \u0641\u0627\u0631\u0633\u06cc \u0641\u06cc\u0644\u062f",
+                    "Identifier", "Audit Status", "Occurrences", "NEW", "PENDING", "REJECTED"};
+            int[] identifierWidths = {68, 18, 42, 45, 58, 48, 25, 20, 15, 17, 18};
+            Sheet identifiers = excelSheet(workbook, "Identifiers", headerStyle,
+                    identifierHeaders, identifierWidths);
+            int identifierPart = 1;
+            int identifierRow = 1;
+            for (IdentifierAudit item : results.identifiers) {
+                if (identifierRow > MAX_EXCEL_DATA_ROWS_PER_SHEET) {
+                    applyFilter(identifiers, identifierRow, identifierHeaders.length);
+                    identifiers = excelSheet(workbook, "Identifiers " + (++identifierPart),
+                            headerStyle, identifierHeaders, identifierWidths);
+                    identifierRow = 1;
+                }
+                excelRow(identifiers, identifierRow++, persianStyle, 4,
+                        item.source(), item.type(), item.table(), item.column(),
+                        item.persianName(), item.identifier(), item.status(),
+                        item.totalFindings(), item.newTerms(), item.pending(), item.rejected());
+            }
+            applyFilter(identifiers, identifierRow, identifierHeaders.length);
+
+            // Sheet 6: conservative screening of genuinely short tokens or
+            // high-frequency short pending tokens; not proof of abbreviation.
+            Sheet abbreviations = excelSheet(workbook, "Short and Acronym Hints", headerStyle,
+                    new String[]{"Review Status", "Term", "Occurrences", "Affected DOCX",
+                            "Screening Hint (Not a Judgment)"},
+                    new int[]{27, 32, 18, 23, 85});
+            int hintRow = 1;
+            Set<String> flaggedLongForms = Set.of("DESC", "SUMOF", "SUBGROUP");
+            for (TermOccurrence f : byFrequency) {
+                boolean shortNew = f.status.equals("NEW") && f.term.length() <= 3;
+                boolean highFrequencyShort = f.status.equals("PENDING_APPROVAL")
+                        && f.term.length() <= 3 && f.count >= 500;
+                boolean flagged = f.status.equals("NEW") && flaggedLongForms.contains(f.term);
+                if (!shortNew && !highFrequencyShort && !flagged) continue;
+                excelRow(abbreviations, hintRow++, persianStyle, -1,
+                        f.status, f.term, f.count, f.sources.size(),
+                        (shortNew || highFrequencyShort)
+                                ? "Short token (<=3 chars); could be a normal word or shorthand"
+                                : "Worth manual abbreviation/semantic review");
+            }
+            applyFilter(abbreviations, hintRow, 5);
+
+            try (OutputStream output = Files.newOutputStream(target)) {
+                workbook.write(output);
+            }
+        } finally {
+            try {
+                workbook.close();
+            } finally {
+                workbook.dispose();
+            }
+        }
+    }
+
+    private static String pluralCandidateBase(String token, Set<String> candidateAtomic) {
+        List<String> possibilities = new ArrayList<>();
+        if (token.endsWith("IES") && token.length() > 3)
+            possibilities.add(token.substring(0, token.length() - 3) + "Y");
+        if (token.endsWith("ES") && token.length() > 2)
+            possibilities.add(token.substring(0, token.length() - 2));
+        if (token.endsWith("S") && token.length() > 1)
+            possibilities.add(token.substring(0, token.length() - 1));
+        for (String base : possibilities) {
+            if (candidateAtomic.contains(base)) return base;
+        }
+        return null;
+    }
+
+    private static Sheet excelSheet(SXSSFWorkbook workbook, String name, CellStyle headerStyle,
+                                    String[] headers, int[] widths) {
+        Sheet sheet = workbook.createSheet(name);
+        sheet.createFreezePane(0, 1);
+        sheet.setDefaultRowHeightInPoints(18);
+        Row header = sheet.createRow(0);
+        header.setHeightInPoints(30);
+        for (int index = 0; index < headers.length; index++) {
+            sheet.setColumnWidth(index, Math.min(255, widths[index]) * 256);
+            Cell cell = header.createCell(index);
+            cell.setCellValue(headers[index]);
+            cell.setCellStyle(headerStyle);
+        }
+        return sheet;
+    }
+
+    private static void excelRow(Sheet sheet, int index, CellStyle persianStyle,
+                                 int persianColumn, Object... values) {
+        Row row = sheet.createRow(index);
+        for (int column = 0; column < values.length; column++) {
+            Cell cell = row.createCell(column);
+            Object value = values[column];
+            if (value instanceof Number number) {
+                cell.setCellValue(number.doubleValue());
+            } else {
+                cell.setCellValue(excelText(value));
+            }
+            if (column == persianColumn) cell.setCellStyle(persianStyle);
+        }
+    }
+
+    private static String excelText(Object value) {
+        String text = value == null ? "" : value.toString();
+        // Excel cells support at most 32767 UTF-16 code units.
+        return text.length() <= 32767 ? text : text.substring(0, 32764) + "...";
+    }
+
+    private static void applyFilter(Sheet sheet, int nextRow, int columns) {
+        if (nextRow > 1) sheet.setAutoFilter(new CellRangeAddress(0, nextRow - 1, 0, columns - 1));
     }
 
     private static void writeImportPart(Path target, String csv) throws IOException {
@@ -567,19 +946,28 @@ class GlossaryStandardWordZipAuditTest {
     private record FileAudit(String source, String status, String sha256,
                              int tables, int identifiers, int approved, String message) { }
     private record IdentifierAudit(String source, String type, String table, String column, String identifier,
-                                   String status, int totalFindings, int newTerms, int pending, int rejected) { }
+                                   String status, int totalFindings, int newTerms, int pending, int rejected,
+                                   String persianName, String wordDescription) { }
     private static final class TermOccurrence {
         private final String status;
         private final String term;
         private int count;
         private final Set<String> sources = new TreeSet<>();
+        private String exampleSource = "";
+        private String exampleIdentifier = "";
+        private String examplePersian = "";
         private TermOccurrence(String status, String term) {
             this.status = status;
             this.term = term;
         }
-        private void add(String source) {
+        private void add(String source, String identifier, String persian) {
             count++;
             sources.add(source);
+            if (exampleSource.isEmpty() || (examplePersian.isEmpty() && !persian.isEmpty())) {
+                exampleSource = source;
+                exampleIdentifier = identifier;
+                examplePersian = persian;
+            }
         }
     }
     private static final class AuditResults {
