@@ -55,9 +55,11 @@ public final class MySqlTypeMapper {
             case "BOOLEAN", "BOOL" -> "BOOLEAN";
             case "JSON" -> "JSON";
             case "XMLTYPE", "XML" -> "LONGTEXT";
+            // Requested portability rule: unsupported timezone semantics use native TIMESTAMP.
+            // The loss of source offset/zone semantics is reported as a compatibility warning.
             case "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITH LOCAL TIME ZONE",
                     "TIMESTAMP_WITH_TIME_ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE" ->
-                    throw unsupported(type, "timezone-aware timestamp has no lossless MySQL logical mapping");
+                    temporal("TIMESTAMP", type);
             case "ROWID", "UROWID" ->
                     throw unsupported(type, "Oracle ROWID semantics have no lossless MySQL logical mapping");
             default -> throw unsupported(type, "canonical datatype is not in MySQL foundation coverage");

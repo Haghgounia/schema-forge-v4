@@ -1,3 +1,33 @@
+## 2026-10-20 - HF1 regression alignment for native TIMESTAMP fallback
+
+- Windows Maven targeted regression passed 31/31 tests; full 1,001-test run revealed two stale MySQL/MariaDB Mapper assertions expecting the superseded timezone-rejection behavior.
+- Aligns only `MySqlTypeMapperTest` and `MariaDbTypeMapperTest` with the user-selected native `TIMESTAMP` fallback for both timezone semantics; retains unrelated invalid-type rejections and adds a precision assertion.
+- No changes to production code, SQL, canonical model, H2, API contracts, dependencies or existing databases.
+- See `docs/TIMESTAMP_NATIVE_FALLBACK_HF1_REGRESSION_ALIGNMENT.md`. Full Maven regression must be re-run on Windows.
+
+## 2026-10-20 - Native TIMESTAMP fallback for unsupported timezone-aware targets
+
+- User-requested portability rule for MySQL, MariaDB and Db2 LUW: both canonical
+  `TIMESTAMP_WITH_TIME_ZONE` and `TIMESTAMP_WITH_LOCAL_TIME_ZONE` now render as native
+  `TIMESTAMP` (or `TIMESTAMP(p)` if a valid precision is explicitly supplied).
+- Removes the former MySQL/MariaDB `VARCHAR(128)` text-envelope adaptation and
+  the former local-time-zone rejection, and removes the DB2 LUW hard rejection.
+- Keeps canonical timezone type, audit columns and Persian names unchanged.
+  Per-column `*_TIMEZONE_TIMESTAMP_FALLBACK` warnings explicitly disclose that
+  zone/offset and Oracle-style local-time-zone semantics are **not** preserved.
+- Leaves ordinary TIMESTAMP mapping unchanged, and does not change the Oracle,
+  PostgreSQL, SQL Server or Db2 z/OS physical mapping strategies.
+- Updates the datatype compatibility analyzer, MySQL/MariaDB and Db2 LUW mapping tests,
+  and the EA orchestrator test that previously expected a blocked DB2 LUW artifact.
+- See `docs/TIMESTAMP_NATIVE_FALLBACK_POLICY_20261020.md`.
+
+## 2026-10-20 - Audit timestamps and Persian audit names
+
+- Request `timestampSemantics` now also covers synthesized audit columns declared as unqualified `TIMESTAMP` in `standards.audit.columns` and the `created-updated` profile. Explicit timezone-qualified and non-timestamp types stay unchanged.
+- New optional `persianName` for each configured audit column, with supplied localized defaults in all three application YAML templates. English `comment` remains intact and both appear in the generated canonical description/DDL comment.
+- Backward-compatible four-argument `AuditColumn` constructor retained; no change to the SQL generation dialects or to user-authored column types.
+- Tests cover request semantics, preservation of source-defined audit columns, profile completion, and localized descriptions.
+
 ## 2026-10-20 | Standard Word Glossary Six-Sheet Review XLSX - Persian column
 
 - The ZIP auditing test now produces the exact six-sheet human-review workbook used previously,

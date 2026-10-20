@@ -195,4 +195,22 @@ class AuditColumnSchemaEnricherTest {
         assertEquals(List.of("ID"), enriched.tables().getFirst().columns().stream()
                 .map(column -> column.name().normalized()).toList());
     }
+
+    @Test
+    void synthesizesLocalizedAuditDescriptionsWithoutReplacingEnglishComments() {
+        Table table = Table.builder("APP", "CUSTOMER")
+                .addColumn(Column.required("ID", DataType.simple("NUMBER")))
+                .build();
+        Table result = new AuditColumnSchemaEnricher().enrich(
+                DatabaseSchema.builder("APP").addTable(table).build()).tables().getFirst();
+        assertEquals("کاربر ایجادکننده | Creation user",
+                result.findColumn("CREATED_BY").orElseThrow().description().value());
+        assertEquals("تاریخ و زمان ایجاد | Creation timestamp",
+                result.findColumn("CREATED_DATE").orElseThrow().description().value());
+        assertEquals("کاربر آخرین تغییر | Last modification user",
+                result.findColumn("LAST_MODIFIED_BY").orElseThrow().description().value());
+        assertEquals("تاریخ و زمان آخرین تغییر | Last modification timestamp",
+                result.findColumn("LAST_MODIFIED_DATE").orElseThrow().description().value());
+    }
+
 }

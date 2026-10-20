@@ -37,10 +37,14 @@ public class AuditProperties {
 
     private static List<AuditColumn> defaultColumns() {
         return List.of(
-                new AuditColumn("CREATED_BY", "VARCHAR2(50)", false, "Creation user"),
-                new AuditColumn("CREATED_DATE", "TIMESTAMP", false, "Creation timestamp"),
-                new AuditColumn("LAST_MODIFIED_BY", "VARCHAR2(50)", false, "Last modification user"),
-                new AuditColumn("LAST_MODIFIED_DATE", "TIMESTAMP", false, "Last modification timestamp")
+                new AuditColumn("CREATED_BY", "VARCHAR2(50)", false,
+                        "Creation user", "کاربر ایجادکننده"),
+                new AuditColumn("CREATED_DATE", "TIMESTAMP", false,
+                        "Creation timestamp", "تاریخ و زمان ایجاد"),
+                new AuditColumn("LAST_MODIFIED_BY", "VARCHAR2(50)", false,
+                        "Last modification user", "کاربر آخرین تغییر"),
+                new AuditColumn("LAST_MODIFIED_DATE", "TIMESTAMP", false,
+                        "Last modification timestamp", "تاریخ و زمان آخرین تغییر")
         );
     }
 
@@ -49,15 +53,23 @@ public class AuditProperties {
         private String dataType;
         private boolean nullable;
         private String comment;
+        private String persianName;
 
         public AuditColumn() {
         }
 
+        /** Compatibility constructor for existing external configuration and test clients. */
         public AuditColumn(String name, String dataType, boolean nullable, String comment) {
+            this(name, dataType, nullable, comment, null);
+        }
+
+        public AuditColumn(String name, String dataType, boolean nullable,
+                           String comment, String persianName) {
             this.name = name;
             this.dataType = dataType;
             this.nullable = nullable;
             this.comment = comment;
+            this.persianName = persianName;
         }
 
         public String getName() {
@@ -90,6 +102,15 @@ public class AuditProperties {
 
         public void setComment(String comment) {
             this.comment = comment;
+        }
+
+        /** Optional localized business name; does not replace the English SQL comment. */
+        public String getPersianName() {
+            return persianName;
+        }
+
+        public void setPersianName(String persianName) {
+            this.persianName = persianName;
         }
     }
 }

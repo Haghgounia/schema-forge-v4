@@ -258,7 +258,7 @@ class EaGenerationOrchestratorTest {
     }
 
     @Test
-    void blocksDb2LuwTimestampWithTimeZoneTableWithoutAbortingEaGeneration() throws Exception {
+    void rendersDb2LuwTimestampFallbackWithoutBlockingEaGeneration() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         EaGenerationOrchestrator orchestrator = orchestrator(objectMapper, emptyResolver(), "PST");
         ArtifactGenerationContext context = context("ea-db2luw-tstz.xml");
@@ -290,26 +290,21 @@ class EaGenerationOrchestratorTest {
                 java.util.Set.of(DatabasePlatform.DB2_LUW)));
 
         assertTrue(entries.containsKey("manifest.json"));
-        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".db2luw.sql")));
-        assertFalse(entries.keySet().stream().anyMatch(name -> name.endsWith(".run-all.sql")));
-
-        ArtifactDescriptor blockedDdl = context.ledger().snapshot().stream()
-                .filter(descriptor -> descriptor.type() == ArtifactType.DDL)
-                .filter(descriptor -> descriptor.platform() == DatabasePlatform.DB2_LUW)
-                .filter(descriptor -> descriptor.status() == ArtifactStatus.BLOCKED)
-                .findFirst()
-                .orElseThrow();
-        assertTrue(blockedDdl.logicalName().contains("PST.POSTING_INSTRUCTIONS"));
-        assertTrue(blockedDdl.outcomeReason().contains("PER_TABLE_DDL_BLOCKED"));
-        assertTrue(blockedDdl.outcomeReason().contains("DB2_LUW_TIMESTAMP_WITH_TIME_ZONE_UNSUPPORTED"));
-        assertTrue(blockedDdl.outcomeReason().contains(
-                "Db2 LUW does not support a lossless TIMESTAMP WITH TIME ZONE column mapping"));
+        String ddl = entries.entrySet().stream()
+                .filter(entry -> entry.getKey().endsWith(".db2luw.sql"))
+                .filter(entry -> entry.getKey().contains("POSTING_INSTRUCTIONS"))
+                .map(entry -> new String(entry.getValue(), java.nio.charset.StandardCharsets.UTF_8))
+                .findFirst().orElseThrow();
+        assertTrue(ddl.contains("RECEIVED_AT TIMESTAMP"), ddl);
+        assertTrue(ddl.contains("DB2_LUW_TIMEZONE_TIMESTAMP_FALLBACK"), ddl);
+        assertTrue(context.ledger().snapshot().stream()
+                .anyMatch(descriptor -> descriptor.type() == ArtifactType.DDL
+                        && descriptor.platform() == DatabasePlatform.DB2_LUW
+                        && descriptor.status() == ArtifactStatus.GENERATED));
 
         JsonNode manifest = objectMapper.readTree(entries.get("manifest.json"));
-        assertEquals("PARTIAL_SUCCESS", manifest.path("requestStatus").asText());
+        assertEquals("SUCCESS", manifest.path("requestStatus").asText());
         assertEquals(0, manifest.path("artifactOutcomes").path("failed").asInt());
-        assertTrue(manifest.path("artifactOutcomes").path("blocked").asInt() >= 2,
-                "per-table DDL and Db2 LUW run-all should be blocked, not failed");
     }
 
     @Test

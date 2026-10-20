@@ -62,10 +62,13 @@ class MariaDbTypeMapperTest {
     }
 
     @Test
-    void shouldRejectMappingsThatNeedASeparateMariaDbPolicy() {
+    void shouldFallbackTimezoneTimestampsAndStillRejectUnsupportedRowid() {
         assertEquals("DECIMAL(65,0)", mapper.map(DataType.simple("NUMBER")));
-        assertThrows(IllegalArgumentException.class,
-                () -> mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        // Both canonical timezone forms now use native TIMESTAMP with a separate warning.
+        assertEquals("TIMESTAMP", mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        assertEquals("TIMESTAMP", mapper.map(DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")));
+        assertEquals("TIMESTAMP(6)", mapper.map(DataType.numeric("TIMESTAMP_WITH_LOCAL_TIME_ZONE", 6, null)));
+        // ROWID is unrelated to the timezone fallback and stays unsupported.
         assertThrows(IllegalArgumentException.class,
                 () -> mapper.map(DataType.simple("ROWID")));
     }

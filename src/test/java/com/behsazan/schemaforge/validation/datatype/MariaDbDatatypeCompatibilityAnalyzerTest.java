@@ -66,12 +66,12 @@ class MariaDbDatatypeCompatibilityAnalyzerTest {
 
         assertEquals(2, result.issues().size());
         assertTrue(result.issues().stream().anyMatch(issue ->
-                issue.code().equals("MARIADB_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION")
+                issue.code().equals("MARIADB_TIMEZONE_TIMESTAMP_FALLBACK")
                         && issue.severity().equals("WARNING")));
-        assertTrue(result.issues().stream().anyMatch(issue ->
-                issue.code().equals("MARIADB_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED")
-                        && issue.severity().equals("ERROR")));
-        assertFalse(result.issues().stream().allMatch(issue -> issue.severity().equals("WARNING")));
+        assertTrue(result.issues().stream().allMatch(issue ->
+                issue.code().equals("MARIADB_TIMEZONE_TIMESTAMP_FALLBACK")
+                        && issue.severity().equals("WARNING")));
+        assertFalse(result.blocking());
     }
     @Test
     void reportsMariaDbNativeTypeOutsideCurrentLosslessCoverage() {

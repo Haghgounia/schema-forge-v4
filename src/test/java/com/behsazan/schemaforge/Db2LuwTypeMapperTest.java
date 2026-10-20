@@ -48,7 +48,7 @@ class Db2LuwTypeMapperTest {
     }
 
     @Test
-    void usesNonBlockingFallbackForUnspecifiedNumberButRejectsUnsupportedMappings() {
+    void usesNonBlockingFallbackForUnspecifiedNumberButRejectsOutOfRangePrecision() {
         Db2LuwTypeMapper mapper = new Db2LuwTypeMapper();
 
         assertEquals("DECIMAL(31,0)", mapper.map(DataType.simple("NUMBER")));
@@ -63,9 +63,8 @@ class Db2LuwTypeMapperTest {
                 () -> mapper.map(DataType.numeric("TIMESTAMP", 13, null)));
         assertTrue(excessiveTimestamp.getMessage().contains("precision exceeds 12"));
 
-        IllegalArgumentException timezone = assertThrows(
-                IllegalArgumentException.class,
-                () -> mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
-        assertTrue(timezone.getMessage().contains("lossless TIMESTAMP WITH TIME ZONE"));
+        assertEquals("TIMESTAMP", mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        assertEquals("TIMESTAMP", mapper.map(DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")));
+        assertEquals("TIMESTAMP(6)", mapper.map(DataType.numeric("TIMESTAMP_WITH_TIME_ZONE", 6, null)));
     }
 }

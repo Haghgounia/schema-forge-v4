@@ -38,7 +38,6 @@ public final class MariaDbDialect implements Dialect {
     private static final int MARIADB_MEDIUMTEXT_MAX_BYTES = 16_777_215;
     private static final int OFF_ROW_POINTER_BUDGET_BYTES = 12;
     private static final int VARCHAR_LENGTH_PREFIX_BYTES = 2;
-    private static final int MARIADB_TSTZ_TEXT_LENGTH = 128;
     private static final int MAX_UTF8MB4_VARCHAR_CHARACTERS =
             (MARIADB_MAX_LOGICAL_ROW_BYTES - VARCHAR_LENGTH_PREFIX_BYTES) / UTF8MB4_MAX_BYTES_PER_CHARACTER;
 
@@ -83,9 +82,7 @@ public final class MariaDbDialect implements Dialect {
     @Override
     public String sqlType(Column column) {
         Objects.requireNonNull(column, "column must not be null");
-        String mapped = isTimestampWithTimeZone(column.dataType())
-                ? "VARCHAR(" + MARIADB_TSTZ_TEXT_LENGTH + ")"
-                : typeMapper.map(column.dataType());
+        String mapped = typeMapper.map(column.dataType());
         if (!column.identity()) {
             return mapped;
         }
@@ -139,14 +136,6 @@ public final class MariaDbDialect implements Dialect {
                     .append(" /* SchemaForge MariaDB storage adaptation: ").append(source)
                     .append("(").append(logicalLength).append(") -> ").append(target)
                     .append("; logical max length preserved */");
-        }
-        if (isTimestampWithTimeZone(column.dataType())) {
-            clause.append(" /* SchemaForge MariaDB portability adaptation [MARIADB-TSTZ-TEXT-001]: ")
-                    .append("TIMESTAMP WITH TIME ZONE -> VARCHAR(").append(MARIADB_TSTZ_TEXT_LENGTH)
-                    .append("); MariaDB TIMESTAMP normalizes through the session time zone and does not ")
-                    .append("preserve the source zone/offset. Serialize migrated/application values with ")
-                    .append("an explicit offset or region (for example ISO-8601); temporal ordering/functions ")
-                    .append("require explicit conversion; canonical datatype remains timezone-aware */");
         }
         return clause.toString();
     }
@@ -642,11 +631,7 @@ public final class MariaDbDialect implements Dialect {
                 .replaceAll("\\s+", "");
     }
 
-    private boolean isTimestampWithTimeZone(DataType type) {
-        String source = type.name().normalized().toUpperCase(Locale.ROOT);
-        return source.equals("TIMESTAMP WITH TIME ZONE")
-                || source.equals("TIMESTAMP_WITH_TIME_ZONE");
-    }
+
 
 
 }

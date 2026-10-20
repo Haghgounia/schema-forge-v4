@@ -59,9 +59,11 @@ public final class  MariaDbTypeMapper {
             case "BOOLEAN", "BOOL" -> "BOOLEAN";
             case "JSON" -> "JSON";
             case "XMLTYPE", "XML" -> "LONGTEXT";
+            // Requested portability rule: unsupported timezone semantics use native TIMESTAMP.
+            // The loss of source offset/zone semantics is reported as a compatibility warning.
             case "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITH LOCAL TIME ZONE",
                     "TIMESTAMP_WITH_TIME_ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE" ->
-                    throw unsupported(type, "timezone-aware timestamp requires an explicit MariaDB portability policy");
+                    temporal("TIMESTAMP", type);
             case "ROWID", "UROWID" ->
                     throw unsupported(type, "Oracle ROWID semantics have no lossless MariaDB logical mapping");
             default -> throw unsupported(type, "canonical datatype is not in MariaDB foundation coverage");

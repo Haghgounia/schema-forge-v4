@@ -125,18 +125,17 @@ public final class SchemaPreparationService {
         DatabaseSchema current = normalizer.normalize(
                 Objects.requireNonNull(parsedSchema, "parsedSchema must not be null"));
 
-        // Request-level timestamp semantics apply only to source-declared, unqualified TIMESTAMP
-        // columns. This runs before audit enrichment so synthesized audit timestamps retain their
-        // established contract. Explicit source WITH TIME ZONE / WITH LOCAL TIME ZONE declarations
-        // are preserved by the enricher.
-        current = new TimestampSemanticsSchemaEnricher(timestampSemantics).enrich(current);
-
+        // First add only missing audit columns, retaining source-defined datatypes and audit family.
+        // The user's timestamp selection then covers BOTH unqualified source TIMESTAMP columns and
+        // newly added audit TIMESTAMP columns. Explicit WITH TIME ZONE/LOCAL TIME ZONE types remain
+        // authoritative and cannot be overwritten by the timestamp semantics enricher.
         if (managedAuditPipeline) {
             current = new AuditColumnSchemaEnricher(
                     auditProperties,
                     auditOptions.includeAuditFields(),
                     auditOptions.auditProfile()).enrich(current);
         }
+        current = new TimestampSemanticsSchemaEnricher(timestampSemantics).enrich(current);
         for (SchemaEnricher enricher : postAuditEnrichers) {
             current = Objects.requireNonNull(enricher.enrich(current),
                     "schema enricher returned null: " + enricher.getClass().getName());

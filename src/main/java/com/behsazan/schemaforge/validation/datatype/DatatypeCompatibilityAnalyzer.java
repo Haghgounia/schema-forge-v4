@@ -212,19 +212,21 @@ public final class DatatypeCompatibilityAnalyzer {
                             + "; no target precision is invented or clamped.");
             return;
         }
-        if (MYSQL_TIMESTAMP_WITH_TIME_ZONE.contains(sourceName)) {
-            warning(issues, "MYSQL_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION", path,
-                    "Canonical " + sourceName
-                            + " has no lossless native MySQL temporal mapping; generated MySQL DDL uses "
-                            + "the explicit MYSQL-TSTZ-TEXT-001 VARCHAR(128) portability envelope. "
-                            + "Migration/application values must preserve an explicit offset or region.");
-            return;
-        }
-        if (MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE.contains(sourceName)) {
-            error(issues, "MYSQL_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
-                    "Canonical " + sourceName
-                            + " has session-local timezone semantics for which the current MySQL logical dialect "
-                            + "has no safe portability adaptation.");
+        if (MYSQL_TIMESTAMP_WITH_TIME_ZONE.contains(sourceName)
+                || MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE.contains(sourceName)) {
+            if (type.precision() != null && (type.precision() < 0
+                    || type.precision() > MySqlTypeMapper.MAX_TEMPORAL_PRECISION)) {
+                error(issues, "MYSQL_TEMPORAL_PRECISION_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds the MySQL TIMESTAMP fractional-second precision range 0.."
+                                + MySqlTypeMapper.MAX_TEMPORAL_PRECISION + ".");
+                return;
+            }
+            warning(issues, "MYSQL_TIMEZONE_TIMESTAMP_FALLBACK", path,
+                    "Canonical " + sourceName + " is rendered as MySQL TIMESTAMP by the requested "
+                            + "portability fallback. Source timezone/offset and session-local semantics are NOT "
+                            + "preserved. MySQL TIMESTAMP is affected by session time_zone; choose a consistent "
+                            + "timezone policy when writing and reading values.");
             return;
         }
         if (MYSQL_UNSUPPORTED_ROWID.contains(sourceName)) {
@@ -305,18 +307,21 @@ public final class DatatypeCompatibilityAnalyzer {
                             + "; no target precision is invented or clamped.");
             return;
         }
-        if (MYSQL_TIMESTAMP_WITH_TIME_ZONE.contains(sourceName)) {
-            warning(issues, "MARIADB_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION", path,
-                    "Canonical " + sourceName
-                            + " has no lossless native MariaDB temporal mapping; generated MariaDB DDL uses "
-                            + "the explicit MARIADB-TSTZ-TEXT-001 VARCHAR(128) portability envelope.");
-            return;
-        }
-        if (MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE.contains(sourceName)) {
-            error(issues, "MARIADB_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
-                    "Canonical " + sourceName
-                            + " has session-local timezone semantics for which the current MariaDB dialect "
-                            + "has no safe portability adaptation.");
+        if (MYSQL_TIMESTAMP_WITH_TIME_ZONE.contains(sourceName)
+                || MYSQL_TIMESTAMP_WITH_LOCAL_TIME_ZONE.contains(sourceName)) {
+            if (type.precision() != null && (type.precision() < 0
+                    || type.precision() > MariaDbTypeMapper.MAX_TEMPORAL_PRECISION)) {
+                error(issues, "MARIADB_TEMPORAL_PRECISION_UNSUPPORTED", path,
+                        "Canonical " + renderType(sourceName, type)
+                                + " exceeds the MariaDB TIMESTAMP fractional-second precision range 0.."
+                                + MariaDbTypeMapper.MAX_TEMPORAL_PRECISION + ".");
+                return;
+            }
+            warning(issues, "MARIADB_TIMEZONE_TIMESTAMP_FALLBACK", path,
+                    "Canonical " + sourceName + " is rendered as MariaDB TIMESTAMP by the requested "
+                            + "portability fallback. Source timezone/offset and session-local semantics are NOT "
+                            + "preserved. MariaDB TIMESTAMP is affected by session time_zone; choose a consistent "
+                            + "timezone policy when writing and reading values.");
             return;
         }
         if (MYSQL_UNSUPPORTED_ROWID.contains(sourceName)) {
@@ -393,9 +398,10 @@ public final class DatatypeCompatibilityAnalyzer {
                 || sourceName.equals("TIMESTAMP_WITH_TIME_ZONE")
                 || sourceName.equals("TIMESTAMP WITH LOCAL TIME ZONE")
                 || sourceName.equals("TIMESTAMP_WITH_LOCAL_TIME_ZONE")) {
-            error(issues, "DB2_LUW_TIMEZONE_TIMESTAMP_UNSUPPORTED", path,
-                    "Db2 LUW has no lossless table-column equivalent for canonical " + sourceName
-                            + "; SchemaForge does not silently discard the time-zone semantic.");
+            warning(issues, "DB2_LUW_TIMEZONE_TIMESTAMP_FALLBACK", path,
+                    "Canonical " + sourceName + " is rendered as Db2 LUW TIMESTAMP by the requested "
+                            + "portability fallback. Source timezone/offset and session-local semantics are NOT "
+                            + "preserved; convert values to the agreed timezone before storage.");
         }
     }
 

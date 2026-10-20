@@ -162,10 +162,14 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
     private List<AuditProperties.AuditColumn> definitions(AuditProfile profile) {
         return switch (profile) {
             case CREATED_UPDATED -> List.of(
-                    new AuditProperties.AuditColumn("CREATED_AT", "TIMESTAMP(6)", false, "Creation timestamp"),
-                    new AuditProperties.AuditColumn("CREATED_BY", "VARCHAR2(50 CHAR)", false, "Creation user"),
-                    new AuditProperties.AuditColumn("UPDATED_AT", "TIMESTAMP(6)", true, "Last update timestamp"),
-                    new AuditProperties.AuditColumn("UPDATED_BY", "VARCHAR2(100 CHAR)", true, "Last update user"));
+                    new AuditProperties.AuditColumn("CREATED_AT", "TIMESTAMP(6)", false,
+                            "Creation timestamp", "تاریخ و زمان ایجاد"),
+                    new AuditProperties.AuditColumn("CREATED_BY", "VARCHAR2(50 CHAR)", false,
+                            "Creation user", "کاربر ایجادکننده"),
+                    new AuditProperties.AuditColumn("UPDATED_AT", "TIMESTAMP(6)", true,
+                            "Last update timestamp", "تاریخ و زمان آخرین به‌روزرسانی"),
+                    new AuditProperties.AuditColumn("UPDATED_BY", "VARCHAR2(100 CHAR)", true,
+                            "Last update user", "کاربر آخرین به‌روزرسانی"));
             case CREATED_LAST_MODIFIED -> configuredCreatedLastModifiedColumns();
             case AUTO -> throw new IllegalStateException("AUTO must be resolved before audit definitions are selected");
         };
@@ -216,10 +220,25 @@ public final class AuditColumnSchemaEnricher implements SchemaEnricher {
                 parseDataType(configured.getDataType()),
                 configured.isNullable(),
                 null,
-                new Description(configured.getComment()),
+                new Description(localizedDescription(configured)),
                 false,
                 ordinalPosition,
                 null);
+    }
+
+    /**
+     * Column currently exposes a single canonical description. Preserve both labels there so
+     * SQL comments, canonical JSON and workbook reports receive the Persian name without
+     * changing Column's public record contract or adding a dialect-specific physical option.
+     */
+    private static String localizedDescription(AuditProperties.AuditColumn definition) {
+        String persian = definition.getPersianName() == null
+                ? "" : definition.getPersianName().trim();
+        String english = definition.getComment() == null
+                ? "" : definition.getComment().trim();
+        if (persian.isEmpty()) return english;
+        if (english.isEmpty() || english.equals(persian)) return persian;
+        return persian + " | " + english;
     }
 
     private DataType parseDataType(String rawType) {

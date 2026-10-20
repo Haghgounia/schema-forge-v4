@@ -10,11 +10,11 @@ import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import java.util.Objects;
 
 /**
- * Applies a request-level semantic to source columns whose canonical type is exactly TIMESTAMP.
+ * Applies a request-level semantic to columns whose canonical type is exactly TIMESTAMP.
  *
- * <p>This enricher deliberately runs before audit enrichment. Therefore request semantics affect
- * ambiguous source TIMESTAMP declarations only; audit columns synthesized by SchemaForge keep
- * their established datatype contract. Explicit source timezone qualifiers are authoritative.</p>
+ * <p>In the managed preparation pipeline it runs after audit enrichment, so user selections also
+ * affect newly synthesized audit TIMESTAMP columns. Explicit timezone qualifiers and other
+ * datatypes remain authoritative.</p>
  */
 public final class TimestampSemanticsSchemaEnricher implements SchemaEnricher {
     private final TimestampSemantics semantics;

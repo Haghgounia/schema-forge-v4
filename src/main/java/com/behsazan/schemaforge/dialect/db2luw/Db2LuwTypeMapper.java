@@ -51,10 +51,10 @@ public final class Db2LuwTypeMapper {
             case "TIME" -> "TIME";
             case "TIMESTAMP" -> timestamp(type);
             case "DB2_LUW_TIMESTAMP0" -> "TIMESTAMP(0)";
+            // No native timezone-aware TIMESTAMP columns: use the requested TIMESTAMP fallback.
+            // The compatibility analyzer reports the lost timezone semantics.
             case "TIMESTAMP WITH TIME ZONE", "TIMESTAMP_WITH_TIME_ZONE",
-                    "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE" ->
-                    throw new IllegalArgumentException(
-                            "Db2 LUW does not support a lossless TIMESTAMP WITH TIME ZONE column mapping");
+                    "TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP_WITH_LOCAL_TIME_ZONE" -> timestamp(type);
 
             case "BINARY_DOUBLE", "DOUBLE", "DOUBLE PRECISION", "FLOAT" -> "DOUBLE";
             case "BINARY_FLOAT", "REAL" -> "REAL";

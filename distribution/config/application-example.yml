@@ -32,18 +32,22 @@ schemaforge:
           dataType: VARCHAR2(50)
           nullable: false
           comment: "Creation user"
+          persianName: "کاربر ایجادکننده"
         - name: CREATED_DATE
           dataType: TIMESTAMP
           nullable: false
           comment: "Creation timestamp"
+          persianName: "تاریخ و زمان ایجاد"
         - name: LAST_MODIFIED_BY
           dataType: VARCHAR2(50)
           nullable: false
           comment: "Last modification user"
+          persianName: "کاربر آخرین تغییر"
         - name: LAST_MODIFIED_DATE
           dataType: TIMESTAMP
           nullable: false
           comment: "Last modification timestamp"
+          persianName: "تاریخ و زمان آخرین تغییر"
     grants: []
 
   spell-check:

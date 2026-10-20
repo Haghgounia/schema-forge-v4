@@ -43,10 +43,13 @@ class MySqlTypeMapperTest {
     }
 
     @Test
-    void shouldUseNonBlockingFallbackForUnspecifiedNumberAndRejectUnsupportedMappings() {
+    void shouldFallbackForNumberAndTimezoneTimestampsButRejectInvalidNumbers() {
         assertEquals("DECIMAL(65,0)", mapper.map(DataType.simple("NUMBER")));
-        assertThrows(IllegalArgumentException.class,
-                () -> mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        // The requested portability policy maps both timezone-aware forms to native TIMESTAMP.
+        assertEquals("TIMESTAMP", mapper.map(DataType.simple("TIMESTAMP_WITH_TIME_ZONE")));
+        assertEquals("TIMESTAMP", mapper.map(DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")));
+        assertEquals("TIMESTAMP(6)", mapper.map(DataType.numeric("TIMESTAMP_WITH_TIME_ZONE", 6, null)));
+        // Unrelated invalid numeric mappings must still fail, as before.
         assertThrows(IllegalArgumentException.class,
                 () -> mapper.map(DataType.numeric("NUMBER", 66, 0)));
     }

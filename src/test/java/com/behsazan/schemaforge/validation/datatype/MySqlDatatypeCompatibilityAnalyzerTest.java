@@ -39,7 +39,7 @@ class MySqlDatatypeCompatibilityAnalyzerTest {
     }
 
     @Test
-    void reportsTimestampWithTimeZoneAsNonBlockingTextAdaptation() {
+    void reportsTimestampWithTimeZoneAsNonBlockingTimestampFallback() {
         Table table = Table.builder("TSTSHMA", "EVENTS")
                 .addColumn(Column.required("OCCURRED_AT", DataType.simple("TIMESTAMP_WITH_TIME_ZONE")))
                 .build();
@@ -50,11 +50,11 @@ class MySqlDatatypeCompatibilityAnalyzerTest {
         assertTrue(!result.blocking());
         assertEquals(1, result.issues().size());
         assertEquals("WARNING", result.issues().get(0).severity());
-        assertEquals("MYSQL_TIMEZONE_TIMESTAMP_TEXT_ADAPTATION", result.issues().get(0).code());
+        assertEquals("MYSQL_TIMEZONE_TIMESTAMP_FALLBACK", result.issues().get(0).code());
     }
 
     @Test
-    void keepsTimestampWithLocalTimeZoneBlocking() {
+    void reportsTimestampWithLocalTimeZoneAsNonBlockingFallback() {
         Table table = Table.builder("TSTSHMA", "EVENTS")
                 .addColumn(Column.required("LOCAL_OCCURRED_AT", DataType.simple("TIMESTAMP_WITH_LOCAL_TIME_ZONE")))
                 .build();
@@ -62,10 +62,10 @@ class MySqlDatatypeCompatibilityAnalyzerTest {
         DatatypeCompatibilityAssessment result = analyzer.analyze(
                 DatabaseSchema.builder("TSTSHMA").addTable(table).build(), new MySqlDialect());
 
-        assertTrue(result.blocking());
+        assertTrue(!result.blocking());
         assertEquals(1, result.issues().size());
-        assertEquals("ERROR", result.issues().get(0).severity());
-        assertEquals("MYSQL_LOCAL_TIMEZONE_TIMESTAMP_UNSUPPORTED", result.issues().get(0).code());
+        assertEquals("WARNING", result.issues().get(0).severity());
+        assertEquals("MYSQL_TIMEZONE_TIMESTAMP_FALLBACK", result.issues().get(0).code());
     }
 
     @Test
