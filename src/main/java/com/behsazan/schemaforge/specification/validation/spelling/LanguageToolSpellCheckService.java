@@ -73,14 +73,7 @@ public final class LanguageToolSpellCheckService implements SpellCheckService {
     }
 
     static String normalizeIdentifier(String text) {
-        return text
-                .replace('_', ' ')
-                .replace('-', ' ')
-                .replaceAll("([a-z0-9])([A-Z])", "$1 $2")
-                .replaceAll("[^A-Za-z0-9 ]", " ")
-                .replaceAll("\\s+", " ")
-                .trim()
-                .toLowerCase(Locale.ROOT);
+        return IdentifierSpellTokenizer.normalizeIdentifier(text);
     }
 
     private List<SpellingError> parse(String text, String json) throws IOException {

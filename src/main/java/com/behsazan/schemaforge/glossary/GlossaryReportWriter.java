@@ -25,10 +25,18 @@ public final class GlossaryReportWriter {
     private final GlossaryRepository repository;
     private final ObjectMapper mapper;
     private final GlossaryScanner scanner = new GlossaryScanner();
+    private final GlossaryCandidateRegistrationService registration;
 
+    /** Compatibility path for pre-V4.14.5 callers; never writes candidates. */
     public GlossaryReportWriter(GlossaryRepository repository, ObjectMapper mapper) {
-        this.repository = repository;
-        this.mapper = mapper;
+        this(repository, mapper, null);
+    }
+
+    public GlossaryReportWriter(GlossaryRepository repository, ObjectMapper mapper,
+                                GlossaryCandidateRegistrationService registration) {
+        this.repository = java.util.Objects.requireNonNull(repository);
+        this.mapper = java.util.Objects.requireNonNull(mapper);
+        this.registration = registration;
     }
 
     /** Captures the currently governed terms once for an individual generation request. */
@@ -74,7 +82,15 @@ public final class GlossaryReportWriter {
                     term.columnName(), term.identifier(), term.term(),
                     Integer.toString(term.tokenPosition()), term.reviewStatus()));
         }
-        Files.writeString(csv, rows.toString(), StandardCharsets.UTF_8);
+        byte[] reportBytes = rows.toString().getBytes(StandardCharsets.UTF_8);
+        Files.write(csv, reportBytes);
+        // Registration is after all DBMS outputs are generated. An H2 write
+        // cannot change the canonical model or DDL of this same generation.
+        GlossaryCandidateRegistrationService.Result registrationResult = null;
+        if (registration != null && registration.mode() != GlossaryCandidateRegistrationMode.OFF) {
+            registrationResult = registration.process(unknown, snapshot,
+                    sha256(reportBytes), context.generationId());
+        }
         context.ledger().generated(context, ArtifactType.GLOSSARY_REPORT, null,
                 "glossary-unknown-terms", ArtifactPaths.relative(output, csv),
                 "text/csv", "GlossaryReportWriter");
@@ -99,11 +115,22 @@ public final class GlossaryReportWriter {
         summary.put("pendingTerms", pendingTerms.stream().sorted().toList());
         summary.put("rejectedTerms", rejectedTerms.stream().sorted().toList());
         summary.put("pluralColumnTerms", pluralColumnTerms.stream().sorted().toList());
+        if (registrationResult != null) {
+            summary.put("candidateRegistration", registrationResult);
+        }
         Path json = reportDir.resolve("summary.json");
         mapper.writerWithDefaultPrettyPrinter().writeValue(json.toFile(), summary);
         context.ledger().generated(context, ArtifactType.GLOSSARY_REPORT, null,
                 "glossary-summary", ArtifactPaths.relative(output, json),
                 "application/json", "GlossaryReportWriter");
+    }
+
+    private static String sha256(byte[] input) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 not available", exception);
+        }
     }
 
     /** Stable identifier for the approved vocabulary actually used by this generation. */

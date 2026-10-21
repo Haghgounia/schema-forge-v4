@@ -1,3 +1,40 @@
+## 2026-10-21 — Source archive and root-artifact hygiene
+
+- Added Windows PowerShell source packager with an explicit top-level allowlist and
+  post-packaging content validation. Excludes local `.idea/`, generated logs/exports,
+  and all runtime H2 databases without changing any production application code.
+- Added non-destructive Root organizer (with `-WhatIf`) for known EA performance
+  logs, Glossary test logs/XLSX, and locally downloaded EA test archives.
+- Redirected documented EA performance, offline spelling, and Glossary V4.14.5
+  commands to `logs/` and `test-output/` instead of writing into the Root.
+- No changes to REST endpoints, EA output packaging, DDL, DBMS platform support,
+  model/manifest schema, or Glossary H2 data.
+
+## V4.14.5 P1/P2 — Glossary Automatic Candidate Registration (provisional, 2026-10-21)
+
+- Added DRY_RUN (default), OFF, and explicitly opt-in AUTO_CANDIDATE registration modes to the existing shared Glossary reporting hook for EA, Word and Batch.
+- Added offline dictionary positive-evidence screening, plural avoidance, typo quarantine and manual-review classification; no HTTP network checks.
+- Added single-transaction, batched H2 candidate/evidence/audit intake that preserves existing approved/rejected/deleted terms and never modifies DDL or Canonical Model.
+- Expanded existing `summary.json` with candidateRegistration classification and intake counts; no new artifact types.
+- Added `GlossaryAutomaticCandidateRegistrationTest` focused on DRY_RUN, AUTO idempotence, soft-delete/rejected protection, typo safety and plural safety.
+- **Acceptance pending Windows Maven, integration, DDL equivalence and full regression.**
+
+## 2026-10-21 — EA Offline SpellCheck V1 (network-independent lexical provider)
+
+- Introduces `OFFLINE` as the default **enabled** spelling provider for REST EA and Word preparation; retains `LANGUAGETOOL` as an explicit opt-in compatibility mode. Disabled spelling remains `NoOp`.
+- Ships the `en_US` Hunspell `.dic` and `.aff` dictionary with its attribution notice, expands the applicable English prefix/suffix forms once per JVM, and provides edit-distance spelling suggestions from in-memory indices without HTTP.
+- Uses the existing 800 single-word Atomic candidate entries only to **rank suggestions**, never to approve/correct canonical identifiers or override glossary governance statuses.
+- Adds per-token caching, tunable technical-term exclusions, provider-selection and lexical-regression tests. Does not change parser, DBMS dialects, generated SQL semantics, Glossary H2 or metadata settings.
+- Linux Java 21 standalone smoke benchmark on the uploaded Deposit Account Operations EA XML: 1,881 identifiers checked in about 40 ms after dictionary initialization. Full Windows Maven and REST timing acceptance are pending.
+- See `docs/EA_OFFLINE_SPELL_CHECK_V1.md`.
+
+## 2026-10-21 - Glossary V4.14.4-HF1: XLSX boundary test fixture performance
+
+- Windows targeted and full regression succeeded (23/0/0/1 and 1008/0/0/11), but `GlossaryXlsxExportAndSpellingTest` spent about 22-24 minutes preparing its 1003-row XLSX pagination fixture.
+- Change only the >1000-terms regression fixture to use the repository's existing transactional `importNew` mechanism instead of 1003 independent `create` operations against file-backed H2. Preserve every tested term, status and export row count, and add assertions for the rows crossing the 1000-term page boundary.
+- No Production, REST, Glossary SQL/schema, data or third-party dependency changes. No H2 `.mv.db` bundled. Windows Maven must be re-run to verify the performance result.
+- See `docs/GLOSSARY_V4144_HF1_TEST_FIXTURE_PERFORMANCE.md`.
+
 ## 2026-10-21 - Glossary V4.14.4 plural policy, safe spelling advice and full XLSX export
 
 - Adds opt-in `GET /api/v1/glossary/export.xlsx` with an XLSX `Overview` and full `Glossary` sheet. Exports all non-deleted, effective terms of every status, without a page limit; includes Persian text, source, and timestamps. No H2 writes.

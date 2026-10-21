@@ -17,6 +17,9 @@ import com.behsazan.schemaforge.specification.validation.SpecificationValidator;
 import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.specification.validation.spelling.LanguageToolSpellCheckService;
+import com.behsazan.schemaforge.specification.validation.spelling.OfflineHunspellSpellCheckService;
+import com.behsazan.schemaforge.specification.validation.spelling.NoOpSpellCheckService;
+import com.behsazan.schemaforge.specification.validation.spelling.SpellCheckService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
@@ -69,12 +72,24 @@ public final class SchemaPreparationService {
         this.postAuditEnrichers = List.of(
                 new DefaultValueSchemaEnricher(),
                 new GrantSchemaEnricher(grantProperties));
-        this.validator = new SpecificationValidator(
-                new LanguageToolSpellCheckService(spellCheckProperties, objectMapper));
+        this.validator = new SpecificationValidator(createSpellCheck(spellCheckProperties, objectMapper));
         this.namingConventionValidator = new NamingConventionValidator(
                 Objects.requireNonNull(namingValidationProperties, "naming validation properties must not be null"));
         this.defaultCheckCompatibilityValidator = new DefaultCheckCompatibilityValidator();
         this.managedAuditPipeline = true;
+    }
+
+
+    private static SpellCheckService createSpellCheck(SpellCheckProperties properties, ObjectMapper mapper) {
+        Objects.requireNonNull(properties, "spell-check properties must not be null");
+        if (!properties.isEnabled()) return new NoOpSpellCheckService();
+        String provider = Objects.requireNonNull(properties.getProvider(), "spell-check provider must not be null")
+                .trim().toUpperCase(java.util.Locale.ROOT);
+        return switch (provider) {
+            case "OFFLINE" -> new OfflineHunspellSpellCheckService(properties);
+            case "LANGUAGETOOL" -> new LanguageToolSpellCheckService(properties, mapper);
+            default -> throw new IllegalArgumentException("Unsupported spell-check provider: " + provider);
+        };
     }
 
     /** Compatibility constructor for tests/callers that supply a fully custom enrichment pipeline. */

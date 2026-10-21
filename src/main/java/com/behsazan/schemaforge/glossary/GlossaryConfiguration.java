@@ -1,6 +1,7 @@
 package com.behsazan.schemaforge.glossary;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.behsazan.schemaforge.config.SpellCheckProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
@@ -77,7 +78,16 @@ public class GlossaryConfiguration {
     }
 
     @Bean
-    GlossaryReportWriter glossaryReportWriter(GlossaryRepository repository, ObjectMapper mapper) {
-        return new GlossaryReportWriter(repository, mapper);
+    GlossaryCandidateRegistrationService glossaryCandidateRegistrationService(
+            GlossaryReviewService reviews, SpellCheckProperties spellingProperties,
+            @Value("${schemaforge.glossary.candidate-registration.mode:DRY_RUN}") String mode) {
+        return new GlossaryCandidateRegistrationService(
+                GlossaryCandidateRegistrationMode.parse(mode), reviews, spellingProperties);
+    }
+
+    @Bean
+    GlossaryReportWriter glossaryReportWriter(GlossaryRepository repository, ObjectMapper mapper,
+            GlossaryCandidateRegistrationService registration) {
+        return new GlossaryReportWriter(repository, mapper, registration);
     }
 }

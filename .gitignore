@@ -66,6 +66,11 @@ $RECYCLE.BIN/
 *~
 ~$*
 
+# Root-only downloaded archives and acceptance workbooks
+/*.zip
+/*.xlsx
+/*.csv
+
 # Local/generated SchemaForge artifacts
 /output/
 /outputs/

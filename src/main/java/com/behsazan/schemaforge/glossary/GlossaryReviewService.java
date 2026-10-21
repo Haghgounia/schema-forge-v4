@@ -61,6 +61,106 @@ public final class GlossaryReviewService {
                 + "ON glossary_review_event (term_kind, term_key, id)");
     }
 
+    /**
+     * System-initiated, spelling-screened candidate intake. Called ONLY by the
+     * explicit AUTO_CANDIDATE mode (not exposed as a public REST endpoint).
+     * The evidence row index is identical to unknown-terms.csv; existing
+     * curation and soft-deleted rows are never updated or revived.
+     */
+    public synchronized AutoRegistrationResult registerAutoCandidates(
+            List<UnknownGlossaryTerm> findings, Set<String> eligibleKeys,
+            String reportSha256, String generationId) {
+        Objects.requireNonNull(findings, "glossary findings");
+        Objects.requireNonNull(eligibleKeys, "eligible glossary keys");
+        if (reportSha256 == null || !reportSha256.matches("[a-f0-9]{64}")) {
+            throw new IllegalArgumentException("Invalid glossary report SHA-256");
+        }
+        if (generationId == null || generationId.isBlank() || generationId.length() > 100) {
+            throw new IllegalArgumentException("Invalid generation id");
+        }
+        if (eligibleKeys.isEmpty()) return new AutoRegistrationResult(0, 0, 0);
+        for (String key : eligibleKeys) {
+            if (key == null || !key.matches("[A-Z]{4,32}")) {
+                throw new IllegalArgumentException("Only canonical atomic English keys are eligible");
+            }
+        }
+        return Objects.requireNonNull(tx.execute(ignored -> {
+            // Includes soft-deleted and REJECTED keys. They must never be
+            // resurrected, reclassified, overwritten, or used as new terms.
+            Set<String> knownAtomic = new HashSet<>(jdbc.queryForList(
+                    "SELECT term_key FROM glossary_term WHERE kind='ATOMIC'", String.class));
+            Set<Integer> recordedRowIndices = new HashSet<>(jdbc.queryForList(
+                    "SELECT report_row_index FROM glossary_review_occurrence WHERE report_sha256=?",
+                    Integer.class, reportSha256));
+            Set<String> processedKeys = new HashSet<>();
+            List<IndexedFinding> evidence = new java.util.ArrayList<>();
+            List<String> insertKeys = new java.util.ArrayList<>();
+            int alreadyKnown = 0;
+            for (int index = 0; index < findings.size(); index++) {
+                UnknownGlossaryTerm finding = findings.get(index);
+                if (!"NEW".equals(finding.reviewStatus()) || !eligibleKeys.contains(finding.term())) {
+                    continue;
+                }
+                String key = finding.term();
+                // Recheck plural protection inside the write transaction to
+                // close the time gap between the scanner snapshot and intake.
+                if (GlossaryInflection.singularCandidates(key).stream().anyMatch(knownAtomic::contains)) {
+                    continue;
+                }
+                int reportRow = index + 1;
+                if (recordedRowIndices.add(reportRow)) {
+                    evidence.add(new IndexedFinding(reportRow, finding));
+                }
+                if (!processedKeys.add(key)) continue;
+                if (!knownAtomic.add(key)) {
+                    alreadyKnown++;
+                } else {
+                    insertKeys.add(key);
+                }
+            }
+            // One JDBC transaction and bounded batches: the glossary term,
+            // occurrence evidence, and immutable review event commit together.
+            jdbc.batchUpdate("""
+                    INSERT INTO glossary_term (kind, term_key, english, persian, module, status, source)
+                    VALUES ('ATOMIC', ?, ?, '', '', 'CANDIDATE', 'AUTO_DISCOVERY')
+                    """, insertKeys, 256, (statement, key) -> {
+                statement.setString(1, key);
+                statement.setString(2, key);
+            });
+            jdbc.batchUpdate("""
+                    INSERT INTO glossary_review_occurrence
+                    (report_sha256, report_row_index, term_kind, term_key, source_name, object_type,
+                     table_name, column_name, identifier, token_position)
+                    VALUES (?, ?, 'ATOMIC', ?, ?, ?, ?, ?, ?, ?)
+                    """, evidence, 256, (statement, entry) -> {
+                UnknownGlossaryTerm finding = entry.finding();
+                statement.setString(1, reportSha256);
+                statement.setInt(2, entry.rowIndex());
+                statement.setString(3, finding.term());
+                statement.setString(4, finding.sourceName());
+                statement.setString(5, finding.objectType());
+                statement.setString(6, finding.tableName());
+                statement.setString(7, finding.columnName());
+                statement.setString(8, finding.identifier());
+                statement.setInt(9, finding.tokenPosition());
+            });
+            jdbc.batchUpdate("""
+                    INSERT INTO glossary_review_event
+                    (event_type, term_kind, term_key, status_before, status_after, reason, report_sha256)
+                    VALUES ('AUTO_CANDIDATE', 'ATOMIC', ?, NULL, 'CANDIDATE', ?, ?)
+                    """, insertKeys, 256, (statement, key) -> {
+                statement.setString(1, key);
+                statement.setString(2, "Automatic candidate registration from generation " + generationId);
+                statement.setString(3, reportSha256);
+            });
+            return new AutoRegistrationResult(insertKeys.size(), alreadyKnown, evidence.size());
+        }));
+    }
+
+    private record IndexedFinding(int rowIndex, UnknownGlossaryTerm finding) { }
+
+    public record AutoRegistrationResult(int inserted, int alreadyKnown, int recordedOccurrences) { }
+
     /** One report digest plus its row ordinal identifies each occurrence. Re-uploads do not duplicate it. */
     public ImportReportResult importReport(String filename, byte[] csv) {
         if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(".csv")) {

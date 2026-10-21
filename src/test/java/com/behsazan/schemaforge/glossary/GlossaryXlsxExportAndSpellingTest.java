@@ -87,13 +87,23 @@ class GlossaryXlsxExportAndSpellingTest {
     @Test
     void exportDoesNotStopAtTheFirstThousandEntries() throws Exception {
         var repo = repository();
+        // This is an XLSX pagination test, not a CRUD throughput test. Preparing 1003
+        // rows via repository.create() would open several separate H2 file connections
+        // per row and made Windows regression spend over 20 minutes in this fixture.
+        // Import the same CANDIDATE rows in one repository-managed transaction.
+        var terms = new java.util.ArrayList<GlossaryImportTerm>(1003);
         for (int i = 0; i < 1003; i++) {
-            repo.create(new GlossaryTermRequest("TERM" + String.format("%04d", i), "", "",
-                    GlossaryTermKind.ATOMIC, GlossaryTermStatus.CANDIDATE));
+            String key = "TERM" + String.format("%04d", i);
+            terms.add(new GlossaryImportTerm(GlossaryTermKind.ATOMIC, key, key, "", ""));
         }
+        assertEquals(1003, repo.importNew(terms, GlossaryTermStatus.CANDIDATE));
         byte[] bytes = new GlossaryXlsxExporter(repo).export();
         try (var excel = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            assertEquals(1004, excel.getSheet("Glossary").getPhysicalNumberOfRows());
+            var sheet = excel.getSheet("Glossary");
+            assertEquals(1004, sheet.getPhysicalNumberOfRows());
+            assertEquals("TERM0000", sheet.getRow(1).getCell(2).getStringCellValue());
+            assertEquals("TERM1000", sheet.getRow(1001).getCell(2).getStringCellValue());
+            assertEquals("TERM1002", sheet.getRow(1003).getCell(2).getStringCellValue());
             assertEquals("1003", excel.getSheet("Overview").getRow(6).getCell(1).getStringCellValue());
         }
     }

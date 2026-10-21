@@ -1,3 +1,21 @@
+### Glossary V4.14.5 P1/P2 — candidate discovery and opt-in automatic registration
+
+A request-wide, offline, conservative classification of `NEW` Glossary words is
+available when `SCHEMAFORGE_GLOSSARY_ENABLED=true`. The default
+`SCHEMAFORGE_GLOSSARY_CANDIDATE_REGISTRATION_MODE=DRY_RUN` only adds a
+`candidateRegistration` object to the existing `reports/glossary/summary.json`;
+it **never writes candidate rows to H2**. Set `AUTO_CANDIDATE` explicitly to
+register English-dictionary-confirmed new ATOMIC words as `CANDIDATE`, with
+transactional evidence and review history. Suspected typos, unrecognized bank
+jargon, and unrecognized plurals are excluded from automatic insertion; an
+existing Steward can review them via the CSV-based workflow. No table/column
+identifier or executable SQL is modified. Always test on an isolated H2 path
+first. Details: `docs/GLOSSARY_V4145_CANDIDATE_REGISTRATION_P1_P2.md`.
+
+### EA/Word offline spelling provider
+
+Identifier spelling validation now uses the bundled offline `en_US` Hunspell dictionary by default: **no HTTP requests**. Set `SCHEMAFORGE_SPELL_CHECK_ENABLED=true` and `SCHEMAFORGE_SPELL_CHECK_PROVIDER=OFFLINE` (both are the REST defaults). `SCHEMAFORGE_SPELL_CHECK_PROVIDER=LANGUAGETOOL` explicitly restores the legacy online provider; `SCHEMAFORGE_SPELL_CHECK_ENABLED=false` disables spelling only, not other validation. Suggestions never modify the original table/column identifiers or the authoritative Glossary. See `docs/EA_OFFLINE_SPELL_CHECK_V1.md`.
+
 ### Glossary V4.14.4 — Plural aliases, spelling advice, and XLSX export
 
 When the glossary is enabled, `GET /api/v1/glossary/export.xlsx` downloads
@@ -929,3 +947,31 @@ When a prior v7 run already produced `legacy-directory-document-summary.csv`, do
 ## Glossary / Naming Governance (V4.14.2 opt-in, Atomic Terms only)
 
 A separate on-disk H2 glossary validates table/column naming terms in the canonical model, generates nonblocking review reports, and exposes read/search/export/CRUD/import/approval REST APIs. The Excel importer now reads **only `01_Atomic_Terms`** (946 source rows / 804 unique terms), never `02_Canonical_Phrases`; old second-sheet entries are excluded from active checks. Disabled by default to preserve existing artifacts. When enabled, H2 automatically creates `data/schemaforge-glossary.mv.db` at first startup and loads the packaged Atomic-only Excel as CANDIDATE (804 unique terms), without requiring a REST upload. A reproducible offline SQL bootstrap is supplied in `distribution/glossary/`. See [docs/GLOSSARY_NAMING_GOVERNANCE_V14.md](docs/GLOSSARY_NAMING_GOVERNANCE_V14.md) for Excel baseline, deployment, governance controls, API contract, output reports, and test commands.
+
+
+## Source package / working-root hygiene (2026-10-21)
+
+The six files permitted at the source root are `.gitignore`, `CHANGELOG.md`, `README.md`,
+`mvnw`, `mvnw.cmd`, and `pom.xml`. Source directories are `.mvn/`, `data/` (only
+`README.md` is distributable), `distribution/`, `docs/`, `scripts/`, and `src/`.
+
+Local Maven/Spring Boot logs belong under `logs/`; downloaded API/EA ZIPs and
+Glossary XLSX acceptance exports belong under `test-output/`. Both locations
+are ignored by Git and are excluded from source release packages. Do not move
+local Glossary H2 databases into these locations: keep `data/*.mv.db` as local
+state, back them up separately when the service is stopped, and never include
+them in Full or Delta source archives. Local `.idea/` settings are not source.
+
+```cmd
+cd /d D:\Projects\schema-forge-v4
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\organize-root-artifacts.ps1 -WhatIf
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\organize-root-artifacts.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\package-source.ps1
+```
+
+The packager creates a clean `schema-forge-v4-source-clean-*.zip` **beside** the project
+directory (not inside it), using a reviewed source allowlist and rejecting unapproved
+root entries. It excludes `.idea/`, local H2 `.mv.db`/trace/lock files, logs, and
+generated outputs, while retaining legitimate XLSX assets under `src/` and
+`distribution/`. The organizer does not delete or overwrite local data or
+unknown files; its `-WhatIf` mode previews file moves.

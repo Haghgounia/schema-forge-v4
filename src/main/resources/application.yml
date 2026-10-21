@@ -21,6 +21,10 @@ schemaforge:
     # 01_Atomic_Terms worksheet as CANDIDATE; safe to repeat on every startup.
     seed-on-startup: ${SCHEMAFORGE_GLOSSARY_SEED_ON_STARTUP:true}
     admin-key: ${SCHEMAFORGE_GLOSSARY_ADMIN_KEY:}
+    # V4.14.5-P1/P2: zero H2 candidate writes unless explicitly AUTO_CANDIDATE.
+    # DRY_RUN only classifies/records counts in reports/glossary/summary.json.
+    candidate-registration:
+      mode: ${SCHEMAFORGE_GLOSSARY_CANDIDATE_REGISTRATION_MODE:DRY_RUN}
 
   numeric-mapping:
     # SAFE preserves NUMBER as NUMERIC/DECIMAL. OPTIMIZED narrows scale-zero values losslessly.
@@ -75,7 +79,9 @@ schemaforge:
     plural-column-components-enabled: true
 
   spell-check:
-    enabled: true
+    # Offline Hunspell lexical check by default; external HTTP is opt-in only.
+    enabled: ${SCHEMAFORGE_SPELL_CHECK_ENABLED:true}
+    provider: ${SCHEMAFORGE_SPELL_CHECK_PROVIDER:OFFLINE}
     endpoint: https://api.languagetool.org/v2/check
     language: en-US
     connect-timeout: 3s
@@ -93,6 +99,18 @@ schemaforge:
       - PAYINST
       - ENR
       - RECALC
+      # Spell-check exclusions are not Glossary approvals.
+      - IDEMPOTENCY
+      - JSON
+      - IBAN
+      - GRANTOR
+      - NOSTRO
+      - VOSTRO
+      - KYC
+      - AML
+      - CIF
+      - UUID
+      - SQL
 
   metadata:
     oracle:

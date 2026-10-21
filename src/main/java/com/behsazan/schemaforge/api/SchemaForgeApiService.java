@@ -27,6 +27,7 @@ import com.behsazan.schemaforge.config.NamingValidationProperties;
 import com.behsazan.schemaforge.config.SpellCheckProperties;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepositoryResolver;
 import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
+import com.behsazan.schemaforge.performance.EaPerformanceDiagnostics;
 import com.behsazan.schemaforge.validation.oracle.OracleDdlSanityChecker;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -498,16 +499,28 @@ public class SchemaForgeApiService {
         if (!lower.endsWith(".xml") && !lower.endsWith(".xmi")) {
             throw new IllegalArgumentException("EA file must be XML or XMI");
         }
+        long started = System.nanoTime();
         AuditGenerationOptions auditOptions = AuditGenerationOptions.resolve(
                 auditProperties, includeAuditFields, auditProfile);
         PreparedSchema prepared = eaGenerationOrchestrator.prepare(
                 file, name, schemaName, auditOptions, primaryKeyAsIdentity, timestampSemantics);
+        long preparedAt = System.nanoTime();
         ArtifactGenerationContext context = ArtifactGenerationContext.create(
                 ArtifactOrigin.ENTERPRISE_ARCHITECT, name);
         byte[] content = eaGenerationOrchestrator.generate(
                 prepared, stripExtension(name), context, auditOptions, DatabasePlatform.parseSelection(platforms),
                 timestampSemantics);
-        return new GenerationArchive(content, context.ledger().snapshot());
+        long generatedAt = System.nanoTime();
+        GenerationArchive archive = new GenerationArchive(content, context.ledger().snapshot());
+        if (EaPerformanceDiagnostics.enabled()) {
+            EaPerformanceDiagnostics.log("request", "generationId=" + context.generationId()
+                    + " file=" + EaPerformanceDiagnostics.safeLabel(name)
+                    + " prepare_ms=" + EaPerformanceDiagnostics.millis(preparedAt - started)
+                    + " generate_ms=" + EaPerformanceDiagnostics.millis(generatedAt - preparedAt)
+                    + " total_ms=" + EaPerformanceDiagnostics.millis(System.nanoTime() - started)
+                    + " zip_bytes=" + content.length);
+        }
+        return archive;
     }
 
     private static void requireWordExtension(MultipartFile file) {

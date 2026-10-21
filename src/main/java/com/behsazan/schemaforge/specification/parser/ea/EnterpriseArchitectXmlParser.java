@@ -19,6 +19,7 @@ import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.LengthSemantics;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
 import com.behsazan.schemaforge.specification.normalization.SpecificationNormalizer;
+import com.behsazan.schemaforge.performance.EaPerformanceDiagnostics;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -85,11 +86,16 @@ public final class EnterpriseArchitectXmlParser {
         Objects.requireNonNull(fileName, "fileName must not be null");
         Objects.requireNonNull(inputStream, "inputStream must not be null");
         try {
+            long start = System.nanoTime();
             Document document = secureFactory().newDocumentBuilder().parse(inputStream);
+            long xmlLoaded = System.nanoTime();
             document.getDocumentElement().normalize();
+            long domNormalized = System.nanoTime();
 
             EaExtensionIndex extensionIndex = EaExtensionIndex.from(document);
+            long extensionsIndexed = System.nanoTime();
             List<Element> tableElements = findTableClasses(document, extensionIndex);
+            long tablesDiscovered = System.nanoTime();
             if (tableElements.isEmpty()) {
                 throw new IllegalArgumentException(
                         "No Enterprise Architect table elements were found in XML/XMI: " + fileName);
@@ -123,10 +129,12 @@ public final class EnterpriseArchitectXmlParser {
                 tableElementCountsByQualifiedName.merge(logicalTableKey, 1, Integer::sum);
             }
 
+            long tablesDecoded = System.nanoTime();
             List<EaAssociation> associations = parseAssociations(
                     document, tablesById, extensionIndex);
             Map<String, EaAssociation> associationBySourceOperation = indexAssociations(
                     tablesById, associations, warnings);
+            long associationsResolved = System.nanoTime();
             DatabaseSchema.Builder schema = DatabaseSchema.builder(schemaName)
                     .metadata("source.fileName", fileName)
                     .metadata("source.format", "EA-XMI")
@@ -171,7 +179,25 @@ public final class EnterpriseArchitectXmlParser {
             if (!duplicateTables.isBlank()) {
                 schema.metadata("source.eaDuplicateTables", duplicateTables);
             }
-            return new SpecificationNormalizer().normalize(schema.build());
+            DatabaseSchema built = schema.build();
+            long modelBuilt = System.nanoTime();
+            DatabaseSchema normalized = new SpecificationNormalizer().normalize(built);
+            long finished = System.nanoTime();
+            if (EaPerformanceDiagnostics.enabled()) {
+                EaPerformanceDiagnostics.log("parse", "file=" + EaPerformanceDiagnostics.safeLabel(fileName)
+                        + " xml_ms=" + EaPerformanceDiagnostics.millis(xmlLoaded - start)
+                        + " dom_normalize_ms=" + EaPerformanceDiagnostics.millis(domNormalized - xmlLoaded)
+                        + " extension_index_ms=" + EaPerformanceDiagnostics.millis(extensionsIndexed - domNormalized)
+                        + " table_discovery_ms=" + EaPerformanceDiagnostics.millis(tablesDiscovered - extensionsIndexed)
+                        + " table_decode_ms=" + EaPerformanceDiagnostics.millis(tablesDecoded - tablesDiscovered)
+                        + " association_ms=" + EaPerformanceDiagnostics.millis(associationsResolved - tablesDecoded)
+                        + " model_build_ms=" + EaPerformanceDiagnostics.millis(modelBuilt - associationsResolved)
+                        + " canonical_normalize_ms=" + EaPerformanceDiagnostics.millis(finished - modelBuilt)
+                        + " total_ms=" + EaPerformanceDiagnostics.millis(finished - start)
+                        + " tables=" + normalized.tables().size()
+                        + " columns=" + normalized.tables().stream().mapToInt(t -> t.columns().size()).sum());
+            }
+            return normalized;
         } catch (IllegalArgumentException exception) {
             throw exception;
         } catch (Exception exception) {

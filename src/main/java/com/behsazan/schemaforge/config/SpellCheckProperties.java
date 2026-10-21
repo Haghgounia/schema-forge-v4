@@ -14,6 +14,8 @@ import java.util.List;
 @ConfigurationProperties(prefix = "schemaforge.spell-check")
 public class SpellCheckProperties {
     private boolean enabled = false;
+    /** OFFLINE (default) or LANGUAGETOOL (explicit network opt-in). */
+    private String provider = "OFFLINE";
     private String endpoint = "https://api.languagetool.org/v2/check";
     private String language = "en-US";
     private Duration connectTimeout = Duration.ofSeconds(3);
@@ -22,6 +24,8 @@ public class SpellCheckProperties {
     private boolean failOpen = true;
     private List<String> technicalTerms = new ArrayList<>();
 
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getEndpoint() { return endpoint; }

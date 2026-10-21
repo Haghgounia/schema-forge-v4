@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.artifact.ArtifactPaths;
 import com.behsazan.schemaforge.artifact.ArtifactType;
 import com.behsazan.schemaforge.glossary.GlossaryDdlHints;
 import com.behsazan.schemaforge.glossary.GlossaryReportWriter;
+import com.behsazan.schemaforge.performance.EaPerformanceDiagnostics;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifest;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestAssembler;
 import com.behsazan.schemaforge.artifact.manifest.ArtifactManifestWriter;
@@ -200,6 +201,7 @@ public final class EaGenerationOrchestrator {
         Objects.requireNonNull(file, "file must not be null");
         Objects.requireNonNull(sourceName, "sourceName must not be null");
         Objects.requireNonNull(timestampSemantics, "timestampSemantics must not be null");
+        long started = System.nanoTime();
         boolean inferPrimaryKeyIdentity = primaryKeyAsIdentity != null
                 ? primaryKeyAsIdentity
                 : eaImportProperties.isPrimaryKeyAsIdentity();
@@ -209,9 +211,19 @@ public final class EaGenerationOrchestrator {
                     eaImportProperties.getDefaultSchema(), inferPrimaryKeyIdentity)
                     .parse(sourceName, inputStream, schemaName);
         }
-        return auditOptions == null
+        long parsedAt = System.nanoTime();
+        PreparedSchema prepared = auditOptions == null
                 ? preparationService.prepare(parsed, timestampSemantics)
                 : preparationService.prepare(parsed, auditOptions, timestampSemantics);
+        long finished = System.nanoTime();
+        if (EaPerformanceDiagnostics.enabled()) {
+            EaPerformanceDiagnostics.log("prepare", "file=" + EaPerformanceDiagnostics.safeLabel(sourceName)
+                    + " parser_ms=" + EaPerformanceDiagnostics.millis(parsedAt - started)
+                    + " validation_enrichment_ms=" + EaPerformanceDiagnostics.millis(finished - parsedAt)
+                    + " total_ms=" + EaPerformanceDiagnostics.millis(finished - started)
+                    + " tables=" + prepared.schema().tables().size());
+        }
+        return prepared;
     }
 
     /** Generates and packages all established EA artifacts for an already prepared schema. */
@@ -256,14 +268,32 @@ public final class EaGenerationOrchestrator {
             throw new IllegalArgumentException("At least one database platform must be selected");
         }
 
+        long started = System.nanoTime();
         Path work = Files.createTempDirectory("schemaforge-ea-");
         try {
             Path output = Files.createDirectories(work.resolve("output"));
+            long outputStart = System.nanoTime();
             writeEaPerTableOutputs(
                     prepared, output, baseName, context, auditOptions, platforms, timestampSemantics);
-            return artifactPackageBuilder.zipDirectory(output);
+            long outputEnd = System.nanoTime();
+            byte[] archive = artifactPackageBuilder.zipDirectory(output);
+            long zipEnd = System.nanoTime();
+            if (EaPerformanceDiagnostics.enabled()) {
+                EaPerformanceDiagnostics.log("package", "generationId=" + context.generationId()
+                        + " write_artifacts_ms=" + EaPerformanceDiagnostics.millis(outputEnd - outputStart)
+                        + " zip_ms=" + EaPerformanceDiagnostics.millis(zipEnd - outputEnd)
+                        + " total_ms=" + EaPerformanceDiagnostics.millis(zipEnd - started)
+                        + " zip_bytes=" + archive.length);
+            }
+            return archive;
         } finally {
+            long cleanupStart = System.nanoTime();
             artifactPackageBuilder.deleteRecursively(work);
+            if (EaPerformanceDiagnostics.enabled()) {
+                EaPerformanceDiagnostics.log("cleanup", "generationId=" + context.generationId()
+                        + " cleanup_ms=" + EaPerformanceDiagnostics.millis(System.nanoTime() - cleanupStart)
+                        + " total_generation_ms=" + EaPerformanceDiagnostics.millis(System.nanoTime() - started));
+            }
         }
     }
 
@@ -281,6 +311,7 @@ public final class EaGenerationOrchestrator {
         String timestamp = context.generationTimestamp();
         GlossaryDdlHints ddlHints = glossaryReportWriter == null ? null : glossaryReportWriter.ddlHints();
 
+        long outputStarted = System.nanoTime();
         DependencyOrder dependencyOrder = dependencyOrder(schema.tables());
         Map<DatabasePlatform, MetadataRepository> requestRepositories = new EnumMap<>(DatabasePlatform.class);
 
@@ -288,12 +319,15 @@ public final class EaGenerationOrchestrator {
             if (!platforms.contains(platform)) {
                 continue;
             }
+            long platformStarted = System.nanoTime();
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
                     platform, metadataRepositoryResolver.resolve(platform));
             requestRepositories.put(platform, repository);
             MetadataComparisonResult metadata = new MetadataComparisonValidator(dialect, repository, false).validate(schema);
+            long metadataFinished = System.nanoTime();
             comparisonArtifactProducer.preloadLiveTables(schema, repository, metadata);
+            long preloadFinished = System.nanoTime();
             metadata.issues().stream()
                     .map(issue -> new ValidationIssue(
                             issue.severity(),
@@ -302,7 +336,10 @@ public final class EaGenerationOrchestrator {
                             "[" + platform.name() + "] " + issue.message()))
                     .forEach(jsonIssues::add);
 
+            long ddlNanos = 0;
+            long comparisonNanos = 0;
             for (Table table : schema.tables()) {
+                long ddlStarted = System.nanoTime();
                 ValidationReport tableReport = validationForTable(report, table);
                 String tableBlockReason = canonicalTableValidationBlockReason(tableReport);
                 if (tableBlockReason == null) {
@@ -348,23 +385,44 @@ public final class EaGenerationOrchestrator {
                             tableBlockReason);
                 }
 
+                long ddlFinished = System.nanoTime();
+                ddlNanos += ddlFinished - ddlStarted;
                 comparisonArtifactProducer.writeEaComparisonWorkbook(
                         schema, table, repository, metadata, output, platform, dialect,
                         context, timestamp);
+                comparisonNanos += System.nanoTime() - ddlFinished;
             }
 
+            long migrationStarted = System.nanoTime();
             // Per-table CREATE and live-table migration SQL both honor canonical fail-closed
             // validation. Dialect-specific compatibility remains an additional CREATE-DDL gate.
             migrationArtifactProducer.writeMigrationArtifacts(
                     schema, repository, output, platform, context, report);
+            long migrationFinished = System.nanoTime();
             writeEaRunAll(schema, report, platform, dependencyOrder, baseName, timestamp, output, context, ddlHints);
+            long platformFinished = System.nanoTime();
+            if (EaPerformanceDiagnostics.enabled()) {
+                EaPerformanceDiagnostics.log("platform", "generationId=" + context.generationId()
+                        + " dbms=" + platform.name()
+                        + " metadata_ms=" + EaPerformanceDiagnostics.millis(metadataFinished - platformStarted)
+                        + " preload_ms=" + EaPerformanceDiagnostics.millis(preloadFinished - metadataFinished)
+                        + " ddl_ms=" + EaPerformanceDiagnostics.millis(ddlNanos)
+                        + " comparison_ms=" + EaPerformanceDiagnostics.millis(comparisonNanos)
+                        + " migration_ms=" + EaPerformanceDiagnostics.millis(migrationFinished - migrationStarted)
+                        + " run_all_ms=" + EaPerformanceDiagnostics.millis(platformFinished - migrationFinished)
+                        + " total_ms=" + EaPerformanceDiagnostics.millis(platformFinished - platformStarted)
+                        + " tables=" + schema.tables().size());
+            }
         }
 
+        long platformLoopsFinished = System.nanoTime();
         crudArtifactProducer.writeMetadataCrudArtifacts(
                 schema, output, baseName, timestamp, context, platforms, requestRepositories);
+        long crudFinished = System.nanoTime();
         diagramArtifactProducer.writeMermaidArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeGraphvizArtifact(schema, output, baseName, timestamp, context);
         diagramArtifactProducer.writeConceptualErdArtifacts(schema, output, baseName, timestamp, context);
+        long diagramsFinished = System.nanoTime();
 
         ValidationReport preliminaryJsonReport = new ValidationReport(
                 jsonIssues.stream().noneMatch(issue -> "ERROR".equalsIgnoreCase(issue.severity())),
@@ -379,6 +437,7 @@ public final class EaGenerationOrchestrator {
         context.ledger().generated(context, ArtifactType.CANONICAL_JSON, null,
                 baseName, ArtifactPaths.relative(output, modelPath),
                 "application/json", "JsonExporter");
+        long canonicalFinished = System.nanoTime();
 
         ArtifactManifest.EnterpriseArchitectExtension eaExtension =
                 new ArtifactManifest.EnterpriseArchitectExtension(
@@ -399,11 +458,25 @@ public final class EaGenerationOrchestrator {
         }
         manifestExtensions.put("generationOptions", generationOptions);
         generationSummaryReportWriter.write(output, context, schema, platforms);
+        long summaryFinished = System.nanoTime();
 
         List<ArtifactManifestAssembler.ModelInput> models = List.of(
                 new ArtifactManifestAssembler.ModelInput(context.sourceName(), schema, jsonReport));
         if (glossaryReportWriter != null) glossaryReportWriter.write(output, context, models);
+        long glossaryFinished = System.nanoTime();
         artifactManifestWriter.write(output, context, baseName, models, manifestExtensions);
+        long manifestFinished = System.nanoTime();
+        if (EaPerformanceDiagnostics.enabled()) {
+            EaPerformanceDiagnostics.log("artifacts", "generationId=" + context.generationId()
+                    + " platforms_ms=" + EaPerformanceDiagnostics.millis(platformLoopsFinished - outputStarted)
+                    + " crud_ms=" + EaPerformanceDiagnostics.millis(crudFinished - platformLoopsFinished)
+                    + " diagrams_ms=" + EaPerformanceDiagnostics.millis(diagramsFinished - crudFinished)
+                    + " canonical_json_ms=" + EaPerformanceDiagnostics.millis(canonicalFinished - diagramsFinished)
+                    + " summary_ms=" + EaPerformanceDiagnostics.millis(summaryFinished - canonicalFinished)
+                    + " glossary_ms=" + EaPerformanceDiagnostics.millis(glossaryFinished - summaryFinished)
+                    + " manifest_ms=" + EaPerformanceDiagnostics.millis(manifestFinished - glossaryFinished)
+                    + " total_ms=" + EaPerformanceDiagnostics.millis(manifestFinished - outputStarted));
+        }
     }
 
     private void requireValidDdl(DatabasePlatform platform, String sql, String source) {
