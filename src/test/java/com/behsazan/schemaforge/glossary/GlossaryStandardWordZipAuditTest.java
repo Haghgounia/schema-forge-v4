@@ -583,6 +583,7 @@ class GlossaryStandardWordZipAuditTest {
         summary.put("newOccurrences", results.count("NEW"));
         summary.put("pendingOccurrences", results.count("PENDING_APPROVAL"));
         summary.put("rejectedOccurrences", results.count("REJECTED"));
+        summary.put("pluralColumnViolations", results.count("PLURAL_COLUMN"));
         summary.put("uniqueReviewTerms", frequencies.size());
         summary.put("reviewImportChunks", importReadyParts.stream()
                 .map(path -> output.relativize(path).toString().replace('\\', '/')).toList());
@@ -685,6 +686,7 @@ class GlossaryStandardWordZipAuditTest {
                     {"Review occurrences", summary.get("reviewOccurrences")},
                     {"NEW occurrences", summary.get("newOccurrences")},
                     {"PENDING_APPROVAL occurrences", summary.get("pendingOccurrences")},
+                    {"PLURAL_COLUMN violations", summary.get("pluralColumnViolations")},
                     {"Unique review terms", summary.get("uniqueReviewTerms")},
                     {"Unique NEW terms", frequencies.values().stream()
                             .filter(f -> f.status.equals("NEW")).count()},
@@ -705,7 +707,7 @@ class GlossaryStandardWordZipAuditTest {
                     "If a Word column lacks Persian text, the Persian field name is blank; the field is not auto-translated.",
                     "The original CSV report contracts remain unchanged, including unknown-terms.csv for import.",
                     "Successful standard DOCX parsing does NOT establish that all identifiers are meaningful or unabbreviated.",
-                    "Plural Review Hints and Short and Acronym Hints are heuristic candidates, not automatic approval.",
+                    "Plural Review Hints are COLUMN naming violations only when a matching singular exists in the glossary; no automatic rename.",
                     "Reviewer Decision and Reviewer Notes are manual worksheet cells; this file does not alter H2.",
                     "This workbook is included in audit-evidence-manifest.json with SHA-256 evidence."
             };
@@ -743,20 +745,20 @@ class GlossaryStandardWordZipAuditTest {
             }
             applyFilter(terms, termRow, termHeaders.length);
 
-            // Sheet 3: inflection hints only, based on already-existing candidate
-            // ATOMIC terms. These hints never add/approve Glossary entries.
+            // Sheet 3: confirmed singular lookup for plural COLUMN naming violations.
+            // TABLE plurals are permitted and do not get a separate NEW entry.
             Sheet plurals = excelSheet(workbook, "Plural Review Hints", headerStyle,
-                    new String[]{"New Term", "Existing CANDIDATE Base", "Occurrences",
+                    new String[]{"Plural Column Token", "Existing Singular", "Occurrences",
                             "Affected DOCX", "Interpretation"},
-                    new int[]{35, 38, 19, 21, 50});
+                    new int[]{35, 38, 19, 21, 54});
             int pluralRow = 1;
             for (TermOccurrence f : byFrequency) {
-                if (!f.status.equals("NEW")) continue;
-                String base = pluralCandidateBase(f.term, snapshot.lexicon().candidateAtomic());
+                if (!f.status.equals("PLURAL_COLUMN")) continue;
+                String base = GlossaryInflection.knownSingular(f.term, snapshot.lexicon());
                 if (base == null) continue;
                 excelRow(plurals, pluralRow++, persianStyle, -1,
                         f.term, base, f.count, f.sources.size(),
-                        "HEURISTIC_ONLY_DO_NOT_AUTO_APPROVE");
+                        "COLUMN_NAMING_VIOLATION_REQUIRES_REVIEW");
             }
             applyFilter(plurals, pluralRow, 5);
 
@@ -829,20 +831,6 @@ class GlossaryStandardWordZipAuditTest {
                 workbook.dispose();
             }
         }
-    }
-
-    private static String pluralCandidateBase(String token, Set<String> candidateAtomic) {
-        List<String> possibilities = new ArrayList<>();
-        if (token.endsWith("IES") && token.length() > 3)
-            possibilities.add(token.substring(0, token.length() - 3) + "Y");
-        if (token.endsWith("ES") && token.length() > 2)
-            possibilities.add(token.substring(0, token.length() - 2));
-        if (token.endsWith("S") && token.length() > 1)
-            possibilities.add(token.substring(0, token.length() - 1));
-        for (String base : possibilities) {
-            if (candidateAtomic.contains(base)) return base;
-        }
-        return null;
     }
 
     private static Sheet excelSheet(SXSSFWorkbook workbook, String name, CellStyle headerStyle,

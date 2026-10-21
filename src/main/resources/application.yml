@@ -71,7 +71,7 @@ schemaforge:
   naming:
     # Naming validation is DBMS-independent and runs once on the canonical model.
     # Supported values: SINGULAR, PLURAL, OFF.
-    table-convention: ${SCHEMAFORGE_TABLE_NAMING_CONVENTION:SINGULAR}
+    table-convention: ${SCHEMAFORGE_TABLE_NAMING_CONVENTION:OFF}
     plural-column-components-enabled: true
 
   spell-check:

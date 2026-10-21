@@ -1,3 +1,12 @@
+## 2026-10-21 - Glossary V4.14.4 plural policy, safe spelling advice and full XLSX export
+
+- Adds opt-in `GET /api/v1/glossary/export.xlsx` with an XLSX `Overview` and full `Glossary` sheet. Exports all non-deleted, effective terms of every status, without a page limit; includes Persian text, source, and timestamps. No H2 writes.
+- Adds read-only `GET /api/v1/glossary/spelling-suggestions` for conservative edit-distance matches and existing singular variants. Neither changes nor auto-approves any term; output is advisory only.
+- Applies known-singular plural aliases during scanning: no duplicate `NEW` for `PROFILES` when `PROFILE` exists. Reports `PLURAL_COLUMN` if used in a column; table use is allowed. Same rule protects import of old `NEW` CSV reports.
+- Sets the REST table singular/plural naming default to `OFF` while retaining explicit SINGULAR/PLURAL options and column plural validation; does not alter SQL statement semantics or Canonical identifiers.
+- Preserves existing H2 data and schema, all approved/rejected decisions and the original CSV/JSON fields. The user-provided H2 `.mv.db` is excluded from the distributed Full and Delta ZIPs. Additional glossary report fields and `PLURAL_COLUMN` review status are documented.
+- See `docs/GLOSSARY_V4144_PLURAL_SPELLING_XLSX_EXPORT.md` and run Windows Maven regression before operational acceptance.
+
 ## 2026-10-20 - HF1 regression alignment for native TIMESTAMP fallback
 
 - Windows Maven targeted regression passed 31/31 tests; full 1,001-test run revealed two stale MySQL/MariaDB Mapper assertions expecting the superseded timezone-rejection behavior.

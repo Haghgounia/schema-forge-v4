@@ -33,12 +33,16 @@ public final class GlossaryController {
     private final GlossaryRepository repository;
     private final GlossaryExcelImporter importer;
     private final GlossaryWriteGuard writeGuard;
+    private final GlossaryXlsxExporter xlsxExporter;
+    private final GlossarySpellingAdvisor spellingAdvisor;
 
     public GlossaryController(GlossaryRepository repository, GlossaryExcelImporter importer,
                               GlossaryWriteGuard writeGuard) {
         this.repository = repository;
         this.importer = importer;
         this.writeGuard = writeGuard;
+        this.xlsxExporter = new GlossaryXlsxExporter(repository);
+        this.spellingAdvisor = new GlossarySpellingAdvisor(repository);
     }
 
     @GetMapping("/terms")
@@ -76,6 +80,30 @@ public final class GlossaryController {
         headers.setContentDisposition(ContentDisposition.attachment().filename("schemaforge-glossary.csv").build());
         headers.setContentType(new MediaType("text", "csv", StandardCharsets.UTF_8));
         return new ResponseEntity<>(output.toString().getBytes(StandardCharsets.UTF_8), headers, HttpStatus.OK);
+    }
+
+    @GetMapping(value = "/export.xlsx", produces =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    @Operation(summary = "Download the complete active glossary, with all review statuses, as Excel")
+    public ResponseEntity<byte[]> exportXlsx() throws IOException {
+        byte[] workbook = xlsxExporter.export();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("schemaforge-glossary.xlsx").build());
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentLength(workbook.length);
+        headers.setCacheControl("no-store");
+        return new ResponseEntity<>(workbook, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/spelling-suggestions")
+    @Operation(summary = "Read-only, non-authoritative near-match suggestions for a new atomic term")
+    public GlossarySpellingAdvisor.Advice spellingSuggestions(
+            @RequestParam String term,
+            @RequestParam(defaultValue = "COLUMN") String objectType,
+            @RequestParam(defaultValue = "5") int limit) {
+        return spellingAdvisor.advise(term, objectType, limit);
     }
 
     @PostMapping("/terms")

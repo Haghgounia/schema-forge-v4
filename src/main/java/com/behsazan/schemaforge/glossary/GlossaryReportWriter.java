@@ -49,11 +49,17 @@ public final class GlossaryReportWriter {
         Set<String> newTerms = new LinkedHashSet<>();
         Set<String> pendingTerms = new LinkedHashSet<>();
         Set<String> rejectedTerms = new LinkedHashSet<>();
+        Set<String> pluralColumnTerms = new LinkedHashSet<>();
+        int pluralColumnOccurrences = 0;
         for (UnknownGlossaryTerm term : unknown) {
             switch (term.reviewStatus()) {
                 case "NEW" -> newTerms.add(term.term());
                 case "PENDING_APPROVAL" -> pendingTerms.add(term.term());
                 case "REJECTED" -> rejectedTerms.add(term.term());
+                case "PLURAL_COLUMN" -> {
+                    pluralColumnTerms.add(term.term());
+                    pluralColumnOccurrences++;
+                }
                 default -> throw new IllegalStateException("Unexpected glossary review status");
             }
         }
@@ -87,9 +93,12 @@ public final class GlossaryReportWriter {
         summary.put("uniqueNewTerms", newTerms.size());
         summary.put("uniquePendingTerms", pendingTerms.size());
         summary.put("uniqueRejectedTerms", rejectedTerms.size());
+        summary.put("pluralColumnViolations", pluralColumnOccurrences);
+        summary.put("uniquePluralColumnTerms", pluralColumnTerms.size());
         summary.put("newTerms", newTerms.stream().sorted().toList());
         summary.put("pendingTerms", pendingTerms.stream().sorted().toList());
         summary.put("rejectedTerms", rejectedTerms.stream().sorted().toList());
+        summary.put("pluralColumnTerms", pluralColumnTerms.stream().sorted().toList());
         Path json = reportDir.resolve("summary.json");
         mapper.writerWithDefaultPrettyPrinter().writeValue(json.toFile(), summary);
         context.ledger().generated(context, ArtifactType.GLOSSARY_REPORT, null,

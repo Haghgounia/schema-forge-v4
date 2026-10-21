@@ -13,6 +13,8 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Administrator-mediated NEW report intake, review decisions, and immutable workflow history. */
 public final class GlossaryReviewService {
@@ -70,11 +72,26 @@ public final class GlossaryReviewService {
             int recorded = 0;
             int created = 0;
             int alreadyKnown = 0;
+            int alreadyRecorded = 0;
+            int skippedKnownPlurals = 0;
+            Set<String> knownAtomic = new HashSet<>(jdbc.queryForList(
+                    "SELECT term_key FROM glossary_term WHERE kind='ATOMIC' AND is_deleted=FALSE",
+                    String.class));
             for (GlossaryReportCsvParser.Occurrence occurrence : parsed.newOccurrences()) {
+                // Old reports predate plural recognition. Never insert a duplicate plural
+                // CANDIDATE when any non-deleted form of its singular exists in H2.
+                if (GlossaryInflection.singularCandidates(occurrence.term()).stream()
+                        .anyMatch(knownAtomic::contains)) {
+                    skippedKnownPlurals++;
+                    continue;
+                }
                 Integer found = jdbc.queryForObject("SELECT COUNT(*) FROM glossary_review_occurrence "
                         + "WHERE report_sha256=? AND report_row_index=?", Integer.class,
                         digest, occurrence.rowNumber());
-                if (found != null && found != 0) continue;
+                if (found != null && found != 0) {
+                    alreadyRecorded++;
+                    continue;
+                }
                 jdbc.update("""
                         INSERT INTO glossary_review_occurrence
                         (report_sha256, report_row_index, term_kind, term_key, source_name, object_type,
@@ -97,11 +114,12 @@ public final class GlossaryReviewService {
                     audit("DISCOVERED", GlossaryTermKind.ATOMIC, occurrence.term(), null, "CANDIDATE",
                             "First NEW occurrence in reviewed report", digest);
                     created++;
+                    knownAtomic.add(occurrence.term());
                 }
             }
             return new ImportReportResult(digest, parsed.sourceRows(), parsed.newOccurrences().size(),
-                    recorded, parsed.newOccurrences().size() - recorded, parsed.skippedNonNew(), created,
-                    alreadyKnown);
+                    recorded, alreadyRecorded, parsed.skippedNonNew(), created,
+                    alreadyKnown, skippedKnownPlurals);
         }));
     }
 
@@ -243,7 +261,8 @@ public final class GlossaryReviewService {
     private record CurrentTerm(long id, String status, String persian, String module, boolean deleted) { }
     public record ImportReportResult(String reportSha256, int sourceRows, int newOccurrences,
                                      int recordedOccurrences, int previouslyRecorded,
-                                     int skippedNonNew, int createdCandidates, int alreadyKnownOccurrences) { }
+                                     int skippedNonNew, int createdCandidates, int alreadyKnownOccurrences,
+                                     int skippedKnownPluralOccurrences) { }
     public record DecisionRequest(String term, GlossaryTermStatus to, String persian,
                                   String module, String reason, GlossaryTermKind kind) {
         public DecisionRequest(String term, GlossaryTermStatus to, String persian,

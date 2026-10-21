@@ -1,3 +1,22 @@
+### Glossary V4.14.4 — Plural aliases, spelling advice, and XLSX export
+
+When the glossary is enabled, `GET /api/v1/glossary/export.xlsx` downloads
+all active, effective ATOMIC/PHRASE terms in two sheets (`Overview`, `Glossary`),
+with status, source, Persian text, and created/updated timestamps. It does
+not change H2. A separate read-only endpoint,
+`GET /api/v1/glossary/spelling-suggestions?term=CUTOMER&objectType=COLUMN`,
+offers **non-authoritative** near matches for manual review; it never corrects,
+imports, approves, or rejects terms.
+
+A known singular such as `PROFILE` prevents `PROFILES` from becoming another
+`NEW` entry. Plurals are accepted in table names; a matched plural in a
+column is flagged `PLURAL_COLUMN` in the glossary reports and SQL comment.
+The REST naming default is now `OFF` for table singular/plural enforcement;
+column naming validation remains enabled. Legacy CSV review imports also
+skip new occurrences of plurals with an existing singular in H2. Existing
+curated H2 records are never rewritten. See
+[`docs/GLOSSARY_V4144_PLURAL_SPELLING_XLSX_EXPORT.md`](docs/GLOSSARY_V4144_PLURAL_SPELLING_XLSX_EXPORT.md).
+
 ### Standard Word ZIP - six-sheet glossary review XLSX (V4.14.3-H2)
 
 The `GlossaryStandardWordZipAuditTest` class, invoked through
@@ -96,7 +115,7 @@ The SQL file contains all objects related to that Word specification in one file
 
 ## Canonical naming validation policy
 
-Identifier naming checks are DBMS-independent and are evaluated once on the prepared canonical model before per-dialect metadata comparison. Configure the table convention with `schemaforge.naming.table-convention` (`SINGULAR`, `PLURAL`, or `OFF`); the REST runtime currently defaults to `SINGULAR`. Column plural-component hints remain independently configurable with `schemaforge.naming.plural-column-components-enabled`. Per-dialect metadata validation does not duplicate these canonical naming findings.
+Identifier naming checks are DBMS-independent and are evaluated once on the prepared canonical model before per-dialect metadata comparison. Configure the table convention with `schemaforge.naming.table-convention` (`SINGULAR`, `PLURAL`, or `OFF`); the REST runtime defaults to `OFF` (singular and plural table names both allowed). Column plural-component hints remain independently configurable with `schemaforge.naming.plural-column-components-enabled`. Per-dialect metadata validation does not duplicate these canonical naming findings.
 
 Canonical preparation also performs a conservative default-vs-CHECK compatibility check for exact literal domains such as `STATUS_CODE IN ('A','B')`. If a literal default is outside that exact domain, SchemaForge reports `DEFAULT_CHECK_INCOMPATIBLE`; compound boolean predicates and non-literal defaults are intentionally not guessed.
 

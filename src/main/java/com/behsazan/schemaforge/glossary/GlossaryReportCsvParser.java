@@ -46,7 +46,7 @@ final class GlossaryReportCsvParser {
                 throw new IllegalArgumentException("Invalid glossary CSV field count at data row " + index);
             }
             String status = row.get(7);
-            if (!List.of("NEW", "PENDING_APPROVAL", "REJECTED").contains(status)) {
+            if (!List.of("NEW", "PENDING_APPROVAL", "REJECTED", "PLURAL_COLUMN").contains(status)) {
                 throw new IllegalArgumentException("Invalid review_status at data row " + index);
             }
             if (!"NEW".equals(status)) {

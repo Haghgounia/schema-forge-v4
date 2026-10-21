@@ -76,7 +76,22 @@ public final class GlossaryScanner {
                 i += matchedLength;
             } else {
                 String token = tokens.get(i);
-                if (!lexicon.atomic().contains(token) && !lexicon.phrases().contains(token)) {
+                // A known singular is the canonical term. TABLE names may be plural;
+                // COLUMN names must use the singular. Never create a second NEW entry.
+                String singular = GlossaryInflection.knownSingular(token, lexicon);
+                if (singular != null) {
+                    if ("COLUMN".equals(kind)) {
+                        result.add(new UnknownGlossaryTerm(source, kind, table, column,
+                                identifier, token, i + 1, "PLURAL_COLUMN"));
+                    }
+                    if (lexicon.candidateAtomic().contains(singular)
+                            || lexicon.rejectedAtomic().contains(singular)) {
+                        String singularStatus = lexicon.candidateAtomic().contains(singular)
+                                ? "PENDING_APPROVAL" : "REJECTED";
+                        result.add(new UnknownGlossaryTerm(source, kind, table, column,
+                                identifier, singular, i + 1, singularStatus));
+                    }
+                } else if (!lexicon.atomic().contains(token) && !lexicon.phrases().contains(token)) {
                     String tokenStatus = lexicon.candidateAtomic().contains(token)
                             || lexicon.candidatePhrases().contains(token) ? "PENDING_APPROVAL"
                             : lexicon.rejectedAtomic().contains(token) || lexicon.rejectedPhrases().contains(token)
