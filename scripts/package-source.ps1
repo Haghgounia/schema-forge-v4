@@ -28,10 +28,10 @@ if (Test-Path -LiteralPath $OutputPath) {
 # The source root contract is intentionally strict. Adding a root entry requires
 # an explicit review; test exports and downloaded EA ZIPs are never source code.
 $rootFiles = @('.gitignore', 'CHANGELOG.md', 'README.md', 'mvnw', 'mvnw.cmd', 'pom.xml')
-$rootDirectories = @('.mvn', 'data', 'distribution', 'docs', 'scripts', 'src')
+$rootDirectories = @('.mvn', 'data', 'distribution', 'docs', 'scripts', 'src', 'ui')
 $blockedParts = @('.git', '.idea', '.vscode', 'target', 'logs', 'tmp', 'temp', 'work',
     'output', 'outputs', 'generated', 'test-output', 'test-reports',
-    'validation-output', 'uploads', 'downloads', '__pycache__', 'node_modules')
+    'validation-output', 'uploads', 'downloads', '__pycache__', 'node_modules', 'dist', 'coverage')
 $blockedNames = @('.DS_Store', 'Thumbs.db', 'Desktop.ini')
 
 function Test-IncludeSource([string]$relativePath) {
@@ -42,6 +42,9 @@ function Test-IncludeSource([string]$relativePath) {
     }
     $fileName = $parts[$parts.Length - 1]
     if ($blockedNames -contains $fileName -or $fileName.StartsWith('~$')) { return $false }
+    # Never package local UI secrets or private keystores, even under allowlisted ui/.
+    if ($fileName -match '(?i)^(\.env($|\.)|application-local\.|application-.*\.local\.)' -or
+        $fileName -match '(?i)\.(jks|p12|pfx|keystore)$') { return $false }
     if ($fileName -match '(?i)(\.log(\..*)?|\.mv\.db|\.trace\.db|\.lock\.db|\.tmp|\.bak|\.swp|\.class)$') {
         return $false
     }

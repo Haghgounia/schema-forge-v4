@@ -1,0 +1,84 @@
+# SchemaForge V4 — REST-first Operations Console roadmap
+
+**Roadmap ID:** SF-V4-UI-2026-10-22  
+**Baseline:** SchemaForge 4.0.1 (eight Java REST controllers / 24 mapped operations)  
+**Status:** **WINDOWS NODE TEST / TYPECHECK / VITE BUILD PASS; LIVE REST AND BROWSER ACCEPTANCE OPEN**  
+**Canonical Glossary closure plan:** [GLOSSARY-V4145-CLOSURE-AND-UI-ROADMAP.md](GLOSSARY-V4145-CLOSURE-AND-UI-ROADMAP.md)
+
+## Scope decision
+
+The React frontend is a **project-wide SchemaForge Console**, not a Glossary-only site. It MUST consume existing REST endpoints; it MUST NOT duplicate parsing, canonical models, Oracle/DBMS metadata logic, DDL rendering, validation, Glossary review policy, or H2 access. Any operation lacking a supported production REST endpoint remains accessible only through its existing external interface until a separate backend API gate is approved. Backend builds never require Node.js.
+
+**UI philosophy:** Minimal React + TypeScript + Vite, native HTML forms, one shared transport module, CSS only; accessible responsive Persian RTL with LTR technical identifiers; server-side pagination where provided; no Redux, extensive UI kit, bespoke API, new database, elaborate dashboard, or artificial business counters.
+
+## Verified inventory: existing production REST methods (24 operations)
+
+| Module | Existing route | Frontend action | Status |
+| --- | --- | --- | --- |
+| Generation | `POST /api/v1/generate/word` | Standard Word -> ZIP | implemented |
+| Generation | `POST /api/v1/generate/legacy-word` | Legacy Word + schema -> ZIP | implemented |
+| Generation | `POST /api/v1/generate/legacy-word/zip` | Legacy batch ZIP + schema -> ZIP | implemented |
+| Generation | `POST /api/v1/generate/zip` | Standard batch ZIP -> ZIP | implemented |
+| Generation | `POST /api/v1/generate/ea-xml` | EA/XMI + optional schema/identity -> ZIP | implemented |
+| Conformance | `GET /api/v1/conformance/table` | One table audit | implemented |
+| Conformance | `GET /api/v1/conformance/schema` | Schema audit | implemented |
+| CRUD | `POST /api/v1/generate/oracle/crud` | Oracle SQL package | implemented |
+| CRUD | `POST /api/v1/generate/sqlserver/crud` | SQL Server SQL package | implemented |
+| Mermaid | `POST /api/v1/diagram/mermaid/canonical-json` | Diagram text download | implemented |
+| Glossary | `GET /api/v1/glossary/terms` | Query, kind/status, server pagination | implemented |
+| Glossary | `GET /api/v1/glossary/terms/{id}` | Fetch by ID / editor | implemented |
+| Glossary | `POST /api/v1/glossary/terms` | Create term | implemented |
+| Glossary | `PUT /api/v1/glossary/terms/{id}` | Update term | implemented |
+| Glossary | `DELETE /api/v1/glossary/terms/{id}` | Soft delete term | implemented |
+| Glossary | `POST /api/v1/glossary/bulk-status` | Change reviewed cohort status | implemented, guarded |
+| Glossary | `POST /api/v1/glossary/import` | XLSX Atomic Terms import | implemented |
+| Glossary | `GET /api/v1/glossary/export.csv` | CSV export | implemented |
+| Glossary | `GET /api/v1/glossary/export.xlsx` | Excel export | implemented |
+| Glossary | `GET /api/v1/glossary/spelling-suggestions` | Read-only spelling advice | implemented |
+| Glossary | `POST /api/v1/glossary/review/import-report` | Generated NEW CSV evidence import | implemented |
+| Glossary | `GET /api/v1/glossary/review/queue` | Pending/resolved review queue | implemented |
+| Glossary | `POST /api/v1/glossary/review/decision` | Reasoned approve/reject | implemented |
+| Glossary | `GET /api/v1/glossary/review/history` | Event history | implemented |
+
+**Important semantics:** `GlossaryController` permits direct status edits and bulk approvals that do **not** emit one `REVIEW_DECISION` event per row. The Console supports the existing contract without fabricating audit entries, labels these operations as bypassing review history, and requires confirmation (typed `BULK` for bulk operations). For individually auditable decisions use the Review Queue. The preferred long-term policy is to enforce role-based and actor-attributed review in the server **before** shared production rollout.
+
+## Implementation gates
+
+- [x] **UI-C0:** Inventory all `@RestController` endpoints and classify requests, responses, authentication and file downloads (24 operations).
+- [x] **UI-C1:** Project-wide top-level nav (Home, Generation, Conformance, CRUD, Mermaid, Glossary); compact Glossary subnav (Terms, Queue, History, Management); no fake endpoints.
+- [x] **UI-C2:** One same-origin REST transport, Unicode-safe multipart and query parameters, GET read-only, server error states, streaming attachment download; `502` guidance; no changes in Java.
+- [x] **UI-C3:** All 14 Glossary REST operations wired; dangerous direct/bulk writes deliberately confirmed; server owns persistence and authorization.
+- [x] **UI-C4:** 11 isolated Node/mock-HTTP API contract tests passed in authoring environment, TypeScript transpilation with local QA stubs passed. **Neither means npm production build passed.**
+- [x] **UI-C5a:** Windows `npm install` succeeded (0 vulnerabilities reported); `npm run test`: **11 passed, 0 failed**; `npm run typecheck`: **PASS**; `npm run build`: **PASS** (Vite 8.3.5). Evidence: operator CMD log and Chrome overview screenshot from 2026-10-22. Lockfile remains local; commit it to the project repository and use `npm ci` for reproducible installs.
+- [ ] **UI-C5b:** Cross-browser, mobile/responsive, keyboard/accessibility checks and loaded-result browser flows remain OPEN. Initial Chrome overview is visible, but API connectivity failed before live data could load.
+- [ ] **UI-C6:** Live backend smoke for all 24 operations. Use isolated H2 and nonproduction DBMS connections. Keep request response evidence and compare generated ZIP/SQL with Swagger for identical parameters. Confirm term statuses and Review History.
+- [ ] **UI-C7:** Security gate for shared use: HTTPS same-origin ingress, gateway/BFF identity, role-based Steward authorization, CSRF design if using cookies, request correlation/actor audit, safe upload limits, and no static admin key bundled or stored in browser storage.
+- [ ] **UI-C8:** Deploy artifact and rollback instructions; document supported browser versions and accessibility baseline.
+
+## Operational safety rules
+
+1. UI never accesses H2 directly; do not include real `.mv.db` in source ZIPs. During acceptance set `SCHEMAFORGE_GLOSSARY_DATABASE_PATH` to a new test directory and `SCHEMAFORGE_GLOSSARY_CANDIDATE_REGISTRATION_MODE=DRY_RUN`.
+2. The current backend uses shared `X-Glossary-Admin-Key` for write/queue/history: React holds the user-entered key **in volatile in-page state only**. This remains local acceptance only. Production requires server-side identities and audit, not hard-coded secrets in React.
+3. Vite proxy `/api/*` targets `http://127.0.0.1:9090` by default, matching `src/main/resources/application.yml` (`server.port: 9090`). Optional `SCHEMAFORGE_API_PORT` in the **Vite process** changes only the numeric loopback port. A `502` means the Java server is stopped or unreachable/mismatched; no wildcard CORS or unrestricted network exposure.
+4. Only server-returned success counts as success; React must never locally pretend that a rejected/approved term changed.
+5. Avoid accidental repeated writes: disable submit while pending. Human confirmation for irreversible/large-scope changes.
+6. Live Conformance and CRUD operate on the configured DBMS connection on the Java side. UI must not ask for or store database passwords.
+7. Treat backend content as plain text, not arbitrary HTML; maintain LTR direction for code/SQL/identifier cells.
+
+## Immediate acceptance checklist (Windows CMD)
+
+1. Start Spring Boot separately; for Glossary acceptance enable it with an isolated H2 path and a server-side admin key.
+2. Run `curl.exe -i "http://127.0.0.1:9090/api/v1/glossary/terms?page=0&size=1"`. Interpret: `200` = backend responds; `404` = Glossary controller disabled/missing; connection refused = Java/port not started.
+3. Run `cd /d D:\Projects\schema-forge-v4\ui`, then `npm install`, `npm run test`, `npm run typecheck`, `npm run build`, `npm run dev`.
+4. Use read-only calls (terms, export, spell, conformance) first. Test all write/import/bulk/delete with **only disposable H2** and explicitly approved test DBMSs. Confirm all outputs in Java and manifest. Do not use a customer database.
+5. Record evidence, failures and patches against `UI-C5` / `UI-C6`; do not mark production accepted on source inspection alone.
+
+## Relationship to Glossary P1–P5
+
+UI implementation does not close Glossary V4.14.5 P1–P5: native scanner `DRY_RUN` on 836 Word Canonical snapshots, safe second-run AUTO idempotence on isolated H2, bank-term Steward curation, four entry-path integration, full Maven regression, and performance/precision remain separate acceptance gates. Maintain both roadmap files together.
+
+## 2026-10-22 — Windows UI-C5a pass and backend port reconciliation
+
+- Operator verified `npm install` (0 reported vulnerabilities), `npm run test` (11/11), `npm run typecheck` and Vite production `npm run build` all successful; Vite served the Chrome landing screen at `127.0.0.1:5173`.
+- Live request produced Vite `ECONNREFUSED 127.0.0.1:8080`: the frontend default was `8080` while Java `src/main/resources/application.yml` specifies `server.port: 9090`. Corrected development proxy default to **9090** and accepted a tightly validated numeric port override `SCHEMAFORGE_API_PORT` (localhost only). No REST/Java changes.
+- **Next gate:** start Java on 9090 with isolated test H2, verify direct curl and same-origin proxy GET, then complete all 24-operation live acceptance; update UI-C6. Do not run mutating Glossary operations on customer H2.

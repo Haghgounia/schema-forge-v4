@@ -109,3 +109,9 @@ $RECYCLE.BIN/
 !/data/README.md
 *.mv.db
 *.trace.db
+
+# Optional React operator UI (source stays versioned; generated files do not)
+/ui/node_modules/
+/ui/dist/
+/ui/coverage/
+/ui/*.tsbuildinfo

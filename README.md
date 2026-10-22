@@ -1,3 +1,18 @@
+### Glossary closure roadmap and optional React UI (2026-10-22)
+
+The active Glossary P1–P5 acceptance, 836-document Word corpus findings, open
+Steward/governance decisions and intentionally lean React UI scope are recorded in
+[`docs/roadmap/GLOSSARY-V4145-CLOSURE-AND-UI-ROADMAP.md`](docs/roadmap/GLOSSARY-V4145-CLOSURE-AND-UI-ROADMAP.md).
+This is the canonical checklist to update as gates close; targeted 32/32 Windows
+Glossary tests passed but native full-corpus DRY_RUN, full Maven regression,
+and browser UI acceptance are still pending.
+
+The optional [`ui/`](ui/README.md) is a small React + TypeScript + Vite client
+for the existing `/api/v1/glossary` endpoints (queue, dictionary, history,
+explicit Steward decisions and reports). The Maven backend does not need Node.
+Run it from `ui/` with `npm install` then `npm run dev` on Node >=22.12;
+see its README for **isolated H2 / admin-key safety** and production deployment gates.
+
 ### Glossary V4.14.5 P1/P2 — candidate discovery and opt-in automatic registration
 
 A request-wide, offline, conservative classification of `NEW` Glossary words is
@@ -953,7 +968,8 @@ A separate on-disk H2 glossary validates table/column naming terms in the canoni
 
 The six files permitted at the source root are `.gitignore`, `CHANGELOG.md`, `README.md`,
 `mvnw`, `mvnw.cmd`, and `pom.xml`. Source directories are `.mvn/`, `data/` (only
-`README.md` is distributable), `distribution/`, `docs/`, `scripts/`, and `src/`.
+`README.md` is distributable), `distribution/`, `docs/`, `scripts/`, `src/`, and
+`ui/` (authored React source only; generated `node_modules/` and `dist/` excluded).
 
 Local Maven/Spring Boot logs belong under `logs/`; downloaded API/EA ZIPs and
 Glossary XLSX acceptance exports belong under `test-output/`. Both locations
@@ -964,8 +980,9 @@ them in Full or Delta source archives. Local `.idea/` settings are not source.
 
 ```cmd
 cd /d D:\Projects\schema-forge-v4
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\organize-root-artifacts.ps1 -WhatIf
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\organize-root-artifacts.ps1
+call scripts\fix-root.cmd /dry-run
+call scripts\fix-root.cmd
+rem Optional packaging on machines with functioning PowerShell:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\package-source.ps1
 ```
 
@@ -973,5 +990,26 @@ The packager creates a clean `schema-forge-v4-source-clean-*.zip` **beside** the
 directory (not inside it), using a reviewed source allowlist and rejecting unapproved
 root entries. It excludes `.idea/`, local H2 `.mv.db`/trace/lock files, logs, and
 generated outputs, while retaining legitimate XLSX assets under `src/` and
-`distribution/`. The organizer does not delete or overwrite local data or
-unknown files; its `-WhatIf` mode previews file moves.
+`distribution/`. The CMD organizer does not delete or overwrite local data or unknown files;
+`/dry-run` previews file moves. On Windows systems where `powershell.exe`
+crashes with `StackOverflowException`, use `fix-root.cmd` for hygiene;
+`package-source.ps1` is optional until PowerShell is repaired. Packages
+should contain authored UI source, not generated npm dependencies.
+
+
+## React Operations Console (2026-10-22)
+
+The optional, small `ui/` React + TypeScript + Vite application now serves the **entire existing REST surface**: five Schema generation routes (Word/Legacy/ZIP/EA), table/schema Conformance, Oracle and SQL Server CRUD SQL, Mermaid diagrams, and all fourteen Glossary REST operations. It is a thin same-origin browser client, **not** a new backend and not a replacement for Swagger. Glossary administrative operations require an explicit test key configured on the Java server; shared production identity/RBAC remains a separate gate.
+
+The 24-endpoint inventory, open security/build/browser gates and no-scope-creep constraints are in [docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md](docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md). The original [Glossary P1–P5 closure roadmap](docs/roadmap/GLOSSARY-V4145-CLOSURE-AND-UI-ROADMAP.md) is still authoritative for the terminology release acceptance. Run from Windows CMD:
+
+```cmd
+cd /d D:\Projects\schema-forge-v4\ui
+npm install
+npm run test
+npm run typecheck
+npm run build
+npm run dev
+```
+
+The Java backend must run separately at `127.0.0.1:9090` (from `application.yml`) for the default development proxy. An `HTTP 502` rendered by Vite often means the Java process is not available or a port mismatch exists; `curl.exe -i "http://127.0.0.1:9090/api/v1/glossary/terms?page=0&size=1"` isolates that condition. The Vite-only environment variable `SCHEMAFORGE_API_PORT` optionally overrides the localhost proxy port. See `ui/README.md` for isolated H2 startup commands and nonproduction acceptance.

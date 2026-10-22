@@ -1,3 +1,24 @@
+## 2026-10-22 — Console Windows acceptance and REST port hotfix
+
+- User Windows verification: `npm install` PASS (0 vulnerabilities), Node tests 11/11 PASS, `npm run typecheck` PASS, `npm run build` PASS (Vite 8.3.5); Chrome overview rendered.
+- Fixed development proxy discrepancy: Spring Boot `application.yml` runs on `9090`, while Console was proxying to `8080`, causing `ECONNREFUSED` even when frontend worked. Default proxy now uses **9090**, with numeric local-only `SCHEMAFORGE_API_PORT` override. Adjusted HTTP 502 error guidance, REST mock test and UI roadmaps.
+- No Java source, REST contract, canonical model, DBMS connection, or H2 data changed. **UI-C6 live REST acceptance still OPEN**; use isolated H2 for mutating Glossary acceptance.
+
+## 2026-10-22 — Project-wide React Operations Console and complete Glossary API coverage
+
+- Expanded optional React UI from Glossary-only to **SchemaForge-wide** navigation: Generation (5 REST operations), Conformance (2), Oracle/SQL Server CRUD (2), Mermaid (1), Glossary (14). No new or modified Java REST contracts, DBMS connections, H2 databases or DDL rules.
+- Added missing Glossary admin operations: term create/update/soft delete, bulk status, Atomic XLSX import, GET selected term for editing; retained queue/decision/history, NEW CSV review import, read/search/export and spelling advice.
+- Added one same-origin HTTP transport, safer attachment downloads, proxy HTTP 502 diagnostics, guard/confirmation around destructive and bulk mutations. User-entered admin secret stays in volatile React memory.
+- Added [project-wide UI roadmap](docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md); reconciled the existing P1-P5 Glossary closure roadmap rather than replacing it.
+- Mock HTTP client suite now has **11/11 passing** tests on Node in authoring environment. Real npm/Vite build and Windows browser + live REST acceptance remain **OPEN**; do not claim production readiness.
+
+## 2026-10-22 — Glossary roadmap preservation and optional minimal UI
+
+- Added canonical [Glossary closure / UI roadmap](docs/roadmap/GLOSSARY-V4145-CLOSURE-AND-UI-ROADMAP.md) with evidence-backed P1–P5 status, open gates, corpus findings and update protocol.
+- Added optional `ui/` React + TypeScript + Vite client for **existing** Glossary REST endpoints: queue, one-at-a-time decision with reason, term search, history, report import, suggestions and exports. No changes to Java REST/H2/DDL implementation.
+- Added six Node built-in mock-HTTP contract tests for the REST client; tests pass locally, but frontend dependencies could not be installed in the authoring sandbox.
+- Updated source packaging allowlist to include authored `ui/` source while excluding generated npm output. UI source is pending npm build/browser acceptance; do not mark production ready.
+
 ## 2026-10-21 — Source archive and root-artifact hygiene
 
 - Added Windows PowerShell source packager with an explicit top-level allowlist and
