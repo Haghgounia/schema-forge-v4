@@ -1,3 +1,5 @@
+> **2026-10-22 UI-C6a:** React Console generation now supports read-only in-browser previews of `manifest.json`, `reports/glossary/summary.json`, `reports/glossary/unknown-terms.csv` and other ZIP reports, without additional REST calls or Backend changes. See `ui/README.md` and `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md`.
+
 ### Glossary closure roadmap and optional React UI (2026-10-22)
 
 The active Glossary P1–P5 acceptance, 836-document Word corpus findings, open
@@ -7,9 +9,7 @@ This is the canonical checklist to update as gates close; targeted 32/32 Windows
 Glossary tests passed but native full-corpus DRY_RUN, full Maven regression,
 and browser UI acceptance are still pending.
 
-The optional [`ui/`](ui/README.md) is a small React + TypeScript + Vite client
-for the existing `/api/v1/glossary` endpoints (queue, dictionary, history,
-explicit Steward decisions and reports). The Maven backend does not need Node.
+The optional [`ui/`](ui/README.md) is a small **project-wide** React + TypeScript + Vite Console for existing REST services (Generation, Conformance, CRUD, Diagram, and all Glossary operations). ZIP generation results are previewed read-only in the browser. The Maven backend does not need Node.
 Run it from `ui/` with `npm install` then `npm run dev` on Node >=22.12;
 see its README for **isolated H2 / admin-key safety** and production deployment gates.
 

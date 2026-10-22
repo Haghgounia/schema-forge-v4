@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { coreApi, type AuditFields, type GenerationSource, type TimestampSemantics } from '../coreApi';
 import Platforms from '../components/Platforms';
-import { saveDownload } from '../transport';
+import { saveDownload, type Download } from '../transport';
+import { inspectGenerationZip, type ZipInspection } from '../zipReports';
+import GenerationZipReports from '../components/GenerationZipReports';
 
 const sources: { value: GenerationSource; name: string; accept: string; note: string }[] = [
   { value: 'word', name: 'Standard Word', accept: '.doc,.docx', note: 'یک سند استاندارد Word' },
@@ -21,11 +23,26 @@ export default function GenerationView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState('');
+  const [download, setDownload] = useState<Download | null>(null);
+  const [inspection, setInspection] = useState<ZipInspection | null>(null);
+  const [inspectionBusy, setInspectionBusy] = useState(false);
+  const [inspectionError, setInspectionError] = useState('');
+  useEffect(() => {
+    let current = true;
+    setInspection(null); setInspectionError(''); setInspectionBusy(false);
+    if (!download) return;
+    setInspectionBusy(true);
+    inspectGenerationZip(download.blob)
+      .then(data => { if (current) setInspection(data); })
+      .catch(error => { if (current) setInspectionError(error instanceof Error ? error.message : 'پیش‌نمایش گزارش ممکن نبود.'); })
+      .finally(() => { if (current) setInspectionBusy(false); });
+    return () => { current = false; };
+  }, [download]);
   const legacy = source.startsWith('legacy-word');
   const selected = sources.find(item => item.value === source)!;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(''); setResult('');
+    setError(''); setResult(''); setDownload(null); setInspection(null);
     if (!file || platforms.length === 0 || (legacy && !schema.trim())) {
       setError('فایل، DBMS و برای Legacy نام Schema الزامی‌اند.'); return;
     }
@@ -33,7 +50,8 @@ export default function GenerationView() {
     try {
       const output = await coreApi.generate({ file, source, schema, platforms, auditFields, timestampSemantics, primaryKeyAsIdentity: identity });
       saveDownload(output);
-      setResult(`فایل «${output.filename}» از REST Service دریافت شد (${output.blob.size.toLocaleString('fa-IR')} بایت).`);
+      setDownload(output);
+      setResult(`فایل «${output.filename}» دانلود شد (${output.blob.size.toLocaleString('fa-IR')} بایت). وضعیت دقیق تولید در گزارش ZIP نمایش داده می‌شود.`);
     } catch (err) { setError(err instanceof Error ? err.message : 'تولید ناموفق بود.'); }
     finally { setBusy(false); }
   }
@@ -42,7 +60,7 @@ export default function GenerationView() {
     <form className="panel content-panel form-stack" onSubmit={submit}>
       <div className="form-grid">
         <label className="field">نوع ورودی
-          <select value={source} onChange={e => { setSource(e.target.value as GenerationSource); setFile(null); setResult(''); }}>
+          <select value={source} onChange={e => { setSource(e.target.value as GenerationSource); setFile(null); setResult(''); setDownload(null); }}>
             {sources.map(item => <option key={item.value} value={item.value}>{item.name}</option>)}
           </select>
         </label>
@@ -83,7 +101,11 @@ export default function GenerationView() {
       <div className="form-actions"><button className="btn primary" type="submit" disabled={busy || !file || !platforms.length || (legacy && !schema.trim())}>
         {busy ? 'در حال تولید…' : 'تولید و دریافت ZIP'}</button></div>
       {error && <p role="alert" className="message error">{error}</p>}
-      {result && <p role="status" className="message success">{result}</p>}
+      {result && <p role="status" className="message neutral">{result}</p>}
     </form>
+    {inspectionBusy && <p role="status" className="message neutral">در حال خواندن Manifest و گزارش‌های داخل ZIP در مرورگر…</p>}
+    {inspectionError && <p role="alert" className="message neutral">ZIP دانلود شده است، اما گزارش در مرورگر باز نشد: {inspectionError} <button type="button" className="btn secondary" onClick={() => download && saveDownload(download)}>دریافت دوباره ZIP</button></p>}
+    {inspection && download && <GenerationZipReports inspection={inspection} download={download}/>}
+
   </section>;
 }

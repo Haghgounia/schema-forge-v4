@@ -1,3 +1,10 @@
+## 2026-10-22 — Console UI-C6a: ZIP report preview without REST change
+
+- Read-only React presentation of existing output ZIP: status from Manifest (`SUCCESS` vs `PARTIAL_SUCCESS`), blocked/skipped Artifact reasons, Glossary discovered/eligible/manual/suspect/pending terms, and term-to-column evidence in `unknown-terms.csv`.
+- Generic CSV/JSON/TXT report preview, individual report download, and re-download of original ZIP Blob without a new generation request. ZIP inspection is client-only, lazy JSZip, size-limited, and never mutates Glossary/H2.
+- Node contract/ZIP tests 15/15 passed locally; strict standalone parser TypeScript checked; real EA sample preview values matched source ZIP. Updated Windows React build and live-browser acceptance remain open.
+- Updated `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md` (UI-C6a) and Glossary closure roadmap. **No changes to Java, REST, Canonical or DBMS generation.**
+
 ## 2026-10-22 — Console Windows acceptance and REST port hotfix
 
 - User Windows verification: `npm install` PASS (0 vulnerabilities), Node tests 11/11 PASS, `npm run typecheck` PASS, `npm run build` PASS (Vite 8.3.5); Chrome overview rendered.

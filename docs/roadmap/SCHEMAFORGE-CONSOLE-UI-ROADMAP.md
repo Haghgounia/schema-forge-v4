@@ -82,3 +82,19 @@ UI implementation does not close Glossary V4.14.5 P1–P5: native scanner `DRY_R
 - Operator verified `npm install` (0 reported vulnerabilities), `npm run test` (11/11), `npm run typecheck` and Vite production `npm run build` all successful; Vite served the Chrome landing screen at `127.0.0.1:5173`.
 - Live request produced Vite `ECONNREFUSED 127.0.0.1:8080`: the frontend default was `8080` while Java `src/main/resources/application.yml` specifies `server.port: 9090`. Corrected development proxy default to **9090** and accepted a tightly validated numeric port override `SCHEMAFORGE_API_PORT` (localhost only). No REST/Java changes.
 - **Next gate:** start Java on 9090 with isolated test H2, verify direct curl and same-origin proxy GET, then complete all 24-operation live acceptance; update UI-C6. Do not run mutating Glossary operations on customer H2.
+
+
+## 2026-10-22 — UI-C6a: generated ZIP report viewer, no REST change
+
+**Status:** IMPLEMENTED locally; Windows build/browser acceptance PENDING.
+
+- [x] Every existing Generation POST first downloads the ZIP as before, then **in-memory, browser-only** ZIP inspection (lazy JSZip 3.10.1). No new HTTP calls, Java changes, or Glossary/H2 mutation.
+- [x] Read `manifest.json`: display `requestStatus`, generated/blocked/skipped counts, validation error/warning counts; show detailed `BLOCKED` and `SKIPPED` reasons. **Do not equate a successful download with `SUCCESS`.**
+- [x] Read `reports/glossary/summary.json`: distinguish `newTerms`, `eligibleTerms`, `suspectedTypos`, `manualReviewTerms`, `pendingTerms` and plural violations. Display `candidateRegistration.mode` and `insertedCandidates` without claiming `DRY_RUN` performed a write.
+- [x] Display term-to-table/column evidence from `reports/glossary/unknown-terms.csv`; allow report text/CSV/JSON preview and individual report downloads, plus reuse of the original ZIP download without regeneration.
+- [x] Robust failure boundaries: a damaged/oversized ZIP affects preview only; keep original Blob/download. Compression limits 100 MiB archive; streaming decompression capped at 2 MiB per text preview / 10 MiB per extracted individual report. Show backend strings as text, not injected HTML.
+- [x] Four new Node ZIP-inspection tests passed; previous 11 REST-contract tests still passed (**15/15**), and parser passed standalone strict TypeScript check. Verified against uploaded EA sample: `PARTIAL_SUCCESS`, 193 generated, 3 blocked, 7 skipped, 124 validation errors, Glossary 145 new / 122 eligible / 1 typo / 22 review, mode `DRY_RUN`, inserted 0; `ISIC` appears in `ORGANIZATION.ISIC_CODE` and `PARTY_EMPLOYMENT.ISIC_CODE`.
+- [ ] **UI-C6a acceptance gate:** On user's Windows, run `npm install`, `npm run test`, `npm run typecheck`, `npm run build`; generate EA ZIP through UI and confirm preview counts and source evidence against `manifest.json`/`summary.json`/CSV. Test CSV preview, individual download, original ZIP re-download, and failure fallback.
+- [ ] Full backend-integration acceptance for all 24 REST operations and UI-C7 security remain separate open gates.
+
+**Decision:** This extension is presentation only. Do not change an existing Controller or rewrite `requestStatus` in frontend. Glossary P1–P5 remain open until their own acceptance evidence is recorded.

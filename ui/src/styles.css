@@ -215,3 +215,35 @@ tbody tr:hover { background: #f8fbff; }
   .glossary-subnav { width: 100%; }
   .glossary-subnav .tab { min-width: max-content; }
 }
+/* ZIP result viewer: compact, read-only, responsive. No extra routes or state store. */
+.generation-results { margin-top: 16px; }
+.generation-results .page-heading h3 { font-size: 16px; margin-bottom: 4px; }
+.generation-results .message.warning { border: 1px solid #e5c58b; background: #fff8eb; color: #79500e; }
+.generation-results .message p { margin: 0; }
+.result-source { display: block; margin-top: 3px; font-size: 11px; overflow-wrap: anywhere; }
+.result-small { display: block; margin-top: 4px; font-size: 11px; }
+.result-metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.result-metrics > div { flex: 1 1 135px; min-width: 0; padding: 12px 14px; border: 1px solid #e2eaf2; border-radius: 9px; background: #fbfcfe; }
+.result-metrics span { display: block; color: #687f93; font-size: 11px; }
+.result-metrics strong { display: block; color: #1c476a; font-size: 19px; margin-top: 4px; }
+.result-metrics.minor > div { flex-basis: 120px; }
+.result-tabs { margin: 18px 0 10px; flex-wrap: wrap; }
+.result-tabs .tab { min-width: 0; font-size: 12px; font-weight: 700; padding: 10px 14px; }
+.result-tab-body { padding: 10px 0; min-width: 0; }
+.result-filters { margin: 14px 0; }
+.result-filters .field { min-width: min(100%, 200px); max-width: none; flex: 1; }
+.result-filters .field input, .result-filters .field select { width: 100%; }
+.term-chip-list { display: flex; gap: 7px; flex-wrap: wrap; padding: 8px 0 15px; max-height: 290px; overflow-y: auto; }
+.term-chip { border: 1px solid #d7e3ed; background: #fff; color: #235d88; font-size: 11px; border-radius: 6px; padding: 6px 10px; font-weight: 650; }
+.term-chip:hover, .term-chip:focus-visible, .term-chip.chosen { background: #e9f3fa; border-color: #9cc5dd; }
+.evidence-block { border-top: 1px solid #e5edf3; padding-top: 15px; margin-top: 5px; }
+.evidence-block .page-heading h3 { font-size: 14px; }
+.report-table { max-height: 420px; }
+.report-table td, .report-table th { padding: 8px 11px; white-space: nowrap; }
+.reason-cell { min-width: 300px; max-width: 700px; white-space: normal; text-align: left; }
+.report-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 520px; }
+@media(max-width: 600px) {
+  .generation-results > .page-heading { align-items: flex-start; flex-direction: column; }
+  .result-metrics > div { flex-basis: 44%; }
+  .result-tabs { width: 100%; }
+}

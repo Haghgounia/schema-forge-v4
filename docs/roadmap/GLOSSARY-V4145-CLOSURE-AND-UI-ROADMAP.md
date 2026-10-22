@@ -113,3 +113,8 @@ Open anomalies and assigned next gate:
 ```
 
 Do not mark an unexecuted Windows/npm/browser step "PASS" based on source inspection. Keep generated logs/Excel/corpus files under ignored `logs/` or `test-output/`, not the project root.
+
+
+## 2026-10-22 — Read-only ZIP Glossary report visualization (Console UI-C6a)
+
+The project-wide Console now reads **the existing generation ZIP Blob** in the browser and displays `reports/glossary/summary.json` (new, eligible, typo, manual-review, pending and plural groups) and identifier evidence from `reports/glossary/unknown-terms.csv`. It **does not** call a new REST endpoint, import a report automatically, change H2, or promote any term. The manifest's `PARTIAL_SUCCESS` is displayed independently of HTTP download success. The existing EA `DRY_RUN` sample reports 145 new / 122 eligible / 1 possible typo (`ISIC`) / 22 manual / 0 inserted, with ISIC source evidence from two column identifiers. This is a presentation improvement, **not** proof that P1–P5 are complete; Windows browser acceptance of this UI addition remains open under UI-C6a.

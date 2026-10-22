@@ -1,4 +1,4 @@
-# SchemaForge Operations Console — React V0.2
+# SchemaForge Operations Console — React V0.3
 
 A small, **project-wide** React + TypeScript + Vite client that calls **only the existing REST controllers** in SchemaForge V4. One common navigation supports Generation, Conformance, CRUD, Mermaid and all 14 Glossary REST operations. The Java backend remains authoritative for H2, Oracle/DBMS metadata, DDL, validation, review and permission checks.
 
@@ -54,12 +54,33 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. The frontend sends `/api/*` through the Vite development proxy to `127.0.0.1:9090`; do not enable public/wildcard CORS. The built `/dist` contains static files and is excluded from source ZIPs. After a verified install, commit `package-lock.json` in your own repo and use `npm ci` for repeatable deployment.
 
+## Inspecting generated ZIP reports in-place (UI-C6a)
+
+After any of the five existing Generation REST operations returns a ZIP, the browser **first downloads that unchanged ZIP** and then reads its reports **locally**, without calling a new REST endpoint:
+
+- **Result status** comes from `manifest.json` (`requestStatus`, `artifactOutcomes`, `validation`). The UI distinguishes `SUCCESS` from `PARTIAL_SUCCESS`; HTTP 200/ZIP download alone does **not** mean every DDL was generated. The Status tab lists `BLOCKED` and `SKIPPED` artifacts with backend-provided reasons.
+- **Glossary tab** reads `reports/glossary/summary.json`: `newTerms`, `eligibleTerms`, `manualReviewTerms`, `suspectedTypos`, `pendingTerms`, plural-column terms and `candidateRegistration.mode/insertedCandidates`. Selecting a term reads source table/column evidence from `reports/glossary/unknown-terms.csv`. **`DRY_RUN` never inserts a candidate**, and the UI never performs an implicit Glossary import or Steward approval.
+- **Files tab** previews `manifest.json` and JSON, CSV or text files under `reports/`, with a 75-row CSV preview and direct download of individual reports. Other formats can be downloaded rather than rendered. Entire original ZIP can be downloaded again from the same in-memory Blob, without regenerating backend artifacts.
+- ZIP inspection is lazy (`jszip@3.10.1`, loaded only after generation); it has 100 MiB compressed archive, 2 MiB per text preview, and 10 MiB per individual file extraction bounds. Excessive/malformed ZIP content disables only the **preview**, never the original download. ZIP bytes and admin keys are not persisted in local/session storage. UI renders report text escaped via React, not HTML.
+- **No Java, REST Controller, H2, Canonical Model, DDL, or server-side Validation change.** Previewing a report never changes the server's authoritative status.
+
+Acceptance fixture: real `schemaforge-ea-20261022-134452-919.zip` was checked locally — 193 generated, 3 blocked, 7 skipped, `PARTIAL_SUCCESS`, Glossary 145 new, 122 eligible, 1 suspected (`ISIC`), 22 manual, `DRY_RUN` 0 inserted, 2 `ISIC` evidence rows. This is **local archive parsing acceptance**, not yet a Windows Chrome end-to-end UI acceptance. For a local run:
+
+```cmd
+cd /d D:\Projects\schema-forge-v4\ui
+npm install
+npm run test
+npm run typecheck
+npm run build
+npm run dev
+```
+
 ## UI modules
 
 | Navigation | Existing REST operations |
 | --- | --- |
 | Home | Entry points only; no artificial metrics or fabricated `/dashboard` API |
-| Generate | Standard Word, Legacy Word, Legacy ZIP batch, Word ZIP batch, EA XML/XMI; target DBMS, audit and timestamp options; download ZIP |
+| Generate | Standard Word, Legacy Word, Legacy ZIP batch, Word ZIP batch, EA XML/XMI; target DBMS, audit and timestamp options; download ZIP; local read-only ZIP report preview |
 | Conformance | Table/schema audit for one or more DBMSs; server findings/summary, download JSON |
 | CRUD | Oracle and SQL Server live metadata CRUD SQL generation and download |
 | Diagram | ER, Dependency, Conceptual ERD; canonical JSON/ZIP with schema/table scope; download `.mmd` text |
@@ -79,6 +100,6 @@ Open `http://127.0.0.1:5173`. The frontend sends `/api/*` through the Vite devel
 
 ## Acceptance (not yet complete)
 
-The authoring environment passed 11 Node mock-HTTP contract tests and a static TypeScript pass using local QA stubs. **An actual Vite dependency installation/build and live browser/Java integration on the user's Windows system remain unverified.** Run the commands above and record results in the UI roadmap.
+Windows acceptance on 2026-10-22 verified 11 Node REST tests, TypeScript typecheck, npm install and production Vite build. Later local work added 4 ZIP inspection tests (total **15**), and validated a real EA ZIP; **the updated V0.3 UI still needs a Windows typecheck/build and live browser acceptance**. Run the commands above and record results in the UI roadmap.
 
 Perform all Create/Update/Delete/Bulk/Import/Steward action acceptance tests **only on disposable H2**. Test live Oracle/SQL Server CRUD and multi-DBMS conformance against explicitly approved nonproduction instances. Preserve Canonical/DDL regressions through Maven tests. UI work does not close Glossary P1–P5 acceptance gates.
