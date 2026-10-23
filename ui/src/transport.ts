@@ -7,7 +7,7 @@ export class ApiError extends Error {
 }
 export type HttpOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  json?: unknown; body?: FormData; adminKey?: string; signal?: AbortSignal; accept?: string;
+  json?: unknown; body?: FormData; adminKey?: string; connectionKey?: string; signal?: AbortSignal; accept?: string;
 };
 export function params(values: Record<string, string | number | boolean | null | undefined>): string {
   const pairs = new URLSearchParams();
@@ -19,7 +19,7 @@ export function params(values: Record<string, string | number | boolean | null |
 function errorMessage(status: number): string {
   switch (status) {
     case 400: return 'درخواست نامعتبر است؛ فیلدهای ورودی را کنترل کنید.';
-    case 401: return 'کلید مدیر Glossary معتبر نیست.';
+    case 401: return 'کلید دسترسی مدیریتی معتبر نیست.';
     case 403: return 'مجوز این عملیات وجود ندارد.';
     case 404: return 'مسیر REST پیدا نشد؛ برای Glossary فعال بودن سرویس را کنترل کنید.';
     case 409: return 'تعارض داده یا وضعیت رخ داده است؛ اطلاعات را به‌روزرسانی کنید.';
@@ -33,6 +33,7 @@ export async function fetchResponse(path: string, options: HttpOptions = {}): Pr
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error('Only same-origin relative REST paths allowed');
   const headers = new Headers({ Accept: options.accept ?? 'application/json' });
   if (options.adminKey) headers.set('X-Glossary-Admin-Key', options.adminKey);
+  if (options.connectionKey) headers.set('X-SchemaForge-Connections-Admin-Key', options.connectionKey);
   let body: BodyInit | undefined;
   if (options.json !== undefined) {
     headers.set('Content-Type', 'application/json'); body = JSON.stringify(options.json);

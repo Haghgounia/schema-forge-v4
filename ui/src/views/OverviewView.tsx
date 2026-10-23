@@ -1,6 +1,7 @@
-export type ProjectSection = 'overview' | 'generation' | 'conformance' | 'crud' | 'diagram' | 'glossary';
+export type ProjectSection = 'overview' | 'generation' | 'conformance' | 'crud' | 'diagram' | 'glossary' | 'connections';
 const modules: { id: Exclude<ProjectSection, 'overview'>; heading: string; desc: string; detail: string }[] = [
   { id: 'generation', heading: 'تولید Schema', desc: 'Word، Legacy Word، Batch ZIP و EA/XMI', detail: 'پنج مسیر REST · دریافت ZIP' },
+  { id: 'connections', heading: 'اتصالات دیتابیس', desc: 'پیش‌فرض‌های هفت DBMS، دسترسی مدیریت و تست JDBC', detail: 'API مدیریتی · بدون تغییر در دیتابیس' },
   { id: 'conformance', heading: 'ممیزی ساختار', desc: 'کنترل Table یا Schema موجود در DBMS', detail: 'فقط خواندنی · یک یا چند DBMS' },
   { id: 'crud', heading: 'تولید CRUD', desc: 'تولید اسکریپت از متادیتای Oracle و SQL Server', detail: 'دو مسیر REST · خروجی SQL' },
   { id: 'diagram', heading: 'نمودار Mermaid', desc: 'نمودار ER، وابستگی و مدل مفهومی', detail: 'Canonical JSON / ZIP' },
@@ -16,6 +17,6 @@ export default function OverviewView({ navigate }: { navigate: (page: ProjectSec
       <strong>{item.heading}</strong><span>{item.desc}</span>
       <small>{item.detail}</small><span className="module-open">ورود به بخش ←</span>
     </button>)}</div>
-    <p className="message neutral">این UI به Backend موجود وصل می‌شود. از آن برای مدیریت مستقیم دیتابیس یا جایگزین‌کردن اعتبارسنجی سمت سرور استفاده نمی‌شود. قابلیت‌های فاقد REST Endpoint در این نسخه نمایش عملیاتی ندارند.</p>
+    <p className="message neutral">این UI به Backend موجود وصل می‌شود. از آن برای مدیریت مستقیم دیتابیس یا جایگزین‌کردن اعتبارسنجی سمت سرور استفاده نمی‌شود. آزمون JDBC از API مدیریتی جدید و محدودشده استفاده می‌کند؛ سایر عملیات از RESTهای موجود استفاده می‌کنند.</p>
   </section>;
 }

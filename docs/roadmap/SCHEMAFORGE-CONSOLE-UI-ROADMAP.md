@@ -165,3 +165,29 @@ No H2 database, legacy parser, Maven module or production REST file changed.
 **Previously observed browser evidence:** V0.4.2 screen captures show Mermaid search centering `DPS.DEPOSIT_ACCOUNT` and Graphviz search centering `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE`, each with an orange locator. This does not by itself verify the new relationship filtering.
 
 **Scope invariant:** Zero Backend/REST/Java/H2/DDL/Glossary changes. Glossary P1-P5 and EA Validation partial-success investigations remain independent.
+
+## 2026-10-23 — UI-C9: Seven-DBMS connection configuration & safe default inspection (V0.5.0)
+
+**Status:** IMPLEMENTED IN SOURCE; LIVE JAVA + WINDOWS/CHROME ACCEPTANCE **OPEN**.
+
+**New, explicitly scoped REST surface (not present in the earlier 24-operation inventory):**
+
+- `GET /api/v1/connections` — returns seven **effective Spring Boot metadata configurations**: platform, enabled flag, JDBC URL, username, JDBC driver class, passwordConfigured (boolean only), driverAvailable (boolean only). **No password**; read requires a dedicated administrator key.
+- `POST /api/v1/connections/test` — read-only JDBC connect + metadata handshake for one DBMS, with a bounded 8-second response, sanitized error classification, max two simultaneous workers and short queue. The request carries a separate optional password in JSON over same origin, not a URL or log; the probe does **not** execute DDL, SQL statements or change Java DataSources. Same admin-key protection.
+- `SCHEMAFORGE_CONNECTIONS_ADMIN_KEY` (server process only) is **mandatory**; no configured key returns `503`, wrong key returns `401`. Header `X-SchemaForge-Connections-Admin-Key`. Do **not** reuse Glossary's key. All responses are `Cache-Control: no-store`.
+- The frontend adds **اتصالات دیتابیس** to the project-wide navbar and overview. The operator enters a key in volatile React memory to load server-effective values for all seven DBMSs; selects a DBMS; edits URL/username/password and tests; can reset to current startup values; can copy a **nonsecret** Spring YAML snippet as an operator aid for a **separately managed server configuration**.
+- **Password safety:** the current server-side password is NEVER returned. Reuse is allowed only if JDBC URL and username remain EXACTLY unchanged. Switching destination/account requires a separately entered password; client clears that password after every probe and when changing DBMS. A different administrator key is used from Glossary. Reject JDBC URL prefixes not matching the selected platform and credentials embedded in URL.
+- **Architecture boundary / unapplied values:** the form and probe never modify a running metadata repository. To change actual Schema Generation/Conformance/CRUD targets, the operator must update server-side `schemaforge.metadata.<platform>` configuration or environment overrides and restart Spring Boot. This restriction intentionally avoids an unsupported dynamic-bean refresh or an unsafe UI-only pretend 'Save' button. A separate **C9b** gate is required if persistent credential vault, multiple named profiles, or live route switching is requested.
+- **Db2 driver prerequisite:** both Db2 z/OS and Db2 LUW need IBM JCC configured in the Java process (the app's profiles are opt-in). A missing JCC is surfaced as `driverAvailable=false` / `DRIVER_UNAVAILABLE`; UI must not claim a successful connection for disabled/missing drivers.
+- **Security risk / pre-production item:** some existing `application.yml` DBMS passwords are literal development defaults. Retain baseline behavior for regression, but BEFORE shared deployment remove/rotate embedded credentials and use environment/secret manager. Do not copy sensitive application.yml values into docs or reports. UI connection manager must be admin-only behind HTTPS/BFF/RBAC; the shared static key is suitable only for local operator acceptance.
+
+Acceptance gates:
+
+- [x] UI-C9a — Seven DBMS summaries derive dynamically from `MetadataProperties`, not hardcoded in React; no credential response properties.
+- [x] UI-C9a — Admin-only GET and POST, no key or wrong key fail closed, configured password cannot be forwarded to modified target, driver URL prefix check, bounded read-only probe, no repository mutation in new code.
+- [x] UI-C9a — Node mocks for default GET, probe POST, and nonsecret YAML snippet; existing Node tests preserved.
+- [ ] UI-C9a — Java Maven focused suite, application startup, and real GET/POST with nonproduction/test DBMS connections on operator Windows.
+- [ ] UI-C9a — Full Vite React TypeScript check and browser acceptance on operator Windows.
+- [ ] UI-C9b — Decide secure storage (secret manager), profile names, activation routing, actor audit, permission/RBAC, and fail-safe restart semantics **before** offering Save/Apply to shared production metadata repositories.
+
+**Invariants:** no changes to existing generation/conformance/CRUD/Glossary endpoint contracts, no change to H2 persistence, no automatic network probe on GET, and no database credentials in ZIP artifacts or downloadable configuration snippets.

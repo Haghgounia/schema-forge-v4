@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ConnectionsView from './views/ConnectionsView';
 import OverviewView, {type ProjectSection} from './views/OverviewView';
 import GenerationView from './views/GenerationView';
 import ConformanceView from './views/ConformanceView';
@@ -14,7 +15,7 @@ import type { Download } from './transport';
 type GlossarySection = 'terms' | 'queue' | 'history' | 'manage';
 const topNav: {id: ProjectSection; title: string}[] = [
   {id: 'overview', title: 'خانه'}, {id: 'generation', title: 'تولید Schema'},
-  {id: 'conformance', title: 'ممیزی دیتابیس'}, {id: 'crud', title: 'CRUD'},
+  {id: 'conformance', title: 'ممیزی دیتابیس'}, {id: 'connections', title: 'اتصالات دیتابیس'}, {id: 'crud', title: 'CRUD'},
   {id: 'diagram', title: 'نمودارها'}, {id: 'glossary', title: 'Glossary'},
 ];
 const glossaryNav: {id: GlossarySection; title: string}[] = [
@@ -69,6 +70,7 @@ export default function App() {
       {active === 'overview' && <OverviewView navigate={navigate}/>}
       {active === 'generation' && <GenerationView onReviewTerm={goReview} savedDownload={lastGenerationZip} onDownloadChange={setLastGenerationZip}/>}
       {active === 'conformance' && <ConformanceView/>}
+      {active === 'connections' && <ConnectionsView/>}
       {active === 'crud' && <CrudView/>}
       {active === 'diagram' && <DiagramView/>}
       {active === 'glossary' && <>

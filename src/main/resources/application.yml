@@ -12,6 +12,11 @@ springdoc:
     path: /v3/api-docs
 
 schemaforge:
+  # Admin-only REST inspection of effective JDBC settings and connection probes.
+  # No key = 503. Never store this key or JDBC passwords in React/Vite.
+  connections:
+    admin-key: ${SCHEMAFORGE_CONNECTIONS_ADMIN_KEY:}
+
   # Glossary remains opt-in to preserve existing artifact packages until its reference
   # vocabulary is reviewed and loaded. When enabled it adds two manifest-tracked reports.
   glossary:

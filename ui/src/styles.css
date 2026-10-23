@@ -305,3 +305,27 @@ tbody tr:hover { background: #f8fbff; }
 .diagram-focus-depth select { width: auto; min-width: 125px; padding: 7px 9px; }
 .diagram-focus-status { color: #496779; font-size: 12px; flex: 1 1 250px; margin: 2px 0; line-height: 1.8; }
 .diagram-focus-status b { unicode-bidi: isolate; }
+
+/* Database connection administration: compact and isolated from Glossary credentials. */
+.connection-auth { padding: 22px; max-width: 740px; }
+.connection-auth h2, .connection-editor h2 { font-size: 17px; margin-bottom: 6px; }
+.connection-auth-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-top: 18px; }
+.connection-auth-form .field { min-width: 220px; }
+.connection-auth-form .field input { width: 100%; }
+.connection-layout { display: grid; grid-template-columns: 270px minmax(0,1fr); gap: 15px; align-items: start; }
+.connection-list { overflow: hidden; padding: 6px; display: grid; gap: 4px; }
+.connection-choice { background: white; border: 1px solid transparent; border-radius: 8px; padding: 12px; text-align: right; display: grid; gap: 6px; min-width: 0; }
+.connection-choice.selected { background: #edf5fc; border-color: #9cc5e6; }
+.connection-choice:hover { background: #f5f9fd; }
+.connection-choice-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.connection-choice-main small { font-size: 10px; color: #8699a9; }
+.connection-choice-state { font-size: 10px; color: #61798b; }
+.connection-editor { padding: 20px; min-width: 0; }
+.connection-flags, .connection-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 15px; }
+.connection-editor .form-stack { gap: 13px; }
+.connection-editor .form-stack input[readonly] { background: #f3f6fa; color: #64748b; }
+.connection-toolbar strong { font-size: 13px; }
+.connection-toolbar p { margin: 6px 0 0; }
+.connection-yaml { direction: ltr; text-align: left; overflow-x: auto; background: #102336; color: #e4edf6; padding: 16px; border-radius: 9px; font-size: 11px; line-height: 1.6; }
+@media (max-width: 850px) { .connection-layout { grid-template-columns: minmax(0,1fr); } .connection-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 480px) { .connection-list { grid-template-columns: 1fr; } .connection-editor { padding: 14px; } }

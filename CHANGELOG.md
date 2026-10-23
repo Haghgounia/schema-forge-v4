@@ -3258,3 +3258,10 @@
 - No Java, REST, database, Canonical or DDL changes. Roadmaps and tests updated. Windows npm and browser acceptance pending due to isolated build environment DNS failures.
 
 - Diagram screen also supports local `.mmd`, `.dot` and `.gv` file preview without any upload/REST call.
+
+### 2026-10-23 — Console V0.5.0: seven-DBMS connection form and admin-only effective defaults
+
+- Add `DatabaseConnectionController` (`GET /api/v1/connections`, `POST /api/v1/connections/test`) and a bounded, admin-gated read-only JDBC probe backed by the existing `MetadataProperties`. This is a new REST capability: the old 24 endpoints remain unchanged.
+- Render effective per-DBMS JDBC URL, username, driver availability, enabled flag and password-presence **without exposing password values**. Never substitute bundled React placeholders for active Java settings.
+- Add a compact Persian RTL connection editor, local-only key in volatile state, manual probe, reset to configured defaults, and nonsecret YAML copy. Never change or persist Metadata DataSources from a test; restart required for server-side updates.
+- Add 4 Java guard/validation unit tests and 3 frontend REST/config tests; record acceptance gaps in the permanent Console roadmap. All previous Glossary/diagram/EA behavior remains independent.

@@ -172,3 +172,9 @@ npm run dev
 ```
 
 Run the 112-table Mermaid and Graphviz browser acceptance for one exact table (for example `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE`) and both depths. Verify the relation counts and directions, reset/return to full view, scrolling, fullscreen and focused SVG download. No Java or database restart is required.
+
+### DBMS connection defaults and JDBC probe (V0.5.0)
+
+Go to "اتصالات دیتابیس". Provide a connection administrator key configured in the **Spring Boot process** as `SCHEMAFORGE_CONNECTIONS_ADMIN_KEY`; without it all calls fail closed. Defaults for Oracle, PostgreSQL, SQL Server, MySQL, MariaDB, DB2 LUW and DB2 z/OS are fetched from `/api/v1/connections`, not placed in the frontend build. A separate `POST /api/v1/connections/test` tests an edited JDBC URL/username and supplied password **without executing SQL**. The backend reports missing DB2 JCC drivers explicitly. No passwords are fetched, stored in web storage, or included in YAML snippet exports. A submitted password is cleared from the form.
+
+**Important:** neither testing nor copying a YAML snippet changes a running backend DataSource. Deploy an approved server-side setting and restart Spring Boot to make the rest of SchemaForge use another database. For local acceptance only; enterprise auth/RBAC and credential-vault profile management remain open.

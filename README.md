@@ -1016,3 +1016,21 @@ The Java backend must run separately at `127.0.0.1:9090` (from `application.yml`
 
 
 **Console 0.4.0 (2026-10-22):** The lightweight React UI can preview Mermaid/Graphviz diagrams directly from generation ZIPs, and hand off reported Glossary words to the existing review workflow (explicit import only). See `ui/README.md` and `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md`. This is a frontend source enhancement: **no backend or REST change**. Windows Vite build and browser acceptance are still required.
+
+### SchemaForge Console: seven DBMS connections (V0.5.0)
+
+The "اتصالات دیتابیس" tab queries `schemaforge.metadata` settings **from the running Spring Boot process**. Unlike a bundled frontend default, these values include Spring environment overrides made at startup. It covers Oracle, PostgreSQL, SQL Server, MySQL, MariaDB, DB2 LUW and DB2 z/OS. The associated API is a *new, narrow administrative surface*; older SchemaForge REST endpoints did not expose DB settings.
+
+Before starting Java, set a dedicated local administration key in the **Java process**, not in Vite or `ui/.env`:
+
+```cmd
+cd /d D:\Projects\schema-forge-v4
+set /p "SCHEMAFORGE_CONNECTIONS_ADMIN_KEY=Local connection-admin key: "
+mvnw.cmd spring-boot:run
+```
+
+Enter the same key into the UI page. The GET endpoint (`/api/v1/connections`) returns URL, username, enabled, password-present flag, driver class and driver-installed flag, **never a password**. The POST endpoint (`/api/v1/connections/test`) tests a single connection with an eight-second timeout and never runs application SQL, DDL, migration, or alters a DataSource. An omitted backend key gives `503`, an incorrect key `401`. To use the existing password for a test, URL and username must match the server's existing configured values exactly. Enter new passwords directly into the form only for a new target/account. Use a trusted isolated testing environment, not production credentials, for browser acceptance.
+
+The tested/form-edited connection is **NOT** saved or silently selected by Conformance/CRUD/Generation. The YAML snippet is intentionally nonsecret. An operator must apply approved server configuration changes and restart Java for the other modules to use the changed target. For DB2 the IBM JCC driver must be present through an opt-in Maven profile or local provisioning; setting `enabled` alone does not install it. See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md` UI-C9 for longer-term named profiles, secret storage and authenticated activation.
+
+For acceptance: `mvnw.cmd -Dtest=DatabaseConnectionAdministrationServiceTest test`, then from `ui` run `npm install`, `npm run test`, `npm run typecheck`, `npm run build`, `npm run dev`. Existing Java, Glossary H2 and generated artifacts remain unchanged by probes.
