@@ -1,3 +1,11 @@
+## 2026-10-23 — Console UI V0.4.3: focused ER relationships (UI-C6e)
+
+- Add source-based, read-only **Focus Mode** to the common Graphviz/Mermaid viewer. Select an exact `SCHEMA.TABLE`, then render the selected table plus its 1-hop or 2-hop relationship neighborhood; switch back to the unchanged full graph at any time.
+- For generator-formatted `.mmd`, retain original table attribute blocks, aliases, FK labels and cardinality; for `.dot`, retain multi-line HTML table labels, exact edge direction, FK labels and Graphviz header style. Neighbor traversal is direction-agnostic but relationship notation is never rewritten.
+- Unsupported syntax is rejected rather than producing misleading partial diagrams. Refuse local focus above 150 tables or 450 edges; the full graph remains available. Focus and SVG rendering stay entirely in-browser (`<img>`), with no network fetch or H2 action.
+- 9 new focused regression tests, 31 available local tests PASS (JSZip-dependent tests unavailable in authoring environment). Eight real DOT/MMD generator outputs from two uploaded EA ZIPs parsed and re-parsed after focus; local Graphviz `dot` produced valid SVGs. Isolated TypeScript typecheck with temporary React stubs PASS. **Windows `npm run test`, full typecheck/build, and Chrome focus interactions OPEN.**
+- Updated the persistent Console roadmap (UI-C6e) and UI README. **No Java, REST endpoint, DDL, Canonical Model, H2 file or npm runtime dependency changes.**
+
 ## 2026-10-23 — Console UI V0.4.2: Mermaid entity search regression (UI-C6d)
 
 - Corrected SVG table focusing when a Mermaid renderer assigns opaque or version-dependent node IDs: an exact-match entity-label fallback navigates to a real shape and composes SVG group transforms. Keeps Graphviz `<title>` navigation unchanged. Never matches a table by prefix alone or injects SVG into the page DOM.

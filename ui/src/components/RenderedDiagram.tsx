@@ -4,6 +4,25 @@ import { renderDiagramSvg, type DiagramEngine } from '../diagramRender';
 import { canvasBounds, diagramEntities, fitDiagram, focusAt, svgBounds, svgEntityPoint, zoomAt,
   type FitMode, type Point, type View } from '../diagramViewport';
 import { saveDownload } from '../transport';
+import { buildFocusView, readFocusGraph, type DiagramFocusView } from '../diagramFocus';
+
+const focusLabels = {
+  activate: '\u0646\u0645\u0627\u06cc\u0634 \u0631\u0648\u0627\u0628\u0637',
+  full: '\u0628\u0627\u0632\u06af\u0634\u062a \u0628\u0647 \u0646\u0645\u0627\u06cc \u06a9\u0627\u0645\u0644',
+  depth: '\u0639\u0645\u0642 \u0627\u0631\u062a\u0628\u0627\u0637\u0627\u062a',
+  direct: '\u0631\u0648\u0627\u0628\u0637 \u0645\u0633\u062a\u0642\u06cc\u0645',
+  two: '\u062f\u0648 \u0633\u0637\u062d \u0631\u0648\u0627\u0628\u0637',
+  choose: '\u0627\u0628\u062a\u062f\u0627 \u0646\u0627\u0645 \u062c\u062f\u0648\u0644 \u0631\u0627 \u062f\u0631 \u06a9\u0627\u062f\u0631 \u062c\u0633\u062a\u200c\u0648\u062c\u0648 \u0648\u0627\u0631\u062f \u06a9\u0646\u06cc\u062f.',
+  missing: '\u062c\u062f\u0648\u0644 \u0645\u0648\u0631\u062f\u0646\u0638\u0631 \u062f\u0631 \u0646\u0645\u0648\u062f\u0627\u0631 \u06cc\u0627\u0641\u062a \u0646\u0634\u062f.',
+  large: '\u062a\u0639\u062f\u0627\u062f \u062c\u062f\u0648\u0644\u200c\u0647\u0627 \u06cc\u0627 \u0631\u0648\u0627\u0628\u0637 \u0627\u06cc\u0646 \u0646\u0645\u0627 \u0632\u06cc\u0627\u062f \u0627\u0633\u062a\u061b \u0639\u0645\u0642 \u06f1 \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u06cc\u062f.',
+  unsupported: '\u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0646\u0648\u0639 \u0641\u0627\u06cc\u0644\u060c Focus Mode \u062f\u0631 \u062f\u0633\u062a\u0631\u0633 \u0646\u06cc\u0633\u062a.',
+  outside: '\u0627\u06cc\u0646 \u062c\u062f\u0648\u0644 \u062e\u0627\u0631\u062c \u0627\u0632 \u0646\u0645\u0627\u06cc \u0645\u062a\u0645\u0631\u06a9\u0632 \u0627\u0633\u062a\u061b \u0628\u0631\u0627\u06cc \u062a\u063a\u06cc\u06cc\u0631 \u062c\u062f\u0648\u0644 \u0645\u0631\u06a9\u0632\u06cc\u060c \u062f\u0648\u0628\u0627\u0631\u0647 \u0646\u0645\u0627\u06cc\u0634 \u0631\u0648\u0627\u0628\u0637 \u0631\u0627 \u0628\u0632\u0646\u06cc\u062f.',
+  summary: '\u0646\u0645\u0627\u06cc \u0645\u062a\u0645\u0631\u06a9\u0632',
+  nodes: '\u062c\u062f\u0648\u0644',
+  edges: '\u0631\u0627\u0628\u0637\u0647',
+  safe: '\u0641\u0642\u0637 \u0646\u0645\u0627\u06cc \u0646\u0645\u0648\u062f\u0627\u0631 \u0645\u062d\u062f\u0648\u062f \u0634\u062f\u0647 \u0627\u0633\u062a\u061b ZIP \u0648 \u06af\u0632\u0627\u0631\u0634 \u0627\u0635\u0644\u06cc \u062a\u063a\u06cc\u06cc\u0631\u06cc \u0646\u06a9\u0631\u062f\u0647\u200c\u0627\u0646\u062f.',
+  failed: '\u062a\u0631\u0633\u06cc\u0645 \u0632\u06cc\u0631\u0646\u0645\u0648\u062f\u0627\u0631 \u0645\u0645\u06a9\u0646 \u0646\u0628\u0648\u062f\u061b \u0646\u0645\u0627\u06cc \u0627\u0635\u0644\u06cc \u0628\u0627\u0632\u06af\u0631\u062f\u0627\u0646\u062f\u0647 \u0634\u062f.',
+};
 
 const START_VIEW: View = {x:0,y:0,scale:1};
 type Drag = {id:number;last:Point};
@@ -23,6 +42,9 @@ export default function RenderedDiagram({engine, source, filename}: {
   const [entityStatus, setEntityStatus] = useState('');
   const [markedEntity, setMarkedEntity] = useState<Point | null>(null);
   const [fallbackExpanded, setFallbackExpanded] = useState(false);
+  const [focus, setFocus] = useState<DiagramFocusView | null>(null);
+  const [focusDepth, setFocusDepth] = useState<1 | 2>(1);
+  const [focusNotice, setFocusNotice] = useState('');
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -31,6 +53,8 @@ export default function RenderedDiagram({engine, source, filename}: {
   const preferredMode = useRef<FitMode | 'custom'>('screen');
   const datalistId = useId();
   const entities = useMemo(() => diagramEntities(engine,source),[engine,source]);
+  const focusGraph = useMemo(() => readFocusGraph(engine,source),[engine,source]);
+  const visibleSource = focus?.source ?? source;
   const suggestions = useMemo(() => {
     const query=entityQuery.trim().toUpperCase();
     return entities.filter(entity=>!query || entity.label.toUpperCase().includes(query)).slice(0,60);
@@ -56,22 +80,32 @@ export default function RenderedDiagram({engine, source, filename}: {
   }
 
   useEffect(() => {
+    setFocus(null);setFocusDepth(1);setFocusNotice('');setEntityQuery('');setEntityStatus('');
+  },[engine,source,filename]);
+
+  useEffect(() => {
     let alive=true;
     let blobUrl:string|undefined;
     setUrl(''); setSvg(''); setError(''); setBusy(true);
-    setEntityQuery(''); setEntityStatus(''); setMarkedEntity(null);
+    setEntityStatus(''); setMarkedEntity(null);
     preferredMode.current='screen'; setViewMode('screen');
     viewRef.current=START_VIEW; setView(START_VIEW);
-    renderDiagramSvg(engine,source).then(value => {
+    renderDiagramSvg(engine,visibleSource).then(value => {
       if (!alive) return;
-      if(!svgBounds(value)) throw new Error('ابعاد SVG از خروجی نمودار قابل تشخیص نیست.');
+      const size=svgBounds(value);
+      if(!size) throw new Error('ابعاد SVG از خروجی نمودار قابل تشخیص نیست.');
+      const point=focus ? svgEntityPoint(value,engine,focus.root) : null;
+      const area=canvasBounds(size);
+      if(point) setMarkedEntity({x:point.x*area.width/size.width,y:point.y*area.height/size.height});
       blobUrl=URL.createObjectURL(new Blob([value],{type:'image/svg+xml;charset=utf-8'}));
       setSvg(value);setUrl(blobUrl);
     }).catch(reason => {
-      if(alive) setError(reason instanceof Error ? reason.message : 'نمایش نمودار ناموفق بود.');
+      if(!alive) return;
+      if(focus) {setFocus(null);setFocusNotice(focusLabels.failed);}
+      else setError(reason instanceof Error ? reason.message : 'نمایش نمودار ناموفق بود.');
     }).finally(() => {if(alive) setBusy(false);});
     return () => {alive=false;if(blobUrl) URL.revokeObjectURL(blobUrl);};
-  },[engine,source]);
+  },[engine,visibleSource,focus?.root.id]);
 
   useEffect(() => {
     const element=viewportRef.current;
@@ -148,6 +182,7 @@ export default function RenderedDiagram({engine, source, filename}: {
       ?? entities.find(entity=>entity.label.toUpperCase().startsWith(query))
       ?? entities.find(entity=>entity.label.toUpperCase().includes(query));
     if(!selected) {setEntityStatus('این جدول در منبع نمودار پیدا نشد.');return;}
+    if(focus && !focus.includedIds.has(selected.id)) {setEntityStatus(focusLabels.outside);return;}
     if(!canvas || !bounds) {setEntityStatus('نمودار هنوز آماده نمایش نیست.');return;}
     const point=svgEntityPoint(svg,engine,selected);
     if(!point) {
@@ -161,6 +196,31 @@ export default function RenderedDiagram({engine, source, filename}: {
     commit(focusAt(viewRef.current,scaledPoint,viewportSize(),Math.min(16,bounds.width/canvas.width)));
     setEntityStatus(`جدول ${selected.label} در مرکز نمایشگر قرار گرفت.`);
   }
+  function chosenEntity() {
+    const query=entityQuery.trim().toUpperCase();
+    return entities.find(entity=>entity.label.toUpperCase()===query || entity.id.toUpperCase()===query)
+      ?? entities.find(entity=>entity.label.toUpperCase().startsWith(query))
+      ?? entities.find(entity=>entity.label.toUpperCase().includes(query));
+  }
+  function showFocus() {
+    setFocusNotice('');
+    if(!focusGraph) {setFocusNotice(focusLabels.unsupported);return;}
+    const selected=chosenEntity();
+    if(!selected) {setFocusNotice(entityQuery.trim()?focusLabels.missing:focusLabels.choose);return;}
+    const result=buildFocusView(focusGraph,selected.id,focusDepth);
+    if(!result.ok) {setFocusNotice(result.reason==='TOO_LARGE'?focusLabels.large:focusLabels.missing);return;}
+    setEntityQuery(result.view.root.label);
+    setFocus(result.view);
+  }
+  function changeDepth(value:1|2) {
+    if(focus && focusGraph) {
+      const result=buildFocusView(focusGraph,focus.root.id,value);
+      if(!result.ok) {setFocusNotice(focusLabels.large);return;}
+      setFocus(result.view);
+    }
+    setFocusDepth(value);setFocusNotice('');
+  }
+  function showAll() {setFocus(null);setFocusNotice('');setEntityStatus('');}
   async function toggleFullscreen() {
     if(nativeFullscreen) {
       try {await document.exitFullscreen();} catch {setFallbackExpanded(false);}
@@ -171,7 +231,7 @@ export default function RenderedDiagram({engine, source, filename}: {
     } else setFallbackExpanded(true);
   }
   const expanded=nativeFullscreen || fallbackExpanded;
-  const svgName=filename.replace(/\.(dot|gv|mmd)$/i,'.svg').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_');
+  const svgName=filename.replace(/\.(dot|gv|mmd)$/i,focus?`.focus-${focus.depth}.svg`:'.svg').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_');
   return <div ref={rootRef} className={`diagram-render${fallbackExpanded?' diagram-expanded':''}`}>
     <div className="diagram-toolbar">
       <div className="diagram-controls" role="group" aria-label="کنترل نمایش نمودار">
@@ -203,6 +263,23 @@ export default function RenderedDiagram({engine, source, filename}: {
       <datalist id={datalistId}>{suggestions.map(entity=><option key={entity.id} value={entity.label}/>)}</datalist>
       <button type="button" className="btn secondary" disabled={!url} onClick={locateEntity}>پیدا کن</button>
       {entityStatus && <span role="status" className="diagram-search-status">{entityStatus}</span>}
+    </div>}
+    {entities.length>0 && <div className="diagram-focus-toolbar" role="group" aria-label={focusLabels.summary}>
+      <button className={`btn secondary${focus?' active':''}`} type="button" disabled={!focusGraph || !url}
+        onClick={showFocus}>{focusLabels.activate}</button>
+      <label className="diagram-focus-depth">{focusLabels.depth}
+        <select aria-label={focusLabels.depth} value={focusDepth}
+          onChange={event=>changeDepth(Number(event.target.value)===2?2:1)} disabled={!focusGraph}>
+          <option value={1}>{focusLabels.direct}</option><option value={2}>{focusLabels.two}</option>
+        </select>
+      </label>
+      {focus && <button className="btn secondary" type="button" onClick={showAll}>{focusLabels.full}</button>}
+      {focus && <p role="status" className="diagram-focus-status">
+        {focusLabels.summary}: <b dir="ltr">{focus.root.label}</b> — {focus.nodeCount.toLocaleString('fa-IR')} {focusLabels.nodes},
+        {' '}{focus.edgeCount.toLocaleString('fa-IR')} {focusLabels.edges}. {focusLabels.safe}
+      </p>}
+      {focusNotice && <p role="alert" className="diagram-focus-status">{focusNotice}</p>}
+      {!focusGraph && <p className="diagram-focus-status">{focusLabels.unsupported}</p>}
     </div>}
     <p className="diagram-help">{engine==='mermaid'?'Mermaid':'Graphviz'} در مرورگر · چرخ ماوس: بزرگ‌نمایی روی نشانگر · کشیدن: جابه‌جایی · کلیدهای جهت‌دار، +، − و 0</p>
     {busy && <p role="status" className="loading">در حال ترسیم نمودار در مرورگر…</p>}

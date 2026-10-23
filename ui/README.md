@@ -1,4 +1,4 @@
-# SchemaForge Operations Console — React V0.4.1
+# SchemaForge Operations Console — React V0.4.3
 
 A small, **project-wide** React + TypeScript + Vite client that calls **only the existing REST controllers** in SchemaForge V4. One common navigation supports Generation, Conformance, CRUD, Mermaid and all 14 Glossary REST operations. The Java backend remains authoritative for H2, Oracle/DBMS metadata, DDL, validation, review and permission checks.
 
@@ -152,3 +152,23 @@ npm run dev
 ```
 
 Open the same ZIP, choose its Mermaid conceptual-erd, search the full table name, and check that a marker appears at the selected table. This browser acceptance on the 112-table example is still required.
+
+
+## 2026-10-23 — Focus Mode, 1- or 2-hop relationships (UI-C6e, V0.4.3)
+
+In a generated ZIP's **Diagrams** tab or the standalone local diagram viewer, first choose a generated Mermaid `.mmd` or Graphviz `.dot/.gv` ERD, and enter a table in the existing `SCHEMA.TABLE` search input. Select **Focus / Show Relationships** and choose **Direct (1 hop)** or **Two levels (2 hops)**. The viewer renders a new **local SVG** containing the selected table and its related tables, using only relationship statements that already exist in the source. It does **not** clip the original giant SVG, re-derive foreign keys, or call the backend. The selected root gets a location marker when supported by the SVG version. **Back to Full View** restores the original full graph, and source download always provides the untouched original `.mmd/.dot`.
+
+Both FK directions count toward adjacency, but rendered Mermaid cardinality/label text and Graphviz arrow/edge labels stay unchanged. Isolated tables remain visible when selected. A breadth-first 1-hop or 2-hop neighborhood is used; edges between any included nodes are retained. A limit of 150 nodes / 450 edges prevents a pathological focused rendering. Unknown DOT/Mermaid syntax is not guessed: Focus Mode disables itself and the full view continues to work. Focused SVG exports are named `.focus-1.svg` or `.focus-2.svg` to avoid conflating them with full exports. The original generated ZIP/Canonical/DDL is unaffected.
+
+**Local tests:** nine new focus tests passed. Eight original generator outputs from two user-supplied ZIPs were parsed successfully, 1/2-hop source generated and re-parsed, and scoped DOT output rendered to valid SVG with Graphviz. The isolated TypeScript structural check passed; the full React/Vite Build remains a **Windows acceptance gate**, not yet a verified result for this version.
+
+```cmd
+cd /d D:\Projects\schema-forge-v4\ui
+npm install
+npm run test
+npm run typecheck
+npm run build
+npm run dev
+```
+
+Run the 112-table Mermaid and Graphviz browser acceptance for one exact table (for example `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE`) and both depths. Verify the relation counts and directions, reset/return to full view, scrolling, fullscreen and focused SVG download. No Java or database restart is required.

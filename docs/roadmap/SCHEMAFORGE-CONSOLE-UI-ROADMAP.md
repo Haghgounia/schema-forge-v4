@@ -147,3 +147,21 @@ The operator's Chrome capture for `schemaforge-ea-20261022-211119-890.zip` visib
 - [ ] Browser acceptance: Graphviz search/zoom/fullscreen and long-label behavior; do not treat mock fixtures as proof that Mermaid's exact live SVG layout is accepted.
 
 No H2 database, legacy parser, Maven module or production REST file changed.
+
+
+## 2026-10-23 — UI-C6e: source-grounded ER Focus Mode (React V0.4.3)
+
+**Goal:** Turn a large 112-table conceptual or detailed ERD into an inspectable neighborhood without requesting new backend output or changing model semantics. This is a **browser-only derived view**, not a replacement Canonical Model, foreign-key recovery, server-side diagram API or authoritative SQL.
+
+- [x] Read `SCHEMA.TABLE` aliases/entity blocks and original source FK relationships from **generated Mermaid `erDiagram`** sources. Preserve columns, relationship operators/cardinality and exact FK-label strings.
+- [x] Read generated **Graphviz `digraph`** source with both single-line conceptual node labels and multi-line HTML record labels. Preserve source edge direction, labels, graph configuration and table attributes.
+- [x] Let a user search for one real table, select **1 direct hop** or **2 hops**, redraw only the induced subgraph and return to the unchanged full view. Both incoming and outgoing relationships determine adjacency, while their original direction and notation remain unchanged.
+- [x] On unsupported syntax or an excessively large neighborhood (>150 nodes or >450 edges), fail closed to the full graph and show an explanation instead of silently omitting relationships. No automatic backend request, Glossary mutation or external render service.
+- [x] Add nine regression tests for Mermaid/DOT fidelity, relationship depth, exact entity matches, no fake edges, malformed syntax, large graph refusal and shared UI behavior. **31/31 tests without external npm dependencies passed** locally; JSZip-dependent suite and full TypeScript/Vite build are not executable in the authoring environment. Isolated strict TypeScript structural check with temporary React stubs passed.
+- [x] Verify eight real generated diagram sources from uploaded `Collateral_EXPORT` (26 entities / 41 edges) and `Party-Operation_Froms-14050601` (48 entities / 46 edges) archives. Selected 1/2-hop Graphviz views rendered to SVG with locally installed `dot`. **These are fixture checks, not proof of Chrome or the exact unuploaded 112-table file.**
+- [ ] **Windows gate:** Install the flat Delta; `npm install`, `npm run test` (expected 39 when JSZip is installed), `npm run typecheck`, `npm run build`. For an actual ZIP with 112 tables: search `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE`, click Focus Mode at depth 1, confirm only source-listed direct neighbors and FK labels; switch to depth 2, then return to Full. Repeat Graphviz and Mermaid; check SVG export is the focused diagram, while original `.dot/.mmd` and ZIP downloads are unchanged.
+- [ ] Browser cross-check: mouse pan, zoom, Reset and fullscreen within Focus Mode, small-screen layout and browser-console errors. If Mermaid produces an alternate unsupported syntax, retain original view and capture source for parser expansion; do not silently skip nodes.
+
+**Previously observed browser evidence:** V0.4.2 screen captures show Mermaid search centering `DPS.DEPOSIT_ACCOUNT` and Graphviz search centering `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE`, each with an orange locator. This does not by itself verify the new relationship filtering.
+
+**Scope invariant:** Zero Backend/REST/Java/H2/DDL/Glossary changes. Glossary P1-P5 and EA Validation partial-success investigations remain independent.
