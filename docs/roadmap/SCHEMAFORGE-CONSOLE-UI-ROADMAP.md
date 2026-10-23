@@ -120,3 +120,30 @@ UI implementation does not close Glossary V4.14.5 P1–P5: native scanner `DRY_R
 ### 2026-10-22 operator evidence — C6a visual
 
 The operator's Chrome capture for `schemaforge-ea-20261022-211119-890.zip` visibly confirms generation response `SUCCESS`, 37 generated, 0 blocked, 78 skipped and 79 validation warnings; the Glossary tab shows 55 new terms, 39 eligible, 16 manual review, mode `DRY_RUN` and 0 inserted. The uploaded ZIP contains four graph sources. This confirms ZIP report visualization, **not yet** client-side Graphviz/Mermaid rendering or live review-import acceptance. Preserve this distinction in UI-C6b.
+
+
+## 2026-10-23 — UI-C6b acceptance evidence and UI-C6c interactive diagrams
+
+**Previous Windows acceptance (UI V0.4.0):** operator-provided `npm install`, `npm run test` (**19/19 PASS**), `npm run typecheck` and `npm run build` (**PASS**) with Vite 8.3.5. Browser screenshots show real `.dot` Graphviz ERD and `.mmd` Mermaid conceptual ERD rendered from a generated ZIP. Thus **base local rendering of both engines PASS**; SVG download button, controls and review-import mutation are not yet end-to-end verified. `npm audit` reported two LOW findings; user should inspect details, not apply `--force` upgrades blindly. Large lazy Viz/Mermaid chunks warrant performance profiling but are not compile errors.
+
+**UI-C6c — Implemented in React 0.4.1; browser gate OPEN:**
+
+- [x] Shared vector-geometry `RenderedDiagram` for Mermaid and Graphviz. Fit to Screen / Width, native size (100%), pointer-centered wheel and button zoom, drag pan, arrow keys, Reset, browser Fullscreen API with fallback, exact source-grounded entity name lookup and visual target marker.
+- [x] Use inert SVG metadata for locating nodes; no `dangerouslySetInnerHTML`, no external render API, no new npm runtime dependency and no change to REST/Java/H2/DDL. Source-grounded search reports explicitly when the SVG variant lacks coordinates.
+- [x] Pure geometry, DOT/MMD search and source-contract regression tests added: **5/5 PASS in authoring environment**. Isolated TypeScript structural check PASS. Previous 19 contract/ZIP tests are preserved but cannot be rerun in the authoring sandbox due to npm registry DNS `EAI_AGAIN`.
+- [ ] **Windows acceptance:** `npm install`, `npm run test` (**expected 24/24**), `npm run typecheck`, `npm run build`. Open Graphviz `.dot` and Mermaid `.mmd` from the same generated ZIP, exercise each fit mode, wheel zoom at cursor, drag pan, keyboard controls, fullscreen exit, entity search for known `SCHEMA.TABLE`, SVG download, browser-console errors, and a large diagram on a small viewport.
+- [ ] Confirm Mermaid entity focus with the actual Mermaid 11.17 rendering structure; browser variants lacking location metadata may report a graceful search fallback. End-to-end queue/import and UI-C7 security remain OPEN.
+
+**No closure inference:** these diagrams changes do not accept Glossary V4.14.5 P1–P5 or EA parser Validation issues.
+
+## 2026-10-23 — UI-C6d: Exact Mermaid table-location regression (V0.4.2)
+
+**Observed on Windows:** On the 112-table `Deposit_Account_Operations_6_RC_2026-09-22.xml` Mermaid conceptual ERD, searching `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE` found the alias in `.mmd` but V0.4.1 reported no position in the rendered SVG. This is a frontend SVG locator defect, **not** a REST/EA/Java regression; generation `PARTIAL_SUCCESS` is an independent backend status.
+
+- [x] Extend the existing inert-DOMParser SVG locator beyond the version-specific `g#entity-ID` convention: exact entity-label matching (`text`, `tspan`, `foreignObject` HTML labels) and nearest shape-bearing group; preserve Graphviz `g.node > title` matching, SVG transforms, bounds checks, and image-context rendering.
+- [x] Add six runnable Node regression tests covering the reported table name, opaque IDs, nested labels, prefix collision, Graphviz and corrupt coordinates. **11/11 locator + viewport tests pass locally.**
+- [x] Browser QA with Chromium: equivalent SVG variants and actual `Collateral_EXPORT` Graphviz SVG resolve coordinates correctly. No external rendering service or extra REST call.
+- [ ] **Windows acceptance:** Run all Node tests (expected **30**), TypeScript typecheck and Vite build with installed dependencies; open **the exact 112-table Mermaid ZIP** and verify `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE` focuses and highlights the correct table.
+- [ ] Browser acceptance: Graphviz search/zoom/fullscreen and long-label behavior; do not treat mock fixtures as proof that Mermaid's exact live SVG layout is accepted.
+
+No H2 database, legacy parser, Maven module or production REST file changed.

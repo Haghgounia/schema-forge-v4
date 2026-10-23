@@ -1,3 +1,15 @@
+## 2026-10-23 — Console UI V0.4.2: Mermaid entity search regression (UI-C6d)
+
+- Corrected SVG table focusing when a Mermaid renderer assigns opaque or version-dependent node IDs: an exact-match entity-label fallback navigates to a real shape and composes SVG group transforms. Keeps Graphviz `<title>` navigation unchanged. Never matches a table by prefix alone or injects SVG into the page DOM.
+- Regression fixture: `DPS.DEPOSIT_ACCOUNT_ATTRIBUTE` was present among 112 source entities but V0.4.1 could not locate its rendered SVG node. Added six Node tests for opaque IDs, name-prefix collisions, nested labels, Graphviz compatibility, and invalid geometry; validated an equivalent fixture in Chromium and checked real Graphviz output.
+- **Scope:** UI-only. No Java, REST contracts, model, SQL or H2 changes. Authoring environment cannot reach npm registry; Windows `npm run test`, `npm run typecheck`, `npm run build` and live 112-table Mermaid confirmation remain pending.
+
+## 2026-10-23 — Console UI V0.4.1: interactive Mermaid / Graphviz viewer (UI-C6c)
+
+- Shared, browser-only SVG pan/zoom with Fit to Screen, Fit to Width, 100% native view, reset, mouse-wheel pointer anchor, keyboard, drag, full screen and source-grounded table search. Built on existing local `.dot` and `.mmd` results; no new REST endpoint or dependency.
+- Entity navigation reads SVG geometry as inert XML and marks the selected table; if an SVG variant lacks the needed metadata, show an explicit non-misleading fallback. Preserve image-context SVG rendering, Java / H2 isolation, and existing ZIP/report capabilities.
+- Added five deterministic node tests (5/5 PASS) and UI-C6c acceptance gates. Windows full `npm test` / `npm run build` and browser interaction confirmation remain pending.
+
 ## 2026-10-22 — Console UI-C6a: ZIP report preview without REST change
 
 - Read-only React presentation of existing output ZIP: status from Manifest (`SUCCESS` vs `PARTIAL_SUCCESS`), blocked/skipped Artifact reasons, Glossary discovered/eligible/manual/suspect/pending terms, and term-to-column evidence in `unknown-terms.csv`.

@@ -1,7 +1,7 @@
 {
   "name": "schemaforge-console-ui",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.2",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/api-contract.test.mjs tests/console-rest-contract.test.mjs tests/zip-reports.test.mjs tests/diagram-review.test.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/api-contract.test.mjs tests/console-rest-contract.test.mjs tests/zip-reports.test.mjs tests/diagram-review.test.mjs tests/diagram-viewport.test.mjs tests/diagram-svg-locator.test.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },

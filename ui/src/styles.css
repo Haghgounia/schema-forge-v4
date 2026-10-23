@@ -261,3 +261,39 @@ tbody tr:hover { background: #f8fbff; }
 .review-handoff .handoff-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 .review-handoff .handoff-source { font-size: 11px; color: #61798d; overflow-wrap: anywhere; }
 @media(max-width:600px) { .diagram-viewport { max-height: 480px; } .diagram-toolbar { align-items: flex-start; } }
+
+/* UI-C6c: shared native SVG viewport; no inline SVG/HTML injection and no new REST. */
+.diagram-render { min-width: 0; position: relative; }
+.diagram-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.diagram-controls .btn { padding-inline: 11px; }
+.diagram-controls .btn.active { color: #174e7e; background: #e6f2fa; border-color: #9cc8e0; }
+.diagram-mini-btn { min-width: 36px; font-size: 17px; padding-inline: 7px !important; }
+.diagram-zoom-output { font-size: 12px; font-weight: 700; color: #325a76; min-width: 51px; text-align: center; }
+.diagram-entity-toolbar { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; }
+.diagram-entity-label { font-size: 12px; font-weight: 700; color: #536e82; }
+.diagram-entity-toolbar input[type='search'] { width: min(290px,100%); direction: ltr; }
+.diagram-search-status { color: #536e82; font-size: 11px; flex: 1 1 220px; overflow-wrap: anywhere; }
+.diagram-help { font-size: 11px; color: #71869b; line-height: 1.8; margin: 8px 0 7px; }
+.diagram-viewport { position: relative; direction: ltr; overflow: hidden; padding: 0; width: 100%; height: min(68vh,640px);
+  min-height: 350px; max-height: none; cursor: grab; touch-action: none; user-select: none; }
+.diagram-viewport.panning { cursor: grabbing; }
+.diagram-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.diagram-viewport .diagram-canvas img { display: block; min-width: 0; max-width: none; margin: 0; object-fit: fill; }
+.diagram-render:fullscreen, .diagram-render.diagram-expanded { display: flex; flex-direction: column; gap: 5px;
+  background: #f6f9fc; padding: 16px; overflow: auto; }
+.diagram-render:fullscreen { width: 100%; height: 100%; }
+.diagram-render.diagram-expanded { position: fixed; inset: 0; z-index: 1500; }
+.diagram-render:fullscreen .diagram-viewport, .diagram-render.diagram-expanded .diagram-viewport {
+  flex: 1 1 auto; min-height: 180px; height: auto; }
+.diagram-render:fullscreen .diagram-toolbar, .diagram-render.diagram-expanded .diagram-toolbar,
+.diagram-render:fullscreen .diagram-entity-toolbar, .diagram-render.diagram-expanded .diagram-entity-toolbar {flex-shrink: 0;}
+.diagram-render:fullscreen details, .diagram-render.diagram-expanded details { max-height: 170px; overflow: auto; flex-shrink: 0; }
+@media(max-width:600px) {
+  .diagram-controls { width: 100%; }
+  .diagram-controls .btn { padding: 7px 9px; min-height: 35px; }
+  .diagram-viewport { height: min(58vh,460px); min-height: 300px; max-height: none; }
+  .diagram-render:fullscreen, .diagram-render.diagram-expanded { padding: 9px; }
+}
+.diagram-entity-marker { position: absolute; display: block; transform: translate(-50%,-50%);
+  width: 32px; height: 32px; border: 3px solid #e5a92c; border-radius: 50%;
+  background: rgba(254,225,131,.32); box-shadow: 0 0 0 3px rgba(255,255,255,.75); pointer-events: none; }
