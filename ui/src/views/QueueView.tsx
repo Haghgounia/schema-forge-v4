@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiError, glossaryApi } from '../api';
 import type { DecisionRequest, GlossaryTerm, ImportReportResult, QueueItem, Page } from '../types';
 import { Paging, Status } from '../utils';
+import type { ReviewHandoff } from '../reviewHandoff';
 
 const PAGE_SIZE = 25;
 
@@ -136,7 +137,9 @@ function ImportReport({ adminKey, onImported }: {
   </details>;
 }
 
-export default function QueueView({ adminKey }: {adminKey: string}) {
+export default function QueueView({ adminKey, handoff, clearHandoff }: {
+  adminKey: string; handoff: ReviewHandoff | null; clearHandoff: () => void;
+}) {
   const [page, setPage] = useState(0);
   const [includeResolved, setIncludeResolved] = useState(false);
   const [reload, setReload] = useState(0);
@@ -145,6 +148,55 @@ export default function QueueView({ adminKey }: {adminKey: string}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [linked, setLinked] = useState<GlossaryTerm | null>(null);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkedError, setLinkedError] = useState('');
+  const [linkedChecked, setLinkedChecked] = useState(false);
+  const [linkedRevision, setLinkedRevision] = useState(0);
+  const [linkedImportBusy, setLinkedImportBusy] = useState(false);
+
+  // Lookup through the existing public terms endpoint: a DRY_RUN word is not
+  // necessarily in H2. The queue endpoint has no term filter, so never fake one.
+  useEffect(() => {
+    const controller = new AbortController();
+    setLinked(null); setLinkedError(''); setLinkedChecked(false); setLinkedLoading(false);
+    if (!handoff) return () => controller.abort();
+    setLinkedLoading(true);
+    glossaryApi.terms({ q: handoff.term, kind: 'ATOMIC', page: 0, size: 1000 }, controller.signal)
+      .then(page => {
+        if (controller.signal.aborted) return;
+        const match = page.items.find(item => item.key.toUpperCase() === handoff.term.toUpperCase());
+        setLinked(match ?? null);
+        setLinkedChecked(true);
+        if (match) setSelected({id: match.id, kind: match.kind, key: match.key,
+          status: match.status, occurrences: 0, sampleSource: match.source,
+          firstSeen: match.createdAt, lastSeen: match.updatedAt});
+        else setSelected(null);
+      })
+      .catch(err => { if (!controller.signal.aborted) {
+        setLinkedError(err instanceof Error ? err.message : 'جست‌وجوی واژه در H2 ناموفق بود.');
+      }})
+      .finally(() => { if (!controller.signal.aborted) setLinkedLoading(false); });
+    return () => controller.abort();
+  }, [handoff, linkedRevision]);
+
+  async function importLinkedReport() {
+    if (!handoff?.report || !adminKey || linkedImportBusy) return;
+    const confirmed = window.confirm(`توجه: این عملیات فقط واژه «${handoff.term}» را ثبت نمی‌کند.\n` +
+      `تمام رخدادهای NEW در گزارش ${handoff.sourceName} بررسی و Candidateهای لازم در H2 ثبت می‌شوند.\n` +
+      `تعداد واژه‌های جدید گزارش: ${handoff.newTermCount}.\n` +
+      'هیچ واژه‌ای تأیید خودکار نمی‌شود. فقط روی دیتابیس آزمایشی ادامه دهید.\nآیا موافقید؟');
+    if (!confirmed) return;
+    setLinkedImportBusy(true); setLinkedError(''); setNotice('');
+    try {
+      const value = await glossaryApi.importReport(adminKey, handoff.report);
+      setNotice(`گزارش ثبت شد: ${value.createdCandidates.toLocaleString('fa-IR')} Candidate و ` +
+        `${value.recordedOccurrences.toLocaleString('fa-IR')} شاهد جدید؛ ` +
+        `${value.previouslyRecorded.toLocaleString('fa-IR')} شاهد از قبل ثبت‌شده.`);
+      setPage(0); setSelected(null); setReload(v => v + 1); setLinkedRevision(v => v + 1);
+    } catch (err) { setLinkedError(err instanceof Error ? err.message : 'درون‌ریزی گزارش ناموفق بود.'); }
+    finally { setLinkedImportBusy(false); }
+  }
 
   useEffect(() => {
     if (!adminKey) { setResult(null); setSelected(null); setError(''); return; }
@@ -166,6 +218,7 @@ export default function QueueView({ adminKey }: {adminKey: string}) {
     setNotice(message);
     setSelected(null);
     setReload(value => value + 1);
+    setLinkedRevision(value => value + 1);
   }
 
   return <>
@@ -174,6 +227,29 @@ export default function QueueView({ adminKey }: {adminKey: string}) {
       <button className="btn secondary" type="button" disabled={!adminKey || loading}
         onClick={() => setReload(value => value + 1)}>به‌روزرسانی</button>
     </div>
+    {handoff && <section className="panel review-handoff" aria-label="پیگیری واژه از ZIP">
+      <div className="page-heading"><div>
+        <h3>پیگیری واژه از گزارش تولید: <code dir="ltr">{handoff.term}</code></h3>
+        <p className="handoff-source" dir="ltr">{handoff.sourceName}</p>
+      </div><button type="button" className="btn subtle" onClick={() => {clearHandoff(); setSelected(null);}}>
+        بستن پیگیری</button></div>
+      <p className="hint">گزارش ZIP و پایگاه داده H2 مستقل‌اند. وجود واژه در DRY_RUN به معنای ثبت Candidate نیست.</p>
+      {linkedLoading && <p role="status" className="loading">در حال جست‌وجوی واژه در Glossary…</p>}
+      {linkedChecked && (linked ? <p className="message neutral" role="status">
+        واژه در H2 وجود دارد؛ وضعیت: <strong>{linked.status}</strong>. {linked.status === 'CANDIDATE'
+          ? 'برای تصمیم‌گیری، فرم بررسی واژه در همین صفحه آماده است.' : 'این واژه در انتظار تأیید نیست.'}
+      </p> : <p role="status" className="message neutral">
+        واژه در نتایج اولیه Glossary پیدا نشد. برای افزودن شواهد NEW به صف می‌توانید گزارش همین ZIP را درون‌ریزی کنید.
+      </p>)}
+      {handoff.note && <p className="message neutral">{handoff.note}</p>}
+      {linkedError && <p role="alert" className="message error">{linkedError}</p>}
+      <div className="handoff-actions">
+        <button type="button" className="btn secondary" disabled={!handoff.report || !adminKey || linkedImportBusy}
+          onClick={() => void importLinkedReport()}>{linkedImportBusy ? 'در حال ثبت شواهد…' : 'درون‌ریزی گزارش NEW همین ZIP'}</button>
+        <span className="hint">این عملیات کل NEWهای CSV را بررسی می‌کند، نه فقط واژه انتخابی؛
+          نیازمند کلید مدیر و تأیید صریح است. تأیید خودکار ندارد.</span>
+      </div>
+    </section>}
     {!adminKey ? <div className="panel empty" role="status">برای مشاهده صف و ثبت تصمیم، کلید مدیر Glossary را در کادر بالای صفحه وارد کنید.</div>
       : <>
         <div className="toolbar">

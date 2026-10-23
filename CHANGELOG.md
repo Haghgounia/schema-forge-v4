@@ -3229,3 +3229,12 @@
 - Expanded `word-release-confidence-summary.csv` with `tableSpecDocuments`, `nonTableDocuments`, `inputFilteredDocuments`, and `classificationFailed` counters.
 - Added `LegacyWordDirectoryClassifierTest` and expanded `ExternalGenerationAcceptanceSupportTest` for nested-path preservation and document-summary evidence.
 - No production Java, parser heuristics, canonical model, DDL rendering, or REST endpoint semantics changed in this patch.
+
+
+### 2026-10-22 — Console UI diagram visualization and Glossary review linking (0.4.0)
+
+- React-only: browse and locally render Graphviz DOT and Mermaid MMD from generated ZIP archives (zoom, SVG export, original graph download), plus Mermaid output of the existing Diagram REST call.
+- React-only: select a Glossary report token, inspect table/column evidence and navigate to existing Review Queue; optionally and explicitly import **all NEW** CSV occurrences via authorized existing REST, followed by individual reasoned review. No implicit persistence under DRY_RUN.
+- No Java, REST, database, Canonical or DDL changes. Roadmaps and tests updated. Windows npm and browser acceptance pending due to isolated build environment DNS failures.
+
+- Diagram screen also supports local `.mmd`, `.dot` and `.gv` file preview without any upload/REST call.

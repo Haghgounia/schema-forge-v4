@@ -4,6 +4,7 @@ import Platforms from '../components/Platforms';
 import { saveDownload, type Download } from '../transport';
 import { inspectGenerationZip, type ZipInspection } from '../zipReports';
 import GenerationZipReports from '../components/GenerationZipReports';
+import type { ReviewHandoff } from '../reviewHandoff';
 
 const sources: { value: GenerationSource; name: string; accept: string; note: string }[] = [
   { value: 'word', name: 'Standard Word', accept: '.doc,.docx', note: 'یک سند استاندارد Word' },
@@ -12,7 +13,11 @@ const sources: { value: GenerationSource; name: string; accept: string; note: st
   { value: 'zip', name: 'Word ZIP', accept: '.zip', note: 'بسته اسناد Word استاندارد' },
   { value: 'ea-xml', name: 'EA XML / XMI', accept: '.xml,.xmi', note: 'ورودی Enterprise Architect، با Schema اختیاری' },
 ];
-export default function GenerationView() {
+export default function GenerationView({onReviewTerm, savedDownload, onDownloadChange}: {
+  onReviewTerm: (handoff: ReviewHandoff) => void;
+  savedDownload: Download | null;
+  onDownloadChange: (download: Download | null) => void;
+}) {
   const [source, setSource] = useState<GenerationSource>('word');
   const [file, setFile] = useState<File | null>(null);
   const [schema, setSchema] = useState('');
@@ -23,7 +28,7 @@ export default function GenerationView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState('');
-  const [download, setDownload] = useState<Download | null>(null);
+  const [download, setDownload] = useState<Download | null>(savedDownload);
   const [inspection, setInspection] = useState<ZipInspection | null>(null);
   const [inspectionBusy, setInspectionBusy] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
@@ -42,7 +47,7 @@ export default function GenerationView() {
   const selected = sources.find(item => item.value === source)!;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(''); setResult(''); setDownload(null); setInspection(null);
+    setError(''); setResult(''); setDownload(null); onDownloadChange(null); setInspection(null);
     if (!file || platforms.length === 0 || (legacy && !schema.trim())) {
       setError('فایل، DBMS و برای Legacy نام Schema الزامی‌اند.'); return;
     }
@@ -51,6 +56,7 @@ export default function GenerationView() {
       const output = await coreApi.generate({ file, source, schema, platforms, auditFields, timestampSemantics, primaryKeyAsIdentity: identity });
       saveDownload(output);
       setDownload(output);
+      onDownloadChange(output);
       setResult(`فایل «${output.filename}» دانلود شد (${output.blob.size.toLocaleString('fa-IR')} بایت). وضعیت دقیق تولید در گزارش ZIP نمایش داده می‌شود.`);
     } catch (err) { setError(err instanceof Error ? err.message : 'تولید ناموفق بود.'); }
     finally { setBusy(false); }
@@ -60,7 +66,7 @@ export default function GenerationView() {
     <form className="panel content-panel form-stack" onSubmit={submit}>
       <div className="form-grid">
         <label className="field">نوع ورودی
-          <select value={source} onChange={e => { setSource(e.target.value as GenerationSource); setFile(null); setResult(''); setDownload(null); }}>
+          <select value={source} onChange={e => { setSource(e.target.value as GenerationSource); setFile(null); setResult(''); setDownload(null); onDownloadChange(null); }}>
             {sources.map(item => <option key={item.value} value={item.value}>{item.name}</option>)}
           </select>
         </label>
@@ -105,7 +111,7 @@ export default function GenerationView() {
     </form>
     {inspectionBusy && <p role="status" className="message neutral">در حال خواندن Manifest و گزارش‌های داخل ZIP در مرورگر…</p>}
     {inspectionError && <p role="alert" className="message neutral">ZIP دانلود شده است، اما گزارش در مرورگر باز نشد: {inspectionError} <button type="button" className="btn secondary" onClick={() => download && saveDownload(download)}>دریافت دوباره ZIP</button></p>}
-    {inspection && download && <GenerationZipReports inspection={inspection} download={download}/>}
+    {inspection && download && <GenerationZipReports inspection={inspection} download={download} onReviewTerm={onReviewTerm}/>}
 
   </section>;
 }

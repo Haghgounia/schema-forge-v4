@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReviewHandoff } from '../reviewHandoff';
+import { prepareReviewHandoff } from '../reviewHandoff';
+import GenerationDiagrams from './GenerationDiagrams';
 import type { Download } from '../transport';
 import { saveDownload } from '../transport';
 import {
@@ -6,7 +9,7 @@ import {
   type ReportFile, type ReportPreview, type TermEvidence, type ZipInspection,
 } from '../zipReports';
 
-type Tab = 'glossary' | 'status' | 'files';
+type Tab = 'glossary' | 'status' | 'files' | 'diagrams';
 type TermGroup = 'new' | 'eligible' | 'manual' | 'typos' | 'pending' | 'plural';
 const format = (value: number | undefined): string => value === undefined ? '—' : value.toLocaleString('fa-IR');
 const safeTerms = (list: unknown): string[] => Array.isArray(list) ? list.filter((word): word is string => typeof word === 'string') : [];
@@ -21,7 +24,9 @@ function displayStatus(status?: string): string {
     : status ? `${status} — وضعیت Backend` : 'وضعیت تولید در Manifest مشخص نیست';
 }
 
-export default function GenerationZipReports({inspection, download}: {inspection: ZipInspection; download: Download}) {
+export default function GenerationZipReports({inspection, download, onReviewTerm}: {
+  inspection: ZipInspection; download: Download; onReviewTerm: (handoff: ReviewHandoff) => void;
+}) {
   const [tab, setTab] = useState<Tab>('glossary');
   const [group, setGroup] = useState<TermGroup>('new');
   const [search, setSearch] = useState('');
@@ -33,6 +38,8 @@ export default function GenerationZipReports({inspection, download}: {inspection
   const [previewError, setPreviewError] = useState('');
   const [previewBusy, setPreviewBusy] = useState(false);
   const [fileDownloadBusy, setFileDownloadBusy] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const summary = inspection.glossary;
   const candidate = summary?.candidateRegistration;
   const manifest = inspection.manifest;
@@ -68,6 +75,13 @@ export default function GenerationZipReports({inspection, download}: {inspection
     catch (err) { setPreviewError(err instanceof Error ? err.message : 'دریافت فایل گزارش ممکن نبود.'); }
     finally { setFileDownloadBusy(false); }
   }
+  async function goReview() {
+    if (!term || reviewBusy) return;
+    setReviewBusy(true); setReviewError('');
+    try { onReviewTerm(await prepareReviewHandoff(inspection, term)); }
+    catch (err) { setReviewError(err instanceof Error ? err.message : 'انتقال به صف بازبینی ممکن نبود.'); }
+    finally { setReviewBusy(false); }
+  }
   const exceptional = (manifest?.artifacts ?? []).filter(item => item.status && item.status !== 'GENERATED');
   return <section className="panel content-panel result-block generation-results" aria-label="نتایج تولید و گزارش‌های ZIP">
     <div className="page-heading">
@@ -93,6 +107,8 @@ export default function GenerationZipReports({inspection, download}: {inspection
       <button type="button" role="tab" aria-selected={tab === 'glossary'} className={`tab ${tab === 'glossary' ? 'active' : ''}`} onClick={() => setTab('glossary')}>واژگان Glossary</button>
       <button type="button" role="tab" aria-selected={tab === 'status'} className={`tab ${tab === 'status' ? 'active' : ''}`} onClick={() => setTab('status')}>وضعیت Artifact</button>
       <button type="button" role="tab" aria-selected={tab === 'files'} className={`tab ${tab === 'files' ? 'active' : ''}`} onClick={() => setTab('files')}>فایل‌های گزارش</button>
+      <button type="button" role="tab" aria-selected={tab === 'diagrams'} className={`tab ${tab === 'diagrams' ? 'active' : ''}`}
+        onClick={() => setTab('diagrams')}>نمودارها ({format(inspection.diagrams.length)})</button>
     </div>
     {tab === 'glossary' && <div className="result-tab-body" role="tabpanel">
       {!summary ? <p className="empty">گزارش Glossary در ZIP وجود ندارد؛ تولید و دانلود فایل همچنان معتبر است.</p> : <>
@@ -123,8 +139,14 @@ export default function GenerationZipReports({inspection, download}: {inspection
         {visibleTerms.length > 250 && <p className="hint">۲۵۰ واژه نخست نمایش داده شده‌اند؛ برای محدودکردن نتایج جست‌وجو کنید.</p>}
         {term && <div className="evidence-block">
           <div className="page-heading"><div><h3 dir="ltr">{term}</h3><p>شواهد استفاده در جدول‌ها و ستون‌ها از `unknown-terms.csv`</p></div>
-            <button type="button" className="btn subtle" onClick={() => setTerm('')}>بستن</button>
+            <div className="form-actions">
+              <button type="button" className="btn secondary" disabled={reviewBusy}
+                onClick={() => void goReview()}>{reviewBusy ? 'در حال انتقال…' : 'پیگیری در صف Glossary'}</button>
+              <button type="button" className="btn subtle" onClick={() => setTerm('')}>بستن</button>
+            </div>
           </div>
+          {reviewError && <p role="alert" className="message error">{reviewError}</p>}
+          <p className="hint">پیگیری در صف، واژه را خودکار تأیید یا ثبت نمی‌کند؛ در صورت نیاز، ورود گزارش فقط با مجوز و تأیید شما انجام می‌شود.</p>
           {evidenceError && <p role="alert" className="message error">{evidenceError}</p>}
           {evidence === null && !evidenceError && <p className="loading">در حال خواندن شواهد…</p>}
           {evidence && <><p className="hint">{format(evidence.total)} رخداد. {evidence.total > 25 ? '۲۵ رخداد نخست نمایش داده شده است.' : ''}</p>
@@ -155,6 +177,7 @@ export default function GenerationZipReports({inspection, download}: {inspection
         </>}
       </>}
     </div>}
+    {tab === 'diagrams' && <div className="result-tab-body" role="tabpanel"><GenerationDiagrams inspection={inspection}/></div>}
     {tab === 'files' && <div className="result-tab-body" role="tabpanel">
       <div className="lookup-row result-filters">
         <label className="field grow">گزارش داخل ZIP

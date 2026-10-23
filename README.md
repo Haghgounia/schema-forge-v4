@@ -1013,3 +1013,6 @@ npm run dev
 ```
 
 The Java backend must run separately at `127.0.0.1:9090` (from `application.yml`) for the default development proxy. An `HTTP 502` rendered by Vite often means the Java process is not available or a port mismatch exists; `curl.exe -i "http://127.0.0.1:9090/api/v1/glossary/terms?page=0&size=1"` isolates that condition. The Vite-only environment variable `SCHEMAFORGE_API_PORT` optionally overrides the localhost proxy port. See `ui/README.md` for isolated H2 startup commands and nonproduction acceptance.
+
+
+**Console 0.4.0 (2026-10-22):** The lightweight React UI can preview Mermaid/Graphviz diagrams directly from generation ZIPs, and hand off reported Glossary words to the existing review workflow (explicit import only). See `ui/README.md` and `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md`. This is a frontend source enhancement: **no backend or REST change**. Windows Vite build and browser acceptance are still required.

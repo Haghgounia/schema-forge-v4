@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { coreApi, type DiagramInput } from '../coreApi';
 import { saveDownload } from '../transport';
+import RenderedDiagram from '../components/RenderedDiagram';
+import { MAX_DIAGRAM_BYTES } from '../zipReports';
+import type { DiagramEngine } from '../diagramRender';
 export default function DiagramView() {
   const [file, setFile] = useState<File|null>(null);
   const [type, setType] = useState<DiagramInput['type']>('er');
@@ -17,6 +20,20 @@ export default function DiagramView() {
   const [outputName, setOutputName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [local, setLocal] = useState<{filename:string;source:string;engine:DiagramEngine} | null>(null);
+  const [localError, setLocalError] = useState('');
+  async function openLocalDiagram(chosen: File | null) {
+    setLocal(null); setLocalError('');
+    if (!chosen) return;
+    const engine: DiagramEngine | null = /\.mmd$/i.test(chosen.name) ? 'mermaid'
+      : /\.(dot|gv)$/i.test(chosen.name) ? 'graphviz' : null;
+    if (!engine) { setLocalError('فقط فایل MMD، DOT یا GV قابل نمایش است.'); return; }
+    if (chosen.size > MAX_DIAGRAM_BYTES) {
+      setLocalError('حجم نمودار برای رندر مرورگر بیش از ۲۵۶ کیلوبایت است.'); return;
+    }
+    try { setLocal({filename:chosen.name,source:await chosen.text(),engine}); }
+    catch { setLocalError('خواندن فایل نمودار ممکن نبود.'); }
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setError(''); setPreview(''); setOutputName('');
     if (!file) { setError('فایل Canonical JSON یا ZIP الزامی است.'); return; }
@@ -24,7 +41,7 @@ export default function DiagramView() {
     try {
       const download = await coreApi.mermaid({file, type, scope, schema, root, selected,
         depth, ...flags});
-      setPreview((await download.blob.text()).slice(0, 25000));
+      setPreview(download.blob.size <= MAX_DIAGRAM_BYTES ? await download.blob.text() : '');
       setOutputName(download.filename);
       saveDownload(download);
     } catch (err) { setError(err instanceof Error ? err.message : 'تولید نمودار ناموفق بود.'); }
@@ -73,10 +90,19 @@ export default function DiagramView() {
         {busy ? 'در حال تولید…' : 'تولید و دریافت Mermaid'}</button></div>
       {error && <p role="alert" className="message error">{error}</p>}
     </form>
+    <section className="panel content-panel result-block" aria-label="نمایش فایل نمودار موجود">
+      <div className="page-heading"><div><h3>نمایش فایل Mermaid یا Graphviz</h3>
+        <p>فایل <code dir="ltr">.mmd</code>، <code dir="ltr">.dot</code> یا <code dir="ltr">.gv</code> را بدون ارسال به Backend در همین مرورگر باز کنید.</p></div></div>
+      <label className="field">فایل نمودار
+        <input type="file" accept=".mmd,.dot,.gv" onChange={event => void openLocalDiagram(event.target.files?.[0] ?? null)}/>
+      </label>
+      {localError && <p role="alert" className="message error">{localError}</p>}
+      {local && <RenderedDiagram key={local.filename} source={local.source} engine={local.engine} filename={local.filename}/>}
+    </section>
     {outputName && <div className="panel content-panel result-block">
       <p className="message success">خروجی {outputName} تولید شد.</p>
-      <details><summary>نمایش متن نمودار (حداکثر ۲۵٬۰۰۰ نویسه)</summary>
-        <pre className="code-preview" dir="ltr">{preview}</pre></details>
+      {preview ? <RenderedDiagram source={preview} engine="mermaid" filename={outputName}/> :
+        <p className="message neutral">حجم فایل نمودار از سقف پیش‌نمایش بیشتر است؛ فایل دانلودشده معتبر است.</p>}
     </div>}
   </section>;
 }

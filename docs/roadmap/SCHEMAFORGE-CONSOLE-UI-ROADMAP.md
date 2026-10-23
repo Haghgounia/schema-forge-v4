@@ -98,3 +98,25 @@ UI implementation does not close Glossary V4.14.5 P1–P5: native scanner `DRY_R
 - [ ] Full backend-integration acceptance for all 24 REST operations and UI-C7 security remain separate open gates.
 
 **Decision:** This extension is presentation only. Do not change an existing Controller or rewrite `requestStatus` in frontend. Glossary P1–P5 remain open until their own acceptance evidence is recorded.
+
+
+## 2026-10-22 — UI-C6b: diagram previews and contextual Glossary review
+
+**Implementation:** React source integrated, no Java/REST/controller modification. **Acceptance:** Vite/browser and live reviewer mutation still pending.
+
+- [x] `Generation ZIP > نمودارها`: enumerate actual `.mmd`/`.dot` files in `diagram/mermaid` and `diagram/graphviz`; browser-only lazy Mermaid and Viz.js Graphviz WASM rendering, zoom, SVG download, source and original graph download; bounded input/outputs and safe SVG image context.
+- [x] `Diagram > Mermaid REST`: show a rendered result from the existing `.mmd` response without calling another endpoint. No Graphviz generation route was added or invented.
+- [x] `Generation ZIP > Glossary`: term evidence → direct in-memory handoff to `Glossary > Review Queue`; exact public-term lookup, explicit existing admin-key `/review/import-report` if needed, and existing individually audited `/review/decision` for actual `CANDIDATE` rows.
+- [x] CSV import explicitly warns that **all NEW occurrences in the selected ZIP report** may create candidates; **not only** the clicked word. Re-import is governed by backend SHA and row ordinal idempotency. No silent import, no auto-approval, no backend change.
+- [x] Four focused ZIP/diagram/handoff tests added; older tests retained. Tests and build in authoring environment blocked by npm registry DNS (`EAI_AGAIN`) and MUST NOT be treated as a PASS.
+- [ ] Windows `npm install`, `npm run test`, `npm run typecheck`, `npm run build`, Chrome Mermaid/Graphviz rendering, SVG zoom/download verification and fallback on malformed/large diagram.
+- [ ] Glossary Queue integration on isolated H2: `DRY_RUN` term not presumed persisted; explicit import, retry-idempotence, subsequent individual reasoned decision and event history checks.
+- [ ] Production authorization, identity and CSP review (UI-C7) remain open. Client admin header is for local acceptance, not production RBAC.
+
+**Evidence:** Uploaded `schemaforge-ea-20261022-211119-890.zip` includes two Mermaid `.mmd` and two Graphviz `.dot` diagrams plus `reports/glossary/summary.json` and `reports/glossary/unknown-terms.csv`; uploaded operator screenshot displays ZIP Glossary 55 new / 39 eligible / 16 manual, `DRY_RUN`, 0 inserted. Browser-level new visualization and queue handoff are not yet verified.
+
+- Diagram screen also supports local `.mmd`, `.dot` and `.gv` file preview without any upload/REST call.
+
+### 2026-10-22 operator evidence — C6a visual
+
+The operator's Chrome capture for `schemaforge-ea-20261022-211119-890.zip` visibly confirms generation response `SUCCESS`, 37 generated, 0 blocked, 78 skipped and 79 validation warnings; the Glossary tab shows 55 new terms, 39 eligible, 16 manual review, mode `DRY_RUN` and 0 inserted. The uploaded ZIP contains four graph sources. This confirms ZIP report visualization, **not yet** client-side Graphviz/Mermaid rendering or live review-import acceptance. Preserve this distinction in UI-C6b.

@@ -103,3 +103,23 @@ npm run dev
 Windows acceptance on 2026-10-22 verified 11 Node REST tests, TypeScript typecheck, npm install and production Vite build. Later local work added 4 ZIP inspection tests (total **15**), and validated a real EA ZIP; **the updated V0.3 UI still needs a Windows typecheck/build and live browser acceptance**. Run the commands above and record results in the UI roadmap.
 
 Perform all Create/Update/Delete/Bulk/Import/Steward action acceptance tests **only on disposable H2**. Test live Oracle/SQL Server CRUD and multi-DBMS conformance against explicitly approved nonproduction instances. Preserve Canonical/DDL regressions through Maven tests. UI work does not close Glossary P1–P5 acceptance gates.
+
+
+## 2026-10-22 — ZIP diagrams and Glossary review handoff (Console UI 0.4.0)
+
+- **No new REST route or Java change.** `Generation > Results > Diagrams` lists only `diagram/mermaid/**/*.mmd` and `diagram/graphviz/**/*.{dot,gv}` from the ZIP returned by existing Generation endpoints. Select an existing graph to render using lazy local Mermaid (`11.17.2`) or Viz.js / Graphviz WASM (`@viz-js/viz 3.31.0`). The direct Mermaid REST page also shows the rendered SVG after generating it.
+- Rendering requires no internet or remote diagram service after `npm install`; the source stays inside the browser. The SVG is displayed with `<img src=blob:...>` **instead of injecting untrusted SVG into DOM**. Mermaid uses `securityLevel: strict`, no active click binding and HTML labels disabled. Resource bounds: ZIP <=100 MiB, graph source <=256 KiB, SVG <=12 MiB. Graphs that are too large can still be retrieved from the ZIP.
+- Each diagram has **zoom, SVG download, source text and original DOT/MMD download**. `Graphviz` diagrams must be DOT; they are rendered with the dot layout engine. Rendering is visual only: no validation or SQL generation occurs in React.
+- From `Generation > Results > Glossary`, select a word and choose **پیگیری در صف Glossary**. A transient in-memory handoff holds the original `reports/glossary/unknown-terms.csv` (max 5 MiB) if present. In `Glossary > Review Queue` the existing public terms search looks for the exact atomic token; if `CANDIDATE` exists, standard reasoned review can proceed through **existing** `/review/decision` and admin key.
+- For `DRY_RUN`, no newly discovered candidate is necessarily persisted. The user **may explicitly confirm** importing the **entire** `unknown-terms.csv` with existing `/review/import-report` (admin-key protected); it processes **all rows with review_status=NEW**, not only the clicked term. No auto-approval, no implicit DB write and no secret/file storage in localStorage, hash or URL. Restrict this acceptance step to an isolated test H2, never the production H2.
+- `npm run test`, `npm run typecheck`, `npm run build` are mandatory on operator Windows following `npm install`. The frontend renderer dependencies could not be installed in the authoring environment because `registry.npmjs.org` was unreachable (`EAI_AGAIN`); full Vite build and live rendering are therefore **unverified** until those operator tests and Chrome walkthrough.
+
+### Acceptance checklist
+
+1. Apply the DELTA, run `cd ui`, `npm install`, `npm run test`, `npm run typecheck`, `npm run build`, `npm run dev`.
+2. Generate the same `Collateral_EXPORT.xml` EA request and select both Mermaid `.mmd` and Graphviz `.dot` under **نمودارها**; verify the visible graph, zoom, and SVG/source downloads against the ZIP.
+3. Run the standalone Diagram REST page with Canonical JSON and verify Mermaid renders without a second network request.
+4. From Glossary terms in the ZIP, select a token, inspect table/column evidence and click **پیگیری در صف Glossary**. Check H2 status with the queue/terms endpoint. If the term is absent, confirm that **no candidate was created automatically**.
+5. Navigate from Generation to Glossary Queue and back: the last downloaded generation ZIP and its report preview remain available in volatile App memory without regeneration (until page reload). **Only on isolated disposable H2:** set server admin key and explicitly import the CSV using the contextual action; verify server result counts, re-import idempotency, queue population and an individual reasoned decision via the existing controller. `DRY_RUN` is a scanner mode, **not** a read-only prohibition on an explicit admin API call.
+
+- Diagram screen also supports local `.mmd`, `.dot` and `.gv` file preview without any upload/REST call.

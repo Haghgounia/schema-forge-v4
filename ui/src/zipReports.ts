@@ -6,6 +6,8 @@ import type JSZip from 'jszip';
 export const MAX_ARCHIVE_BYTES = 100 * 1024 * 1024;
 const MAX_SUMMARY_BYTES = 2 * 1024 * 1024;
 export const MAX_REPORT_BYTES = 2 * 1024 * 1024;
+export const MAX_DIAGRAM_BYTES = 256 * 1024; // bounded client-side rendering of DOT/MMD
+export const MAX_REVIEW_CSV_BYTES = 5 * 1024 * 1024; // matches GlossaryReportCsvParser
 
 export type ArtifactOutcome = {
   type?: string; platform?: string | null; logicalName?: string;
@@ -33,11 +35,13 @@ export type GlossarySummary = {
   newTerms?: string[]; pendingTerms?: string[]; pluralColumnTerms?: string[];
   candidateRegistration?: CandidateRegistration;
 };
+export type DiagramFile = { path: string; filename: string; engine: 'mermaid' | 'graphviz' };
 export type ReportFile = { path: string; filename: string; kind: 'json' | 'csv' | 'text' | 'download-only' };
 export type ZipInspection = {
   manifest: GenerationManifest | null;
   glossary: GlossarySummary | null;
   reports: ReportFile[];
+  diagrams: DiagramFile[];
   warnings: string[];
   archive: JSZip;
 };
@@ -128,8 +132,19 @@ export async function inspectGenerationZip(blob: Blob): Promise<ZipInspection> {
       kind: kindOf(entry.name),
     }))
     .sort((a, b) => a.path.localeCompare(b.path, 'en'));
+  const diagrams: DiagramFile[] = Object.values(archive.files)
+    .filter(entry => !entry.dir && /^diagram\/(mermaid|graphviz)\/.+/i.test(entry.name))
+    .flatMap(entry => {
+      const path = entry.name;
+      const engine: DiagramFile['engine'] | null = /^diagram\/mermaid\//i.test(path) && /\.mmd$/i.test(path)
+        ? 'mermaid' : /^diagram\/graphviz\//i.test(path) && /\.(dot|gv)$/i.test(path)
+          ? 'graphviz' : null;
+      return engine ? [{ path,
+        filename: (path.split('/').pop() || 'diagram').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').slice(0, 140), engine }] : [];
+    })
+    .sort((a, b) => a.path.localeCompare(b.path, 'en'));
   if (!glossary) warnings.push('گزارش خلاصه Glossary در این بسته موجود نیست یا قابل خواندن نیست.');
-  return { manifest, glossary, reports, warnings, archive };
+  return { manifest, glossary, reports, diagrams, warnings, archive };
 }
 
 /** Parses standard RFC 4180-style CSV fields (including escaped quotes and embedded newlines). */
@@ -198,4 +213,34 @@ export async function readTermEvidence(inspection: ZipInspection, term: string):
     table: get(row, 'table_name'), column: get(row, 'column_name'),
     identifier: get(row, 'identifier'), status: get(row, 'review_status'),
   })) };
+}
+
+/** The original diagram source is read from the existing ZIP, never from a URL. */
+export async function readDiagramSource(inspection: ZipInspection, diagram: DiagramFile): Promise<string> {
+  if (!inspection.diagrams.some(item => item.path === diagram.path && item.engine === diagram.engine)) {
+    throw new Error('نمودار انتخابی در فهرست ZIP معتبر نیست.');
+  }
+  const entry = inspection.archive.file(diagram.path);
+  if (!entry) throw new Error('فایل نمودار در ZIP موجود نیست.');
+  return readEntryText(entry, MAX_DIAGRAM_BYTES);
+}
+
+/** Preserve the exact CSV bytes and report digest used by the Java import endpoint. */
+export async function reviewCsvFromZip(inspection: ZipInspection): Promise<File | null> {
+  const entry = inspection.archive.file('reports/glossary/unknown-terms.csv');
+  if (!entry) return null;
+  const bytes = await readEntryBytes(entry, MAX_REVIEW_CSV_BYTES);
+  if (bytes.byteLength === 0) throw new Error('گزارش Glossary خالی است.');
+  return new File([new Uint8Array(bytes)], 'unknown-terms.csv', { type: 'text/csv' });
+}
+
+/** Original diagram download is independent of the stricter preview/render limit. */
+export async function extractDiagramDownload(inspection: ZipInspection, diagram: DiagramFile): Promise<Blob> {
+  if (!inspection.diagrams.some(item => item.path === diagram.path && item.engine === diagram.engine)) {
+    throw new Error('نمودار انتخابی در فهرست ZIP معتبر نیست.');
+  }
+  const entry = inspection.archive.file(diagram.path);
+  if (!entry) throw new Error('فایل نمودار در ZIP موجود نیست.');
+  const bytes = await readEntryBytes(entry, 10 * 1024 * 1024);
+  return new Blob([new Uint8Array(bytes)], {type: 'text/plain;charset=utf-8'});
 }

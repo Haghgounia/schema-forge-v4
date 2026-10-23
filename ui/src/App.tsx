@@ -8,6 +8,8 @@ import QueueView from './views/QueueView';
 import TermsView from './views/TermsView';
 import HistoryView from './views/HistoryView';
 import GlossaryAdminView from './views/GlossaryAdminView';
+import type { ReviewHandoff } from './reviewHandoff';
+import type { Download } from './transport';
 
 type GlossarySection = 'terms' | 'queue' | 'history' | 'manage';
 const topNav: {id: ProjectSection; title: string}[] = [
@@ -31,6 +33,8 @@ export default function App() {
   const [editorKey, setEditorKey] = useState('');
   const [editId, setEditId] = useState<number|null>(null);
   const [termsVersion, setTermsVersion] = useState(0);
+  const [reviewHandoff, setReviewHandoff] = useState<ReviewHandoff | null>(null);
+  const [lastGenerationZip, setLastGenerationZip] = useState<Download | null>(null);
   useEffect(() => {
     function updateRoute() { setRoute(readRoute()); }
     window.addEventListener('hashchange', updateRoute);
@@ -40,6 +44,9 @@ export default function App() {
     const hash = `#/${section}${section === 'glossary' ? `/${tab}` : ''}`;
     if (window.location.hash === hash) { setRoute({section, tab}); return; }
     window.location.hash = hash;
+  }
+  function goReview(handoff: ReviewHandoff) {
+    setReviewHandoff(handoff); navigate('glossary', 'queue');
   }
   function editTerm(id: number) { setEditId(id); navigate('glossary', 'manage'); }
   const active = route.section;
@@ -60,7 +67,7 @@ export default function App() {
     </nav></div>
     <main className="container app-main">
       {active === 'overview' && <OverviewView navigate={navigate}/>}
-      {active === 'generation' && <GenerationView/>}
+      {active === 'generation' && <GenerationView onReviewTerm={goReview} savedDownload={lastGenerationZip} onDownloadChange={setLastGenerationZip}/>}
       {active === 'conformance' && <ConformanceView/>}
       {active === 'crud' && <CrudView/>}
       {active === 'diagram' && <DiagramView/>}
@@ -89,7 +96,7 @@ export default function App() {
         </section>
         <div className="workspace" key={route.tab}>
           {route.tab === 'terms' && <TermsView key={termsVersion} onEditTerm={editTerm}/>}
-          {route.tab === 'queue' && <QueueView adminKey={adminKey}/>}
+          {route.tab === 'queue' && <QueueView adminKey={adminKey} handoff={reviewHandoff} clearHandoff={() => setReviewHandoff(null)}/>}
           {route.tab === 'history' && <HistoryView adminKey={adminKey}/>}
           {route.tab === 'manage' && <GlossaryAdminView adminKey={adminKey} editId={editId}
             onSaved={() => setTermsVersion(version => version + 1)}/>}
