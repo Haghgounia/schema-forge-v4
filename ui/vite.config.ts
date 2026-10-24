@@ -24,5 +24,9 @@ export default defineConfig({
     },
   },
   preview: { host: '127.0.0.1' },
-  build: { outDir: 'dist', sourcemap: false },
+  // Validate the eager import graph independently; large rendering-engine chunks are
+  // allowed only when dynamically loaded by the diagram viewer. Raising Vite's
+  // advisory threshold alone is not sufficient; scripts/check-lazy-build.mjs
+  // enforces a strict initial-load budget and excludes Graphviz/Mermaid from it.
+  build: { outDir: 'dist', sourcemap: false, manifest: true, chunkSizeWarningLimit: 1400 },
 });

@@ -20,7 +20,7 @@ This is the canonical checklist to update as gates close; targeted 32/32 Windows
 Glossary tests passed but native full-corpus DRY_RUN, full Maven regression,
 and browser UI acceptance are still pending.
 
-The optional [`ui/`](ui/README.md) is a small **project-wide** React + TypeScript + Vite Console for existing REST services (Generation, Conformance, CRUD, Diagram, and all Glossary operations). ZIP generation results are previewed read-only in the browser. The Maven backend does not need Node. React V0.4.3 also provides local Mermaid/Graphviz 1- and 2-hop **Focus Mode**, documented in `ui/README.md` and UI-C6e of the Console roadmap.
+The optional [`ui/`](ui/README.md) is a small **project-wide** React + TypeScript + Vite Console for existing REST services (Generation, Conformance, CRUD, Diagram, and all Glossary operations). ZIP generation results are previewed read-only in the browser. The Maven backend does not need Node. Console V0.5.7 splits functional views and diagram panels into on-demand chunks and enforces a production first-load Gzip budget; details in `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V057-LAZY-LOADING.md`. React V0.4.3 also provides local Mermaid/Graphviz 1- and 2-hop **Focus Mode**, documented in `ui/README.md` and UI-C6e of the Console roadmap.
 Run it from `ui/` with `npm install` then `npm run dev` on Node >=22.12;
 see its README for **isolated H2 / admin-key safety** and production deployment gates.
 

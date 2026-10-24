@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { readDiagramSource, extractDiagramDownload, type DiagramFile, type ZipInspection } from '../zipReports';
 import { saveDownload } from '../transport';
-import RenderedDiagram from './RenderedDiagram';
+const RenderedDiagram = lazy(() => import('./RenderedDiagram'));
 
 export default function GenerationDiagrams({inspection}: {inspection: ZipInspection}) {
   const [filePath, setFilePath] = useState(inspection.diagrams[0]?.path ?? '');
@@ -38,8 +38,8 @@ export default function GenerationDiagrams({inspection}: {inspection: ZipInspect
       </div>
       {loading && <p role="status" className="loading">در حال خواندن فایل نمودار از ZIP…</p>}
       {error && <p className="message error" role="alert">{error}</p>}
-      {source && selected && <RenderedDiagram key={filePath} source={source}
-        engine={selected.engine} filename={selected.filename}/>}
+      {source && selected && <Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری موتور نمایش نمودار…</p>}><RenderedDiagram key={filePath} source={source}
+        engine={selected.engine} filename={selected.filename}/></Suspense>}
     </>}
   </div>;
 }

@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { coreApi, type DiagramInput } from '../coreApi';
 import { saveDownload } from '../transport';
-import RenderedDiagram from '../components/RenderedDiagram';
 import { MAX_DIAGRAM_BYTES } from '../zipReports';
 import type { DiagramEngine } from '../diagramRender';
+
+const RenderedDiagram = lazy(() => import('../components/RenderedDiagram'));
+
 export default function DiagramView() {
   const [file, setFile] = useState<File|null>(null);
   const [type, setType] = useState<DiagramInput['type']>('er');
@@ -97,11 +99,11 @@ export default function DiagramView() {
         <input type="file" accept=".mmd,.dot,.gv" onChange={event => void openLocalDiagram(event.target.files?.[0] ?? null)}/>
       </label>
       {localError && <p role="alert" className="message error">{localError}</p>}
-      {local && <RenderedDiagram key={local.filename} source={local.source} engine={local.engine} filename={local.filename}/>}
+      {local && <Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری نمایشگر نمودار…</p>}><RenderedDiagram key={local.filename} source={local.source} engine={local.engine} filename={local.filename}/></Suspense>}
     </section>
     {outputName && <div className="panel content-panel result-block">
       <p className="message success">خروجی {outputName} تولید شد.</p>
-      {preview ? <RenderedDiagram source={preview} engine="mermaid" filename={outputName}/> :
+      {preview ? <Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری نمایشگر نمودار…</p>}><RenderedDiagram source={preview} engine="mermaid" filename={outputName}/></Suspense> :
         <p className="message neutral">حجم فایل نمودار از سقف پیش‌نمایش بیشتر است؛ فایل دانلودشده معتبر است.</p>}
     </div>}
   </section>;

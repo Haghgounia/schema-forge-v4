@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { ReviewHandoff } from '../reviewHandoff';
 import { prepareReviewHandoff } from '../reviewHandoff';
-import GenerationDiagrams from './GenerationDiagrams';
 import type { Download } from '../transport';
 import { saveDownload } from '../transport';
 import {
   extractReportDownload, readReportPreview, readTermEvidence,
   type ReportFile, type ReportPreview, type TermEvidence, type ZipInspection,
 } from '../zipReports';
+
+const GenerationDiagrams = lazy(() => import('./GenerationDiagrams'));
+
 
 type Tab = 'glossary' | 'status' | 'files' | 'diagrams';
 type TermGroup = 'new' | 'eligible' | 'manual' | 'typos' | 'pending' | 'plural';
@@ -194,7 +196,7 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
         </>}
       </>}
     </div>}
-    {tab === 'diagrams' && <div className="result-tab-body" role="tabpanel"><GenerationDiagrams inspection={inspection}/></div>}
+    {tab === 'diagrams' && <div className="result-tab-body" role="tabpanel"><Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری نمایشگر نمودارها…</p>}><GenerationDiagrams inspection={inspection}/></Suspense></div>}
     {tab === 'files' && <div className="result-tab-body" role="tabpanel">
       <div className="lookup-row result-filters">
         <label className="field grow">گزارش داخل ZIP

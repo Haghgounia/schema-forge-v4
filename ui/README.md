@@ -274,3 +274,13 @@ Windows: run `scripts\accept-console-v056.cmd` from the project root to
 check focused Canonical/DDL/seven-DBMS and UI regression gates. Then reopen
 an existing Legacy Batch **output ZIP** in the Generation view and select ACC,
 ISIC, and TIMEX to validate occurrence counts (5, 2, 452) and term switching.
+
+## V0.5.7 — Lazy Routes, Reports and Diagram Libraries (UI-C11)
+
+The Home page remains eager. All functional pages and the four Glossary sub-views are `React.lazy` chunks. After generation, the ZIP reports pane is loaded separately; the diagram reports tab and shared SVG viewer are separate dynamic modules. The existing `mermaid` / `@viz-js/viz` dynamic imports remain browser-local and occur only when rendering a diagram. The backend never serves or renders external diagrams.
+
+`npm run build` now runs `tsc`, Vite and a **mandatory Vite-manifest import-graph audit**. The static first-load graph must contain none of Graphviz/Mermaid/JSZip heavy bundles and must total no more than 240 KiB gzip including CSS. Manifest is written to `dist/.vite/manifest.json` (a build diagnostic, not an API). The Vite advisory threshold is 1400 kB **only for the known lazy Graphviz chunk**; this is not a performance waiver for startup. Expected output includes `[PASS] Initial UI: ... gzip bytes`.
+
+Windows verification: `npm install`, `npm run test` (expected **65** Node tests), `npm run typecheck`, `npm run build`, `npm run dev`. In Chrome Network tab with cache disabled, load the Home page and inspect network transfers; visit Connections and Glossary, then open Generation with no ZIP. Heavy engines must not load. Finally inspect ZIP diagrams and verify Mermaid/Graphviz, Focus Mode and SVG download. See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V057-LAZY-LOADING.md`.
+
+**Scope:** React/Vite only; no Java, REST, H2, Canonical/DDL, JDBC or Glossary policy changes.

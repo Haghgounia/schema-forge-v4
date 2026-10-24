@@ -1,11 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { coreApi, type AuditFields, type GenerationSource, type TimestampSemantics } from '../coreApi';
 import Platforms from '../components/Platforms';
 import { saveDownload, type Download } from '../transport';
 import { inspectGenerationZip, MAX_ARCHIVE_BYTES, type ZipInspection } from '../zipReports';
-import GenerationZipReports from '../components/GenerationZipReports';
 import type { ReviewHandoff } from '../reviewHandoff';
 import { generationUploadError } from '../uploadLimits';
+
+const GenerationZipReports = lazy(() => import('../components/GenerationZipReports'));
+
 
 const sources: { value: GenerationSource; name: string; accept: string; note: string }[] = [
   { value: 'word', name: 'Standard Word', accept: '.doc,.docx', note: 'یک سند استاندارد Word' },
@@ -144,7 +146,7 @@ export default function GenerationView({onReviewTerm, savedDownload, onDownloadC
     </section>
     {inspectionBusy && <p role="status" className="message neutral">در حال خواندن Manifest و گزارش‌های داخل ZIP در مرورگر…</p>}
     {inspectionError && <p role="alert" className="message neutral">ZIP دانلود شده است، اما گزارش در مرورگر باز نشد: {inspectionError} <button type="button" className="btn secondary" onClick={() => download && saveDownload(download)}>دریافت دوباره ZIP</button></p>}
-    {inspection && download && <GenerationZipReports inspection={inspection} download={download} onReviewTerm={onReviewTerm}/>}
+    {inspection && download && <Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری گزارش‌های ZIP…</p>}><GenerationZipReports inspection={inspection} download={download} onReviewTerm={onReviewTerm}/></Suspense>}
 
   </section>;
 }

@@ -1,3 +1,11 @@
+## 2026-10-24 — SchemaForge Console V0.5.7: lazy page and diagram bundles
+
+- Split nine functional routes and four Glossary subviews with React.lazy/Suspense; preserve eager Home and existing interaction/REST contracts.
+- Split post-generation ZIP reports, diagram report tab and shared RenderedDiagram into on-demand code chunks. Existing Graphviz/Mermaid engines remain dynamic, browser-local modules.
+- Vite manifest and strict post-build audit fail if heavy engines are in initial static imports, routes unexpectedly become eager, or eager payload exceeds 240 KiB gzip. Recognize known lazy Graphviz chunk by setting Vite advisory threshold to 1400 kB; no artificial claim of reducing its actual bytes.
+- Add five self-contained manifest/lazy regression tests, a V0.5.7 Windows acceptance wrapper, and a permanent Console roadmap index. No Java, REST, Canonical, DDL, seven DBMSs, H2 or Glossary changes.
+- Real npm install/build and Chrome Network verification are pending operator Windows acceptance due to unavailable npm registry in the authoring environment.
+
 ## 2026-10-24 — Console V0.5.6: streamed large-Batch Glossary evidence (UI-C10i)
 
 - Replace the 2 MiB whole-file `unknown-terms.csv` evidence lookup with bounded, streaming UTF-8 RFC-4180 row filtering (128 MiB uncompressed safety ceiling). Exact occurrence count, maximum 25 visible rows, cancellation when changing terms, explicit failure on malformed/incomplete CSV.

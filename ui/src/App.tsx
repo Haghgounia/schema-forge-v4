@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react';
-import ConnectionsView from './views/ConnectionsView';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import OverviewView, {type ProjectSection} from './views/OverviewView';
-import GenerationView from './views/GenerationView';
-import ConformanceView from './views/ConformanceView';
-import CrudView from './views/CrudView';
-import DiagramView from './views/DiagramView';
-import QueueView from './views/QueueView';
-import TermsView from './views/TermsView';
-import HistoryView from './views/HistoryView';
-import GlossaryAdminView from './views/GlossaryAdminView';
 import type { ReviewHandoff } from './reviewHandoff';
 import type { Download } from './transport';
 import {setActiveMetadataConnection} from './transport';
 import type {ActiveMetadataConnection} from './connectionApi';
+
+const ConnectionsView = lazy(() => import('./views/ConnectionsView'));
+const GenerationView = lazy(() => import('./views/GenerationView'));
+const ConformanceView = lazy(() => import('./views/ConformanceView'));
+const CrudView = lazy(() => import('./views/CrudView'));
+const DiagramView = lazy(() => import('./views/DiagramView'));
+const QueueView = lazy(() => import('./views/QueueView'));
+const TermsView = lazy(() => import('./views/TermsView'));
+const HistoryView = lazy(() => import('./views/HistoryView'));
+const GlossaryAdminView = lazy(() => import('./views/GlossaryAdminView'));
+
 
 type GlossarySection = 'terms' | 'queue' | 'history' | 'manage';
 const topNav: {id: ProjectSection; title: string}[] = [
@@ -78,6 +80,7 @@ export default function App() {
         Active metadata: {activeConnection.platform.toUpperCase()} / {activeConnection.verifiedSchema}.
         <button type="button" className="btn secondary" onClick={() => navigate('connections')}>Manage connection</button>
       </div>}
+      <Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری بخش انتخاب‌شده…</p>}>
       {active === 'overview' && <OverviewView navigate={navigate}/>}
       {active === 'generation' && <GenerationView activeMetadataPlatform={activeConnection?.platform} onReviewTerm={goReview} savedDownload={lastGenerationZip} onDownloadChange={setLastGenerationZip}/>}
       {active === 'conformance' && <ConformanceView activeMetadataPlatform={activeConnection?.platform}/>}
@@ -115,6 +118,7 @@ export default function App() {
             onSaved={() => setTermsVersion(version => version + 1)}/>}
         </div>
       </>}
+      </Suspense>
       <footer className="footer"><span>SchemaForge · رابط کاربری عملیات REST</span>
         <span>اعتبارسنجی، دسترسی و ثبت نهایی در Backend انجام می‌شود.</span></footer>
     </main>
