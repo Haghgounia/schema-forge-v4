@@ -14,13 +14,14 @@ springdoc:
 schemaforge:
   # Glossary is enabled by default for REST, ZIP generation and governance UI.
   # Set SCHEMAFORGE_GLOSSARY_ENABLED=false to opt out explicitly.
-  # Startup can seed missing baseline CANDIDATE terms in the local H2 file;
+  # Startup seeds and one-time approves the 804 authoritative Atomic worksheet terms in the local H2 file;
   # DRY_RUN prevents automatic registration of newly discovered terms.
   glossary:
     enabled: ${SCHEMAFORGE_GLOSSARY_ENABLED:true}
     database-path: ${SCHEMAFORGE_GLOSSARY_DATABASE_PATH:./data/schemaforge-glossary}
     # When glossary is enabled, create H2 on disk and import the embedded
-    # 01_Atomic_Terms worksheet as CANDIDATE; safe to repeat on every startup.
+    # 01_Atomic_Terms worksheet as APPROVED. Existing baseline statuses upgrade once;
+    # later decisions remain intact and soft-deleted/manual entries are preserved.
     seed-on-startup: ${SCHEMAFORGE_GLOSSARY_SEED_ON_STARTUP:true}
     admin-key: ${SCHEMAFORGE_GLOSSARY_ADMIN_KEY:}
     # V4.14.5-P1/P2: zero H2 candidate writes unless explicitly AUTO_CANDIDATE.

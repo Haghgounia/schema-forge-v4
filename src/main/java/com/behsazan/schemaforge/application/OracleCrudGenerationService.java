@@ -61,7 +61,15 @@ public class OracleCrudGenerationService {
     public OracleCrudGenerationResult generate(String schemaName, String tableName) {
         String schema = normalizeRequired(schemaName, "schema");
         String table = normalizeRequired(tableName, "table");
-        MetadataRepository repository = repositoryResolver.resolve(DatabasePlatform.ORACLE);
+        return generateFromRepository(schema, table, repositoryResolver.resolve(DatabasePlatform.ORACLE));
+    }
+
+    /** Token-selected metadata repository; never falls back to configured DBMS. */
+    public OracleCrudGenerationResult generateFromRepository(String schemaName, String tableName,
+                                                              MetadataRepository repository) {
+        String schema = normalizeRequired(schemaName, "schema");
+        String table = normalizeRequired(tableName, "table");
+        java.util.Objects.requireNonNull(repository, "selected repository");
         if (!repository.available()) {
             throw new ServiceUnavailableException(
                     "Oracle metadata repository is not enabled; configure schemaforge.metadata.oracle");

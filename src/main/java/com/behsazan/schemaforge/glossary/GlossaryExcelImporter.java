@@ -82,6 +82,48 @@ public final class GlossaryExcelImporter {
         return new ImportResult(rows, canonical.size(), inserted, canonical.size() - inserted, status);
     }
 
+    /** Startup-only authoritative import plus one-time migration of existing H2 rows. */
+    public ApprovedBaselineResult importApprovedBaseline(InputStream input) throws IOException, SQLException {
+        ParsedAtomicSheet sheet = parseAtomic(input);
+        if (sheet.rows() != 946 || sheet.terms().size() != 804) {
+            throw new IllegalStateException("Unexpected authoritative Atomic Terms baseline: "
+                    + sheet.rows() + " rows and " + sheet.terms().size() + " entries");
+        }
+        int inserted = repository.importNew(sheet.terms(), GlossaryTermStatus.APPROVED);
+        GlossaryRepository.BaselineApprovalResult migration = repository.approveAtomicBaselineOnce(sheet.terms());
+        return new ApprovedBaselineResult(sheet.rows(), sheet.terms().size(), inserted, migration);
+    }
+
+    private ParsedAtomicSheet parseAtomic(InputStream input) throws IOException {
+        if (input == null) throw new IllegalArgumentException("Workbook stream is required");
+        Map<String, ImportAccumulator> entries = new LinkedHashMap<>();
+        DataFormatter formatter = new DataFormatter(Locale.ROOT);
+        int rows = 0;
+        try (Workbook workbook = WorkbookFactory.create(input)) {
+            Sheet atomic = workbook.getSheet("01_Atomic_Terms");
+            if (atomic == null) throw new IllegalArgumentException("Required worksheet is missing: 01_Atomic_Terms");
+            requireHeaders(atomic, formatter, "واژه فارسی", "English Canonical");
+            for (int index = 1; index <= atomic.getLastRowNum(); index++) {
+                Row row = atomic.getRow(index);
+                if (row == null) continue;
+                String english = cell(row, 2, formatter);
+                String persian = cell(row, 1, formatter);
+                if (english.isBlank() && persian.isBlank()) continue;
+                if (english.isBlank()) throw new IllegalArgumentException("Missing English in Atomic Terms row " + (index + 1));
+                String key = GlossaryNormalizer.key(english);
+                GlossaryTermKind kind = key.contains("_") ? GlossaryTermKind.PHRASE : GlossaryTermKind.ATOMIC;
+                String identity = kind + ":" + key;
+                entries.computeIfAbsent(identity, ignored -> new ImportAccumulator(kind, key, english)).add(persian, "");
+                if (++rows > MAX_ROWS) throw new IllegalArgumentException("Atomic worksheet exceeds limit");
+            }
+        }
+        return new ParsedAtomicSheet(rows, entries.values().stream().map(ImportAccumulator::build).toList());
+    }
+
+    private record ParsedAtomicSheet(int rows, List<GlossaryImportTerm> terms) { }
+    public record ApprovedBaselineResult(int sourceRows, int uniqueEntries, int inserted,
+                                         GlossaryRepository.BaselineApprovalResult migration) { }
+
     private static void requireHeaders(Sheet sheet, DataFormatter formatter, String persian, String english) {
         Row first = sheet.getRow(0);
         if (first == null) throw new IllegalArgumentException("Missing headers in " + sheet.getSheetName());

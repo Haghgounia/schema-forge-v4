@@ -136,10 +136,13 @@ public final class OracleDialect implements Dialect {
     }
 
     private String renderLengthSemantics(String oracleName, LengthSemantics semantics) {
+        // National character datatypes have character semantics by definition.
+        // Oracle accepts NVARCHAR2(n) / NCHAR(n), never NVARCHAR2(n CHAR).
+        if (oracleName.equals("NVARCHAR2") || oracleName.equals("NCHAR")) {
+            return "";
+        }
         boolean characterType = oracleName.equals("VARCHAR2")
-                || oracleName.equals("NVARCHAR2")
-                || oracleName.equals("CHAR")
-                || oracleName.equals("NCHAR");
+                || oracleName.equals("CHAR");
         if (!characterType) {
             return "";
         }
@@ -152,6 +155,11 @@ public final class OracleDialect implements Dialect {
 
     private boolean usesDefaultCharacterSemantics(String oracleName) {
         return oracleName.equals("VARCHAR2") || oracleName.equals("CHAR");
+    }
+
+    @Override
+    public java.util.Optional<String> jsonValidityPredicate(String columnReference) {
+        return java.util.Optional.of(columnReference + " IS JSON");
     }
 
     @Override
@@ -303,6 +311,13 @@ public final class OracleDialect implements Dialect {
 
     private boolean isOff(String value) {
         return Set.of("OFF", "FALSE", "NO", "0").contains(value);
+    }
+
+    @Override
+    public String integratedDeploymentGuard() {
+        String nl = System.lineSeparator();
+        return "WHENEVER OSERROR EXIT FAILURE ROLLBACK" + nl
+                + "WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK";
     }
 
     @Override

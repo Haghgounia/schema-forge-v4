@@ -240,6 +240,11 @@ public final class MariaDbDialect implements Dialect {
     }
 
     @Override
+    public java.util.Optional<String> jsonValidityPredicate(String columnReference) {
+        return java.util.Optional.of("JSON_VALID(" + columnReference + ") = 1");
+    }
+
+    @Override
     public String sequenceCacheClause(Integer cacheSize) {
         return cacheSize == null || cacheSize == 0 ? " NOCACHE" : " CACHE " + cacheSize;
     }

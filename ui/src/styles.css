@@ -329,3 +329,20 @@ tbody tr:hover { background: #f8fbff; }
 .connection-yaml { direction: ltr; text-align: left; overflow-x: auto; background: #102336; color: #e4edf6; padding: 16px; border-radius: 9px; font-size: 11px; line-height: 1.6; }
 @media (max-width: 850px) { .connection-layout { grid-template-columns: minmax(0,1fr); } .connection-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 480px) { .connection-list { grid-template-columns: 1fr; } .connection-editor { padding: 14px; } }
+
+/* V0.5.8: traceable, explicit read-only database auditing. */
+.audit-context-panel h3, .conformance-page h3 { font-size: 15px; }
+.audit-target-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 9px; margin: 14px 0; }
+.audit-target-grid > div { min-width: 0; border: 1px solid #e1e8f0; border-radius: 9px; padding: 11px; background: #f9fbfe; display: grid; gap: 5px; }
+.audit-target-grid small { font-size: 11px; color: #667b92; }
+.audit-target-grid strong { font-size: 12px; overflow-wrap: anywhere; }
+.audit-long-value { word-break: break-all; }
+.audit-rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 10px; }
+.audit-rule { border: 1px solid #dce6f0; border-radius: 8px; padding: 11px; display: grid; gap: 5px; font-size: 12px; }
+.audit-rule strong { color: #235d89; }
+.audit-rule small { color: #627789; font-size: 10px; line-height: 1.6; }
+.audit-confirmation { border-top: 1px solid #e1e9f0; padding-top: 14px; display: grid; gap: 10px; }
+.audit-final-target { overflow-wrap: anywhere; font-size: 11px; color: #365e79; padding: 9px; background: #f5f8fb; border-radius: 6px; }
+.audit-family-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 9px; margin: 15px 0; }
+.audit-family-summary > div { border: 1px solid #dfe8f0; border-radius: 8px; padding: 9px; display: grid; gap: 4px; font-size: 11px; }
+.audit-family-summary strong { color: #255676; }

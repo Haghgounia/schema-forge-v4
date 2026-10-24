@@ -35,6 +35,15 @@ public final class RuntimeMetadataConnectionRegistry {
     public synchronized Selection register(DatabasePlatform platform, String url, String username,
                                            String password, String schema, String defaultSchema,
                                            List<String> availableSchemas, boolean schemaListTruncated) {
+        return register(platform, url, username, password, schema, defaultSchema,
+                availableSchemas, schemaListTruncated, "", "", "");
+    }
+
+    /** Carries a safe, immutable display identity alongside the transient repository. */
+    public synchronized Selection register(DatabasePlatform platform, String url, String username,
+                                           String password, String schema, String defaultSchema,
+                                           List<String> availableSchemas, boolean schemaListTruncated,
+                                           String databaseName, String product, String productVersion) {
         prune();
         if (profiles.size() >= MAX_PROFILES) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
@@ -48,10 +57,17 @@ public final class RuntimeMetadataConnectionRegistry {
         List<String> suggestions = availableSchemas == null ? List.of() : List.copyOf(availableSchemas);
         String preferred = defaultSchema == null ? "" : defaultSchema;
         String verified = schema == null ? "" : schema;
+        String target = safeJdbcTarget(url);
+        String database = safe(databaseName);
+        if (database.isBlank() && platform == DatabasePlatform.SQLSERVER) {
+            database = sqlServerDatabaseName(url);
+        }
         profiles.put(token, new Profile(platform, repository, verified, expiresAt,
-                preferred, suggestions, schemaListTruncated));
+                preferred, suggestions, schemaListTruncated, target, database, safe(username),
+                safe(product), safe(productVersion)));
         return new Selection(token, platform.commandLineName(), verified, expiresAt.toString(),
-                preferred, suggestions, schemaListTruncated);
+                preferred, suggestions, schemaListTruncated, target, database,
+                safe(username), safe(product), safe(productVersion));
     }
 
     public MetadataRepository resolve(String token, DatabasePlatform requestedPlatform) {
@@ -68,7 +84,8 @@ public final class RuntimeMetadataConnectionRegistry {
         Profile profile = requireProfile(token);
         return new Selection("", profile.platform.commandLineName(), profile.schema,
                 profile.expiresAt.toString(), profile.defaultSchema, profile.availableSchemas,
-                profile.schemaListTruncated);
+                profile.schemaListTruncated, profile.jdbcTarget, profile.databaseName,
+                profile.username, profile.product, profile.productVersion);
     }
 
     public void disconnect(String token) {
@@ -109,16 +126,57 @@ public final class RuntimeMetadataConnectionRegistry {
         };
     }
 
+    /** No JDBC password or arbitrary JDBC properties are returned to the browser. */
+    private static String safeJdbcTarget(String url) {
+        if (url == null || url.isBlank()) return "";
+        String target = url.trim();
+        int query = target.indexOf('?');
+        if (query >= 0) target = target.substring(0, query);
+        int properties = target.indexOf(';');
+        if (properties >= 0) target = target.substring(0, properties);
+        // Do not accidentally disclose URL-embedded credentials in a display field.
+        if (target.matches("(?is).*://[^/;?]+:[^/;?]+@.*")
+                || target.matches("(?is)jdbc:oracle:thin:[^@]+/[^@]+@.*")
+                || target.matches("(?is).*(?:password|pwd|secret|token)\\s*=.*")) {
+            return "[REDACTED: sensitive JDBC target]";
+        }
+        return target.length() <= 220 ? target : target.substring(0, 220) + "...";
+    }
+
+
+    /** SQL Server often supplies its database in ;databaseName= rather than the URL path. */
+    private static String sqlServerDatabaseName(String url) {
+        if (url == null) return "";
+        var match = java.util.regex.Pattern.compile("(?i)(?:^|;)databaseName\\s*=\\s*([^;?]+)").matcher(url);
+        if (!match.find()) return "";
+        String name = match.group(1).trim();
+        return name.length() <= 128 && name.chars().noneMatch(c -> c < 32 || c == 127) ? name : "";
+    }
+
+    private static String safe(String value) { return value == null ? "" : value.trim(); }
+
     public record Selection(String token, String platform, String verifiedSchema, String expiresAt,
-                            String defaultSchema, List<String> availableSchemas, boolean schemaListTruncated) {
+                            String defaultSchema, List<String> availableSchemas, boolean schemaListTruncated,
+                            String jdbcTarget, String databaseName, String username,
+                            String databaseProduct, String databaseVersion) {
         public Selection {
             availableSchemas = availableSchemas == null ? List.of() : List.copyOf(availableSchemas);
+            defaultSchema = safe(defaultSchema);
+            verifiedSchema = safe(verifiedSchema);
+            jdbcTarget = safe(jdbcTarget);
+            databaseName = safe(databaseName);
+            username = safe(username);
+            databaseProduct = safe(databaseProduct);
+            databaseVersion = safe(databaseVersion);
         }
         public Selection(String token, String platform, String verifiedSchema, String expiresAt) {
-            this(token, platform, verifiedSchema, expiresAt, "", List.of(), false);
+            this(token, platform, verifiedSchema, expiresAt, "", List.of(), false,
+                    "", "", "", "", "");
         }
     }
     private record Profile(DatabasePlatform platform, MetadataRepository repository,
                            String schema, Instant expiresAt, String defaultSchema,
-                           List<String> availableSchemas, boolean schemaListTruncated) { }
+                           List<String> availableSchemas, boolean schemaListTruncated,
+                           String jdbcTarget, String databaseName, String username,
+                           String product, String productVersion) { }
 }

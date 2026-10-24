@@ -30,5 +30,6 @@ class GlossaryStartupWiringTest {
         assertEquals("ECOBANK_ATOMIC_XLSX", repository.getByKey(
                 GlossaryTermKind.ATOMIC, "ACCOUNT").orElseThrow().source());
         // The integration DB persists across test executions; pre-existing curated terms survive.
+        assertTrue(repository.approvedLexicon().atomic().size() >= 1);
     }
 }

@@ -3,6 +3,8 @@ package com.behsazan.schemaforge.reporting;
 import com.behsazan.schemaforge.application.DatabasePlatform;
 import com.behsazan.schemaforge.application.DialectFactory;
 import com.behsazan.schemaforge.dialect.Dialect;
+import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
+import com.behsazan.schemaforge.dialect.SequenceReferenceNormalizer;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.model.CheckConstraint;
 import com.behsazan.schemaforge.domain.model.Column;
@@ -1168,7 +1170,7 @@ public final class SchemaCompareExcelWriter {
      */
     private static boolean sequenceBackedIdentityEquivalent(
             Table documentTable, Column document, Column database, Dialect dialect) {
-        if (!document.identity() || database.identity() || !dialect.identityUsesNamedSequence()) {
+        if (!document.identity() || database.identity() || !dialect.identityUsesNamedSequence(document)) {
             return false;
         }
         if (document.defaultValue().isPresent()) {
@@ -1179,8 +1181,11 @@ public final class SchemaCompareExcelWriter {
             return false;
         }
         long identityCount = documentTable.columns().stream().filter(Column::identity).count();
-        QualifiedName expectedSequence = dialect.identitySequenceName(
+        QualifiedName logicalSequence = dialect.identitySequenceName(
                 documentTable.qualifiedName(), document, identityCount > 1);
+        QualifiedName expectedSequence = new QualifiedName(
+                logicalSequence.schemaName().orElse(null),
+                PhysicalObjectNamePolicy.physicalIdentifier(dialect, logicalSequence.name()));
         String expected = normalizeSequenceReference(expectedSequence + ".NEXTVAL");
         String expectedUnqualified = normalizeSequenceReference(
                 expectedSequence.name().value() + ".NEXTVAL");
@@ -1188,7 +1193,7 @@ public final class SchemaCompareExcelWriter {
     }
 
     private static String normalizeSequenceReference(String value) {
-        return normalizeDefault(value).replace("\"", "");
+        return SequenceReferenceNormalizer.normalize(value);
     }
 
     private static boolean containsIdentifier(String expression, String normalizedColumn) {

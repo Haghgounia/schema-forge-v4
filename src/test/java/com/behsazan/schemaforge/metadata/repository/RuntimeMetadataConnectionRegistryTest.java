@@ -37,6 +37,31 @@ class RuntimeMetadataConnectionRegistryTest {
         assertEquals("", registry.describe(selection.token()).token());
     }
 
+    @Test void auditTargetIsBoundToTokenAndRedactsJdbcPropertiesAndPassword() {
+        RuntimeMetadataConnectionRegistry registry = new RuntimeMetadataConnectionRegistry();
+        var activated = registry.register(DatabasePlatform.SQLSERVER,
+                "jdbc:sqlserver://example.invalid:1433;databaseName=finance;encrypt=true;trustServerCertificate=true",
+                "reader", "DO_NOT_RETURN_THIS_PASSWORD", "finance", "dbo", java.util.List.of("dbo"), false,
+                "finance", "SQL Server", "2022");
+        var described = registry.describe(activated.token());
+        assertEquals("", described.token());
+        assertEquals("jdbc:sqlserver://example.invalid:1433", described.jdbcTarget());
+        assertEquals("finance", described.databaseName());
+        assertEquals("reader", described.username());
+        assertEquals("SQL Server", described.databaseProduct());
+        assertFalse(described.toString().contains("DO_NOT_RETURN_THIS_PASSWORD"));
+        assertFalse(described.toString().contains("trustServerCertificate"));
+    }
+
+    @Test void sqlServerDatabaseNameIsAvailableWhenJdbcCatalogIsEmpty() {
+        RuntimeMetadataConnectionRegistry registry = new RuntimeMetadataConnectionRegistry();
+        var activated = registry.register(DatabasePlatform.SQLSERVER,
+                "jdbc:sqlserver://example.invalid:1433;databaseName=finance;encrypt=true",
+                "reader", "secret", "dbo");
+        assertEquals("finance", registry.describe(activated.token()).databaseName());
+        assertEquals("jdbc:sqlserver://example.invalid:1433", registry.describe(activated.token()).jdbcTarget());
+    }
+
     @Test void unrecognizedTokensFailClosed() {
         RuntimeMetadataConnectionRegistry registry = new RuntimeMetadataConnectionRegistry();
         assertThrows(ResponseStatusException.class,

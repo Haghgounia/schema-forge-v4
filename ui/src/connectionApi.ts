@@ -28,8 +28,10 @@ export type ConnectionProbeResult = {
   defaultSchema?: string;
   availableSchemas?: string[];
   schemaListTruncated?: boolean;
+  databaseName?: string;
 };
 export type ActiveMetadataConnection = {
+  origin?: 'configured' | 'custom'; // Browser-local label, never persisted to H2.
   token: string;
   platform: string;
   verifiedSchema: string;
@@ -37,6 +39,11 @@ export type ActiveMetadataConnection = {
   defaultSchema?: string;
   availableSchemas?: string[];
   schemaListTruncated?: boolean;
+  jdbcTarget?: string;
+  databaseName?: string;
+  username?: string;
+  databaseProduct?: string;
+  databaseVersion?: string;
 };
 
 /** Connection selection is user-driven, not a global or administrator-only setting. */
@@ -44,6 +51,9 @@ export const connectionApi = {
   defaults: () => fetchJson<ConnectionSummary[]>('/api/v1/connections'),
   test: (input: ConnectionProbe) =>
     fetchJson<ConnectionProbeResult>('/api/v1/connections/test', {method:'POST', json:input}),
+  activateConfigured: (platform: string) =>
+    fetchJson<ActiveMetadataConnection>('/api/v1/connections/configured/activate',
+      {method:'POST', json:{platform}}),
   activate: (input: ConnectionProbe) =>
     fetchJson<ActiveMetadataConnection>('/api/v1/connections/activate', {method:'POST', json:input}),
   status: (token: string) =>

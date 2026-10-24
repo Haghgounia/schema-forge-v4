@@ -70,6 +70,13 @@ class EaGenerationOrchestratorTest {
 
         String runAllName = "scripts/oracle/ea-sample_" + TIMESTAMP + ".oracle.run-all.sql";
         String runAll = new String(entries.get(runAllName), StandardCharsets.UTF_8);
+        assertTrue(runAll.startsWith("WHENEVER OSERROR EXIT FAILURE ROLLBACK" + System.lineSeparator()),
+                "Oracle integrated deployment must fail fast even on OS errors");
+        assertTrue(runAll.contains("WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK"),
+                "Oracle integrated deployment must stop on first failing SQL statement");
+        assertTrue(runAll.indexOf("WHENEVER SQLERROR EXIT") < runAll.indexOf("CREATE TABLE"),
+                "Oracle error guard must precede all schema objects");
+        assertEquals(1, runAll.split("WHENEVER SQLERROR EXIT", -1).length - 1);
         assertTrue(runAll.indexOf("FEE.FEE_VERSION_" + TIMESTAMP + ".oracle.sql")
                 < runAll.indexOf("FEE.REGULATORY_RULE_" + TIMESTAMP + ".oracle.sql"));
         assertTrue(runAll.contains("PHASE 1 - TABLES"));
@@ -81,6 +88,10 @@ class EaGenerationOrchestratorTest {
                 .peek(entry -> {
                     String sql = new String(entry.getValue(), StandardCharsets.UTF_8);
                     assertTrue(sql.contains("CREATE TABLE"), entry.getKey());
+                    if (!entry.getKey().contains("/oracle/")) {
+                        assertFalse(sql.contains("WHENEVER SQLERROR EXIT"), entry.getKey());
+                        assertFalse(sql.contains("WHENEVER OSERROR EXIT"), entry.getKey());
+                    }
                     assertTrue(sql.contains("PHASE 3 - FOREIGN KEYS"), entry.getKey());
                     assertTrue(sql.lastIndexOf("CREATE TABLE") < sql.indexOf("FOREIGN KEY"), entry.getKey());
                 })

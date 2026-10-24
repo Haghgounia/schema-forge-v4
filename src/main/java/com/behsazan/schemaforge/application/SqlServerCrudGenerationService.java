@@ -61,7 +61,15 @@ public class SqlServerCrudGenerationService {
     public SqlServerCrudGenerationResult generate(String schemaName, String tableName) {
         String schema = normalizeRequired(schemaName, "schema");
         String table = normalizeRequired(tableName, "table");
-        MetadataRepository repository = repositoryResolver.resolve(DatabasePlatform.SQLSERVER);
+        return generateFromRepository(schema, table, repositoryResolver.resolve(DatabasePlatform.SQLSERVER));
+    }
+
+    /** Token-selected metadata repository; never falls back to configured DBMS. */
+    public SqlServerCrudGenerationResult generateFromRepository(String schemaName, String tableName,
+                                                              MetadataRepository repository) {
+        String schema = normalizeRequired(schemaName, "schema");
+        String table = normalizeRequired(tableName, "table");
+        java.util.Objects.requireNonNull(repository, "selected repository");
         if (!repository.available()) {
             throw new ServiceUnavailableException(
                     "SQL Server metadata repository is not enabled; configure schemaforge.metadata.sqlserver");

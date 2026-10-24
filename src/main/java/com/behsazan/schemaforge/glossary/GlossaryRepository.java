@@ -55,6 +55,27 @@ public final class GlossaryRepository {
                 )
                 """);
         jdbc.execute("CREATE INDEX IF NOT EXISTS ix_glossary_status ON glossary_term (status, is_deleted)");
+        // Versioned, transactionally recorded approvals of the authoritative Atomic worksheet.
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS glossary_baseline_migration (
+                    migration_id VARCHAR(100) PRIMARY KEY,
+                    source_entries INT NOT NULL,
+                    promoted_count INT NOT NULL,
+                    skipped_count INT NOT NULL,
+                    applied_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS glossary_baseline_approval_log (
+                    migration_id VARCHAR(100) NOT NULL,
+                    kind VARCHAR(12) NOT NULL,
+                    term_key VARCHAR(256) NOT NULL,
+                    status_before VARCHAR(12) NOT NULL,
+                    status_after VARCHAR(12) NOT NULL,
+                    changed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (migration_id, kind, term_key)
+                )
+                """);
     }
 
     public Optional<GlossaryTerm> get(long id) {
@@ -277,6 +298,92 @@ public final class GlossaryRepository {
             }
         }
     }
+
+    public static final String ATOMIC_APPROVAL_MIGRATION = "ECOBANK_01_ATOMIC_TERMS_APPROVED_V059";
+
+    /**
+     * One-time, exact sheet-identity H2 upgrade. Only live terms already tagged with
+     * the authoritative Atomic worksheet are changed. Never touch MANUAL, DISCOVERY,
+     * other worksheet sources or soft-deleted entries. The migration marker and every
+     * affected term are committed together. Later steward decisions are never reset.
+     */
+    public BaselineApprovalResult approveAtomicBaselineOnce(List<GlossaryImportTerm> terms) throws SQLException {
+        Objects.requireNonNull(terms, "authoritative Atomic terms");
+        if (terms.size() != 804 || terms.stream().map(term -> term.kind() + ":" + term.key()).distinct().count() != 804) {
+            throw new IllegalArgumentException("Atomic approval requires exactly 804 unique worksheet identities");
+        }
+        String migration = ATOMIC_APPROVAL_MIGRATION;
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement marker = connection.prepareStatement(
+                        "SELECT source_entries, promoted_count, skipped_count FROM glossary_baseline_migration WHERE migration_id=?");
+                 PreparedStatement lookup = connection.prepareStatement(
+                        "SELECT status, source, is_deleted FROM glossary_term WHERE kind=? AND term_key=?");
+                 PreparedStatement update = connection.prepareStatement(
+                        "UPDATE glossary_term SET status='APPROVED', updated_at=CURRENT_TIMESTAMP " +
+                        "WHERE kind=? AND term_key=? AND source='ECOBANK_ATOMIC_XLSX' " +
+                        "AND is_deleted=FALSE AND status<>'APPROVED'");
+                 PreparedStatement audit = connection.prepareStatement(
+                        "INSERT INTO glossary_baseline_approval_log " +
+                        "(migration_id, kind, term_key, status_before, status_after) VALUES (?, ?, ?, ?, 'APPROVED')");
+                 PreparedStatement record = connection.prepareStatement(
+                        "INSERT INTO glossary_baseline_migration " +
+                        "(migration_id, source_entries, promoted_count, skipped_count) VALUES (?, ?, ?, ?)")) {
+                marker.setString(1, migration);
+                try (ResultSet result = marker.executeQuery()) {
+                    if (result.next()) {
+                        connection.commit();
+                        return new BaselineApprovalResult(false, result.getInt(1), 0, 0);
+                    }
+                }
+                int promoted = 0;
+                int skipped = 0;
+                for (GlossaryImportTerm term : terms) {
+                    if (!term.key().equals(GlossaryNormalizer.key(term.english()))) {
+                        throw new IllegalArgumentException("Inconsistent authoritative term " + term.english());
+                    }
+                    lookup.setString(1, term.kind().name());
+                    lookup.setString(2, term.key());
+                    String status = null;
+                    String source = null;
+                    boolean deleted = false;
+                    try (ResultSet row = lookup.executeQuery()) {
+                        if (row.next()) {
+                            status = row.getString(1);
+                            source = row.getString(2);
+                            deleted = row.getBoolean(3);
+                        }
+                    }
+                    if (status == null || deleted || !"ECOBANK_ATOMIC_XLSX".equals(source)) {
+                        skipped++; // Explicitly preserve deleted, manual and discovery curation.
+                        continue;
+                    }
+                    if ("APPROVED".equals(status)) continue;
+                    update.setString(1, term.kind().name());
+                    update.setString(2, term.key());
+                    if (update.executeUpdate() != 1) throw new SQLException("Atomic status update was not exact: " + term.key());
+                    audit.setString(1, migration);
+                    audit.setString(2, term.kind().name());
+                    audit.setString(3, term.key());
+                    audit.setString(4, status);
+                    audit.executeUpdate();
+                    promoted++;
+                }
+                record.setString(1, migration);
+                record.setInt(2, terms.size());
+                record.setInt(3, promoted);
+                record.setInt(4, skipped);
+                if (record.executeUpdate() != 1) throw new SQLException("Atomic baseline migration marker not recorded");
+                connection.commit();
+                return new BaselineApprovalResult(true, terms.size(), promoted, skipped);
+            } catch (SQLException | RuntimeException exception) {
+                connection.rollback();
+                throw exception;
+            }
+        }
+    }
+
+    public record BaselineApprovalResult(boolean applied, int sourceEntries, int promoted, int skipped) { }
 
     private static CanonicalInput requireInput(GlossaryTermRequest request) {
         Objects.requireNonNull(request, "Glossary request is required");

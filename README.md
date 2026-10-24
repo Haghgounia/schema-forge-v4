@@ -1,3 +1,11 @@
+### SchemaForge V0.6.0 — EA / Legacy Word DDL corrections
+
+This backend update fixes Oracle NVARCHAR2 length semantics, JSON CHECK predicate recognition and per-DBMS translation, and PostgreSQL NUMERIC identity by named sequences (also recognized in Schema Diff and XLSX; ADD COLUMN sequence provisioning is explicitly manual). The centralized SchemaForge naming policy for PK/UK/FK/CHECK/INDEX continues to override source EA/Word object names. Db2 z/OS FOR BIT DATA remains intentional. EA manifests now report constraint-level coverage separately from artifact outcomes. See [V0.6.0 correction roadmap](docs/roadmap/SCHEMAFORGE-V060-EA-DDL-CORRECTIONS.md) and `scripts/accept-ea-ddl-v060.cmd`. React Console remains V0.5.9; no Glossary/H2 data migration is included in this patch.
+
+### Console V0.5.8 — Database Auditing: explicit target and rule transparency
+
+For read-only auditing of an existing table or schema, first activate a JDBC connection in **اتصالات دیتابیس**. The **ممیزی دیتابیس** screen shows the selected DBMS/server/catalog, account, verified schema and eight SchemaForge validation families. The user must confirm the target before running. Missing/expired selections **cannot silently fall back** to startup JDBC configuration. Results include the exact selected target and scan timestamp in their JSON. No row-data scan, DDL, DML, table creation, or Glossary mutation occurs. See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V058-EXPLICIT-DATABASE-AUDIT.md`.
+
 > **2026-10-24 Glossary default-on (V0.5.5 baseline):** In REST and external distribution runtimes,
 > Glossary is now **enabled by default**. Set `SCHEMAFORGE_GLOSSARY_ENABLED=false` only
 > when intentionally disabling its REST controllers, H2 datastore and generation reports.
@@ -972,7 +980,7 @@ When a prior v7 run already produced `legacy-directory-document-summary.csv`, do
 
 ## Glossary / Naming Governance (V4.14.2 opt-in, Atomic Terms only)
 
-A separate on-disk H2 glossary validates table/column naming terms in the canonical model, generates nonblocking review reports, and exposes read/search/export/CRUD/import/approval REST APIs. The Excel importer now reads **only `01_Atomic_Terms`** (946 source rows / 804 unique terms), never `02_Canonical_Phrases`; old second-sheet entries are excluded from active checks. Disabled by default to preserve existing artifacts. When enabled, H2 automatically creates `data/schemaforge-glossary.mv.db` at first startup and loads the packaged Atomic-only Excel as CANDIDATE (804 unique terms), without requiring a REST upload. A reproducible offline SQL bootstrap is supplied in `distribution/glossary/`. See [docs/GLOSSARY_NAMING_GOVERNANCE_V14.md](docs/GLOSSARY_NAMING_GOVERNANCE_V14.md) for Excel baseline, deployment, governance controls, API contract, output reports, and test commands.
+A separate on-disk H2 glossary validates table/column naming terms in the canonical model, generates nonblocking review reports, and exposes read/search/export/CRUD/import/approval REST APIs. The Excel importer now reads **only `01_Atomic_Terms`** (946 source rows / 804 unique terms), never `02_Canonical_Phrases`; old second-sheet entries are excluded from active checks. Disabled by default to preserve existing artifacts. When enabled, H2 automatically creates `data/schemaforge-glossary.mv.db` at first startup and loads the packaged Atomic-only Excel as APPROVED (800 atomic + 4 phrases). A one-time, H2-logged migration upgrades existing official baseline terms; later steward decisions remain unchanged, without requiring a REST upload. A reproducible offline SQL bootstrap is supplied in `distribution/glossary/`. See [docs/GLOSSARY_NAMING_GOVERNANCE_V14.md](docs/GLOSSARY_NAMING_GOVERNANCE_V14.md) for Excel baseline, deployment, governance controls, API contract, output reports, and test commands.
 
 
 ## Source package / working-root hygiene (2026-10-21)

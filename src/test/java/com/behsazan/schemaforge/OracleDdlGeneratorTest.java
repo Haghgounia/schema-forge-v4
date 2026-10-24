@@ -260,6 +260,15 @@ class OracleDdlGeneratorTest {
         assertEquals("VARCHAR2(50 CHAR)", dialect.sqlType(defaultColumn));
         assertEquals("CHAR(3 CHAR)", dialect.sqlType(defaultCharColumn));
         assertEquals("NVARCHAR2(50)", dialect.sqlType(defaultNationalColumn));
+        assertEquals("NVARCHAR2(50)", dialect.sqlType(column("NATIONAL_CHAR",
+                DataType.varchar("NVARCHAR2", 50, LengthSemantics.CHAR),
+                true, null, "National", 6)));
+        assertEquals("NVARCHAR2(50)", dialect.sqlType(column("NATIONAL_BYTE",
+                DataType.varchar("NVARCHAR2", 50, LengthSemantics.BYTE),
+                true, null, "National", 7)));
+        assertEquals("NCHAR(25)", dialect.sqlType(column("NATIONAL_FIXED",
+                DataType.varchar("NCHAR", 25, LengthSemantics.CHAR),
+                true, null, "National", 8)));
     }
 
     @Test

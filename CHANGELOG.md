@@ -1,3 +1,32 @@
+## V0.6.0 — EA/Word physical DDL regression and JSON CHECK coverage (2026-10-24)
+
+- Fix Oracle `NVARCHAR2` and `NCHAR` national datatype rendering to omit redundant `CHAR` / `BYTE` length semantics.
+- Treat `JSON` as a CHECK predicate keyword, not a missing column; emit supported JSON validation per DBMS and explicit `CHECK-JSON-001` diagnostics for unverified Db2 LUW/z/OS equivalents.
+- Keep PostgreSQL exact `NUMERIC(19,0)` identity and use a request/table-specific named SEQUENCE plus `DEFAULT nextval(...)` instead of illegal NUMERIC IDENTITY. Native SMALLINT/INTEGER/BIGINT identity remains unchanged.
+- Preserve the intentional Db2 z/OS `FOR BIT DATA` mapping.
+- Synchronize PostgreSQL numeric identity sequence comparison in Schema Diff and XLSX; recognize JDBC catalog `nextval('...seq...'::regclass)` as equivalent to Canonical identity.
+- Fail closed with a precise manual review marker for a PostgreSQL ADD COLUMN NUMERIC identity migration that needs new sequence lifecycle handling; never emit invalid NUMERIC IDENTITY ALTER SQL.
+- Retain centralized source-independent naming for PK, UK, FK, CHECK, and INDEX; regression verified using EA input and an equivalent Word-origin naming variant across 7 DBMS.
+- Add EA Manifest `extensions.ddlConstraintCoverage` (counts of total/renderable/unsupported JSON/unknown column checks), independent from artifact-level outcome counters.
+- Bundle the user's FCE XMI sample as a regression fixture and Windows acceptance script. Backend-only correction: React UI stays V0.5.9; no H2 changes. Full Maven / live DBMS acceptance remains pending.
+
+## V0.5.9 — Shared Database Targets and Approved Atomic Glossary (2026-10-24)
+
+- Rename DBMS connection page and menu to «تنظیمات اتصال به دیتابیس».
+- Audit, CRUD and live Diagrams share an explicit DBMS/profile selector; enabled server-defined connection settings can activate without reentering credentials. Newly activated custom connection tokens can be switched across these forms, including multiple profiles of the same DBMS.
+- CRUD generation now uses strictly token-resolved live metadata through selected REST routes; original REST routes are retained for external backward compatibility.
+- Add read-only Mermaid diagram generation from the selected live DBMS/schema/table, while preserving the existing offline JSON/ZIP diagram route.
+- Automatically import the authoritative Excel `01_Atomic_Terms` as APPROVED in new H2 and once-only transactionally promote previously seeded baseline rows. Store a versioned marker and per-term H2 approval audit; preserve manual/discovered/deleted terms and all subsequent steward decisions.
+- Update offline atomic-only SQL seed, Windows acceptance, H2 verification script and change log. Canonical model, seven DBMS physical DDL generators, external H2 data and credentials unchanged. Full Windows Maven/Vite/live-JDBC acceptance remains pending.
+
+## V0.5.8 — Explicit Database Auditing Target and Rules (2026-10-24)
+
+- Browser Conformance page requires an explicitly activated JDBC metadata session; no implicit Oracle/startup-config fallback.
+- Server-side `/api/v1/conformance/selected/plan`, `/selected/table`, `/selected/schema` tie all audits to the exact active ephemeral token, derive DBMS from the token, and return target identity with result JSON.
+- Displays sanitized JDBC target, catalog/database (when reported), username, verified/default schema, eight existing rule families, confirmation before audit, per-family findings and JSON download.
+- Original conformance endpoints preserved; Canonical model, DDL engines, 7 vendor metadata SQL repositories and H2 untouched.
+- Added backend selected-session regression tests and frontend explicit-target contract tests; Windows Maven/Vite and live DBMS acceptance still pending.
+
 ## 2026-10-24 — SchemaForge Console V0.5.7: lazy page and diagram bundles
 
 - Split nine functional routes and four Glossary subviews with React.lazy/Suspense; preserve eager Home and existing interaction/REST contracts.

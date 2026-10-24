@@ -34,6 +34,7 @@ import com.behsazan.schemaforge.specification.validation.ValidationIssue;
 import com.behsazan.schemaforge.specification.validation.ValidationReport;
 import com.behsazan.schemaforge.validation.datatype.DatatypeCompatibilityAnalyzer;
 import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
+import com.behsazan.schemaforge.validation.constraint.JsonCheckPredicate;
 import com.behsazan.schemaforge.validation.naming.PhysicalObjectNamingAnalyzer;
 
 import java.time.Clock;
@@ -481,7 +482,7 @@ public final class DdlGenerator {
             String clause = dialect.defaultClause(column);
             if (dialect.defaultClauseAfterNullability()) deferredDefaultClause = clause;
             else sql.append(clause);
-        } else if (column.identity() && dialect.identityUsesNamedSequence()) {
+        } else if (column.identity() && dialect.identityUsesNamedSequence(column)) {
             dialect.require(DialectFeature.SEQUENCE);
             sql.append(dialect.identitySequenceClause(identitySequenceName(table, column)));
         } else if (column.identity()) {
@@ -595,10 +596,21 @@ public final class DdlGenerator {
                     + " references unknown column(s) " + String.join(",", unknownColumns)
                     + " in " + qualifiedName(table.qualifiedName()) + "; SQL was not emitted.");
         }
+        String renderedExpression = dialect.expression(check.expression());
+        if (JsonCheckPredicate.containsJsonPredicate(check.expression())) {
+            java.util.Optional<String> supported = JsonCheckPredicate.render(dialect, check.expression());
+            if (supported.isEmpty()) {
+                return dialect.warningLine("[UNSUPPORTED CHECK][CHECK-JSON-001] " + name
+                        + " in " + qualifiedName(table.qualifiedName())
+                        + " uses an IS JSON predicate that cannot be safely rendered for "
+                        + dialect.name() + "; SQL was not emitted; DBA review is required.");
+            }
+            renderedExpression = supported.get();
+        }
         String tableName = qualifiedName(table.qualifiedName());
         String create = dialect.alterTableAddConstraintPrefix(tableName)
                 + name
-                + " CHECK(" + dialect.expression(check.expression()) + ")"
+                + " CHECK(" + renderedExpression + ")"
                 + dialect.constraintValidationClause() + dialect.statementTerminator();
         String postCreate = dialect.postCreateConstraintStatement(tableName, name);
         return appendStatement(create, postCreate);
@@ -924,14 +936,13 @@ public final class DdlGenerator {
                 sequences.put(sequence.qualifiedName().toString().toUpperCase(Locale.ROOT), sequence);
             }
         }
-        if (dialect.identityUsesNamedSequence()) {
-            for (Table table : schema.tables()) {
-                for (Column column : identityColumnsWithoutDefault(table)) {
-                    QualifiedName name = identitySequenceName(table, column);
-                    sequences.putIfAbsent(
-                            name.toString().toUpperCase(Locale.ROOT),
-                            new Sequence(name, 1, 1, null, null, false, null, Description.empty()));
-                }
+        for (Table table : schema.tables()) {
+            for (Column column : identityColumnsWithoutDefault(table)) {
+                if (!dialect.identityUsesNamedSequence(column)) continue;
+                QualifiedName name = identitySequenceName(table, column);
+                sequences.putIfAbsent(
+                        name.toString().toUpperCase(Locale.ROOT),
+                        new Sequence(name, 1, 1, null, null, false, null, Description.empty()));
             }
         }
         return List.copyOf(sequences.values());

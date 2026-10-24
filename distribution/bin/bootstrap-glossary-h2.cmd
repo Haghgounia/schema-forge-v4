@@ -38,5 +38,5 @@ if errorlevel 1 (
 )
 java -cp "%H2_JAR%" org.h2.tools.Shell -url "%SCHEMAFORGE_H2_URL%" -user sa -password "" -sql "SELECT KIND, STATUS, COUNT(*) AS TERMS FROM GLOSSARY_TERM WHERE SOURCE='ECOBANK_ATOMIC_XLSX' AND IS_DELETED=FALSE GROUP BY KIND, STATUS ORDER BY KIND, STATUS"
 if errorlevel 1 exit /b 1
-echo [OK] Database created or updated. Expected first run: 800 ATOMIC plus 4 PHRASE, all CANDIDATE.
+echo [OK] Database created or updated. Expected first run: 800 ATOMIC plus 4 PHRASE, all APPROVED.
 exit /b 0

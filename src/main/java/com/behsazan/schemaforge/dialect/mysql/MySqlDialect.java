@@ -240,6 +240,11 @@ public final class MySqlDialect implements Dialect {
     }
 
     @Override
+    public java.util.Optional<String> jsonValidityPredicate(String columnReference) {
+        return java.util.Optional.of("JSON_VALID(" + columnReference + ") = 1");
+    }
+
+    @Override
     public String defaultClause(Column column) {
         // Legacy Word preserves IDENTITY together with an Oracle sequence NEXTVAL default.
         // MySQL implements the logical identity directly and must not emit a DEFAULT here.

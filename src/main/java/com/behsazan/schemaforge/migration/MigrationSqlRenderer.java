@@ -72,9 +72,13 @@ public final class MigrationSqlRenderer {
                     .append(change.columnName().value()).append(": ")
                     .append(change.rationale()).append(NL);
 
-            if (manualOnly(plan.platform(), change)) {
+            if (manualOnly(dialect, change)) {
                 sql.append("-- HINT: SchemaForge does not auto-execute this identity/generated-expression transition.")
                         .append(NL);
+                if (change.kind() == ColumnChangeKind.ADD_COLUMN) {
+                    sql.append("-- BLOCKED: sequence-backed identity ADD COLUMN needs a coordinated CREATE SEQUENCE, column DEFAULT and ownership review; no invalid SQL emitted.")
+                            .append(NL);
+                }
                 continue;
             }
 
@@ -635,7 +639,7 @@ public final class MigrationSqlRenderer {
                 .append(NL);
     }
 
-    private static boolean manualOnly(DatabasePlatform platform, ColumnChange change) {
+    private static boolean manualOnly(Dialect dialect, ColumnChange change) {
         if (change.kind() == ColumnChangeKind.ALTER_IDENTITY
                 || change.kind() == ColumnChangeKind.ALTER_GENERATED_EXPRESSION) {
             return true;
@@ -643,7 +647,8 @@ public final class MigrationSqlRenderer {
         return change.kind() == ColumnChangeKind.ADD_COLUMN
                 && change.after() != null
                 && change.after().identity()
-                && platform == DatabasePlatform.ORACLE;
+                && !change.after().defaultValue().isPresent()
+                && dialect.identityUsesNamedSequence(change.after());
     }
 
     private static String compositeKey(DatabasePlatform platform, ColumnChange change) {
@@ -907,7 +912,12 @@ public final class MigrationSqlRenderer {
         if (column.generated()) {
             dialect.require(DialectFeature.GENERATED_COLUMN);
             sql.append(dialect.generatedColumnClause(column));
-        } else if (column.identity() && !dialect.identityUsesNamedSequence()) {
+        } else if (column.identity() && column.defaultValue().isPresent()) {
+            sql.append(dialect.defaultClause(column));
+        } else if (column.identity() && dialect.identityUsesNamedSequence(column)) {
+            throw new UnsupportedOperationException(
+                    "sequence-backed identity ALTER needs an explicit sequence and DEFAULT migration plan");
+        } else if (column.identity()) {
             dialect.require(DialectFeature.IDENTITY_COLUMN);
             sql.append(dialect.identityClause(column));
         } else if (column.defaultValue().isPresent()) {

@@ -42,7 +42,7 @@ test('Vite has a real build-graph budget instead of silently ignoring heavy engi
   assert.match(config,/chunkSizeWarningLimit:\s*1400/);
   const packageData=JSON.parse(read('package.json'));
   assert.match(packageData.scripts.build,/node scripts\/check-lazy-build\.mjs/);
-  assert.equal(packageData.version,'0.5.7');
+  assert.equal(packageData.version,'0.5.9');
 });
 
 test('production manifest check accepts separated lazy pages and rejects eager Graphviz',()=>{

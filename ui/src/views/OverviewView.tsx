@@ -1,7 +1,7 @@
 export type ProjectSection = 'overview' | 'generation' | 'conformance' | 'crud' | 'diagram' | 'glossary' | 'connections';
 const modules: { id: Exclude<ProjectSection, 'overview'>; heading: string; desc: string; detail: string }[] = [
   { id: 'generation', heading: 'تولید Schema', desc: 'Word، Legacy Word، Batch ZIP و EA/XMI', detail: 'پنج مسیر REST · دریافت ZIP' },
-  { id: 'connections', heading: 'اتصالات دیتابیس', desc: 'پیش‌فرض‌های هفت DBMS، دسترسی مدیریت و تست JDBC', detail: 'API مدیریتی · بدون تغییر در دیتابیس' },
+  { id: 'connections', heading: 'تنظیمات اتصال به دیتابیس', desc: 'پیش‌فرض‌های هفت DBMS، دسترسی مدیریت و تست JDBC', detail: 'API مدیریتی · بدون تغییر در دیتابیس' },
   { id: 'conformance', heading: 'ممیزی ساختار', desc: 'کنترل Table یا Schema موجود در DBMS', detail: 'فقط خواندنی · یک یا چند DBMS' },
   { id: 'crud', heading: 'تولید CRUD', desc: 'تولید اسکریپت از متادیتای Oracle و SQL Server', detail: 'دو مسیر REST · خروجی SQL' },
   { id: 'diagram', heading: 'نمودار Mermaid', desc: 'نمودار ER، وابستگی و مدل مفهومی', detail: 'Canonical JSON / ZIP' },

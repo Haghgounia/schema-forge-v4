@@ -6,6 +6,7 @@ import com.behsazan.schemaforge.dialect.Dialect;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.dialect.oracle.OracleIdentifierPolicy;
 import com.behsazan.schemaforge.dialect.PhysicalObjectNamePolicy;
+import com.behsazan.schemaforge.dialect.SequenceReferenceNormalizer;
 import com.behsazan.schemaforge.domain.enums.IndexType;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.enums.SortDirection;
@@ -1240,7 +1241,7 @@ public final class SchemaDiffEngine {
 
     private static boolean sequenceBackedIdentityEquivalent(
             Table desiredTable, Column desired, Column live, Dialect dialect) {
-        if (!desired.identity() || live.identity() || !dialect.identityUsesNamedSequence()) return false;
+        if (!desired.identity() || live.identity() || !dialect.identityUsesNamedSequence(desired)) return false;
         if (desired.defaultValue().isPresent() || !live.defaultValue().isPresent()) return false;
 
         long identityCount = desiredTable.columns().stream().filter(Column::identity).count();
@@ -1256,8 +1257,7 @@ public final class SchemaDiffEngine {
     }
 
     private static String normalizeSequenceReference(String value) {
-        String normalized = normalizeDefault(DatabasePlatform.ORACLE, value);
-        return normalized == null ? "" : normalized.replace("\"", "");
+        return SequenceReferenceNormalizer.normalize(value);
     }
 
     private static List<CheckConstraint> effectiveDesiredChecks(

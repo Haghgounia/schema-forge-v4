@@ -1,12 +1,20 @@
-import { lazy, Suspense, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { coreApi, type DiagramInput } from '../coreApi';
-import { saveDownload } from '../transport';
+import {getActiveMetadataConnection, saveDownload} from '../transport';
+import type {ActiveMetadataConnection} from '../connectionApi';
+import DatabaseTargetPicker from '../components/DatabaseTargetPicker';
 import { MAX_DIAGRAM_BYTES } from '../zipReports';
 import type { DiagramEngine } from '../diagramRender';
 
 const RenderedDiagram = lazy(() => import('../components/RenderedDiagram'));
 
-export default function DiagramView() {
+type Props = {activeConnection:ActiveMetadataConnection|null; connectionSessions:ActiveMetadataConnection[];
+  onSelectConnection:(value:ActiveMetadataConnection|null)=>void; onGoConnections:()=>void};
+export default function DiagramView({activeConnection,connectionSessions,onSelectConnection,onGoConnections}:Props) {
+  const [inputMode,setInputMode] = useState<'database'|'file'>('database');
+  const [liveSchema,setLiveSchema] = useState('');
+  const [liveTable,setLiveTable] = useState('');
+  const [liveScope,setLiveScope] = useState<'schema'|'table'>('schema');
   const [file, setFile] = useState<File|null>(null);
   const [type, setType] = useState<DiagramInput['type']>('er');
   const [scope, setScope] = useState<DiagramInput['scope']>('all');
@@ -24,6 +32,11 @@ export default function DiagramView() {
   const [error, setError] = useState('');
   const [local, setLocal] = useState<{filename:string;source:string;engine:DiagramEngine} | null>(null);
   const [localError, setLocalError] = useState('');
+  useEffect(() => {
+    setLiveSchema(activeConnection?.verifiedSchema || activeConnection?.defaultSchema || '');
+    setLiveTable('');setPreview('');setOutputName('');
+  }, [activeConnection?.token]);
+
   async function openLocalDiagram(chosen: File | null) {
     setLocal(null); setLocalError('');
     if (!chosen) return;
@@ -35,6 +48,23 @@ export default function DiagramView() {
     }
     try { setLocal({filename:chosen.name,source:await chosen.text(),engine}); }
     catch { setLocalError('خواندن فایل نمودار ممکن نبود.'); }
+  }
+  async function submitLive(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();setError('');setPreview('');setOutputName('');
+    if (!activeConnection?.token) {setError('اتصال دیتابیس مقصد را انتخاب کنید.');return;}
+    const token = activeConnection.token;
+    setBusy(true);
+    try {
+      const download = await coreApi.liveDiagram({schema:liveSchema,
+        table:liveScope==='table'?liveTable:undefined,type,
+        includeColumns:flags.includeColumns,includeDataTypes:flags.includeDataTypes,
+        includePrimaryKeys:flags.includePrimaryKeys,includeForeignKeys:flags.includeForeignKeys});
+      if (getActiveMetadataConnection()?.token !== token)
+        throw new Error('اتصال مقصد هنگام تولید نمودار تغییر کرد؛ درخواست باید دوباره اجرا شود.');
+      setPreview(download.blob.size<=MAX_DIAGRAM_BYTES?await download.blob.text():'');
+      setOutputName(download.filename);saveDownload(download);
+    } catch(err) {setError(err instanceof Error?err.message:'نمودار زنده تولید نشد.');}
+    finally {setBusy(false);}
   }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setError(''); setPreview(''); setOutputName('');
@@ -51,8 +81,50 @@ export default function DiagramView() {
   }
   return <section>
     <div className="page-heading"><div><h2>Mermaid Diagram</h2>
-      <p>تولید ERD یا Dependency Diagram از Canonical JSON یا ZIP.</p></div></div>
-    <form className="panel content-panel form-stack" onSubmit={submit}>
+      <p>تولید نمودار از متادیتای دیتابیس موجود یا فایل Canonical JSON / ZIP.</p></div></div>
+    <section className="panel content-panel">
+      <label className="field">منبع نمودار
+        <select value={inputMode} onChange={e => {setInputMode(e.target.value as 'database'|'file');setError('');setPreview('');setOutputName('');}}>
+          <option value="database">دیتابیس زنده — متادیتای اتصال انتخاب‌شده</option>
+          <option value="file">فایل Canonical JSON / ZIP — بدون نیاز به اتصال</option>
+        </select>
+      </label>
+    </section>
+    {inputMode==='database' && <>
+      <DatabaseTargetPicker activeConnection={activeConnection} sessions={connectionSessions}
+        onSelect={value => {onSelectConnection(value);setLiveSchema(value?.verifiedSchema || value?.defaultSchema || '');setLiveTable('');}}
+        onGoConnections={onGoConnections}/>
+      <form className="panel content-panel form-stack" onSubmit={submitLive}>
+        <div className="form-grid">
+          <label className="field">نوع نمودار
+            <select value={type} onChange={e=>setType(e.target.value as DiagramInput['type'])}>
+              <option value="er">ER</option><option value="dependency">Dependency</option>
+              <option value="conceptual-erd">Conceptual ERD</option>
+            </select></label>
+          <label className="field">محدوده
+            <select value={liveScope} onChange={e=>setLiveScope(e.target.value as 'schema'|'table')}>
+              <option value="schema">تمام جدول‌های Schema (حداکثر ۱۵۰)</option>
+              <option value="table">یک جدول</option>
+            </select></label>
+          <label className="field grow">Schema <span className="required">*</span>
+            <input required dir="ltr" list="diagram-live-schema-hints" value={liveSchema}
+              onChange={e=>setLiveSchema(e.target.value)}/>
+            <datalist id="diagram-live-schema-hints">
+              {activeConnection?.availableSchemas?.map(name=><option value={name} key={name}/>)}
+            </datalist>
+          </label>
+          {liveScope==='table' && <label className="field grow">Table <span className="required">*</span>
+            <input dir="ltr" required value={liveTable} onChange={e=>setLiveTable(e.target.value)}/>
+          </label>}
+        </div>
+        <p className="hint">نمودار از Metadata واقعی خوانده می‌شود؛ هیچ DDL یا DML اجرا نمی‌شود. حساب JDBC لزوماً مالک Schema نیست.</p>
+        <div className="form-actions"><button type="submit" className="btn primary"
+          disabled={busy || !activeConnection?.token || !liveSchema.trim() || (liveScope==='table'&&!liveTable.trim())}>
+          {busy?'در حال خواندن Metadata…':'ساخت نمودار از دیتابیس انتخاب‌شده'}</button></div>
+        {error && <p role="alert" className="message error">{error}</p>}
+      </form>
+    </>}
+    {inputMode==='file' && <form className="panel content-panel form-stack" onSubmit={submit}>
       <label className="field">فایل ورودی <span className="required">*</span>
         <input type="file" accept=".json,.zip" required onChange={e => setFile(e.target.files?.[0] ?? null)} />
       </label>
@@ -91,7 +163,7 @@ export default function DiagramView() {
       <div className="form-actions"><button type="submit" className="btn primary" disabled={busy || !file}>
         {busy ? 'در حال تولید…' : 'تولید و دریافت Mermaid'}</button></div>
       {error && <p role="alert" className="message error">{error}</p>}
-    </form>
+    </form>}
     <section className="panel content-panel result-block" aria-label="نمایش فایل نمودار موجود">
       <div className="page-heading"><div><h3>نمایش فایل Mermaid یا Graphviz</h3>
         <p>فایل <code dir="ltr">.mmd</code>، <code dir="ltr">.dot</code> یا <code dir="ltr">.gv</code> را بدون ارسال به Backend در همین مرورگر باز کنید.</p></div></div>

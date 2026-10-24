@@ -61,6 +61,20 @@ public final class DatabaseConnectionController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.activate(request));
     }
 
+    @PostMapping(value = "/configured/activate", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Activate an enabled server-defined JDBC connection without exposing credentials")
+    public ResponseEntity<RuntimeMetadataConnectionRegistry.Selection> activateConfigured(
+            HttpServletRequest servletRequest, @RequestBody ConfiguredProfileRequest body) {
+        requireLocal(servletRequest);
+        if (body == null || body.platform() == null || body.platform().isBlank()) {
+            throw new IllegalArgumentException("Configured DBMS platform is required");
+        }
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(service.activateConfigured(body.platform()));
+    }
+
+    public record ConfiguredProfileRequest(String platform) { }
+
     @GetMapping("/active")
     @Operation(summary = "Verify an existing session's active runtime metadata connection")
     public ResponseEntity<RuntimeMetadataConnectionRegistry.Selection> active(

@@ -75,10 +75,23 @@ public class SchemaConformanceAuditService {
     /** Audits one existing live table using metadata only. */
     public SchemaConformanceReport auditTable(DatabasePlatform platform, String schemaName, String tableName) {
         Objects.requireNonNull(platform, "platform must not be null");
+        requireIdentifierText(schemaName, "schema");
+        requireIdentifierText(tableName, "table");
+        return auditTableInternal(platform, schemaName, tableName, repository(platform));
+    }
+
+    /** Browser-selected audit: the repository is explicit; global JDBC defaults cannot be used. */
+    public SchemaConformanceReport auditSelectedTable(DatabasePlatform platform, String schemaName,
+                                                       String tableName, MetadataRepository selectedRepository) {
+        return auditTableInternal(platform, schemaName, tableName,
+                checkedRepository(platform, selectedRepository));
+    }
+
+    private SchemaConformanceReport auditTableInternal(DatabasePlatform platform, String schemaName,
+                                                       String tableName, MetadataRepository repository) {
+        Objects.requireNonNull(platform, "platform must not be null");
         String schema = requireIdentifierText(schemaName, "schema");
         String table = requireIdentifierText(tableName, "table");
-
-        MetadataRepository repository = repository(platform);
         java.util.Optional<Table> liveTableResult = repository.findTable(schema, table);
         ensureAvailable(repository, "reading " + schema + "." + table);
         Table liveTable = liveTableResult
@@ -102,9 +115,21 @@ public class SchemaConformanceAuditService {
     /** Audits every existing live table in one schema using metadata only. */
     public SchemaConformanceReport auditSchema(DatabasePlatform platform, String schemaName) {
         Objects.requireNonNull(platform, "platform must not be null");
-        String schema = requireIdentifierText(schemaName, "schema");
+        requireIdentifierText(schemaName, "schema");
+        return auditSchemaInternal(platform, schemaName, repository(platform));
+    }
 
-        MetadataRepository repository = repository(platform);
+    /** Browser-selected schema audit with no fallback to configured global metadata. */
+    public SchemaConformanceReport auditSelectedSchema(DatabasePlatform platform, String schemaName,
+                                                        MetadataRepository selectedRepository) {
+        return auditSchemaInternal(platform, schemaName,
+                checkedRepository(platform, selectedRepository));
+    }
+
+    private SchemaConformanceReport auditSchemaInternal(DatabasePlatform platform, String schemaName,
+                                                         MetadataRepository repository) {
+        Objects.requireNonNull(platform, "platform must not be null");
+        String schema = requireIdentifierText(schemaName, "schema");
         if (repository.schemaExistenceAuthoritative() && !repository.schemaExists(schema)) {
             ensureAvailable(repository, "checking schema " + schema);
             throw new IllegalArgumentException("Live schema was not found: " + schema);
@@ -392,8 +417,13 @@ public class SchemaConformanceAuditService {
     }
 
     private MetadataRepository repository(DatabasePlatform platform) {
+        return checkedRepository(platform, repositoryResolver.resolve(platform));
+    }
+
+    private static MetadataRepository checkedRepository(DatabasePlatform platform,
+                                                         MetadataRepository selectedRepository) {
         MetadataRepository repository = FailureIsolatingMetadataRepository.wrap(
-                platform, repositoryResolver.resolve(platform));
+                platform, Objects.requireNonNull(selectedRepository, "metadata repository is required"));
         if (!repository.available()) {
             throw new ServiceUnavailableException(
                     "Metadata repository is unavailable for platform " + platform.commandLineName());

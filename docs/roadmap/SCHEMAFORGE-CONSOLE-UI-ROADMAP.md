@@ -9,6 +9,7 @@ This is the durable navigation index for the independent Console UI workstream. 
 | UI-C9b–C9c | Runtime JDBC metadata selection, optional schema | Frontend contract tests PASS; live seven-DBMS integration acceptance open |
 | UI-C10h | Large Batch manifest and local ZIP re-opening | User accepted preview of larger Batch; see V0.5.4 |
 | UI-C10i | Streaming large Batch Glossary evidence | **52 Java + 60 Node + Vite build PASS on user Windows in V0.5.6**; Chrome legacy evidence gate open |
+| UI-C12 | Explicitly selected JDBC target, visible audit rule families and traceable read-only reports | V0.5.8 source + 19 focused Node tests PASS; Java/Windows/Chrome acceptance OPEN |
 | UI-C11 | Lazy pages, lazy diagram panel, first-load bundle budget | V0.5.7 source implementation; Node static budget tests PASS; Windows build & browser network acceptance open |
 | UI Security | Login/RBAC for shared production | Open; temporary current controls retained, not silently removed |
 
@@ -16,7 +17,9 @@ This is the durable navigation index for the independent Console UI workstream. 
 
 **Scope restraint:** Legacy abbreviations are deferred and are not reclassified or edited during Console optimization.
 
-Latest stage detail: [`SCHEMAFORGE-CONSOLE-UI-V057-LAZY-LOADING.md`](SCHEMAFORGE-CONSOLE-UI-V057-LAZY-LOADING.md). Previous stages:
+Latest stage detail: [`SCHEMAFORGE-CONSOLE-UI-V058-EXPLICIT-DATABASE-AUDIT.md`](SCHEMAFORGE-CONSOLE-UI-V058-EXPLICIT-DATABASE-AUDIT.md). Previous stages:
+
+- [`SCHEMAFORGE-CONSOLE-UI-V057-LAZY-LOADING.md`](SCHEMAFORGE-CONSOLE-UI-V057-LAZY-LOADING.md)
 
 - [`SCHEMAFORGE-CONSOLE-UI-V056-GLOSSARY-BATCH-EVIDENCE.md`](SCHEMAFORGE-CONSOLE-UI-V056-GLOSSARY-BATCH-EVIDENCE.md)
 - [`SCHEMAFORGE-CONSOLE-UI-V054-LARGE-BATCH-ZIP-PREVIEW.md`](SCHEMAFORGE-CONSOLE-UI-V054-LARGE-BATCH-ZIP-PREVIEW.md)

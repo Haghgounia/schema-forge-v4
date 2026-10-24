@@ -65,6 +65,23 @@ class SchemaConformanceAuditServiceTest {
     }
 
     @Test
+    void selectedAuditUsesExplicitRepositoryEvenIfDefaultResolverIsUnavailable() {
+        Table table = Table.builder("BANK", "ACCOUNTS")
+                .addColumn(new Column(Identifier.of("ACCOUNT_ID"),
+                        DataType.numeric("NUMBER", 12, 0), false,
+                        new DefaultValue(null), new Description(""), false, 1, null))
+                .build();
+        MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
+        var selected = new InMemoryMetadataRepository(List.of(), List.of(table));
+        var service = new SchemaConformanceAuditService(resolver);
+        var report = service.auditSelectedTable(DatabasePlatform.ORACLE, "BANK", "ACCOUNTS", selected);
+        assertEquals(1, report.summary().tablesScanned());
+        org.mockito.Mockito.verifyNoInteractions(resolver);
+        assertThrows(IllegalArgumentException.class, () -> service.auditSelectedTable(
+                DatabasePlatform.ORACLE, "BANK", "NOT_PRESENT", selected));
+    }
+
+    @Test
     void missingTableIsRejected() {
         MetadataRepositoryResolver resolver = mock(MetadataRepositoryResolver.class);
         when(resolver.resolve(DatabasePlatform.ORACLE))

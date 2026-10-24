@@ -16,6 +16,7 @@ public final class CheckConstraintReferenceAnalyzer {
     private static final Set<String> KEYWORDS = Set.of(
             "AND", "OR", "NOT", "NULL", "IS", "IN", "BETWEEN", "LIKE", "ESCAPE",
             "CASE", "WHEN", "THEN", "ELSE", "END", "TRUE", "FALSE", "UNKNOWN",
+            "JSON", "SCALAR", "ARRAY", "OBJECT", "VALUE", "WITH", "WITHOUT", "KEYS",
             "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER", "SYSDATE", "SYSTIMESTAMP",
             "DATE", "TIME", "TIMESTAMP", "INTERVAL", "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND",
             "CAST", "AS", "CHAR", "VARCHAR", "VARCHAR2", "NCHAR", "NVARCHAR", "NVARCHAR2",

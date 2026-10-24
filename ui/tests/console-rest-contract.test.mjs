@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {coreApi} from '../src/coreApi.ts';
 import {glossaryApi} from '../src/api.ts';
-import {ApiError} from '../src/transport.ts';
+import {ApiError, setActiveMetadataConnection} from '../src/transport.ts';
 const response = (body = {}, status = 200) => status === 204
   ? new Response(null, {status})
   : new Response(JSON.stringify(body), {status, headers: {'content-type': 'application/json'}});
@@ -45,8 +45,11 @@ test('conformance table/schema, CRUD Oracle/SQLServer and mermaid map to Java co
   t.after(() => {globalThis.fetch = old;});
   await coreApi.conformance({scope: 'table', schema: 'X', table: 'T', platforms: ['mysql', 'oracle']});
   await coreApi.conformance({scope: 'schema', schema: 'X', platforms: ['all']});
+  setActiveMetadataConnection({token:'selected-oracle',platform:'oracle',expiresAt:'2030-01-01T00:00:00Z'});
   await coreApi.crud('oracle', 'X', 'T');
+  setActiveMetadataConnection({token:'selected-sqlserver',platform:'sqlserver',expiresAt:'2030-01-01T00:00:00Z'});
   await coreApi.crud('sqlserver', 'X', 'T');
+  setActiveMetadataConnection(null);
   await coreApi.mermaid({file: new File(['{}'], 'a.json'), type:'conceptual-erd',
     scope:'table-with-dependencies', root:'X.T', depth:2,
     includeColumns:true, includeDataTypes:true, includePrimaryKeys:true,
@@ -54,9 +57,11 @@ test('conformance table/schema, CRUD Oracle/SQLServer and mermaid map to Java co
   assert.equal(new URL(calls[0].path, 'http://local').pathname, '/api/v1/conformance/table');
   assert.deepEqual(new URL(calls[0].path, 'http://local').searchParams.getAll('platform'), ['mysql','oracle']);
   assert.equal(new URL(calls[1].path, 'http://local').pathname, '/api/v1/conformance/schema');
-  assert.equal(new URL(calls[2].path, 'http://local').pathname, '/api/v1/generate/oracle/crud');
+  assert.equal(new URL(calls[2].path, 'http://local').pathname, '/api/v1/generate/oracle/crud/selected');
   assert.deepEqual(JSON.parse(calls[2].options.body), {schema: 'X',table:'T'});
-  assert.equal(new URL(calls[3].path, 'http://local').pathname, '/api/v1/generate/sqlserver/crud');
+  assert.equal(calls[2].options.headers.get('X-SchemaForge-Metadata-Connection'),'selected-oracle');
+  assert.equal(calls[3].options.headers.get('X-SchemaForge-Metadata-Connection'),'selected-sqlserver');
+  assert.equal(new URL(calls[3].path, 'http://local').pathname, '/api/v1/generate/sqlserver/crud/selected');
   const diagram = new URL(calls[4].path,'http://local');
   assert.equal(diagram.pathname, '/api/v1/diagram/mermaid/canonical-json');
   assert.equal(diagram.searchParams.get('type'), 'conceptual-erd');

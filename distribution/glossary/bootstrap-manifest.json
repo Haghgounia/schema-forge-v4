@@ -1,6 +1,6 @@
 {
   "contract": "schemaforge-glossary-bootstrap-v1",
-  "schemaforgeVersion": "4.14.2",
+  "schemaforgeVersion": "4.0.1 / Console V0.5.9",
   "sourceFilename": "EcoBank_Reference_Terminology_v0.1_2026-10-06_v67_Atomic_Candidates.xlsx",
   "sourceSha256": "d010e199f699a0ae647e166388dc1149f001c3e982c5dda9cf2c555e01581574",
   "authoritativeWorksheet": "01_Atomic_Terms",
@@ -9,10 +9,10 @@
   "atomicEntries": 800,
   "multiwordEntries": 4,
   "excludedWorksheet": "02_Canonical_Phrases",
-  "initialStatus": "CANDIDATE",
+  "initialStatus": "APPROVED",
   "sourceTag": "ECOBANK_ATOMIC_XLSX",
   "seedWorkbookRelativePath": "src/main/resources/glossary/01_Atomic_Terms.xlsx",
   "seedWorkbookSha256": "8629325c09e7679b4b71867f759b32e1bb0306730366a357485592be55cb7444",
   "offlineSeedSqlRelativePath": "distribution/glossary/bootstrap-atomic-h2.sql",
-  "offlineSeedSqlSha256": "ab967d193ffb0ecdba40b40ea373115185852ca6407759eca790d8c5029f8df8"
+  "offlineSeedSqlSha256": "9a972e984ecb4ea83c367c69286829937a695b393b085ffa91058c954d069536"
 }

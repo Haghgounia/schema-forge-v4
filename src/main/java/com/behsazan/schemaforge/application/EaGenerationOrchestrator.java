@@ -25,6 +25,8 @@ import com.behsazan.schemaforge.deployment.IntegratedSchemaDeploymentPlanner;
 import com.behsazan.schemaforge.deployment.IntegratedSqlRenderer;
 import com.behsazan.schemaforge.deployment.IntegratedSqlScript;
 import com.behsazan.schemaforge.generation.DdlGenerator;
+import com.behsazan.schemaforge.validation.constraint.CheckConstraintReferenceAnalyzer;
+import com.behsazan.schemaforge.validation.constraint.JsonCheckPredicate;
 import com.behsazan.schemaforge.generation.issue.SqlIssueCatalog;
 import com.behsazan.schemaforge.metadata.repository.FailureIsolatingMetadataRepository;
 import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
@@ -457,6 +459,10 @@ public final class EaGenerationOrchestrator {
             generationOptions.put("audit", auditOptions.manifestValue());
         }
         manifestExtensions.put("generationOptions", generationOptions);
+        // Constraint-level coverage is separate from artifactOutcomes (which counts files).
+        // A successfully generated Db2 DDL artifact may still contain explicit unsupported
+        // CHECK-JSON-001 entries, so do not present artifact success as SQL parity.
+        manifestExtensions.put("ddlConstraintCoverage", ddlConstraintCoverage(schema, platforms));
         generationSummaryReportWriter.write(output, context, schema, platforms);
         long summaryFinished = System.nanoTime();
 
@@ -477,6 +483,38 @@ public final class EaGenerationOrchestrator {
                     + " manifest_ms=" + EaPerformanceDiagnostics.millis(manifestFinished - glossaryFinished)
                     + " total_ms=" + EaPerformanceDiagnostics.millis(manifestFinished - outputStarted));
         }
+    }
+
+    private Map<String, Object> ddlConstraintCoverage(
+            DatabaseSchema schema, Set<DatabasePlatform> platforms) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (DatabasePlatform platform : DatabasePlatform.values()) {
+            if (!platforms.contains(platform)) continue;
+            Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
+            int declared = 0;
+            int renderable = 0;
+            int unsupportedJson = 0;
+            int unknownColumns = 0;
+            for (Table table : schema.tables()) {
+                for (var check : table.checkConstraints()) {
+                    declared++;
+                    if (!CheckConstraintReferenceAnalyzer.unknownColumns(table, check.expression()).isEmpty()) {
+                        unknownColumns++;
+                    } else if (JsonCheckPredicate.containsJsonPredicate(check.expression())
+                            && JsonCheckPredicate.render(dialect, check.expression()).isEmpty()) {
+                        unsupportedJson++;
+                    } else {
+                        renderable++;
+                    }
+                }
+            }
+            result.put(platform.commandLineName(), Map.of(
+                    "declared", declared,
+                    "renderable", renderable,
+                    "unsupportedJson", unsupportedJson,
+                    "unknownColumnReferences", unknownColumns));
+        }
+        return result;
     }
 
     private void requireValidDdl(DatabasePlatform platform, String sql, String source) {
@@ -595,10 +633,12 @@ public final class EaGenerationOrchestrator {
         }
 
         IntegratedSqlScript integrated;
+        String deploymentGuard;
         try {
             IntegratedSchemaDeploymentPlan plan = new IntegratedSchemaDeploymentPlanner().plan(schema);
             Dialect dialect = DialectFactory.create(platform, numericMappingStrategy);
             integrated = new IntegratedSqlRenderer(dialect, ddlHints).render(schema, plan);
+            deploymentGuard = dialect.integratedDeploymentGuard();
         } catch (IllegalStateException | IllegalArgumentException exception) {
             context.ledger().blocked(
                     context, ArtifactType.RUN_SCRIPT, platform, sourceBaseName,
@@ -610,6 +650,10 @@ public final class EaGenerationOrchestrator {
         Files.createDirectories(runAllPath.getParent());
 
         StringBuilder script = new StringBuilder();
+        if (deploymentGuard != null && !deploymentGuard.isBlank()) {
+            script.append(deploymentGuard).append(System.lineSeparator())
+                    .append(System.lineSeparator());
+        }
         String comment = "--";
         script.append(comment).append(" SchemaForge EA run-all script").append(System.lineSeparator())
                 .append(comment).append(" Schema: ").append(schema.name().value()).append(System.lineSeparator())

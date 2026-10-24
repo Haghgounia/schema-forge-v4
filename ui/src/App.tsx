@@ -19,7 +19,7 @@ const GlossaryAdminView = lazy(() => import('./views/GlossaryAdminView'));
 type GlossarySection = 'terms' | 'queue' | 'history' | 'manage';
 const topNav: {id: ProjectSection; title: string}[] = [
   {id: 'overview', title: 'خانه'}, {id: 'generation', title: 'تولید Schema'},
-  {id: 'conformance', title: 'ممیزی دیتابیس'}, {id: 'connections', title: 'اتصالات دیتابیس'}, {id: 'crud', title: 'CRUD'},
+  {id: 'conformance', title: 'ممیزی دیتابیس'}, {id: 'connections', title: 'تنظیمات اتصال به دیتابیس'}, {id: 'crud', title: 'CRUD'},
   {id: 'diagram', title: 'نمودارها'}, {id: 'glossary', title: 'Glossary'},
 ];
 const glossaryNav: {id: GlossarySection; title: string}[] = [
@@ -41,9 +41,11 @@ export default function App() {
   const [reviewHandoff, setReviewHandoff] = useState<ReviewHandoff | null>(null);
   const [lastGenerationZip, setLastGenerationZip] = useState<Download | null>(null);
   const [activeConnection, setActiveConnectionState] = useState<ActiveMetadataConnection | null>(null);
+  const [connectionSessions, setConnectionSessions] = useState<ActiveMetadataConnection[]>([]);
   function selectConnection(selection: ActiveMetadataConnection | null) {
     setActiveMetadataConnection(selection);
     setActiveConnectionState(selection);
+    if (selection) setConnectionSessions(old => [...old.filter(item => item.token !== selection.token), selection]);
   }
   useEffect(() => {
     function updateRoute() { setRoute(readRoute()); }
@@ -77,16 +79,24 @@ export default function App() {
     </nav></div>
     <main className="container app-main">
       {activeConnection && <div className="message success metadata-active-banner" role="status">
-        Active metadata: {activeConnection.platform.toUpperCase()} / {activeConnection.verifiedSchema}.
+        اتصال Metadata فعال: <strong dir="ltr">{activeConnection.platform.toUpperCase()}</strong>
+        {activeConnection.jdbcTarget && <> · <span dir="ltr">{activeConnection.jdbcTarget}</span></>}
+        {activeConnection.databaseName && <> · Database: <span dir="ltr">{activeConnection.databaseName}</span></>}
+        {activeConnection.verifiedSchema && <> · Schema: <span dir="ltr">{activeConnection.verifiedSchema}</span></>}
         <button type="button" className="btn secondary" onClick={() => navigate('connections')}>Manage connection</button>
       </div>}
       <Suspense fallback={<p className="message neutral" role="status">در حال بارگذاری بخش انتخاب‌شده…</p>}>
       {active === 'overview' && <OverviewView navigate={navigate}/>}
       {active === 'generation' && <GenerationView activeMetadataPlatform={activeConnection?.platform} onReviewTerm={goReview} savedDownload={lastGenerationZip} onDownloadChange={setLastGenerationZip}/>}
-      {active === 'conformance' && <ConformanceView activeMetadataPlatform={activeConnection?.platform}/>}
-      {active === 'connections' && <ConnectionsView active={activeConnection} onSelectionChange={selectConnection}/>}
-      {active === 'crud' && <CrudView activeMetadataPlatform={activeConnection?.platform}/>}
-      {active === 'diagram' && <DiagramView/>}
+      {active === 'conformance' && <ConformanceView activeConnection={activeConnection}
+        connectionSessions={connectionSessions} onSelectConnection={selectConnection}
+        onGoConnections={() => navigate('connections')}/>}
+      {active === 'connections' && <ConnectionsView active={activeConnection} onSelectionChange={selectConnection}
+        onDisconnected={token => setConnectionSessions(old => old.filter(item => item.token !== token))}/>}
+      {active === 'crud' && <CrudView activeConnection={activeConnection} connectionSessions={connectionSessions}
+        onSelectConnection={selectConnection} onGoConnections={() => navigate('connections')}/>}
+      {active === 'diagram' && <DiagramView activeConnection={activeConnection} connectionSessions={connectionSessions}
+        onSelectConnection={selectConnection} onGoConnections={() => navigate('connections')}/>}
       {active === 'glossary' && <>
         <div className="section-intro"><div><span className="eyebrow">Glossary Governance</span>
           <h1>فرهنگ واژگان و تصمیم‌گیری</h1>

@@ -1,3 +1,7 @@
+## V0.5.9 — Target selection in Audit / CRUD / Diagrams
+
+First choose a DBMS. If exactly one usable connection exists, it is selected or activated from Backend configuration without asking for a password. If multiple connections exist for the DBMS, explicitly choose a profile. Newly activated custom profiles from «تنظیمات اتصال به دیتابیس» are reused across pages in the current browser session. Schema is independent from JDBC username (e.g., SYSTEM may read another Schema when authorized). CRUD and live Mermaid use only selected metadata tokens; the existing offline JSON/ZIP diagram path remains available without a DBMS.
+
 # SchemaForge Operations Console — React V0.5.4
 
 A small, **project-wide** React + TypeScript + Vite client that calls **only the existing REST controllers** in SchemaForge V4. One common navigation supports Generation, Conformance, CRUD, Mermaid and all 14 Glossary REST operations. The Java backend remains authoritative for H2, Oracle/DBMS metadata, DDL, validation, review and permission checks.

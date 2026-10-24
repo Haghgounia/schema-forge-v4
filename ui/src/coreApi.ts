@@ -1,5 +1,5 @@
 import { generationUploadError } from './uploadLimits.ts';
-import { fetchDownload, fetchJson, params, uploadForm, requireSelectedPlatform } from './transport.ts';
+import { fetchDownload, fetchJson, params, uploadForm, requireSelectedPlatform, getActiveMetadataConnection } from './transport.ts';
 
 export const PLATFORMS = [
   ['oracle', 'Oracle'], ['postgresql', 'PostgreSQL'], ['db2zos', 'DB2 z/OS'],
@@ -43,10 +43,35 @@ export const coreApi = {
     if (input.scope === 'table' && input.table) query.set('table', input.table.trim());
     return fetchJson<ConformanceResponse>(`/api/v1/conformance/${input.scope}?${query}`);
   },
+  /** Safe selected-audit API: never silently uses startup JDBC config. */
+  selectedAuditPlan: () => {
+    if (!getActiveMetadataConnection()?.token) throw new Error('ابتدا یک اتصال JDBC را در بخش اتصالات فعال کنید.');
+    return fetchJson<SelectedAuditPlan>('/api/v1/conformance/selected/plan');
+  },
+  selectedConformance: (input: {scope: 'table' | 'schema'; schema: string; table?: string}) => {
+    if (!getActiveMetadataConnection()?.token) throw new Error('اتصال فعال برای ممیزی الزامی است.');
+    if (!input.schema.trim() || (input.scope === 'table' && !input.table?.trim())) {
+      throw new Error('Schema و در حالت Table نام جدول الزامی است.');
+    }
+    const query = params({schema: input.schema.trim(), table: input.scope === 'table' ? input.table?.trim() : undefined});
+    return fetchJson<SelectedAuditResult>(`/api/v1/conformance/selected/${input.scope}?${query}`);
+  },
   crud: (platform: 'oracle' | 'sqlserver', schema: string, table: string) => {
+    if (!getActiveMetadataConnection()?.token) throw new Error('ابتدا اتصال مقصد را انتخاب کنید.');
     requireSelectedPlatform([platform]);
-    return fetchDownload(`/api/v1/generate/${platform}/crud`, `schemaforge-${platform}-crud.sql`,
+    return fetchDownload(`/api/v1/generate/${platform}/crud/selected`, `schemaforge-${platform}-crud.sql`,
       { method: 'POST', json: { schema: schema.trim(), table: table.trim() } });
+  },
+  liveDiagram: (input: {schema: string; table?: string; type: DiagramInput['type'];
+    includeColumns: boolean; includeDataTypes: boolean; includePrimaryKeys: boolean;
+    includeForeignKeys: boolean}) => {
+    if (!getActiveMetadataConnection()?.token) throw new Error('ابتدا اتصال دیتابیس مقصد را انتخاب کنید.');
+    if (!input.schema.trim()) throw new Error('Schema مقصد برای نمودار زنده الزامی است.');
+    const query = params({schema:input.schema.trim(),table:input.table?.trim(),type:input.type,
+      includeColumns:input.includeColumns,includeDataTypes:input.includeDataTypes,
+      includePrimaryKeys:input.includePrimaryKeys,includeForeignKeys:input.includeForeignKeys});
+    return fetchDownload(`/api/v1/diagram/mermaid/selected?${query}`,
+      'schemaforge-live-diagram.mmd');
   },
   mermaid: (input: DiagramInput) => {
     const query = params({
@@ -75,6 +100,22 @@ export type ConformanceSummary = {
 export type ConformanceFinding = { ruleFamily: string; severity: string; code: string; path: string; message: string };
 export type ConformanceReport = {
   reportContract: string; platform: string; scope: string; schema: string; table: string | null;
-  ruleFamilies: string[]; summary: ConformanceSummary; findings: ConformanceFinding[];
+  ruleFamilies: string[];
+  ruleFamilySummaries?: {ruleFamily: string; errorCount: number; warningCount: number; infoCount: number; findingCount: number}[];
+  summary: ConformanceSummary; findings: ConformanceFinding[];
 };
 export type ConformanceResponse = ConformanceReport | { reportContract: string; reports: ConformanceReport[]; platforms: string[] };
+export type SelectedAuditTarget = {
+  platform: string; jdbcTarget: string; databaseName: string; username: string;
+  databaseProduct: string; databaseVersion: string; verifiedSchema: string;
+  defaultSchema: string; expiresAt: string;
+};
+export type AuditRule = {id: string; description: string};
+export type SelectedAuditPlan = {
+  reportContract: string; target: SelectedAuditTarget; ruleFamilies: AuditRule[];
+  readOnly: boolean; notIncluded: string[];
+};
+export type SelectedAuditResult = {
+  reportContract: string; target: SelectedAuditTarget; auditedAt: string;
+  report: ConformanceReport;
+};

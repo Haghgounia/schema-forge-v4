@@ -121,7 +121,24 @@ public final class DatabaseConnectionAdministrationService {
         return runtimeConnections.register(platform, request.jdbcUrl().trim(),
                 request.username().trim(), request.password() == null ? "" : request.password(),
                 request.schema() == null ? "" : request.schema().trim(),
-                result.defaultSchema(), result.availableSchemas(), result.schemaListTruncated());
+                result.defaultSchema(), result.availableSchemas(), result.schemaListTruncated(),
+                result.databaseName(), result.product(), result.version());
+    }
+
+    /** Explicit selection of an enabled startup profile, no browser credential round-trip. */
+    public RuntimeMetadataConnectionRegistry.Selection activateConfigured(String code) {
+        Platform platform = Platform.parse(code);
+        MetadataProperties.Database db = config(platform);
+        if (!db.isEnabled() || db.getUrl() == null || db.getUrl().isBlank()
+                || db.getUsername() == null || db.getUsername().isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Configured metadata connection is disabled or lacks URL/username: " + platform.code);
+        }
+        ProbeRequest configured = new ProbeRequest(platform.code, db.getUrl(), db.getUsername(),
+                db.getPassword() == null ? "" : db.getPassword(), false, "");
+        // The same bounded live catalog probe is required for built-in and custom profiles.
+        return activate(configured);
     }
 
     public RuntimeMetadataConnectionRegistry.Selection selected(String token) {
@@ -140,6 +157,9 @@ public final class DatabaseConnectionAdministrationService {
                 DatabaseMetaData meta = connection.getMetaData();
                 String product = truncate(meta.getDatabaseProductName());
                 String version = truncate(meta.getDatabaseProductVersion());
+                String databaseName = "";
+                try { databaseName = truncate(connection.getCatalog()); }
+                catch (SQLException | AbstractMethodError ignored) { /* Some drivers do not expose catalog. */ }
                 if (!schema.isEmpty()) {
                     // Both catalog checks use the same vendor-specific, read-only repository as
                     // Conformance/CRUD/Generation, not an unrelated generic JDBC test.
@@ -148,25 +168,25 @@ public final class DatabaseConnectionAdministrationService {
                     if (!repository.schemaExists(schema)) {
                         return new ProbeResult(false, "SCHEMA_NOT_VISIBLE",
                                 "Selected schema was not found or is not visible to this account.",
-                                product, version, elapsed(started));
+                                product, version, elapsed(started), "", List.of(), false, databaseName);
                     }
                     repository.findTableNames(schema);
                     return new ProbeResult(true, "METADATA_READY",
                             "JDBC and schema metadata access verified with read-only catalog queries.",
-                            product, version, elapsed(started));
+                            product, version, elapsed(started), "", List.of(), false, databaseName);
                 }
                 JdbcSchemaDiscovery.Result discovery = JdbcSchemaDiscovery.inspect(connection, meta, platform.code);
                 if (!discovery.metadataReadable() || discovery.availableSchemas().isEmpty()) {
                     return new ProbeResult(false, "METADATA_DISCOVERY_UNAVAILABLE",
                             "JDBC login succeeded but no database schemas could be enumerated. "
                                     + "Enter a schema and test its metadata access explicitly.",
-                            product, version, elapsed(started));
+                            product, version, elapsed(started), "", List.of(), false, databaseName);
                 }
                 return new ProbeResult(true, "METADATA_DISCOVERED",
                         "JDBC metadata discovery succeeded. Schema selection is optional here; "
                                 + "individual table permissions are checked when metadata is requested.",
                         product, version, elapsed(started), discovery.defaultSchema(),
-                        discovery.availableSchemas(), discovery.truncated());
+                        discovery.availableSchemas(), discovery.truncated(), databaseName);
             }
         } catch (SQLException exception) {
             String sqlState = exception.getSQLState();
@@ -240,14 +260,21 @@ public final class DatabaseConnectionAdministrationService {
     }
     public record ProbeResult(boolean success, String code, String message, String product, String version,
                               long elapsedMillis, String defaultSchema, List<String> availableSchemas,
-                              boolean schemaListTruncated) {
+                              boolean schemaListTruncated, String databaseName) {
         public ProbeResult {
             defaultSchema = defaultSchema == null ? "" : defaultSchema;
+            databaseName = databaseName == null ? "" : databaseName;
             availableSchemas = availableSchemas == null ? List.of() : List.copyOf(availableSchemas);
         }
         public ProbeResult(boolean success, String code, String message, String product, String version,
                            long elapsedMillis) {
-            this(success, code, message, product, version, elapsedMillis, "", List.of(), false);
+            this(success, code, message, product, version, elapsedMillis, "", List.of(), false, "");
+        }
+        public ProbeResult(boolean success, String code, String message, String product, String version,
+                           long elapsedMillis, String defaultSchema, List<String> availableSchemas,
+                           boolean schemaListTruncated) {
+            this(success, code, message, product, version, elapsedMillis,
+                    defaultSchema, availableSchemas, schemaListTruncated, "");
         }
     }
 

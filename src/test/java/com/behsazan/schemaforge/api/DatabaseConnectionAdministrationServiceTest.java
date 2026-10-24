@@ -88,6 +88,38 @@ class DatabaseConnectionAdministrationServiceTest {
         }
     }
 
+    @Test void configuredProfileActivatesWithServerOnlyCredentialsAndNoBrowserPassword() throws Exception {
+        var driver = new InProcessSchemaDriver();
+        java.sql.DriverManager.registerDriver(driver);
+        MetadataProperties config = new MetadataProperties();
+        config.getPostgresql().setEnabled(true);
+        config.getPostgresql().setUrl("jdbc:postgresql://127.0.0.1:1/schemaforge-mock");
+        config.getPostgresql().setUsername("reader");
+        config.getPostgresql().setPassword("server-secret-must-not-leak");
+        var registry = new RuntimeMetadataConnectionRegistry();
+        var controller = new DatabaseConnectionAdministrationService(config, registry);
+        try {
+            var selected = controller.activateConfigured("postgresql");
+            assertEquals("postgresql", selected.platform());
+            assertEquals("reader", selected.username());
+            assertEquals(java.util.List.of("business", "public"), selected.availableSchemas());
+            assertFalse(selected.toString().contains("server-secret-must-not-leak"));
+            assertNotEquals("", selected.token());
+        } finally {
+            controller.shutdown();
+            java.sql.DriverManager.deregisterDriver(driver);
+        }
+    }
+
+    @Test void disabledConfiguredConnectionsFailBeforeAnyJdbcAccess() {
+        var controller = new DatabaseConnectionAdministrationService(
+                new MetadataProperties(), new RuntimeMetadataConnectionRegistry());
+        try {
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                    () -> controller.activateConfigured("oracle"));
+        } finally {controller.shutdown();}
+    }
+
     private static final class InProcessSchemaDriver implements java.sql.Driver {
         @Override public java.sql.Connection connect(String url, java.util.Properties info)
                 throws java.sql.SQLException {

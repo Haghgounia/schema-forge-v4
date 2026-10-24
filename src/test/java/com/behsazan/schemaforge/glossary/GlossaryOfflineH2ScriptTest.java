@@ -59,7 +59,7 @@ class GlossaryOfflineH2ScriptTest {
                         "SELECT persian, status FROM glossary_term WHERE kind='ATOMIC' AND term_key='ACCOUNT'")) {
                     assertTrue(result.next());
                     assertEquals("حساب", result.getString(1), "Seed must be read as UTF-8");
-                    assertEquals(pass == 0 ? "CANDIDATE" : "APPROVED", result.getString(2));
+                    assertEquals("APPROVED", result.getString(2));
                 }
                 if (pass == 0) statement.executeUpdate(
                         "UPDATE glossary_term SET status='APPROVED' WHERE kind='ATOMIC' AND term_key='ACCOUNT'");

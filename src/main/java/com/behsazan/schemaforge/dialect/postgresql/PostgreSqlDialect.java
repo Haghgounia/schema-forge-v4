@@ -167,6 +167,26 @@ public final class PostgreSqlDialect implements Dialect {
     }
 
     @Override
+    public boolean identityUsesNamedSequence(Column column) {
+        String type = sqlType(column).toUpperCase(Locale.ROOT);
+        if (type.equals("SMALLINT") || type.equals("INTEGER") || type.equals("BIGINT")) {
+            return false;
+        }
+        if (type.equals("NUMERIC") || type.matches("NUMERIC\\(\\d+(?:,0)?\\)")) {
+            return true;
+        }
+        throw new IllegalArgumentException(
+                "PostgreSQL identity requires SMALLINT/INTEGER/BIGINT, or a NUMERIC integer sequence fallback: "
+                        + column.name().value() + " " + type);
+    }
+
+    @Override
+    public java.util.Optional<String> jsonValidityPredicate(String columnReference) {
+        // PostgreSQL 16+ implements the SQL/JSON IS JSON predicate.
+        return java.util.Optional.of(columnReference + " IS JSON");
+    }
+
+    @Override
     public String sequenceCacheClause(Integer cacheSize) {
         return " CACHE " + (cacheSize == null || cacheSize == 0 ? 1 : cacheSize);
     }

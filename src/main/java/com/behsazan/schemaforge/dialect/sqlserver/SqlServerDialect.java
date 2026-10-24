@@ -7,6 +7,8 @@ import com.behsazan.schemaforge.dialect.ForeignKeyTypeCompatibilityPolicy;
 import com.behsazan.schemaforge.dialect.NumericMappingStrategy;
 import com.behsazan.schemaforge.domain.enums.ReferentialAction;
 import com.behsazan.schemaforge.domain.model.Column;
+import com.behsazan.schemaforge.domain.model.Table;
+import com.behsazan.schemaforge.validation.constraint.JsonCheckPredicate;
 import com.behsazan.schemaforge.domain.model.Index;
 import com.behsazan.schemaforge.domain.valueobject.Identifier;
 import com.behsazan.schemaforge.domain.valueobject.QualifiedName;
@@ -59,6 +61,37 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
         return typeMapper.map(column.dataType());
     }
 
+    /**
+     * JSON semantic checks in EA/Word/Canonical tables determine Unicode-safe JSON storage.
+     * Plain CLOB columns retain the historical VARCHAR(MAX) mapping. This avoids relying
+     * on the SQL Server database collation being UTF-8 when storing Persian JSON text.
+     */
+    @Override
+    public String sqlType(Table table, Column column) {
+        Objects.requireNonNull(table, "table must not be null");
+        Objects.requireNonNull(column, "column must not be null");
+        String baseType = sqlType(column);
+        boolean isJsonDocument = table.checkConstraints().stream()
+                .map(check -> JsonCheckPredicate.affirmativeJsonColumn(check.expression()))
+                .flatMap(java.util.Optional::stream)
+                .anyMatch(name -> name.equalsIgnoreCase(column.name().value()));
+        if (!isJsonDocument) return baseType;
+
+        if (baseType.equals("VARCHAR(MAX)")) return "NVARCHAR(MAX)";
+        if (baseType.startsWith("VARCHAR(")) {
+            Integer length = column.dataType().length();
+            return length == null || length > 4000
+                    ? "NVARCHAR(MAX)" : "NVARCHAR(" + length + ")";
+        }
+        if (baseType.equals("CHAR")) return "NCHAR";
+        if (baseType.startsWith("CHAR(")) {
+            Integer length = column.dataType().length();
+            return length == null ? "NCHAR"
+                    : length > 4000 ? "NVARCHAR(MAX)" : "NCHAR(" + length + ")";
+        }
+        return baseType; // JSON, NVARCHAR and NCLOB already use Unicode storage.
+    }
+
     @Override
     public String foreignKeyComparableType(Column column) {
         return sqlType(column).replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
@@ -92,6 +125,11 @@ public final class SqlServerDialect implements Dialect, ForeignKeyTypeCompatibil
     @Override
     public String identityClause(Column column) {
         return " IDENTITY(1,1)";
+    }
+
+    @Override
+    public java.util.Optional<String> jsonValidityPredicate(String columnReference) {
+        return java.util.Optional.of("ISJSON(" + columnReference + ") = 1");
     }
 
     @Override

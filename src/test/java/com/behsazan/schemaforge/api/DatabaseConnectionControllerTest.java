@@ -17,6 +17,20 @@ class DatabaseConnectionControllerTest {
         verify(service).summaries();
     }
 
+    @Test void configuredActivationHasSameLoopbackRestriction() {
+        var service = mock(DatabaseConnectionAdministrationService.class);
+        var controller = new DatabaseConnectionController(service);
+        MockHttpServletRequest local = new MockHttpServletRequest();
+        local.setRemoteAddr("127.0.0.1");
+        controller.activateConfigured(local, new DatabaseConnectionController.ConfiguredProfileRequest("oracle"));
+        verify(service).activateConfigured("oracle");
+        MockHttpServletRequest remote = new MockHttpServletRequest();
+        remote.setRemoteAddr("203.0.113.15");
+        assertThrows(ResponseStatusException.class, () -> controller.activateConfigured(
+                remote, new DatabaseConnectionController.ConfiguredProfileRequest("oracle")));
+        verify(service, times(1)).activateConfigured("oracle");
+    }
+
     @Test void remoteUnauthenticatedRequestsCannotOpenArbitraryJdbcConnections() {
         var service = mock(DatabaseConnectionAdministrationService.class);
         var controller = new DatabaseConnectionController(service);

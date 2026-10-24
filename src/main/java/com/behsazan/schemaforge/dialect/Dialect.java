@@ -176,6 +176,26 @@ public interface Dialect {
     }
 
     /**
+     * Column-specific identity decision. PostgreSQL can use native IDENTITY only with
+     * SMALLINT, INTEGER and BIGINT; NUMERIC(p,0) instead needs a named sequence
+     * without narrowing the source datatype. Existing dialects keep their behavior.
+     */
+    default boolean identityUsesNamedSequence(Column column) {
+        Objects.requireNonNull(column, "column must not be null");
+        return identityUsesNamedSequence();
+    }
+
+    /**
+     * Optional, dialect-correct JSON validity predicate for a column reference.
+     * Empty means the dialect's supported server profile cannot guarantee an
+     * executable equivalent and the CHECK must be explicitly reported as unsupported.
+     */
+    default java.util.Optional<String> jsonValidityPredicate(String columnReference) {
+        Objects.requireNonNull(columnReference, "columnReference must not be null");
+        return java.util.Optional.empty();
+    }
+
+    /**
      * Returns the named sequence used for an identity column. A table with one identity
      * column uses SEQ_&lt;TABLE&gt;; multiple identity columns receive column-qualified names.
      */
@@ -515,6 +535,15 @@ public interface Dialect {
     }
 
     default String scriptPostamble() {
+        return "";
+    }
+
+    /**
+     * DBMS client directives placed at the very start of EA integrated run-all scripts.
+     * They must not be SQL statements, and must not depend on per-table files.
+     * Most DBMSs need no special directives; Oracle SQL*Plus needs fail-fast exit handling.
+     */
+    default String integratedDeploymentGuard() {
         return "";
     }
 

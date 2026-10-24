@@ -50,7 +50,7 @@ export async function fetchResponse(path: string, options: HttpOptions = {}): Pr
   if (options.adminKey) headers.set('X-Glossary-Admin-Key', options.adminKey);
   const active = currentMetadataConnection;
   const token = options.metadataToken ??
-    (active && (/^\/api\/v1\/conformance\//.test(path) || /^\/api\/v1\/generate\//.test(path))
+    (active && (/^\/api\/v1\/conformance\//.test(path) || /^\/api\/v1\/generate\//.test(path) || /^\/api\/v1\/diagram\/mermaid\/selected/.test(path))
       ? active.token : undefined);
   if (token) headers.set('X-SchemaForge-Metadata-Connection', token);
   let body: BodyInit | undefined;

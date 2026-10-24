@@ -6,9 +6,10 @@ import {ApiError} from '../transport.ts';
 type Props = {
   active: ActiveMetadataConnection | null;
   onSelectionChange: (selection: ActiveMetadataConnection | null) => void;
+  onDisconnected?: (token: string) => void;
 };
 
-export default function ConnectionsView({active, onSelectionChange}: Props) {
+export default function ConnectionsView({active, onSelectionChange, onDisconnected}: Props) {
   const [connections, setConnections] = useState<ConnectionSummary[]>([]);
   const [selected, setSelected] = useState('oracle');
   const [url, setUrl] = useState('');
@@ -81,10 +82,7 @@ export default function ConnectionsView({active, onSelectionChange}: Props) {
     try {
       if (activate) {
         const connection = await connectionApi.activate(input());
-        if (active && active.token !== connection.token) {
-          try {await connectionApi.disconnect(active.token);} catch { /* Old selection expires shortly. */ }
-        }
-        onSelectionChange(connection);
+        onSelectionChange({...connection,origin:'custom'});
         rememberDiscovery(connection);
         setProbeResult({success:true, code:connection.verifiedSchema ? 'METADATA_READY' : 'METADATA_DISCOVERED',
           message:connection.verifiedSchema
@@ -105,17 +103,29 @@ export default function ConnectionsView({active, onSelectionChange}: Props) {
       setBusy(false);
     }
   }
+  async function useProgramConnection() {
+    setBusy(true);setError('');setProbeResult(null);
+    try {
+      const connection = await connectionApi.activateConfigured(selected);
+      onSelectionChange({...connection,origin:'configured'});
+      rememberDiscovery(connection);
+      setProbeResult({success:true,code:'METADATA_DISCOVERED',message:'اتصال تنظیم‌شده برنامه فعال شد.',
+        product:connection.databaseProduct || '',version:connection.databaseVersion || '',elapsedMillis:0});
+    } catch (err) {setError(err instanceof Error ? err.message : 'اتصال برنامه فعال نشد.');}
+    finally {setBusy(false);setPassword('');}
+  }
   async function disconnect() {
     if (!active) return;
     setBusy(true); setError('');
-    try {await connectionApi.disconnect(active.token); onSelectionChange(null); setProbeResult(null);}
+    try {await connectionApi.disconnect(active.token);onDisconnected?.(active.token);
+      onSelectionChange(null);setProbeResult(null);}
     catch (err) {setError(err instanceof Error ? err.message : 'Unable to disconnect.');}
     finally {setBusy(false);}
   }
 
   return <section className="connections-page">
     <div className="page-heading"><div><span className="eyebrow">JDBC Connection Profiles</span>
-      <h1>اتصالات دیتابیس</h1>
+      <h1>تنظیمات اتصال به دیتابیس</h1>
       <p>Introduce your database, verify catalog access, and use the new connection for SchemaForge metadata immediately.</p>
     </div></div>
     <p className="message neutral">No administrator key or Java configuration edit is required. A selected connection is temporary,
@@ -123,6 +133,9 @@ export default function ConnectionsView({active, onSelectionChange}: Props) {
     {active && <div className="message success" role="status">
       <strong>Active metadata connection: {active.platform.toUpperCase()}
         {active.verifiedSchema ? ` / Verified schema: ${active.verifiedSchema}` : ' / Schema selection deferred'}</strong>
+      {active.jdbcTarget && <p>JDBC target: <span dir="ltr">{active.jdbcTarget}</span>
+        {active.databaseName && <> · Database: <strong dir="ltr">{active.databaseName}</strong></>}
+        {active.username && <> · User: <span dir="ltr">{active.username}</span></>}</p>}
       <p>Expires: {new Date(active.expiresAt).toLocaleString()}. Conformance, CRUD and Generation use this connection
         when their requested DBMS matches. Other DBMS requests are rejected instead of silently mixing connections.</p>
       <button className="btn secondary" type="button" disabled={busy} onClick={() => void disconnect()}>Disconnect</button>
@@ -149,6 +162,12 @@ export default function ConnectionsView({active, onSelectionChange}: Props) {
               {current.driverAvailable ? 'JDBC driver ready' : 'JDBC driver is not installed'}</span>
             <span className="status candidate">{current.enabled ? 'Startup metadata enabled' : 'Startup metadata disabled'}</span>
           </div>
+          {current.enabled && current.driverAvailable && current.jdbcUrl && current.username &&
+            <div className="message neutral">
+              این اتصال در تنظیمات Backend تعریف شده است و بدون دریافت مجدد رمز عبور قابل استفاده است.
+              <button type="button" className="btn primary" disabled={busy}
+                onClick={() => void useProgramConnection()}>فعال‌سازی اتصال تنظیم‌شده برنامه</button>
+            </div>}
           <form className="form-stack" onSubmit={(event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void execute(true);}}>
             <label className="field">JDBC URL <span className="required">*</span>
               <input dir="ltr" value={url} maxLength={1500} required spellCheck={false}

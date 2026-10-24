@@ -51,7 +51,8 @@ public class GlossaryConfiguration {
 
     /**
      * Preloads the authoritative Atomic Terms worksheet on application startup.
-     * Re-running import is idempotent and never overwrites curated term/status edits.
+     * First startup approves the authoritative worksheet entries once in existing H2.
+     * Re-running import is idempotent and never overwrites later steward decisions.
      * Glossary is enabled by default; set schemaforge.glossary.enabled=false to opt out.
      */
     @Bean
@@ -61,12 +62,13 @@ public class GlossaryConfiguration {
             if (!seedOnStartup) return;
             var resource = new ClassPathResource("glossary/01_Atomic_Terms.xlsx");
             try (InputStream stream = resource.getInputStream()) {
-                var imported = importer.importWorkbook(stream, GlossaryTermStatus.CANDIDATE);
-                if (imported.sourceRows() != 946 || imported.uniqueEntries() != 804) {
-                    throw new IllegalStateException("Unexpected Atomic glossary baseline: "
-                            + imported.sourceRows() + " rows, "
-                            + imported.uniqueEntries() + " unique terms");
-                }
+                var imported = importer.importApprovedBaseline(stream);
+                var migration = imported.migration();
+                org.slf4j.LoggerFactory.getLogger(GlossaryConfiguration.class).info(
+                        "Atomic Terms approved baseline: rows={} unique={} inserted={} migrated={} "
+                                + "skipped={} firstApplication={}",
+                        imported.sourceRows(), imported.uniqueEntries(), imported.inserted(),
+                        migration.promoted(), migration.skipped(), migration.applied());
             }
         };
     }
