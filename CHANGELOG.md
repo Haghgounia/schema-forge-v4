@@ -1,3 +1,41 @@
+## 2026-10-24 — Console V0.5.6: streamed large-Batch Glossary evidence (UI-C10i)
+
+- Replace the 2 MiB whole-file `unknown-terms.csv` evidence lookup with bounded, streaming UTF-8 RFC-4180 row filtering (128 MiB uncompressed safety ceiling). Exact occurrence count, maximum 25 visible rows, cancellation when changing terms, explicit failure on malformed/incomplete CSV.
+- Keep generic 2 MiB report previews, 5 MiB manual import, ZIP download, Glossary policy, all REST/Java/H2 files, Canonical, DDL and seven DBMS dialect implementations unchanged. Legacy abbreviations remain expressly out of scope.
+- Add Node regression tests, real-corpus checks, and a focused CMD acceptance suite for Canonical, all seven DBMS generators, and UI. Windows Maven/Vite and Chrome gates remain open until run by the operator. See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V056-GLOSSARY-BATCH-EVIDENCE.md`.
+
+## 2026-10-24 - Glossary default enabled (V0.5.5 baseline)
+
+- Glossary REST endpoints and report writer now initialize by default in normal REST
+  and external distribution runtimes; explicit `SCHEMAFORGE_GLOSSARY_ENABLED=false`
+  remains a supported opt-out. Preserve the isolated H2 path.
+- Default candidate registration remains `DRY_RUN`; no auto-candidate approval or
+  registration. The pre-existing idempotent baseline seed may add missing CANDIDATE
+  entries at startup when `seed-on-startup=true` (unchanged).
+- Align embedded YAML, both distribution YAML variants, and all three Spring
+  conditional components. Add default-on, explicit-opt-out, and configuration
+  contract tests. Keep external artifact-corpus regression tests explicitly OFF.
+- This delta contains source/config/docs/tests only, never the H2 data itself.
+  Full Maven/Windows startup and live Glossary REST/ZIP smoke gates are OPEN.
+
+## 2026-10-24 - Console V0.5.4: large Batch ZIP manifest and report preview
+
+- Read Batch `manifest.json` up to 32 MiB uncompressed while keeping at most 100 exception examples and exact backend counters; display batch document summaries separately.
+- For an unreadable/over-limit manifest use the existing generation-summary report only, with a clearly marked partial status and no invented artifact counts.
+- Preview up to 2 MiB of large reports with honest truncation/CSV row counts, and allow individual bounded 64 MiB report downloads; retain 100 MiB compressed-archive and 5 MiB Glossary import caps.
+- Added local opening of previously downloaded output ZIPs, without any REST upload or regeneration. Added five large-Batch/offline regression tests. Node suite: 52/52 PASS in authoring environment. Windows real Vite build and exact user Batch ZIP browser acceptance remain open. No changes to Java, REST, H2, DDL, Canonical or Backend upload 500MB settings.
+
+## 2026-10-24 - Console V0.5.1: self-service runtime JDBC metadata selection
+
+- Replace the V0.5.0 connection-administration-key and restart-only form with end-user
+  DBMS/JDBC/schema entry, metadata permission test and immediate browser-scoped activation.
+- Add opaque, expiring runtime metadata connection profiles with vendor-specific repository
+  routing via the existing resolver, without changing global DataSources or H2.
+- Guard arbitrary JDBC connection setup to localhost until centralized secure access exists.
+- Add activation/status/disconnect REST APIs and request-scoped metadata header forwarding;
+  update source tests and the permanent Console roadmap. User Windows Maven/Vite and live
+  DBMS acceptance are still required.
+
 ## 2026-10-23 — Console UI V0.4.3: focused ER relationships (UI-C6e)
 
 - Add source-based, read-only **Focus Mode** to the common Graphviz/Mermaid viewer. Select an exact `SCHEMA.TABLE`, then render the selected table plus its 1-hop or 2-hop relationship neighborhood; switch back to the unchanged full graph at any time.
@@ -3265,3 +3303,19 @@
 - Render effective per-DBMS JDBC URL, username, driver availability, enabled flag and password-presence **without exposing password values**. Never substitute bundled React placeholders for active Java settings.
 - Add a compact Persian RTL connection editor, local-only key in volatile state, manual probe, reset to configured defaults, and nonsecret YAML copy. Never change or persist Metadata DataSources from a test; restart required for server-side updates.
 - Add 4 Java guard/validation unit tests and 3 frontend REST/config tests; record acceptance gaps in the permanent Console roadmap. All previous Glossary/diagram/EA behavior remains independent.
+
+### 2026-10-24 — Console UI V0.5.2: optional Schema + JDBC discovery
+
+- Updated V0.5.1 self-service metadata connections so Schema is optional, with a bounded JDBC `getSchemas` list or `getCatalogs` for MySQL/MariaDB and the default JDBC namespace where available.
+- `POST /api/v1/connections/test` and `/activate` retain their paths and input contracts; their responses expose nonsecret schema suggestions. Explicit-schema checks still use the vendor metadata repository, while no-schema activation marks the schema as unverified until a subsequent metadata operation.
+- React provides editable schema suggestions and prevents confusing a discovered namespace with a verified privilege. No `Connections-Admin-Key`, server restart, H2 modification, or new REST route.
+- Removed the obsolete and unused `schemaforge.connections.admin-key` application YAML entry left over from V0.5.0; the controller remains local-only, with no administrator key.
+- Added frontend and Java regression tests. Real Maven, `npm` build, browser and live DBMS permission gates remain to be verified on the operator's Windows environment.
+
+
+### 2026-10-24 — Console UI 0.5.3 / 500 MB generation upload limit
+
+- Changed Spring Boot `spring.servlet.multipart.max-file-size` default from 100MB to 500MB and `max-request-size` to 520MB in runtime and external distribution YAML. Both are env-overridable.
+- Added Generation UI 500 MiB preflight warning to avoid uploading oversized files, and three regression checks.
+- Preserved Glossary import-specific limits, 100 MiB browser-side generated ZIP preview bound, all REST routes, Generation/Canonical/DDL behavior, and H2 files.
+- Runtime acceptance on an actual 100-500 MB test upload and Maven build remain pending operator verification.

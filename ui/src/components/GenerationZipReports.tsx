@@ -27,13 +27,16 @@ function displayStatus(status?: string): string {
 export default function GenerationZipReports({inspection, download, onReviewTerm}: {
   inspection: ZipInspection; download: Download; onReviewTerm: (handoff: ReviewHandoff) => void;
 }) {
-  const [tab, setTab] = useState<Tab>('glossary');
+  const [tab, setTab] = useState<Tab>(inspection.glossary ? 'glossary' : 'status');
   const [group, setGroup] = useState<TermGroup>('new');
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const [evidence, setEvidence] = useState<{total:number; rows:TermEvidence[]} | null>(null);
   const [evidenceError, setEvidenceError] = useState('');
-  const [filePath, setFilePath] = useState(inspection.reports[0]?.path ?? '');
+  const [filePath, setFilePath] = useState(
+    inspection.reports.find(item => item.path === 'reports/batch-generation-summary.csv')?.path
+    ?? inspection.reports.find(item => item.path === 'reports/schemaforge-generation-summary.txt')?.path
+    ?? inspection.reports[0]?.path ?? '');
   const [preview, setPreview] = useState<ReportPreview | null>(null);
   const [previewError, setPreviewError] = useState('');
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -53,11 +56,13 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
   const selectedFile = inspection.reports.find(item => item.path === filePath);
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setEvidence(null); setEvidenceError('');
     if (!term) return;
-    readTermEvidence(inspection, term).then(value => { if (active) { if (value) setEvidence(value); else setEvidenceError('فایل شواهد این واژه در ZIP موجود نیست.'); } })
-      .catch(() => { if (active) setEvidenceError('شواهد این واژه قابل خواندن نیست.'); });
-    return () => { active = false; };
+    readTermEvidence(inspection, term, controller.signal)
+      .then(value => { if (active) { if (value) setEvidence(value); else setEvidenceError('فایل unknown-terms.csv در ZIP موجود نیست.'); } })
+      .catch(error => { if (active) setEvidenceError(error instanceof Error ? error.message : 'شواهد این واژه قابل خواندن نیست.'); });
+    return () => { active = false; controller.abort(); };
   }, [inspection, term]);
   useEffect(() => {
     let active = true;
@@ -82,7 +87,8 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
     catch (err) { setReviewError(err instanceof Error ? err.message : 'انتقال به صف بازبینی ممکن نبود.'); }
     finally { setReviewBusy(false); }
   }
-  const exceptional = (manifest?.artifacts ?? []).filter(item => item.status && item.status !== 'GENERATED');
+  const exceptional = manifest?.artifacts ?? [];
+  const exceptionalCount = manifest?.exceptionalCount ?? exceptional.length;
   return <section className="panel content-panel result-block generation-results" aria-label="نتایج تولید و گزارش‌های ZIP">
     <div className="page-heading">
       <div><h3>نتایج تولید و گزارش‌ها</h3>
@@ -94,6 +100,7 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
       <strong>{displayStatus(manifest?.requestStatus)}</strong>
       <span className="result-source" dir="ltr">{manifest?.source?.name ?? download.filename}</span>
       <span className="result-small">دریافت موفق ZIP لزوماً به معنی تولید کامل تمام Scriptها نیست.</span>
+      {manifest?.summarySource === 'generation-summary' && <span className="result-small">این وضعیت از گزارش متنی Backend خوانده شده؛ Manifest بزرگ یا نامعتبر است و وضعیت تک‌تک Artifactها تأیید نشده.</span>}
     </p>
     {inspection.warnings.length > 0 && <div className="message neutral" role="note">{inspection.warnings.map(message => <p key={message}>{message}</p>)}</div>}
     <div className="result-metrics">
@@ -103,6 +110,15 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
       <div><span>خطاهای Validation</span><strong>{format(manifest?.validation?.errorCount)}</strong></div>
       <div><span>هشدارهای Validation</span><strong>{format(manifest?.validation?.warningCount)}</strong></div>
     </div>
+    {manifest?.batchInput && (manifest.batchInput.processableDocumentCount !== undefined || manifest.batchInput.successCount !== undefined) && <>
+      <p className="hint">خلاصه پردازش اسناد Batch (مستقل از شمارنده‌های Artifact)</p>
+      <div className="result-metrics minor">
+        <div><span>اسناد قابل پردازش</span><strong>{format(manifest.batchInput.processableDocumentCount)}</strong></div>
+        <div><span>اسناد موفق</span><strong>{format(manifest.batchInput.successCount)}</strong></div>
+        <div><span>اسناد ناموفق</span><strong>{format(manifest.batchInput.failedCount)}</strong></div>
+        <div><span>ورودی‌های کنارگذاشته‌شده</span><strong>{format(manifest.batchInput.skippedCount)}</strong></div>
+      </div>
+    </>}
     <div className="tabs result-tabs" role="tablist" aria-label="بخش‌های گزارش خروجی">
       <button type="button" role="tab" aria-selected={tab === 'glossary'} className={`tab ${tab === 'glossary' ? 'active' : ''}`} onClick={() => setTab('glossary')}>واژگان Glossary</button>
       <button type="button" role="tab" aria-selected={tab === 'status'} className={`tab ${tab === 'status' ? 'active' : ''}`} onClick={() => setTab('status')}>وضعیت Artifact</button>
@@ -164,16 +180,17 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
     </div>}
     {tab === 'status' && <div className="result-tab-body" role="tabpanel">
       {!manifest ? <p className="empty">فایل Manifest خوانده نشده است.</p> : <>
-        <p className="hint">وضعیت این درخواست براساس `manifest.json` گزارش می‌شود، نه وضعیت HTTP دانلود.</p>
-        {exceptional.length === 0 ? <p className="message success">Artifact مسدود یا ردشده‌ای در Manifest ثبت نشده است.</p> : <>
-          <p className="hint">{format(exceptional.length)} Artifact با وضعیت غیر از GENERATED:</p>
+        <p className="hint">وضعیت این درخواست براساس {manifest.summarySource === 'generation-summary' ? 'گزارش متنی Backend (خلاصه موقت)' : 'manifest.json'} گزارش می‌شود، نه وضعیت HTTP دانلود.</p>
+        {manifest.summarySource === 'generation-summary' ? <p className="message neutral">Manifest کامل قابل بررسی نبود؛ برای جزئیات Artifact از فایل‌های گزارش یا ZIP اصلی استفاده کنید.</p>
+        : exceptionalCount === 0 ? <p className="message success">Artifact مسدود یا ردشده‌ای در Manifest ثبت نشده است.</p> : <>
+          <p className="hint">{format(exceptionalCount)} Artifact با وضعیت غیر از GENERATED؛ حداکثر ۱۰۰ مورد نخست نمایش داده می‌شود:</p>
           <div className="table-scroll"><table><thead><tr><th>وضعیت</th><th>نوع</th><th>نام</th><th>دلیل</th></tr></thead><tbody>
             {exceptional.slice(0, 100).map((item, index) => <tr key={`${item.logicalName}:${index}`}>
               <td dir="ltr">{item.status}</td><td dir="ltr">{item.type}</td>
               <td dir="ltr">{item.logicalName}</td><td className="reason-cell" dir="ltr">{item.outcomeReason ?? '—'}</td>
             </tr>)}
           </tbody></table></div>
-          {exceptional.length > 100 && <p className="hint">۱۰۰ مورد نخست نمایش داده شده‌اند؛ گزارش کامل داخل ZIP قرار دارد.</p>}
+          {exceptionalCount > exceptional.length && <p className="hint">برای تمام جزئیات، فایل اصلی manifest.json را جداگانه دریافت کنید.</p>}
         </>}
       </>}
     </div>}
@@ -192,12 +209,16 @@ export default function GenerationZipReports({inspection, download, onReviewTerm
       {previewBusy && <p className="loading">در حال خواندن گزارش…</p>}
       {previewError && <p className="message error" role="alert">{previewError}</p>}
       {preview?.kind === 'csv' && <>
-        <p className="hint">{format(preview.totalRows)} رکورد؛ حداکثر {format(preview.previewRows)} ردیف پیش‌نمایش. فایل کامل قابل دریافت است.</p>
+        <p className="hint">{preview.totalRows === null ? 'تعداد کل ردیف‌ها در گزارش حجیم محاسبه نشده' : `${format(preview.totalRows)} رکورد`}؛ {format(preview.previewRows)} ردیف پیش‌نمایش. فایل کامل قابل دریافت است.</p>
+        {preview.truncated && <p className="message neutral">فقط ابتدای گزارش بزرگ خوانده شده است؛ برای بررسی کامل، فایل اصلی را دریافت کنید.</p>}
         <div className="table-scroll report-table"><table><thead><tr>{preview.headers.map((h,i) => <th key={i} dir="ltr">{h}</th>)}</tr></thead><tbody>
           {preview.rows.map((row,i) => <tr key={i}>{preview.headers.map((_,j) => <td key={j} dir="ltr">{row[j] ?? ''}</td>)}</tr>)}
         </tbody></table></div>
       </>}
-      {preview?.kind === 'text' && <pre className="code-preview report-text" dir="ltr">{preview.text}</pre>}
+      {preview?.kind === 'text' && <>
+        {preview.truncated && <p className="message neutral">پیش‌نمایش این گزارش حجیم محدود است؛ نمایش خلاصه به معنی بررسی تمام محتوای فایل نیست. برای محتوای کامل «دریافت همین گزارش» را بزنید.</p>}
+        <pre className="code-preview report-text" dir="ltr">{preview.text}</pre>
+      </>}
       {inspection.reports.length === 0 && <p className="empty">گزارش متنی در آرشیو موجود نیست.</p>}
     </div>}
   </section>;

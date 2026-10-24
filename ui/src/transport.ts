@@ -7,8 +7,22 @@ export class ApiError extends Error {
 }
 export type HttpOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  json?: unknown; body?: FormData; adminKey?: string; connectionKey?: string; signal?: AbortSignal; accept?: string;
+  json?: unknown; body?: FormData; adminKey?: string; metadataToken?: string; signal?: AbortSignal; accept?: string;
 };
+import type {ActiveMetadataConnection} from './connectionApi.ts';
+let currentMetadataConnection: ActiveMetadataConnection | null = null;
+export function setActiveMetadataConnection(value: ActiveMetadataConnection | null): void {
+  currentMetadataConnection = value;
+}
+export function getActiveMetadataConnection(): ActiveMetadataConnection | null {
+  return currentMetadataConnection;
+}
+export function requireSelectedPlatform(platforms: readonly string[]): void {
+  const selected = currentMetadataConnection;
+  if (selected && (platforms.length !== 1 || platforms[0] !== selected.platform)) {
+    throw new Error('The active metadata connection belongs to ' + selected.platform + '. Select only that DBMS, or disconnect.');
+  }
+}
 export function params(values: Record<string, string | number | boolean | null | undefined>): string {
   const pairs = new URLSearchParams();
   for (const [name, value] of Object.entries(values)) {
@@ -24,6 +38,7 @@ function errorMessage(status: number): string {
     case 404: return 'مسیر REST پیدا نشد؛ برای Glossary فعال بودن سرویس را کنترل کنید.';
     case 409: return 'تعارض داده یا وضعیت رخ داده است؛ اطلاعات را به‌روزرسانی کنید.';
     case 413: return 'حجم فایل بیش از حد مجاز است.';
+    case 422: return 'Metadata permissions could not be verified. Use Test only to inspect the JDBC/schema result.';
     case 502: case 503: case 504:
       return `HTTP ${status}: Backend در دسترس نیست یا آماده نشده است. سرویس Java (پیش‌فرض 127.0.0.1:9090) و تنظیمات Proxy را بررسی کنید.`;
     default: return `درخواست REST با خطای HTTP ${status} انجام نشد.`;
@@ -33,7 +48,11 @@ export async function fetchResponse(path: string, options: HttpOptions = {}): Pr
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error('Only same-origin relative REST paths allowed');
   const headers = new Headers({ Accept: options.accept ?? 'application/json' });
   if (options.adminKey) headers.set('X-Glossary-Admin-Key', options.adminKey);
-  if (options.connectionKey) headers.set('X-SchemaForge-Connections-Admin-Key', options.connectionKey);
+  const active = currentMetadataConnection;
+  const token = options.metadataToken ??
+    (active && (/^\/api\/v1\/conformance\//.test(path) || /^\/api\/v1\/generate\//.test(path))
+      ? active.token : undefined);
+  if (token) headers.set('X-SchemaForge-Metadata-Connection', token);
   let body: BodyInit | undefined;
   if (options.json !== undefined) {
     headers.set('Content-Type', 'application/json'); body = JSON.stringify(options.json);
@@ -48,7 +67,12 @@ export async function fetchResponse(path: string, options: HttpOptions = {}): Pr
     if (error instanceof Error && error.name === 'AbortError') throw error;
     throw new ApiError(0, 'ارتباط شبکه برقرار نشد؛ Backend جاوا و پورت آن را بررسی کنید.');
   }
-  if (!response.ok) throw new ApiError(response.status, errorMessage(response.status));
+  if (!response.ok) {
+    if (response.status === 401 && token) {
+      throw new ApiError(401, 'The selected metadata connection expired. Disconnect and connect again.');
+    }
+    throw new ApiError(response.status, errorMessage(response.status));
+  }
   return response;
 }
 export async function fetchJson<T>(path: string, options: HttpOptions = {}): Promise<T> {

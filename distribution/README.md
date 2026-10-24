@@ -16,6 +16,15 @@ Layout:
 
 The runtime start script deliberately uses `spring.config.location` so the distribution runs from `config/application.yml` rather than the development defaults embedded in the executable JAR. The shipped configuration contains no database passwords and keeps every live metadata repository disabled until explicitly enabled with environment variables.
 
+Glossary is an independent **H2-backed service enabled by default** in both external
+`config/application.yml` and `config/application-example.yml`. It does not enable
+Oracle/PostgreSQL/other live metadata connections. The default file is
+`./data/schemaforge-glossary.mv.db`; configure a writable, backed-up path with
+`SCHEMAFORGE_GLOSSARY_DATABASE_PATH`. Startup may seed missing baseline candidates
+when `SCHEMAFORGE_GLOSSARY_SEED_ON_STARTUP=true` (default). Newly discovered terms
+are **not inserted** under the default `DRY_RUN` registration mode. Explicitly set
+`SCHEMAFORGE_GLOSSARY_ENABLED=false` to run without the service or its reports.
+
 ### Release-confidence external corpus gate v3
 
 The test source now includes a v3 external corpus harness for Standard Word ZIP, Legacy Word ZIP, Legacy RTL Word ZIP, and EA XML/XMI directories. Observation mode (`schemaforge.e2e.failOnErrors=false`) records all issues without failing Maven; strict mode aggregates failures after full corpus processing. EA outputs use collision-safe deterministic names and CSV summaries include input/output plus exception class/message evidence.

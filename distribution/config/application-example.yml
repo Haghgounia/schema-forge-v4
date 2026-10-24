@@ -8,8 +8,8 @@ server:
 spring:
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: ${SCHEMAFORGE_UPLOAD_MAX_FILE_SIZE:500MB}
+      max-request-size: ${SCHEMAFORGE_UPLOAD_MAX_REQUEST_SIZE:520MB}
 
 springdoc:
   swagger-ui:
@@ -18,6 +18,16 @@ springdoc:
     path: /v3/api-docs
 
 schemaforge:
+  # Enabled unless SCHEMAFORGE_GLOSSARY_ENABLED=false is explicitly provided.
+  # Uses its own persistent H2 file; no live DBMS metadata connection is required.
+  glossary:
+    enabled: ${SCHEMAFORGE_GLOSSARY_ENABLED:true}
+    database-path: ${SCHEMAFORGE_GLOSSARY_DATABASE_PATH:./data/schemaforge-glossary}
+    seed-on-startup: ${SCHEMAFORGE_GLOSSARY_SEED_ON_STARTUP:true}
+    admin-key: ${SCHEMAFORGE_GLOSSARY_ADMIN_KEY:}
+    candidate-registration:
+      mode: ${SCHEMAFORGE_GLOSSARY_CANDIDATE_REGISTRATION_MODE:DRY_RUN}
+
   numeric-mapping:
     strategy: ${SCHEMAFORGE_NUMERIC_MAPPING_STRATEGY:SAFE}
 

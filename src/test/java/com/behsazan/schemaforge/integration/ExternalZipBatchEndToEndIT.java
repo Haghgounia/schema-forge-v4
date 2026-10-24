@@ -49,7 +49,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
                 "schemaforge.metadata.sqlserver.enabled=false",
                 "schemaforge.metadata.mysql.enabled=false",
                 "schemaforge.metadata.mariadb.enabled=false",
-                "schemaforge.spell-check.enabled=false"
+                "schemaforge.spell-check.enabled=false",
+                // Preserve the pre-Glossary artifact baseline in this external corpus gate.
+                "schemaforge.glossary.enabled=false"
         })
 class ExternalZipBatchEndToEndIT {
     private static final String STANDARD_ZIP = "schemaforge.e2e.standardZip";

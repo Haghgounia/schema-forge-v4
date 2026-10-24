@@ -27,7 +27,7 @@ import java.sql.SQLException;
 
 @RestController
 @RequestMapping("/api/v1/glossary")
-@ConditionalOnProperty(prefix = "schemaforge.glossary", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "schemaforge.glossary", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Tag(name = "Glossary Governance", description = "Search, govern, and import canonical database naming vocabulary")
 public final class GlossaryController {
     private final GlossaryRepository repository;

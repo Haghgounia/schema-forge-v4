@@ -1,13 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { coreApi, type ConformanceReport, type ConformanceResponse } from '../coreApi';
 import Platforms from '../components/Platforms';
 import { saveDownload } from '../transport';
 
-export default function ConformanceView() {
+export default function ConformanceView({activeMetadataPlatform}: {activeMetadataPlatform?: string}) {
   const [scope, setScope] = useState<'table' | 'schema'>('table');
   const [schema, setSchema] = useState('');
   const [table, setTable] = useState('');
-  const [platforms, setPlatforms] = useState<string[]>(['oracle']);
+  const [platforms, setPlatforms] = useState<string[]>(activeMetadataPlatform ? [activeMetadataPlatform] : ['oracle']);
+  useEffect(() => {if (activeMetadataPlatform) setPlatforms([activeMetadataPlatform]);}, [activeMetadataPlatform]);
   const [data, setData] = useState<ConformanceResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +46,7 @@ export default function ConformanceView() {
           <input dir="ltr" required value={table} onChange={e => setTable(e.target.value)} placeholder="ACCOUNTS" />
         </label>}
       </div>
-      <Platforms selected={platforms} onChange={setPlatforms}/>
+      <Platforms selected={platforms} onChange={setPlatforms} lockedTo={activeMetadataPlatform}/>
       <div className="form-actions"><button className="btn primary" disabled={busy || !platforms.length}>
         {busy ? 'در حال ممیزی…' : 'اجرای Validation'}</button></div>
       {error && <p className="message error" role="alert">{error}</p>}

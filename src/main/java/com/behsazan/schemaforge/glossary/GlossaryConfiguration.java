@@ -17,9 +17,9 @@ import java.nio.file.Path;
 import java.io.IOException;
 import java.io.InputStream;
 
-/** Opt-in isolated persistent glossary datastore; does not alter DBMS metadata DataSources. */
+/** Default-on isolated persistent glossary datastore; never alters DBMS metadata DataSources. */
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "schemaforge.glossary", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "schemaforge.glossary", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class GlossaryConfiguration {
     @Bean("glossaryDataSource")
     DataSource glossaryDataSource(@Value("${schemaforge.glossary.database-path:./data/schemaforge-glossary}") String path)
@@ -52,7 +52,7 @@ public class GlossaryConfiguration {
     /**
      * Preloads the authoritative Atomic Terms worksheet on application startup.
      * Re-running import is idempotent and never overwrites curated term/status edits.
-     * The glossary must remain explicitly enabled; all other SchemaForge paths are unchanged.
+     * Glossary is enabled by default; set schemaforge.glossary.enabled=false to opt out.
      */
     @Bean
     ApplicationRunner glossaryAtomicBootstrap(GlossaryExcelImporter importer,

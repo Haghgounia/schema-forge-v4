@@ -1,8 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { coreApi } from '../coreApi';
 import { saveDownload } from '../transport';
-export default function CrudView() {
-  const [platform, setPlatform] = useState<'oracle'|'sqlserver'>('oracle');
+export default function CrudView({activeMetadataPlatform}: {activeMetadataPlatform?: string}) {
+  const [platform, setPlatform] = useState<'oracle'|'sqlserver'>(activeMetadataPlatform === 'sqlserver' ? 'sqlserver' : 'oracle');
+  useEffect(() => {
+    if (activeMetadataPlatform === 'oracle' || activeMetadataPlatform === 'sqlserver') setPlatform(activeMetadataPlatform);
+  }, [activeMetadataPlatform]);
+  const blocked = Boolean(activeMetadataPlatform && activeMetadataPlatform !== 'oracle' && activeMetadataPlatform !== 'sqlserver');
   const [schema, setSchema] = useState('');
   const [table, setTable] = useState('');
   const [script, setScript] = useState('');
@@ -22,10 +26,11 @@ export default function CrudView() {
   return <section>
     <div className="page-heading"><div><h2>تولید CRUD</h2>
       <p>بسته SQL از متادیتای واقعی Oracle یا SQL Server توسط Backend تولید می‌شود.</p></div></div>
+    {blocked && <p className="message neutral">CRUD generation is available for Oracle and SQL Server only. Switch the active connection to one of these platforms.</p>}
     <form className="panel content-panel form-stack" onSubmit={run}>
       <div className="form-grid">
         <label className="field">DBMS
-          <select value={platform} onChange={e => setPlatform(e.target.value as 'oracle'|'sqlserver')}>
+          <select value={platform} disabled={Boolean(activeMetadataPlatform)} onChange={e => setPlatform(e.target.value as 'oracle'|'sqlserver')}>
             <option value="oracle">Oracle</option><option value="sqlserver">SQL Server</option>
           </select></label>
         <label className="field grow">Schema <span className="required">*</span>
@@ -33,7 +38,7 @@ export default function CrudView() {
         <label className="field grow">Table <span className="required">*</span>
           <input dir="ltr" value={table} required onChange={e => setTable(e.target.value)} placeholder="TABLE" /></label>
       </div>
-      <div className="form-actions"><button type="submit" className="btn primary" disabled={busy}>
+      <div className="form-actions"><button type="submit" className="btn primary" disabled={busy || blocked}>
         {busy ? 'در حال تولید…' : 'تولید و دریافت SQL'}</button></div>
       {error && <p role="alert" className="message error">{error}</p>}
     </form>

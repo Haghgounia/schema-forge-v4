@@ -1,4 +1,4 @@
-import {fetchJson} from './transport.ts';
+import {fetchJson, fetchResponse} from './transport.ts';
 
 export type ConnectionSummary = {
   platform: string;
@@ -15,7 +15,8 @@ export type ConnectionProbe = {
   jdbcUrl: string;
   username: string;
   password: string;
-  useConfiguredPassword: boolean;
+  useConfiguredPassword: false;
+  schema: string;
 };
 export type ConnectionProbeResult = {
   success: boolean;
@@ -24,33 +25,30 @@ export type ConnectionProbeResult = {
   product: string;
   version: string;
   elapsedMillis: number;
+  defaultSchema?: string;
+  availableSchemas?: string[];
+  schemaListTruncated?: boolean;
 };
-export const connectionApi = {
-  defaults: (adminKey: string) => fetchJson<ConnectionSummary[]>('/api/v1/connections', {connectionKey: adminKey}),
-  test: (adminKey: string, input: ConnectionProbe) =>
-    fetchJson<ConnectionProbeResult>('/api/v1/connections/test', {
-      method: 'POST', json: input, connectionKey: adminKey,
-    }),
+export type ActiveMetadataConnection = {
+  token: string;
+  platform: string;
+  verifiedSchema: string;
+  expiresAt: string;
+  defaultSchema?: string;
+  availableSchemas?: string[];
+  schemaListTruncated?: boolean;
 };
 
-/** Export *non-secret* Spring YAML to be applied by an operator at the next restart. */
-export function metadataYaml(platform: string, jdbcUrl: string, username: string, enabled: boolean): string {
-  if (!/^(oracle|postgresql|sqlserver|mysql|mariadb|db2luw|db2zos)$/.test(platform)) {
-    throw new Error('DBMS نامعتبر است');
-  }
-  if (/[\r\n]/.test(jdbcUrl + username)) throw new Error('مقدار چندخطی مجاز نیست');
-  if (/[;?&](?:password|pwd|user|uid)\s*=/i.test(jdbcUrl) || /:\/\/[^/;?]+:[^/;?]+@/.test(jdbcUrl)) {
-    throw new Error('اطلاعات ورود را در JDBC URL قرار ندهید');
-  }
-  return [
-    '# Non-secret Spring Boot configuration snippet; review before merging into application.yml.',
-    '# Set SCHEMAFORGE_METADATA_' + platform.toUpperCase() + '_PASSWORD privately on the Java server.',
-    'schemaforge:',
-    '  metadata:',
-    `    ${platform}:`,
-    `      enabled: ${enabled}`,
-    `      url: ${JSON.stringify(jdbcUrl)}`,
-    `      username: ${JSON.stringify(username)}`,
-    '',
-  ].join('\n');
-}
+/** Connection selection is user-driven, not a global or administrator-only setting. */
+export const connectionApi = {
+  defaults: () => fetchJson<ConnectionSummary[]>('/api/v1/connections'),
+  test: (input: ConnectionProbe) =>
+    fetchJson<ConnectionProbeResult>('/api/v1/connections/test', {method:'POST', json:input}),
+  activate: (input: ConnectionProbe) =>
+    fetchJson<ActiveMetadataConnection>('/api/v1/connections/activate', {method:'POST', json:input}),
+  status: (token: string) =>
+    fetchJson<ActiveMetadataConnection>('/api/v1/connections/active', {metadataToken:token}),
+  disconnect: async (token: string) => {
+    await fetchResponse('/api/v1/connections/active', {method:'DELETE', metadataToken:token});
+  },
+};

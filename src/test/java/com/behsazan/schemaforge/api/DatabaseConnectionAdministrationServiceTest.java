@@ -2,7 +2,7 @@ package com.behsazan.schemaforge.api;
 
 import com.behsazan.schemaforge.config.MetadataProperties;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
+import com.behsazan.schemaforge.metadata.repository.RuntimeMetadataConnectionRegistry;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,7 +12,7 @@ class DatabaseConnectionAdministrationServiceTest {
         configuration.getOracle().setUrl("jdbc:oracle:thin:@//127.0.0.1:1521/TEST");
         configuration.getOracle().setUsername("tester");
         configuration.getOracle().setPassword("private-credential-not-for-json");
-        return new DatabaseConnectionAdministrationService(configuration, "local-admin-test");
+        return new DatabaseConnectionAdministrationService(configuration, new RuntimeMetadataConnectionRegistry());
     }
 
     @Test void allSevenPlatformsExposeEffectiveDefaultsWithoutCredentials() {
@@ -28,17 +28,13 @@ class DatabaseConnectionAdministrationServiceTest {
         }
     }
 
-    @Test void bothReadAndProbeRequireExplicitSeparateAdministratorKey() {
+    @Test void selfServiceDoesNotRequireAnAdministratorKey() {
         try (TestService tested = new TestService()) {
-            assertThrows(ResponseStatusException.class, () -> tested.service.authorize(null));
-            assertThrows(ResponseStatusException.class, () -> tested.service.authorize("invalid"));
-            tested.service.authorize("local-admin-test");
+            assertEquals(7, tested.service.summaries().size());
+            // A missing schema must no longer be rejected at input-validation time.
+            // The service still rejects null connection input, without any admin key.
+            assertThrows(IllegalArgumentException.class, () -> tested.service.activate(null));
         }
-        var missing = new DatabaseConnectionAdministrationService(new MetadataProperties(), "");
-        try {
-            assertEquals(503, assertThrows(ResponseStatusException.class,
-                    () -> missing.authorize("anything")).getStatusCode().value());
-        } finally { missing.shutdown(); }
     }
 
     @Test void configuredPasswordCannotBeForwardedToDifferentHostOrUser() {
@@ -63,6 +59,62 @@ class DatabaseConnectionAdministrationServiceTest {
             assertThrows(IllegalArgumentException.class, () -> tested.service.probe(
                     new DatabaseConnectionAdministrationService.ProbeRequest(
                             "h2", "jdbc:h2:mem:test", "sa", "", false)));
+        }
+    }
+
+
+    @Test void blankSchemaActivatesOnlyAfterRealJdbcCatalogEnumeration() throws Exception {
+        // The test driver does not talk to an actual DBMS and cannot modify user databases.
+        var driver = new InProcessSchemaDriver();
+        java.sql.DriverManager.registerDriver(driver);
+        var runtime = new RuntimeMetadataConnectionRegistry();
+        var service = new DatabaseConnectionAdministrationService(new MetadataProperties(), runtime);
+        try {
+            var input = new DatabaseConnectionAdministrationService.ProbeRequest(
+                    "postgresql", "jdbc:postgresql://127.0.0.1:1/schemaforge-mock", "reader", "dummy", false, "");
+            var probe = service.probe(input);
+            assertTrue(probe.success(), probe.code());
+            assertEquals("METADATA_DISCOVERED", probe.code());
+            assertEquals("public", probe.defaultSchema());
+            assertEquals(java.util.List.of("business", "public"), probe.availableSchemas());
+            var selected = service.activate(input);
+            assertEquals("", selected.verifiedSchema());
+            assertEquals("public", selected.defaultSchema());
+            assertTrue(selected.token().length() >= 40);
+            assertEquals("", runtime.describe(selected.token()).verifiedSchema());
+        } finally {
+            service.shutdown();
+            java.sql.DriverManager.deregisterDriver(driver);
+        }
+    }
+
+    private static final class InProcessSchemaDriver implements java.sql.Driver {
+        @Override public java.sql.Connection connect(String url, java.util.Properties info)
+                throws java.sql.SQLException {
+            if (!acceptsURL(url)) return null;
+            var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
+            var metadata = org.mockito.Mockito.mock(java.sql.DatabaseMetaData.class);
+            var rows = org.mockito.Mockito.mock(java.sql.ResultSet.class);
+            org.mockito.Mockito.when(connection.getMetaData()).thenReturn(metadata);
+            org.mockito.Mockito.when(connection.getSchema()).thenReturn("public");
+            org.mockito.Mockito.when(metadata.getDatabaseProductName()).thenReturn("PostgreSQL test fixture");
+            org.mockito.Mockito.when(metadata.getDatabaseProductVersion()).thenReturn("fixture");
+            org.mockito.Mockito.when(metadata.getSchemas()).thenReturn(rows);
+            org.mockito.Mockito.when(rows.next()).thenReturn(true, true, false);
+            org.mockito.Mockito.when(rows.getString("TABLE_SCHEM")).thenReturn("public", "business");
+            return connection;
+        }
+        @Override public boolean acceptsURL(String url) {
+            return "jdbc:postgresql://127.0.0.1:1/schemaforge-mock".equals(url);
+        }
+        @Override public java.sql.DriverPropertyInfo[] getPropertyInfo(String url, java.util.Properties info) {
+            return new java.sql.DriverPropertyInfo[0];
+        }
+        @Override public int getMajorVersion() { return 1; }
+        @Override public int getMinorVersion() { return 0; }
+        @Override public boolean jdbcCompliant() { return false; }
+        @Override public java.util.logging.Logger getParentLogger() {
+            return java.util.logging.Logger.getGlobal();
         }
     }
 

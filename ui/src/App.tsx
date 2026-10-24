@@ -11,6 +11,8 @@ import HistoryView from './views/HistoryView';
 import GlossaryAdminView from './views/GlossaryAdminView';
 import type { ReviewHandoff } from './reviewHandoff';
 import type { Download } from './transport';
+import {setActiveMetadataConnection} from './transport';
+import type {ActiveMetadataConnection} from './connectionApi';
 
 type GlossarySection = 'terms' | 'queue' | 'history' | 'manage';
 const topNav: {id: ProjectSection; title: string}[] = [
@@ -36,6 +38,11 @@ export default function App() {
   const [termsVersion, setTermsVersion] = useState(0);
   const [reviewHandoff, setReviewHandoff] = useState<ReviewHandoff | null>(null);
   const [lastGenerationZip, setLastGenerationZip] = useState<Download | null>(null);
+  const [activeConnection, setActiveConnectionState] = useState<ActiveMetadataConnection | null>(null);
+  function selectConnection(selection: ActiveMetadataConnection | null) {
+    setActiveMetadataConnection(selection);
+    setActiveConnectionState(selection);
+  }
   useEffect(() => {
     function updateRoute() { setRoute(readRoute()); }
     window.addEventListener('hashchange', updateRoute);
@@ -67,11 +74,15 @@ export default function App() {
         onClick={() => navigate(item.id)}>{item.title}</button>)}
     </nav></div>
     <main className="container app-main">
+      {activeConnection && <div className="message success metadata-active-banner" role="status">
+        Active metadata: {activeConnection.platform.toUpperCase()} / {activeConnection.verifiedSchema}.
+        <button type="button" className="btn secondary" onClick={() => navigate('connections')}>Manage connection</button>
+      </div>}
       {active === 'overview' && <OverviewView navigate={navigate}/>}
-      {active === 'generation' && <GenerationView onReviewTerm={goReview} savedDownload={lastGenerationZip} onDownloadChange={setLastGenerationZip}/>}
-      {active === 'conformance' && <ConformanceView/>}
-      {active === 'connections' && <ConnectionsView/>}
-      {active === 'crud' && <CrudView/>}
+      {active === 'generation' && <GenerationView activeMetadataPlatform={activeConnection?.platform} onReviewTerm={goReview} savedDownload={lastGenerationZip} onDownloadChange={setLastGenerationZip}/>}
+      {active === 'conformance' && <ConformanceView activeMetadataPlatform={activeConnection?.platform}/>}
+      {active === 'connections' && <ConnectionsView active={activeConnection} onSelectionChange={selectConnection}/>}
+      {active === 'crud' && <CrudView activeMetadataPlatform={activeConnection?.platform}/>}
       {active === 'diagram' && <DiagramView/>}
       {active === 'glossary' && <>
         <div className="section-intro"><div><span className="eyebrow">Glossary Governance</span>

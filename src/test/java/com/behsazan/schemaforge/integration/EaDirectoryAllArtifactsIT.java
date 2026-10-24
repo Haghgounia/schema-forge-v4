@@ -43,7 +43,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
                 "schemaforge.metadata.sqlserver.enabled=false",
                 "schemaforge.metadata.mysql.enabled=false",
                 "schemaforge.metadata.mariadb.enabled=false",
-                "schemaforge.spell-check.enabled=false"
+                "schemaforge.spell-check.enabled=false",
+                // Preserve the pre-Glossary artifact baseline in this external corpus gate.
+                "schemaforge.glossary.enabled=false"
         })
 class EaDirectoryAllArtifactsIT {
     private static final String INPUT_DIR = "schemaforge.ea.e2e.inputDir";

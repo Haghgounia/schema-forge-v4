@@ -1,3 +1,14 @@
+> **2026-10-24 Glossary default-on (V0.5.5 baseline):** In REST and external distribution runtimes,
+> Glossary is now **enabled by default**. Set `SCHEMAFORGE_GLOSSARY_ENABLED=false` only
+> when intentionally disabling its REST controllers, H2 datastore and generation reports.
+> Newly found words are still `DRY_RUN` by default (not auto-registered); the
+> idempotent `seed-on-startup=true` can populate missing *baseline candidates* in
+> `./data/schemaforge-glossary.mv.db`. Preserve the same H2 path, back it up before
+> upgrades, and use an isolated H2 path for acceptance tests. Full details:
+> `docs/roadmap/SCHEMAFORGE-GLOSSARY-DEFAULT-ON-V055.md`.
+
+> **2026-10-24 UI-C10h (Console V0.5.4):** Large Batch ZIPs now have a bounded 32 MiB manifest reader, explicit partial-report previews, a 64 MiB cap for per-report download, and Java-generation-summary fallback when the manifest is too large to inspect. Previous output ZIPs can also be inspected offline without regenerating them. Original ZIP downloads and Java/REST/H2 are unchanged. See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V054-LARGE-BATCH-ZIP-PREVIEW.md`.
+
 > **2026-10-22 UI-C6a:** React Console generation now supports read-only in-browser previews of `manifest.json`, `reports/glossary/summary.json`, `reports/glossary/unknown-terms.csv` and other ZIP reports, without additional REST calls or Backend changes. See `ui/README.md` and `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md`.
 
 ### Glossary closure roadmap and optional React UI (2026-10-22)
@@ -16,7 +27,7 @@ see its README for **isolated H2 / admin-key safety** and production deployment 
 ### Glossary V4.14.5 P1/P2 — candidate discovery and opt-in automatic registration
 
 A request-wide, offline, conservative classification of `NEW` Glossary words is
-available when `SCHEMAFORGE_GLOSSARY_ENABLED=true`. The default
+available by default (`SCHEMAFORGE_GLOSSARY_ENABLED=true`). The default
 `SCHEMAFORGE_GLOSSARY_CANDIDATE_REGISTRATION_MODE=DRY_RUN` only adds a
 `candidateRegistration` object to the existing `reports/glossary/summary.json`;
 it **never writes candidate rows to H2**. Set `AUTO_CANDIDATE` explicitly to
@@ -1017,20 +1028,71 @@ The Java backend must run separately at `127.0.0.1:9090` (from `application.yml`
 
 **Console 0.4.0 (2026-10-22):** The lightweight React UI can preview Mermaid/Graphviz diagrams directly from generation ZIPs, and hand off reported Glossary words to the existing review workflow (explicit import only). See `ui/README.md` and `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md`. This is a frontend source enhancement: **no backend or REST change**. Windows Vite build and browser acceptance are still required.
 
-### SchemaForge Console: seven DBMS connections (V0.5.0)
+### SchemaForge Console: self-service metadata connections (UI V0.5.1)
 
-The "اتصالات دیتابیس" tab queries `schemaforge.metadata` settings **from the running Spring Boot process**. Unlike a bundled frontend default, these values include Spring environment overrides made at startup. It covers Oracle, PostgreSQL, SQL Server, MySQL, MariaDB, DB2 LUW and DB2 z/OS. The associated API is a *new, narrow administrative surface*; older SchemaForge REST endpoints did not expose DB settings.
+The user selects one of the seven DBMS types and supplies JDBC URL, username, password and a
+schema to verify catalog access. The new `/api/v1/connections/activate` verifies the connection
+and vendor-specific metadata permissions, then selects it **immediately** for that browser's
+Schema Generation/Conformance/CRUD metadata requests. No administrator key, edits to Java
+configuration, H2 persistence, or Java restart are needed. Defaults from Spring's current
+non-secret settings are editable suggestions, never secret credential reuse.
 
-Before starting Java, set a dedicated local administration key in the **Java process**, not in Vite or `ui/.env`:
+The opaque 30-minute connection selection remains in browser memory and is sent as
+`X-SchemaForge-Metadata-Connection` on metadata REST calls only. The backend resolves the
+selected repository per request; it does not replace global DataSources. Calls to other DBMS
+platforms are refused while this selection is active. Existing calls without a selection
+retain baseline behavior. JDBC permissions are always enforced by the selected target DBMS.
 
-```cmd
-cd /d D:\Projects\schema-forge-v4
-set /p "SCHEMAFORGE_CONNECTIONS_ADMIN_KEY=Local connection-admin key: "
-mvnw.cmd spring-boot:run
-```
+**Safety boundary:** creating user-selected arbitrary JDBC targets is **localhost-only** in
+this iteration; provision an authenticated secure ingress before exposing this workflow to
+remote clients. Use a read-only DBMS account. See `ui/README.md` and UI-C9b roadmap.
 
-Enter the same key into the UI page. The GET endpoint (`/api/v1/connections`) returns URL, username, enabled, password-present flag, driver class and driver-installed flag, **never a password**. The POST endpoint (`/api/v1/connections/test`) tests a single connection with an eight-second timeout and never runs application SQL, DDL, migration, or alters a DataSource. An omitted backend key gives `503`, an incorrect key `401`. To use the existing password for a test, URL and username must match the server's existing configured values exactly. Enter new passwords directly into the form only for a new target/account. Use a trusted isolated testing environment, not production credentials, for browser acceptance.
 
-The tested/form-edited connection is **NOT** saved or silently selected by Conformance/CRUD/Generation. The YAML snippet is intentionally nonsecret. An operator must apply approved server configuration changes and restart Java for the other modules to use the changed target. For DB2 the IBM JCC driver must be present through an opt-in Maven profile or local provisioning; setting `enabled` alone does not install it. See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-ROADMAP.md` UI-C9 for longer-term named profiles, secret storage and authenticated activation.
+### 2026-10-24 — Console 0.5.2: Schema optional for runtime metadata connections
 
-For acceptance: `mvnw.cmd -Dtest=DatabaseConnectionAdministrationServiceTest test`, then from `ui` run `npm install`, `npm run test`, `npm run typecheck`, `npm run build`, `npm run dev`. Existing Java, Glossary H2 and generated artifacts remain unchanged by probes.
+Continuing from the user-supplied `schema-forge-v4-2026-10-24-0748.zip` source baseline, the
+Connections editor no longer requires an explicit Schema. Blank-schema JDBC probes discover a
+bounded list of JDBC schemas (catalogs on MySQL/MariaDB) and a driver-provided default when
+available. The user may select a suggested schema or leave it unset and choose the schema/table
+later during a metadata operation. No schema is marked verified unless vendor catalog checks
+actually ran. Unsupported catalog discovery fails closed and can be bypassed only by explicitly
+verifying a schema through the existing vendor repository. No changes to the existing REST paths,
+DBMS repository implementations, DDL generation, H2 data or glossary rules. See
+`docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V052-CONNECTION-SCHEMA-DISCOVERY.md` for Windows tests.
+
+
+## 2026-10-24 — REST upload cap 500 MiB (Console UI 0.5.3)
+
+The Spring Boot multipart input limit for generation uploads is now **500MB per file**,
+with a **520MB request** ceiling to allow multipart framing. Both values are
+configurable without source changes via environment variables
+`SCHEMAFORGE_UPLOAD_MAX_FILE_SIZE` (default `500MB`) and
+`SCHEMAFORGE_UPLOAD_MAX_REQUEST_SIZE` (default `520MB`). The same defaults
+are present in the packaged `application.yml` and both external distribution YAML files.
+Spring Boot must be restarted after changing the configuration.
+
+The React Generation screen shows the default 500 MB maximum and rejects a
+file larger than 500 MiB **before issuing a network request**. This client
+check is a usability guard, not the authoritative Spring limit. Other upload
+parsers may have stricter per-document limits (e.g. legacy Word) and are not
+changed. Glossary CSV/Excel limits remain unchanged.
+
+The 100 MiB cap in `ui/src/zipReports.ts` is for **read-only inspection of a
+returned ZIP in browser memory**, not for uploads. Larger generated ZIPs may
+still download while preview is skipped. Uploading a 500 MB archive does not
+guarantee sufficient Java heap, server temp-disk capacity, or processing time;
+monitor the backend during actual large-file acceptance.
+
+Windows acceptance: `npm run test`, `npm run typecheck`, `npm run build`,
+`mvnw.cmd -Dtest=SchemaForgeRestExceptionHandlerTest test`, then start Java and
+Vite and exercise the generation endpoint with an approved test ZIP between
+100 and 500 MB. A 413 response is expected above the configured server limit.
+
+
+### Console V0.5.6 — Large Batch Glossary evidence acceptance
+
+The read-only ZIP inspector can stream the glossary evidence CSV for a selected
+term beyond the 2 MiB generic report preview cap. No Backend, Canonical/DDL,
+DBMS or H2 change is made. For the focused Canonical/DDL seven-DBMS plus UI
+regression gate run `scripts\accept-console-v056.cmd` in Windows CMD.
+See `docs/roadmap/SCHEMAFORGE-CONSOLE-UI-V056-GLOSSARY-BATCH-EVIDENCE.md`.

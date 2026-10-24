@@ -1,175 +1,205 @@
-import {useState, type FormEvent} from 'react';
-import {connectionApi, metadataYaml, type ConnectionSummary, type ConnectionProbeResult} from '../connectionApi';
-import {ApiError} from '../transport';
+import {useEffect, useState, type FormEvent} from 'react';
+import {connectionApi, type ConnectionSummary, type ConnectionProbeResult,
+  type ActiveMetadataConnection} from '../connectionApi.ts';
+import {ApiError} from '../transport.ts';
 
-function connectionError(error: unknown): string {
-  if (error instanceof ApiError && error.status === 503) {
-    return 'کلید مدیریت اتصال در Backend تعریف نشده است. SCHEMAFORGE_CONNECTIONS_ADMIN_KEY را در فرآیند Java تنظیم و آن را مجدداً راه‌اندازی کنید.';
-  }
-  return error instanceof Error ? error.message : 'درخواست اتصال ناموفق بود.';
-}
+type Props = {
+  active: ActiveMetadataConnection | null;
+  onSelectionChange: (selection: ActiveMetadataConnection | null) => void;
+};
 
-export default function ConnectionsView() {
-  const [keyEditor, setKeyEditor] = useState('');
-  const [adminKey, setAdminKey] = useState('');
+export default function ConnectionsView({active, onSelectionChange}: Props) {
   const [connections, setConnections] = useState<ConnectionSummary[]>([]);
   const [selected, setSelected] = useState('oracle');
   const [url, setUrl] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [useConfiguredPassword, setUseConfiguredPassword] = useState(false);
-  const [enableNextRestart, setEnableNextRestart] = useState(true);
+  const [schema, setSchema] = useState('');
+  const [suggestedSchemas, setSuggestedSchemas] = useState<string[]>([]);
+  const [defaultSchema, setDefaultSchema] = useState('');
+  const [listTruncated, setListTruncated] = useState(false);
   const [probeResult, setProbeResult] = useState<ConnectionProbeResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [showSnippet, setShowSnippet] = useState(false);
-  const [copied, setCopied] = useState(false);
   const current = connections.find(item => item.platform === selected);
-  const matchesConfigured = Boolean(current && url === current.jdbcUrl && username === current.username);
-  const effectiveConfiguredPassword = useConfiguredPassword && matchesConfigured;
 
   function choose(db: ConnectionSummary) {
     setSelected(db.platform);
-    setUrl(db.jdbcUrl);
+    setUrl(db.jdbcUrl.startsWith('[REDACTED') ? '' : db.jdbcUrl);
     setUsername(db.username);
     setPassword('');
-    setUseConfiguredPassword(db.passwordConfigured);
-    setEnableNextRestart(db.enabled);
+    setSchema('');
+    setSuggestedSchemas([]);
+    setDefaultSchema('');
+    setListTruncated(false);
     setProbeResult(null);
     setError('');
-    setShowSnippet(false);
-    setCopied(false);
   }
-  async function authenticate() {
-    const key = keyEditor.trim();
-    if (!key) return;
+  useEffect(() => {
+    let cancelled = false;
+    connectionApi.defaults().then(list => {
+      if (cancelled) return;
+      setConnections(list);
+      const first = list.find(item => item.platform === selected) ?? list[0];
+      if (first) choose(first);
+    }).catch(err => {
+      if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to load DBMS settings.');
+    });
+    return () => {cancelled = true;};
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    connectionApi.status(active.token).catch(err => {
+      if (!cancelled && err instanceof ApiError && err.status === 401) onSelectionChange(null);
+    });
+    return () => {cancelled = true;};
+  }, [active?.token]);
+
+  function invalidateDiscovery() {
+    setProbeResult(null);
+    setSuggestedSchemas([]);
+    setDefaultSchema('');
+    setListTruncated(false);
+  }
+  function rememberDiscovery(details: {
+    availableSchemas?: string[];
+    defaultSchema?: string;
+    schemaListTruncated?: boolean;
+  }) {
+    setSuggestedSchemas(Array.isArray(details.availableSchemas) ? details.availableSchemas : []);
+    setDefaultSchema(details.defaultSchema ?? '');
+    setListTruncated(Boolean(details.schemaListTruncated));
+  }
+  function input() {
+    return {platform:selected, jdbcUrl:url.trim(), username:username.trim(), password,
+      useConfiguredPassword:false as const, schema:schema.trim()};
+  }
+  async function execute(activate: boolean) {
     setBusy(true); setError(''); setProbeResult(null);
     try {
-      const configured = await connectionApi.defaults(key);
-      setAdminKey(key);
-      setKeyEditor('');
-      setConnections(configured);
-      const initial = configured.find(item => item.platform === selected) ?? configured[0];
-      if (initial) choose(initial);
+      if (activate) {
+        const connection = await connectionApi.activate(input());
+        if (active && active.token !== connection.token) {
+          try {await connectionApi.disconnect(active.token);} catch { /* Old selection expires shortly. */ }
+        }
+        onSelectionChange(connection);
+        rememberDiscovery(connection);
+        setProbeResult({success:true, code:connection.verifiedSchema ? 'METADATA_READY' : 'METADATA_DISCOVERED',
+          message:connection.verifiedSchema
+            ? 'JDBC and the selected schema metadata were verified. Metadata operations now use this connection.'
+            : 'The connection is active. Choose a schema/table in Conformance, CRUD or Generation; permissions for that target are checked by the DBMS.',
+          product:'', version:'', elapsedMillis:0});
+      } else {
+        const probe = await connectionApi.test(input());
+        rememberDiscovery(probe);
+        setProbeResult(probe);
+      }
     } catch (err) {
-      setAdminKey(''); setConnections([]);
-      setError(connectionError(err));
-    } finally { setBusy(false); }
-  }
-  async function refresh() {
-    setBusy(true); setError(''); setProbeResult(null);
-    try {
-      const configured = await connectionApi.defaults(adminKey);
-      setConnections(configured);
-      const active = configured.find(item => item.platform === selected);
-      if (active) choose(active);
-    } catch (err) {
-      setError(connectionError(err));
-    } finally { setBusy(false); }
-  }
-  async function testConnection(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!current || !adminKey) return;
-    setBusy(true); setProbeResult(null); setError('');
-    try {
-      const result = await connectionApi.test(adminKey, {
-        platform: selected, jdbcUrl: url.trim(), username: username.trim(),
-        password: effectiveConfiguredPassword ? '' : password,
-        useConfiguredPassword: effectiveConfiguredPassword,
-      });
-      setProbeResult(result);
-    } catch (err) {
-      setError(connectionError(err));
+      const message = err instanceof Error ? err.message : 'Connection request failed.';
+      setError(err instanceof ApiError && err.status === 403
+        ? 'Connection setup is restricted to localhost until centralized authentication is available.' : message);
     } finally {
-      setPassword(''); // Do not retain a typed JDBC password after a network request.
+      setPassword(''); // No JDBC password in browser memory after activation or probe.
       setBusy(false);
     }
   }
-  let snippet = '';
-  let snippetError = '';
-  if (current) {
-    try { snippet = metadataYaml(current.platform, url.trim(), username.trim(), enableNextRestart); }
-    catch (err) { snippetError = err instanceof Error ? err.message : 'تنظیمات قابل آماده‌سازی نیست.'; }
+  async function disconnect() {
+    if (!active) return;
+    setBusy(true); setError('');
+    try {await connectionApi.disconnect(active.token); onSelectionChange(null); setProbeResult(null);}
+    catch (err) {setError(err instanceof Error ? err.message : 'Unable to disconnect.');}
+    finally {setBusy(false);}
   }
+
   return <section className="connections-page">
     <div className="page-heading"><div><span className="eyebrow">JDBC Connection Profiles</span>
       <h1>اتصالات دیتابیس</h1>
-      <p>مشاهده تنظیمات مؤثر هفت DBMS در Spring Boot و آزمون اتصال بدون اجرای SQL یا تغییر دیتابیس.</p></div></div>
-    <p className="message neutral">این فرم تنظیمات فعال Backend را می‌خواند، نه مقادیر ثابت داخل React. آزمون اتصال هیچ تغییری در Metadata Repository یا فایل پیکربندی نمی‌دهد؛ برای اعمال تنظیمات جدید روی سرویس‌های پروژه، راه‌اندازی مجدد Java لازم است.</p>
-    {!adminKey ? <section className="panel connection-auth">
-      <h2>دسترسی مدیریت اتصال</h2>
-      <p className="hint">ابتدا متغیر محیطی <code dir="ltr">SCHEMAFORGE_CONNECTIONS_ADMIN_KEY</code> را روی Backend تنظیم کنید. نمایش آدرس‌ها و نام‌های کاربری فقط پس از احراز هویت ممکن است.</p>
-      <form className="connection-auth-form" onSubmit={e => {e.preventDefault(); void authenticate();}}>
-        <label className="field grow">کلید مدیریت اتصالات
-          <input type="password" autoComplete="off" spellCheck={false} value={keyEditor}
-            onChange={e => setKeyEditor(e.target.value)} placeholder="کلید سمت سرور" />
-        </label>
-        <button className="btn primary" disabled={!keyEditor.trim() || busy} type="submit">{busy ? 'در حال دریافت...' : 'نمایش تنظیمات پیش‌فرض'}</button>
-      </form>
-    </section> : <>
-      <div className="toolbar connection-toolbar"><div><strong>تنظیمات فعال در زمان راه‌اندازی Java</strong>
-        <p className="hint">مقادیر مؤثر ConfigurationProperties پس از اعمال متغیرهای محیطی؛ رمز عبور هیچ‌گاه از سرور بازگردانده نمی‌شود.</p></div>
-        <div className="export-actions"><button className="btn secondary" onClick={() => void refresh()} disabled={busy}>بازخوانی</button>
-          <button className="btn subtle" onClick={() => {setAdminKey('');setKeyEditor('');setConnections([]);setPassword('');setProbeResult(null);setError('');}} type="button">خروج امن از فرم</button></div>
-      </div>
-      <div className="connection-layout">
-        <nav className="panel connection-list" aria-label="انتخاب DBMS">
-          {connections.map(db => <button type="button" key={db.platform} className={`connection-choice ${selected === db.platform ? 'selected' : ''}`}
-            onClick={() => choose(db)} aria-current={selected === db.platform ? 'true' : undefined}>
-            <span className="connection-choice-main"><strong>{db.displayName}</strong><small dir="ltr">{db.platform}</small></span>
-            <span className="connection-choice-state">{db.enabled ? 'فعال در Java' : 'غیرفعال در Java'} · {db.driverAvailable ? 'درایور موجود' : 'درایور موجود نیست'}</span>
-          </button>)}
-        </nav>
-        <section className="panel connection-editor">
-          {current ? <>
-            <div className="panel-header"><div><h2>{current.displayName}</h2><p className="hint">مقادیر اولیه از تنظیمات فعلی Backend بارگذاری شده‌اند.</p></div></div>
-            <div className="connection-flags"><span className="status candidate">{current.enabled ? 'فعال هنگام Startup' : 'غیرفعال هنگام Startup'}</span>
-              <span className={`status ${current.driverAvailable ? 'approved' : 'rejected'}`}>{current.driverAvailable ? 'JDBC Driver موجود' : 'JDBC Driver نصب نشده'}</span>
-              <span className="status candidate">{current.passwordConfigured ? 'رمز روی سرور تنظیم شده' : 'رمز سرور موجود نیست'}</span></div>
-            <form className="form-stack" onSubmit={e => void testConnection(e)}>
-              <label className="field">JDBC URL
-                <input dir="ltr" spellCheck={false} value={url} required maxLength={1500}
-                  onChange={e => {setUrl(e.target.value);setPassword('');setUseConfiguredPassword(false);setProbeResult(null);}} />
+      <p>Introduce your database, verify catalog access, and use the new connection for SchemaForge metadata immediately.</p>
+    </div></div>
+    <p className="message neutral">No administrator key or Java configuration edit is required. A selected connection is temporary,
+      browser-specific, and does not replace another user's connection or modify the database.</p>
+    {active && <div className="message success" role="status">
+      <strong>Active metadata connection: {active.platform.toUpperCase()}
+        {active.verifiedSchema ? ` / Verified schema: ${active.verifiedSchema}` : ' / Schema selection deferred'}</strong>
+      <p>Expires: {new Date(active.expiresAt).toLocaleString()}. Conformance, CRUD and Generation use this connection
+        when their requested DBMS matches. Other DBMS requests are rejected instead of silently mixing connections.</p>
+      <button className="btn secondary" type="button" disabled={busy} onClick={() => void disconnect()}>Disconnect</button>
+    </div>}
+    <div className="connection-layout">
+      <nav className="panel connection-list" aria-label="Select DBMS">
+        {connections.map(db => <button type="button" key={db.platform}
+          className={`connection-choice ${selected === db.platform ? 'selected' : ''}`}
+          onClick={() => choose(db)} aria-current={selected === db.platform ? 'true' : undefined}>
+          <span className="connection-choice-main"><strong>{db.displayName}</strong><small dir="ltr">{db.platform}</small></span>
+          <span className="connection-choice-state">
+            {db.driverAvailable ? 'Driver available' : 'Driver unavailable'}
+            {active?.platform === db.platform ? ' / Selected' : ''}
+          </span>
+        </button>)}
+      </nav>
+      <section className="panel connection-editor">
+        {current ? <>
+          <div className="panel-header"><div><h2>{current.displayName}</h2>
+            <p className="hint">Non-secret startup defaults are prefilled for convenience. You may replace them.</p>
+          </div></div>
+          <div className="connection-flags">
+            <span className={`status ${current.driverAvailable ? 'approved' : 'rejected'}`}>
+              {current.driverAvailable ? 'JDBC driver ready' : 'JDBC driver is not installed'}</span>
+            <span className="status candidate">{current.enabled ? 'Startup metadata enabled' : 'Startup metadata disabled'}</span>
+          </div>
+          <form className="form-stack" onSubmit={(event: FormEvent<HTMLFormElement>) => {event.preventDefault(); void execute(true);}}>
+            <label className="field">JDBC URL <span className="required">*</span>
+              <input dir="ltr" value={url} maxLength={1500} required spellCheck={false}
+                onChange={e => {setUrl(e.target.value);invalidateDiscovery();}}/>
+            </label>
+            <div className="form-grid">
+              <label className="field grow">Database user <span className="required">*</span>
+                <input dir="ltr" value={username} maxLength={128} required spellCheck={false}
+                  onChange={e => {setUsername(e.target.value);invalidateDiscovery();}}/>
               </label>
-              <div className="form-grid"><label className="field grow">نام کاربری دیتابیس
-                <input dir="ltr" spellCheck={false} value={username} required maxLength={128}
-                  onChange={e => {setUsername(e.target.value);setPassword('');setUseConfiguredPassword(false);setProbeResult(null);}} />
+              <label className="field grow">Schema for metadata (optional)
+                <input dir="ltr" list="schemaforge-visible-schemas" value={schema} maxLength={128}
+                  spellCheck={false} placeholder="Optional — choose after discovery"
+                  onChange={e => {setSchema(e.target.value);setProbeResult(null);}}/>
+                <datalist id="schemaforge-visible-schemas">
+                  {suggestedSchemas.map(name => <option key={name} value={name}/>)}
+                </datalist>
               </label>
-              <label className="field grow">درایور JDBC (ثابت برای DBMS)
-                <input dir="ltr" value={current.driverClassName} readOnly title="انتخاب درایور توسط Backend انجام می‌شود" />
-              </label></div>
-              <label className="field">رمز عبور جدید (فقط برای همین آزمون، ارسال مستقیم به Backend)
-                <input type="password" autoComplete="new-password" spellCheck={false} value={password}
-                  disabled={effectiveConfiguredPassword} onChange={e => setPassword(e.target.value)} maxLength={1024}
-                  placeholder="رمز پیش‌فرض نمایش داده نمی‌شود" />
-              </label>
-              <label className="inline-checkbox"><input type="checkbox" checked={effectiveConfiguredPassword}
-                disabled={!matchesConfigured || !current.passwordConfigured}
-                onChange={e => {setUseConfiguredPassword(e.target.checked);setPassword('');}} />
-                استفاده از رمز پیکربندی‌شده در Java (فقط با URL و نام کاربری بدون تغییر)
-              </label>
-              {!matchesConfigured && <p className="hint">آدرس یا کاربر تغییر کرده است؛ رمز فعلی سرور برای مقصد جدید استفاده نمی‌شود. در صورت نیاز رمز جدید را وارد کنید.</p>}
-              <div className="connection-buttons"><button type="submit" className="btn primary" disabled={busy || !current.driverAvailable || !url.trim() || !username.trim()}>
-                  {busy ? 'در حال بررسی...' : 'آزمون اتصال JDBC'}</button>
-                <button type="button" className="btn secondary" onClick={() => choose(current)} disabled={busy}>بازگرداندن مقادیر پیش‌فرض</button></div>
-            </form>
-            {probeResult && <div className={`message ${probeResult.success ? 'success' : 'error'}`} role="status">
-              <strong>{probeResult.success ? 'اتصال برقرار شد' : 'اتصال برقرار نشد'} — {probeResult.code}</strong>
-              <p>{probeResult.message}</p>
-              {probeResult.success && <p dir="ltr">{probeResult.product} {probeResult.version} · {probeResult.elapsedMillis}ms</p>}
-            </div>}
-            <details className="import-details"><summary>تهیه تنظیمات برای راه‌اندازی بعدی Java</summary>
-              <p className="hint">این بخش فقط مقادیر غیرمحرمانه را آماده می‌کند. برای اعمال، DBA باید آن‌ها را به پیکربندی سمت سرور منتقل کند و سرویس را مجدداً راه‌اندازی کند؛ رمز را فقط از مسیر امن محیط سرور تنظیم کنید.</p>
-              <label className="inline-checkbox"><input type="checkbox" checked={enableNextRestart} onChange={e => setEnableNextRestart(e.target.checked)} /> فعال‌سازی Metadata این DBMS پس از Restart</label>
-              <div className="connection-buttons"><button className="btn secondary" type="button" disabled={Boolean(snippetError)} onClick={() => {setShowSnippet(!showSnippet);setCopied(false);}}>{showSnippet ? 'بستن متن' : 'نمایش YAML بدون رمز'}</button>
-                {showSnippet && <button type="button" className="btn secondary" onClick={async () => {try {await navigator.clipboard.writeText(snippet);setCopied(true);} catch {setCopied(false);setError('کپی خودکار در مرورگر ممکن نشد؛ متن را دستی انتخاب کنید.');}}}>کپی تنظیمات</button>}</div>
-              {snippetError && <p className="message error">{snippetError}</p>}
-              {showSnippet && <><pre className="connection-yaml" dir="ltr">{snippet}</pre>{copied && <p className="hint">متن غیرمحرمانه کپی شد.</p>}</>}
-            </details>
-          </> : <p className="empty">تنظیمات DBMS موجود نیست.</p>}
-        </section>
-      </div>
-    </>}
+            </div>
+            <label className="field">Database password (never returned by the server)
+              <input type="password" value={password} maxLength={1024} autoComplete="new-password"
+                spellCheck={false} onChange={e => {setPassword(e.target.value);invalidateDiscovery();}}
+                placeholder="Enter database credentials"/>
+            </label>
+            <p className="hint">Schema is optional. With no schema, the Backend discovers JDBC-visible schemas/databases
+              and activates the connection only if catalog enumeration succeeds. You can select a specific schema
+              during Conformance, CRUD or Generation; per-table permissions remain enforced by the database.</p>
+            {(defaultSchema || suggestedSchemas.length > 0) && <p className="hint" role="status">
+              {defaultSchema ? <>JDBC default: <strong dir="ltr">{defaultSchema}</strong>. </> : null}
+              {suggestedSchemas.length} visible schema/database names suggested.
+              {listTruncated ? ' Results are limited to the first 200; you may also enter a name manually.' : ''}
+              {' '}Select from the optional field above or leave it blank. After a test, reenter the password to activate.
+            </p>}
+            <div className="connection-buttons">
+              <button type="submit" className="btn primary"
+                disabled={busy || !current.driverAvailable || !url.trim() || !username.trim()}>
+                {busy ? 'Checking...' : 'Test metadata and use connection'}</button>
+              <button type="button" className="btn secondary" disabled={busy || !current.driverAvailable}
+                onClick={() => void execute(false)}>
+                Test & discover schemas</button>
+              <button type="button" className="btn subtle" disabled={busy} onClick={() => choose(current)}>
+                Restore defaults</button>
+            </div>
+          </form>
+          {probeResult && <div className={`message ${probeResult.success ? 'success' : 'error'}`} role="status">
+            <strong>{probeResult.code}</strong> - {probeResult.message}
+            {probeResult.product && <p dir="ltr">{probeResult.product} {probeResult.version} / {probeResult.elapsedMillis}ms</p>}
+          </div>}
+        </> : <p className="empty">Choose one of the seven DBMSs.</p>}
+      </section>
+    </div>
     {error && <p className="message error" role="alert">{error}</p>}
   </section>;
 }

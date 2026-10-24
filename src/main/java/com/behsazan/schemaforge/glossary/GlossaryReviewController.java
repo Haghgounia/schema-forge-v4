@@ -19,7 +19,7 @@ import java.io.IOException;
 /** Steward-only workflow; never approves terms as a side effect of report ingestion. */
 @RestController
 @RequestMapping("/api/v1/glossary/review")
-@ConditionalOnProperty(prefix = "schemaforge.glossary", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "schemaforge.glossary", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Tag(name = "Glossary Governance", description = "Review unknown words from generated artifact reports")
 public final class GlossaryReviewController {
     private final GlossaryReviewService reviews;

@@ -1,4 +1,5 @@
-import { fetchDownload, fetchJson, params, uploadForm } from './transport.ts';
+import { generationUploadError } from './uploadLimits.ts';
+import { fetchDownload, fetchJson, params, uploadForm, requireSelectedPlatform } from './transport.ts';
 
 export const PLATFORMS = [
   ['oracle', 'Oracle'], ['postgresql', 'PostgreSQL'], ['db2zos', 'DB2 z/OS'],
@@ -24,6 +25,9 @@ function platformsQuery(platforms: string[]): URLSearchParams {
 }
 export const coreApi = {
   generate: (input: GenerationInput) => {
+    const sizeError = generationUploadError(input.file.size);
+    if (sizeError) throw new Error(sizeError);
+    requireSelectedPlatform(input.platforms);
     const query = platformsQuery(input.platforms);
     query.set('auditFields', input.auditFields);
     query.set('timestampSemantics', input.timestampSemantics);
@@ -33,14 +37,17 @@ export const coreApi = {
       `schemaforge-${input.source.replaceAll('/', '-')}.zip`, { method: 'POST', body: uploadForm(input.file) });
   },
   conformance: (input: { scope: 'table' | 'schema'; schema: string; table?: string; platforms: string[] }) => {
+    requireSelectedPlatform(input.platforms);
     const query = platformsQuery(input.platforms);
     query.set('schema', input.schema.trim());
     if (input.scope === 'table' && input.table) query.set('table', input.table.trim());
     return fetchJson<ConformanceResponse>(`/api/v1/conformance/${input.scope}?${query}`);
   },
-  crud: (platform: 'oracle' | 'sqlserver', schema: string, table: string) =>
-    fetchDownload(`/api/v1/generate/${platform}/crud`, `schemaforge-${platform}-crud.sql`,
-      { method: 'POST', json: { schema: schema.trim(), table: table.trim() } }),
+  crud: (platform: 'oracle' | 'sqlserver', schema: string, table: string) => {
+    requireSelectedPlatform([platform]);
+    return fetchDownload(`/api/v1/generate/${platform}/crud`, `schemaforge-${platform}-crud.sql`,
+      { method: 'POST', json: { schema: schema.trim(), table: table.trim() } });
+  },
   mermaid: (input: DiagramInput) => {
     const query = params({
       type: input.type, scope: input.scope, schema: input.schema, root: input.root, selected: input.selected,

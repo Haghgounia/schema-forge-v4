@@ -191,3 +191,54 @@ Acceptance gates:
 - [ ] UI-C9b — Decide secure storage (secret manager), profile names, activation routing, actor audit, permission/RBAC, and fail-safe restart semantics **before** offering Save/Apply to shared production metadata repositories.
 
 **Invariants:** no changes to existing generation/conformance/CRUD/Glossary endpoint contracts, no change to H2 persistence, no automatic network probe on GET, and no database credentials in ZIP artifacts or downloadable configuration snippets.
+
+## 2026-10-24 - UI-C9b: self-service active metadata connections (V0.5.1)
+
+**User clarification supersedes the previous UI-C9 V0.5.0 design:** end users do not know
+which DBMS is configured in Java and cannot edit source or environment variables. The
+connection form is not a server-configuration administration tool, and must not require
+`SCHEMAFORGE_CONNECTIONS_ADMIN_KEY`. Successful validation MUST make SchemaForge metadata
+operations use the user-supplied connection immediately.
+
+**Source implementation:**
+
+- [x] Remove the Connections Admin Key form, HTTP header and backend requirement. The
+  seven effective **non-secret** startup defaults are only optional initial values.
+- [x] Require user-supplied JDBC target, credentials and a schema; probe JDBC access and
+  vendor-specific schema/table catalog readability with existing repository SQL.
+- [x] Add `POST /api/v1/connections/activate`: on successful metadata check, issue an opaque
+  256-bit 30-minute token for a repository built against the user-supplied DataSource.
+  No H2 write, no secret return, no configuration mutation, no Java restart.
+- [x] Add `GET/DELETE /api/v1/connections/active` for status and disconnect. The browser
+  holds the token in volatile React memory and sends `X-SchemaForge-Metadata-Connection`
+  on metadata-dependent calls only; never persist it in URL/storage/ZIP.
+- [x] Resolve the runtime repository from the current Servlet request in the existing
+  `MetadataRepositoryResolver`, without replacing global DataSources. This covers live
+  Conformance, Oracle/SQL Server CRUD, and EA/Word/Batch metadata comparison. Reject
+  attempts to mix a selected DBMS with unrelated platform selections.
+- [x] Keep the 7-DBMS vendor-specific metadata implementations and separate source
+  generation/rendering decisions unchanged. Unselected API requests retain baseline behavior.
+- [x] Local-only guard on provisioning API (loopback peer, Host and Origin), bounded probes,
+  fixed driver classes, short-lived max-48 selection registry, no stored passwords in React.
+  This is **not a substitute for production authentication**. Browser users on separate
+  network machines need future authenticated ingress, not keyless public JDBC probing.
+- [x] Updated Node HTTP contract tests: local available test subset **34/34 PASS**.
+  Added focused Java unit/integration-style tests for registry, request-scoped routing,
+  controller loopback guard and no-admin configuration.
+
+**Open acceptance gates:**
+
+- [ ] User Windows Maven Java 21 focused suite, Spring Boot startup, read-only live DBMS
+  metadata select/use, Conformance table result parity, CRUD and EA/Word metadata routing.
+- [ ] User Windows npm complete suite, typecheck, Vite build and Chrome end-to-end flow.
+- [ ] Verify failure handling for wrong password, inaccessible schema, absent JDBC driver,
+  JDBC timeout, expired/unknown token, switching browsers and 2 parallel browser sessions.
+- [ ] Check no write access is available to test DB principal, and rotating/disconnecting
+  a selection does not mutate other clients, H2, secrets, ZIP or existing build artifacts.
+- [ ] Before multi-user production: authenticated HTTPS gateway, per-user audit, host/port
+  policy, encrypted credential handling if persistence is introduced, and cross-session
+  isolation under load. Current local-only restriction must not be removed without them.
+
+**Historical note:** UI-C9 V0.5.0 above remains as an audit trail only and is replaced by
+this self-service runtime selection contract. V0.5.0 admin key/startup-restart workflow is
+**no longer the active design**.

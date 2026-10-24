@@ -1,11 +1,12 @@
 package com.behsazan.schemaforge.api;
 
 import com.behsazan.schemaforge.config.MetadataProperties;
+import com.behsazan.schemaforge.application.DatabasePlatform;
+import com.behsazan.schemaforge.metadata.repository.RuntimeMetadataConnectionRegistry;
+import com.behsazan.schemaforge.metadata.repository.MetadataRepository;
 import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -23,16 +24,15 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * Read-only view of effective JDBC metadata settings and explicit, bounded connection probes.
- * Does not persist credentials or change the DataSources already instantiated at startup.
+ * Read-only view of metadata defaults, bounded JDBC probes and per-browser metadata selection.
+ * No credentials are persisted to disk or installed into application-wide DataSources.
  */
 @Service
 public final class DatabaseConnectionAdministrationService {
-    public static final String ADMIN_HEADER = "X-SchemaForge-Connections-Admin-Key";
     private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(8);
     private static final int MAX_JDBC_URL = 1500;
     private final MetadataProperties properties;
-    private final String adminKey;
+    private final RuntimeMetadataConnectionRegistry runtimeConnections;
     // Bound concurrent probes; daemon workers cannot prevent JVM shutdown if a vendor driver ignores interruption.
     private final ExecutorService probes = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(2), runnable -> {
@@ -42,22 +42,9 @@ public final class DatabaseConnectionAdministrationService {
             }, new ThreadPoolExecutor.AbortPolicy());
 
     public DatabaseConnectionAdministrationService(MetadataProperties properties,
-            @org.springframework.beans.factory.annotation.Value("${schemaforge.connections.admin-key:}") String adminKey) {
+            RuntimeMetadataConnectionRegistry runtimeConnections) {
         this.properties = Objects.requireNonNull(properties);
-        this.adminKey = adminKey == null ? "" : adminKey;
-    }
-
-    public void authorize(String supplied) {
-        if (adminKey.isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
-                    "Connection administration requires SCHEMAFORGE_CONNECTIONS_ADMIN_KEY");
-        }
-        if (supplied == null || !MessageDigest.isEqual(
-                adminKey.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8))) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.UNAUTHORIZED, "Invalid connection administrator key");
-        }
+        this.runtimeConnections = Objects.requireNonNull(runtimeConnections);
     }
 
     public List<ConnectionSummary> summaries() {
@@ -69,7 +56,7 @@ public final class DatabaseConnectionAdministrationService {
         }).toList();
     }
 
-    /** A probe never saves credentials, selects a platform, alters a repository, or runs DDL. */
+    /** Probes are read-only and do not register a runtime connection. */
     public ProbeResult probe(ProbeRequest request) {
         if (request == null) throw new IllegalArgumentException("Connection test input is required");
         Platform platform = Platform.parse(request.platform());
@@ -82,30 +69,24 @@ public final class DatabaseConnectionAdministrationService {
         if (containsUrlCredentials(url)) {
             throw new IllegalArgumentException("Put credentials in the separate username/password fields, not in the URL");
         }
+        if (request.useConfiguredPassword()) {
+            throw new IllegalArgumentException(
+                    "Please enter your own JDBC password; server credentials are not reusable from the UI");
+        }
         String suppliedPassword = request.password();
         if (suppliedPassword != null && (suppliedPassword.length() > 1024 || hasControlChars(suppliedPassword))) {
             throw new IllegalArgumentException("Invalid password field");
         }
-        MetadataProperties.Database configured = config(platform);
-        String password;
-        if (request.useConfiguredPassword()) {
-            // Prevent a privileged credential being forwarded to a different, user-supplied host/account.
-            if (!url.equals(configured.getUrl()) || !username.equals(configured.getUsername())
-                    || (suppliedPassword != null && !suppliedPassword.isEmpty())) {
-                throw new IllegalArgumentException(
-                        "Configured password is available only for the unchanged configured URL and username");
-            }
-            password = safe(configured.getPassword());
-        } else {
-            password = suppliedPassword == null ? "" : suppliedPassword;
-        }
+        String password = suppliedPassword == null ? "" : suppliedPassword;
+        String schema = request.schema() == null ? "" : request.schema().trim();
+        if (!schema.isEmpty()) checkedSchema(schema);
         if (!available(platform.driver)) {
             return new ProbeResult(false, "DRIVER_UNAVAILABLE", "درایور JDBC در این اجرای Backend موجود نیست.", "", "", 0);
         }
         long started = System.nanoTime();
         Future<ProbeResult> result;
         try {
-            result = probes.submit(() -> connect(platform.driver, url, username, password, started));
+            result = probes.submit(() -> connect(platform, url, username, password, schema, started));
         } catch (RejectedExecutionException exception) {
             return new ProbeResult(false, "BUSY", "آزمون‌های اتصال هم‌زمان زیاد است؛ بعداً دوباره آزمایش کنید.", "", "", 0);
         }
@@ -124,23 +105,91 @@ public final class DatabaseConnectionAdministrationService {
         }
     }
 
-    private static ProbeResult connect(String driver, String url, String username, String password, long started) {
+    /**
+     * Activates a runtime connection after a read-only metadata probe. A schema is optional:
+     * when supplied, its permissions are checked by the vendor repository; otherwise
+     * JDBC schema/catalog discovery is required and per-table rights are checked later.
+     */
+    public RuntimeMetadataConnectionRegistry.Selection activate(ProbeRequest request) {
+        ProbeResult result = probe(request);
+        if (!result.success()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                    "JDBC/metadata validation failed: " + result.code());
+        }
+        DatabasePlatform platform = DatabasePlatform.parse(request.platform());
+        return runtimeConnections.register(platform, request.jdbcUrl().trim(),
+                request.username().trim(), request.password() == null ? "" : request.password(),
+                request.schema() == null ? "" : request.schema().trim(),
+                result.defaultSchema(), result.availableSchemas(), result.schemaListTruncated());
+    }
+
+    public RuntimeMetadataConnectionRegistry.Selection selected(String token) {
+        return runtimeConnections.describe(token);
+    }
+
+    public void disconnect(String token) {
+        runtimeConnections.disconnect(token);
+    }
+
+    private static ProbeResult connect(Platform platform, String url, String username,
+                                       String password, String schema, long started) {
         try {
-            Class.forName(driver);
+            Class.forName(platform.driver);
             try (Connection connection = DriverManager.getConnection(url, username, password)) {
                 DatabaseMetaData meta = connection.getMetaData();
-                return new ProbeResult(true, "CONNECTED", "اتصال JDBC برقرار شد؛ هیچ SQL یا DDL اجرا نشد.",
-                        truncate(meta.getDatabaseProductName()), truncate(meta.getDatabaseProductVersion()), elapsed(started));
+                String product = truncate(meta.getDatabaseProductName());
+                String version = truncate(meta.getDatabaseProductVersion());
+                if (!schema.isEmpty()) {
+                    // Both catalog checks use the same vendor-specific, read-only repository as
+                    // Conformance/CRUD/Generation, not an unrelated generic JDBC test.
+                    MetadataRepository repository = RuntimeMetadataConnectionRegistry.createRepository(
+                            DatabasePlatform.parse(platform.code), url, username, password);
+                    if (!repository.schemaExists(schema)) {
+                        return new ProbeResult(false, "SCHEMA_NOT_VISIBLE",
+                                "Selected schema was not found or is not visible to this account.",
+                                product, version, elapsed(started));
+                    }
+                    repository.findTableNames(schema);
+                    return new ProbeResult(true, "METADATA_READY",
+                            "JDBC and schema metadata access verified with read-only catalog queries.",
+                            product, version, elapsed(started));
+                }
+                JdbcSchemaDiscovery.Result discovery = JdbcSchemaDiscovery.inspect(connection, meta, platform.code);
+                if (!discovery.metadataReadable() || discovery.availableSchemas().isEmpty()) {
+                    return new ProbeResult(false, "METADATA_DISCOVERY_UNAVAILABLE",
+                            "JDBC login succeeded but no database schemas could be enumerated. "
+                                    + "Enter a schema and test its metadata access explicitly.",
+                            product, version, elapsed(started));
+                }
+                return new ProbeResult(true, "METADATA_DISCOVERED",
+                        "JDBC metadata discovery succeeded. Schema selection is optional here; "
+                                + "individual table permissions are checked when metadata is requested.",
+                        product, version, elapsed(started), discovery.defaultSchema(),
+                        discovery.availableSchemas(), discovery.truncated());
             }
         } catch (SQLException exception) {
             String sqlState = exception.getSQLState();
             String code = sqlState != null && sqlState.startsWith("28") ? "AUTH_FAILED" : "CONNECTION_FAILED";
             return new ProbeResult(false, code,
-                    "AUTH_FAILED".equals(code) ? "احراز هویت دیتابیس رد شد." : "اتصال برقرار نشد؛ شبکه، آدرس و تنظیمات JDBC را بررسی کنید.",
+                    "AUTH_FAILED".equals(code) ? "Database authentication was denied."
+                            : "JDBC connection or metadata read failed; check network, driver and privileges.",
+                    "", "", elapsed(started));
+        } catch (RuntimeException exception) {
+            return new ProbeResult(false, "METADATA_UNAVAILABLE",
+                    "JDBC metadata cannot be read with these credentials and schema.",
                     "", "", elapsed(started));
         } catch (Exception | LinkageError exception) {
-            return new ProbeResult(false, "CONNECTION_FAILED", "ارتباط JDBC برقرار نشد.", "", "", elapsed(started));
+            return new ProbeResult(false, "CONNECTION_FAILED", "JDBC connection failed.",
+                    "", "", elapsed(started));
         }
+    }
+
+    private static String checkedSchema(String schema) {
+        if (schema.length() > 128 || !schema.matches("[A-Za-z_][A-Za-z0-9_$#-]*")) {
+            throw new IllegalArgumentException("Invalid metadata schema identifier");
+        }
+        return schema;
     }
 
     private MetadataProperties.Database config(Platform platform) {
@@ -183,9 +232,24 @@ public final class DatabaseConnectionAdministrationService {
     public record ConnectionSummary(String platform, String displayName, boolean enabled, String jdbcUrl,
                                     String username, String driverClassName, boolean passwordConfigured, boolean driverAvailable) { }
     public record ProbeRequest(String platform, String jdbcUrl, String username, String password,
-                               boolean useConfiguredPassword) { }
+                               boolean useConfiguredPassword, String schema) {
+        public ProbeRequest(String platform, String jdbcUrl, String username, String password,
+                            boolean useConfiguredPassword) {
+            this(platform, jdbcUrl, username, password, useConfiguredPassword, null);
+        }
+    }
     public record ProbeResult(boolean success, String code, String message, String product, String version,
-                              long elapsedMillis) { }
+                              long elapsedMillis, String defaultSchema, List<String> availableSchemas,
+                              boolean schemaListTruncated) {
+        public ProbeResult {
+            defaultSchema = defaultSchema == null ? "" : defaultSchema;
+            availableSchemas = availableSchemas == null ? List.of() : List.copyOf(availableSchemas);
+        }
+        public ProbeResult(boolean success, String code, String message, String product, String version,
+                           long elapsedMillis) {
+            this(success, code, message, product, version, elapsedMillis, "", List.of(), false);
+        }
+    }
 
     private enum Platform {
         ORACLE("oracle", "Oracle", "jdbc:oracle:", "oracle.jdbc.OracleDriver"),
