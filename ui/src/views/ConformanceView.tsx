@@ -1,5 +1,5 @@
 import {useEffect, useState, type FormEvent} from 'react';
-import {coreApi, type SelectedAuditPlan, type SelectedAuditResult, type SelectedAuditTarget} from '../coreApi';
+import {coreApi, parseSelectedTableNames, type SelectedAuditPlan, type SelectedAuditResult, type SelectedAuditTarget} from '../coreApi';
 import type {ActiveMetadataConnection} from '../connectionApi';
 import DatabaseTargetPicker from '../components/DatabaseTargetPicker';
 import {getActiveMetadataConnection, saveDownload} from '../transport';
@@ -35,9 +35,10 @@ type Props = {
 };
 
 export default function ConformanceView({activeConnection, onGoConnections, connectionSessions, onSelectConnection}: Props) {
-  const [scope, setScope] = useState<'table' | 'schema'>('table');
+  const [scope, setScope] = useState<'table' | 'tables' | 'schema'>('table');
   const [schema, setSchema] = useState('');
   const [table, setTable] = useState('');
+  const [tableList, setTableList] = useState('');
   const [plan, setPlan] = useState<SelectedAuditPlan | null>(null);
   const [result, setResult] = useState<SelectedAuditResult | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -50,7 +51,7 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
     let stale = false;
     setPlan(null); setResult(null); setError(''); setPlanError(''); setAcknowledged(false);
     setSchema(activeConnection?.verifiedSchema || activeConnection?.defaultSchema || '');
-    setTable('');
+    setTable(''); setTableList('');
     if (!activeConnection?.token) {setLoadingPlan(false); return;}
     setLoadingPlan(true);
     coreApi.selectedAuditPlan().then(next => {
@@ -73,13 +74,15 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
     if (!activeConnection?.token || !plan || !plan.readOnly || !acknowledged) {
       setError('اتصال معتبر و تأیید مقصد و قوانین قبل از شروع ممیزی الزامی است.'); return;
     }
-    if (!schema.trim() || (scope === 'table' && !table.trim())) {
-      setError('Schema و در حالت ممیزی جدول، Table الزامی است.'); return;
+    const requestedTables = scope === 'tables' ? parseSelectedTableNames(tableList) : [];
+    if (!schema.trim() || (scope === 'table' && !table.trim()) ||
+        (scope === 'tables' && (!requestedTables.length || requestedTables.length > 100))) {
+      setError('Schema و در حالت ممیزی گروهی، ۱ تا ۱۰۰ نام Table الزامی است.'); return;
     }
     setBusy(true);
     try {
       const requestToken = activeConnection.token;
-      const received = await coreApi.selectedConformance({scope, schema, table});
+      const received = await coreApi.selectedConformance({scope, schema, table, tables: requestedTables});
       if (getActiveMetadataConnection()?.token !== requestToken) {
         throw new Error('اتصال فعال هنگام اجرای ممیزی تغییر کرده است؛ درخواست باید دوباره اجرا شود.');
       }
@@ -87,6 +90,13 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
           received.target.platform !== plan.target.platform ||
           received.target.username !== plan.target.username) {
         throw new Error('مقصد ممیزی در طول درخواست تغییر کرده است؛ نتیجه قابل پذیرش نیست.');
+      }
+      if (scope === 'tables' && (received.report.scope !== 'TABLES' ||
+          received.report.summary.tablesScanned !== requestedTables.length ||
+          !received.requestedTables ||
+          received.requestedTables.length !== requestedTables.length ||
+          requestedTables.some((name, index) => name.toUpperCase() !== received.requestedTables?.[index].toUpperCase()))) {
+        throw new Error('تعداد یا هویت جدول‌های ممیزی‌شده با لیست درخواستی مطابقت ندارد.');
       }
       setResult(received);
     } catch (err) {
@@ -126,8 +136,9 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
         <h3>۲. محدوده ممیزی</h3>
         <div className="form-grid">
           <label className="field">محدوده
-            <select value={scope} onChange={e => {setScope(e.target.value as 'table'|'schema'); invalidateReview();}}>
+            <select value={scope} onChange={e => {setScope(e.target.value as 'table'|'tables'|'schema'); invalidateReview();}}>
               <option value="table">یک Table موجود</option>
+              <option value="tables">چند Table مشخص (Cohort)</option>
               <option value="schema">تمام Tableهای یک Schema</option>
             </select>
           </label>
@@ -141,6 +152,13 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
           {scope === 'table' && <label className="field grow">Table <span className="required">*</span>
             <input dir="ltr" maxLength={128} required value={table}
               onChange={e => {setTable(e.target.value); invalidateReview();}} placeholder="ACCOUNTS" />
+          </label>}
+          {scope === 'tables' && <label className="field grow">لیست Tableها <span className="required">*</span>
+            <textarea dir="ltr" rows={9} required value={tableList}
+              onChange={e => {setTableList(e.target.value); invalidateReview();}}
+              placeholder={'FCE_CALC_ITEM\nFCE_TARIFF_VERSION\nFCE_CHANGE_REQUEST'} />
+            <small>هر خط یک جدول؛ جداکننده کاما یا سمی‌کالن نیز پذیرفته می‌شود. حداکثر ۱۰۰ نام.</small>
+            <small>تعداد جدول‌های یکتا: {parseSelectedTableNames(tableList).length}</small>
           </label>}
         </div>
         {plan?.target.verifiedSchema && schema.trim().toUpperCase() !== plan.target.verifiedSchema.toUpperCase() &&
@@ -162,11 +180,11 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
             <label className="inline-checkbox"><input type="checkbox" checked={acknowledged}
               onChange={event => setAcknowledged(event.target.checked)}/>
               <span>مقصد JDBC، محدوده و ۸ خانواده قاعده بالا را بررسی و تأیید کردم.</span></label>
-            <div className="audit-final-target" dir="ltr">{plan.target.platform.toUpperCase()} · {plan.target.jdbcTarget} · {schema || '(schema)'}{scope === 'table' ? `.${table || '(table)'}` : ' (all tables)'}</div>
+            <div className="audit-final-target" dir="ltr">{plan.target.platform.toUpperCase()} · {plan.target.jdbcTarget} · {schema || '(schema)'}{scope === 'table' ? `.${table || '(table)'}` : scope === 'tables' ? ` (${parseSelectedTableNames(tableList).length} selected tables)` : ' (all tables)'}</div>
           </div>
         </> : <p className="small muted">قواعد تا زمان تأیید اتصال از Backend بارگذاری نمی‌شوند.</p>}
         <div className="form-actions"><button className="btn primary" type="submit"
-          disabled={busy || !plan?.readOnly || !acknowledged || !schema.trim() || (scope === 'table' && !table.trim())}>
+          disabled={busy || !plan?.readOnly || !acknowledged || !schema.trim() || (scope === 'table' && !table.trim()) || (scope === 'tables' && (parseSelectedTableNames(tableList).length < 1 || parseSelectedTableNames(tableList).length > 100))}>
           {busy ? 'در حال خواندن و ممیزی متادیتا…' : 'اجرای ممیزی فقط‌خواندنی'}</button></div>
         {error && <p className="message error" role="alert">{error}</p>}
       </form>
@@ -176,6 +194,7 @@ export default function ConformanceView({activeConnection, onGoConnections, conn
       <div className="page-heading"><h3>۴. نتیجه ممیزی و محل اجرا</h3>
         <button type="button" className="btn secondary" onClick={downloadJson}>دانلود گزارش JSON همراه با هویت مقصد</button></div>
       <TargetIdentity target={result.target}/>
+      {result.requestedTables && <p className="small muted" dir="ltr">Audited cohort: {result.requestedTables.join(', ')}</p>}
       <p className="small muted">زمان پایان: {new Date(result.auditedAt).toLocaleString('fa-IR')}</p>
       <div className="audit-report">
         <div className="toolbar"><strong dir="ltr">{result.report.platform} · {result.report.schema}{result.report.table ? `.${result.report.table}` : ''}</strong>

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/api-contract.test.mjs tests/console-rest-contract.test.mjs tests/zip-reports.test.mjs tests/diagram-review.test.mjs tests/diagram-viewport.test.mjs tests/diagram-svg-locator.test.mjs tests/diagram-focus.test.mjs tests/connection-admin.test.mjs tests/upload-limits.test.mjs tests/batch-zip-preview.test.mjs tests/evidence-stream.test.mjs tests/lazy-loading.test.mjs tests/audit-selected.test.mjs tests/selected-targets.test.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/api-contract.test.mjs tests/console-rest-contract.test.mjs tests/zip-reports.test.mjs tests/diagram-review.test.mjs tests/diagram-viewport.test.mjs tests/diagram-svg-locator.test.mjs tests/diagram-focus.test.mjs tests/connection-admin.test.mjs tests/upload-limits.test.mjs tests/batch-zip-preview.test.mjs tests/evidence-stream.test.mjs tests/lazy-loading.test.mjs tests/audit-selected.test.mjs tests/audit-cohort.test.mjs tests/selected-targets.test.mjs",
     "build": "tsc --noEmit && vite build && node scripts/check-lazy-build.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },

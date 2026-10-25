@@ -21,8 +21,13 @@ public final class GlossaryDdlHints {
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
     }
 
-    /** A SQL block comment placed before the column name on its CREATE TABLE row. */
-    public String beforeColumn(String identifier) {
+    /**
+     * A compact, non-executable SQL comment appended after a column definition
+     * (and after its comma, when present), ahead of any inline issue warning.
+     * GH means terms missing from the approved glossary; PLURAL is a separate
+     * identifier naming warning. No SQL keywords or datatypes are changed.
+     */
+    public String afterColumn(String identifier) {
         Set<String> absent = new LinkedHashSet<>();
         Set<String> plurals = new LinkedHashSet<>();
         for (UnknownGlossaryTerm finding : scanner.scanColumn(identifier, snapshot)) {
@@ -35,12 +40,12 @@ public final class GlossaryDdlHints {
         if (absent.isEmpty() && plurals.isEmpty()) return "";
         // Scanner terms consist exclusively of uppercase ASCII letters, digits, underscores.
         // No raw user-provided identifier can terminate or escape this SQL comment.
-        StringBuilder hint = new StringBuilder("/* GLOSSARY_HINT: ");
-        if (!absent.isEmpty()) hint.append("MISSING=").append(String.join(",", absent));
+        StringBuilder hint = new StringBuilder(" /* ");
+        if (!absent.isEmpty()) hint.append("GH: ").append(String.join(",", absent));
         if (!plurals.isEmpty()) {
             if (!absent.isEmpty()) hint.append(" | ");
-            hint.append("PLURAL_COLUMN=").append(String.join(",", plurals));
+            hint.append("PLURAL: ").append(String.join(",", plurals));
         }
-        return hint.append(" */ ").toString();
+        return hint.append(" */").toString();
     }
 }

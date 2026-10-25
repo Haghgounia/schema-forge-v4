@@ -1,0 +1,117 @@
+{
+  "sourceArtifact": "schemaforge-ea-20261025-114149-741.zip",
+  "sourceCanonical": "model/FCE_v13_8_84_EA_Oracle_Physical_Corrected_Widths_20261025_114114_622.schema.json",
+  "schema": "FEE3",
+  "purpose": "REFERENCE_INVENTORY_ONLY",
+  "limitations": "Not observed live database metadata; only desired EA model counts",
+  "expected": {
+    "tables": 11,
+    "columns": 166,
+    "primaryKeys": 11,
+    "uniqueKeys": 5,
+    "foreignKeys": 14,
+    "checks": 69,
+    "indexes": 18
+  },
+  "tables": [
+    {
+      "name": "FCE_CALC_ITEM",
+      "columns": 15,
+      "pk": 1,
+      "uk": 1,
+      "fk": 1,
+      "check": 4,
+      "index": 2
+    },
+    {
+      "name": "FCE_TARIFF_VERSION",
+      "columns": 23,
+      "pk": 1,
+      "uk": 1,
+      "fk": 3,
+      "check": 11,
+      "index": 3
+    },
+    {
+      "name": "FCE_VERSION_SCOPE",
+      "columns": 15,
+      "pk": 1,
+      "uk": 0,
+      "fk": 1,
+      "check": 8,
+      "index": 1
+    },
+    {
+      "name": "FCE_CALC_RULE",
+      "columns": 19,
+      "pk": 1,
+      "uk": 1,
+      "fk": 2,
+      "check": 13,
+      "index": 1
+    },
+    {
+      "name": "FCE_TEST_CASE",
+      "columns": 13,
+      "pk": 1,
+      "uk": 0,
+      "fk": 1,
+      "check": 4,
+      "index": 1
+    },
+    {
+      "name": "FCE_AUDIT_EVENT",
+      "columns": 15,
+      "pk": 1,
+      "uk": 0,
+      "fk": 3,
+      "check": 4,
+      "index": 3
+    },
+    {
+      "name": "FCE_CHANGE_REQUEST",
+      "columns": 19,
+      "pk": 1,
+      "uk": 1,
+      "fk": 3,
+      "check": 8,
+      "index": 3
+    },
+    {
+      "name": "FCE_REF_OPERATION",
+      "columns": 11,
+      "pk": 1,
+      "uk": 1,
+      "fk": 0,
+      "check": 4,
+      "index": 1
+    },
+    {
+      "name": "FCE_REF_CODE",
+      "columns": 11,
+      "pk": 1,
+      "uk": 0,
+      "fk": 0,
+      "check": 4,
+      "index": 1
+    },
+    {
+      "name": "FCE_REF_FORMULA",
+      "columns": 12,
+      "pk": 1,
+      "uk": 0,
+      "fk": 0,
+      "check": 6,
+      "index": 1
+    },
+    {
+      "name": "FCE_REF_SOURCE",
+      "columns": 13,
+      "pk": 1,
+      "uk": 0,
+      "fk": 0,
+      "check": 3,
+      "index": 1
+    }
+  ]
+}

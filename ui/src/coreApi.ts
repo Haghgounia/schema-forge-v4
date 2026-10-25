@@ -23,6 +23,18 @@ function platformsQuery(platforms: string[]): URLSearchParams {
   for (const platform of platforms) query.append('platform', platform);
   return query;
 }
+/** Parse a pasted comma/newline/semicolon separated table cohort; preserve first spelling. */
+export function parseSelectedTableNames(raw: string): string[] {
+  const seen = new Set<string>();
+  return raw.split(/[\r\n,;]+/).map(value => value.trim()).filter(value => {
+    if (!value) return false;
+    const key = value; // Preserve case-distinct requests; the server rejects ambiguous collisions.
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export const coreApi = {
   generate: (input: GenerationInput) => {
     const sizeError = generationUploadError(input.file.size);
@@ -48,10 +60,19 @@ export const coreApi = {
     if (!getActiveMetadataConnection()?.token) throw new Error('ابتدا یک اتصال JDBC را در بخش اتصالات فعال کنید.');
     return fetchJson<SelectedAuditPlan>('/api/v1/conformance/selected/plan');
   },
-  selectedConformance: (input: {scope: 'table' | 'schema'; schema: string; table?: string}) => {
+  selectedConformance: (input: {scope: 'table' | 'tables' | 'schema'; schema: string;
+    table?: string; tables?: string[]}) => {
     if (!getActiveMetadataConnection()?.token) throw new Error('اتصال فعال برای ممیزی الزامی است.');
     if (!input.schema.trim() || (input.scope === 'table' && !input.table?.trim())) {
       throw new Error('Schema و در حالت Table نام جدول الزامی است.');
+    }
+    if (input.scope === 'tables') {
+      const tables = input.tables ?? [];
+      if (!tables.length || tables.length > 100 || tables.some(table => !table.trim() || table.length > 128)) {
+        throw new Error('برای ممیزی گروهی بین ۱ تا ۱۰۰ نام Table معتبر الزامی است.');
+      }
+      return fetchJson<SelectedAuditResult>('/api/v1/conformance/selected/tables',
+        {method: 'POST', json: {schema: input.schema.trim(), tables}});
     }
     const query = params({schema: input.schema.trim(), table: input.scope === 'table' ? input.table?.trim() : undefined});
     return fetchJson<SelectedAuditResult>(`/api/v1/conformance/selected/${input.scope}?${query}`);
@@ -117,5 +138,5 @@ export type SelectedAuditPlan = {
 };
 export type SelectedAuditResult = {
   reportContract: string; target: SelectedAuditTarget; auditedAt: string;
-  report: ConformanceReport;
+  report: ConformanceReport; requestedTables?: string[];
 };

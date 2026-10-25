@@ -71,6 +71,16 @@ export async function fetchResponse(path: string, options: HttpOptions = {}): Pr
     if (response.status === 401 && token) {
       throw new ApiError(401, 'The selected metadata connection expired. Disconnect and connect again.');
     }
+    // For this bounded, read-only cohort endpoint, preserve only the expected
+    // missing-table diagnostic (its identifiers were supplied by the caller).
+    if (response.status === 400 && path === '/api/v1/conformance/selected/tables') {
+      const detail = await response.clone().json().catch(() => null) as
+        {contract?: string; code?: string; message?: string} | null;
+      if (detail?.contract === 'schemaforge-rest-error/v1' && detail.code === 'INVALID_REQUEST' &&
+          detail.message?.startsWith('Requested live table(s) missing or inaccessible in ')) {
+        throw new ApiError(400, detail.message.slice(0, 600));
+      }
+    }
     throw new ApiError(response.status, errorMessage(response.status));
   }
   return response;

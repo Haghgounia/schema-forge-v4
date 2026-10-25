@@ -1,3 +1,10 @@
+## 2026-10-25 — Compact trailing Glossary hints in generated DDL
+
+- Move glossary annotations from before a column name to immediately after its complete definition and comma, ahead of `-- W:` warnings.
+- Use compact `/* GH: TOKEN1,TOKEN2 */` for missing terms and `/* PLURAL: TOKEN */` for singular-name warnings; combine both when necessary.
+- Keep hint generation opt-in and SQL-execution-neutral across seven DBMS and in integrated EA scripts; preserve detailed statuses in Glossary reports.
+- No canonical schema, H2 database, endpoint, type mapping, PK/FK/CHECK, or deployment ordering changes.
+
 ## V0.6.0 — EA/Word physical DDL regression and JSON CHECK coverage (2026-10-24)
 
 - Fix Oracle `NVARCHAR2` and `NCHAR` national datatype rendering to omit redundant `CHAR` / `BYTE` length semantics.

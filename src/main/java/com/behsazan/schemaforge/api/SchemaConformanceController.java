@@ -8,6 +8,7 @@ import com.behsazan.schemaforge.conformance.SchemaConformanceScope;
 import com.behsazan.schemaforge.conformance.SchemaConformanceAuditPlan;
 import com.behsazan.schemaforge.conformance.SchemaConformanceRuleCatalog;
 import com.behsazan.schemaforge.conformance.SchemaConformanceSelectedResult;
+import com.behsazan.schemaforge.conformance.SchemaConformanceSelectedCohortResult;
 import com.behsazan.schemaforge.conformance.SchemaConformanceSelectedTarget;
 import com.behsazan.schemaforge.metadata.repository.RuntimeMetadataConnectionRegistry;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +26,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -143,6 +146,30 @@ public class SchemaConformanceController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(
                 new SchemaConformanceSelectedResult(SchemaConformanceSelectedTarget.of(selected), report));
     }
+
+    /**
+     * POST carries a list but is strictly read-only. No SQL mutations are executed.
+     * The requested list is returned so omissions cannot be mistaken for success.
+     */
+    @PostMapping(value = "/selected/tables", consumes = MediaType.APPLICATION_JSON_VALUE,
+                 produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Read-only audit of an explicitly selected table cohort (up to 100 tables)")
+    public ResponseEntity<SchemaConformanceSelectedCohortResult> selectedTables(
+            @RequestHeader(RuntimeMetadataConnectionRegistry.HEADER) String token,
+            @RequestBody SelectedTablesRequest request) {
+        if (request == null) throw new IllegalArgumentException("Audit cohort request is required");
+        String schema = request.schema();
+        List<String> names = SchemaConformanceAuditService.normalizeCohortNames(request.tables());
+        var selected = selectedConnections().describe(token);
+        DatabasePlatform platform = DatabasePlatform.parse(selected.platform());
+        var repository = selectedConnections().resolve(token, platform);
+        var report = service.auditSelectedTables(platform, schema, names, repository);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(
+                new SchemaConformanceSelectedCohortResult(
+                        SchemaConformanceSelectedTarget.of(selected), names, report));
+    }
+
+    public record SelectedTablesRequest(String schema, List<String> tables) { }
 
     private RuntimeMetadataConnectionRegistry selectedConnections() {
         if (selectedConnections == null) {

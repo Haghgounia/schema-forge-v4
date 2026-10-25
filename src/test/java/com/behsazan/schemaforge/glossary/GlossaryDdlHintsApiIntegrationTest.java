@@ -65,9 +65,9 @@ class GlossaryDdlHintsApiIntegrationTest {
         String ddl = new String(files.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith("ddl/oracle/"))
                 .findFirst().orElseThrow().getValue(), StandardCharsets.UTF_8);
-        assertTrue(ddl.contains("GLOSSARY_HINT: MISSING="), "Unlisted Word tokens should be hinted");
-        assertTrue(ddl.lines().anyMatch(line -> line.contains("GLOSSARY_HINT: MISSING=")
-                && line.matches("(?i).*\\s+[A-Z0-9_]+\\s+.*")),
+        assertTrue(ddl.contains("/* GH: "), "Unlisted Word tokens should be hinted");
+        assertTrue(ddl.lines().anyMatch(line -> line.contains("/* GH: ")
+                && line.matches("(?i).*\\s+[A-Z0-9_]+\\s+[^\\r\\n]*,?\\s*/\\* GH: [A-Z0-9_,]+ \\*/.*")),
                 "Hints belong on the real SQL column definition line");
         String report = new String(files.get("reports/glossary/unknown-terms.csv"), StandardCharsets.UTF_8);
         assertTrue(report.contains("PENDING_APPROVAL"));

@@ -29,6 +29,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -110,6 +112,89 @@ public class SchemaConformanceAuditService {
         List<FamilyIssue> issues = analyze(canonical, dialectFor(platform), repository);
         return report(platform, SchemaConformanceScope.TABLE, actualSchema,
                 liveTable.qualifiedName().name().value(), TABLE_RULE_FAMILIES, canonical, issues);
+    }
+
+    /**
+     * Audits an explicit cohort of live tables through the selected session only.
+     * The cohort is all-or-nothing: a missing/inaccessible table must never be
+     * reported as though the requested subset had been audited completely.
+     */
+    public SchemaConformanceReport auditSelectedTables(DatabasePlatform platform, String schemaName,
+                                                         List<String> tableNames,
+                                                         MetadataRepository selectedRepository) {
+        Objects.requireNonNull(platform, "platform must not be null");
+        String schema = requireIdentifierText(schemaName, "schema");
+        List<String> names = normalizeCohortNames(tableNames);
+        MetadataRepository repository = checkedRepository(platform, selectedRepository);
+        if (repository.schemaExistenceAuthoritative() && !repository.schemaExists(schema)) {
+            ensureAvailable(repository, "checking schema " + schema);
+            throw new IllegalArgumentException("Live schema was not found: " + schema);
+        }
+        ensureAvailable(repository, "checking schema " + schema);
+
+        Map<String, Table> loaded = repository.findTables(schema, new LinkedHashSet<>(names));
+        ensureAvailable(repository, "reading table cohort in " + schema);
+        if (loaded == null) {
+            throw new ServiceUnavailableException("Metadata repository returned no cohort result");
+        }
+        DatabaseSchema.Builder builder = DatabaseSchema.builder(schema)
+                .metadata("source.origin", "LIVE_DATABASE")
+                .metadata("source.platform", platform.commandLineName());
+        List<String> missing = new ArrayList<>();
+        for (String name : names) {
+            Table table = loaded.entrySet().stream()
+                    .filter(entry -> entry.getKey() != null && entry.getKey().equalsIgnoreCase(name))
+                    .map(Map.Entry::getValue)
+                    .filter(Objects::nonNull)
+                    .findFirst().orElse(null);
+            if (table == null) {
+                missing.add(name);
+                continue;
+            }
+            String actualSchema = table.qualifiedName().schemaName()
+                    .map(Identifier::value).orElse(schema);
+            if (!actualSchema.equalsIgnoreCase(schema)
+                    || !table.qualifiedName().name().value().equalsIgnoreCase(name)) {
+                throw new IllegalArgumentException("Metadata object identity mismatch for "
+                        + schema + "." + name);
+            }
+            builder.addTable(table);
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("Requested live table(s) missing or inaccessible in "
+                    + schema + ": " + String.join(", ", missing));
+        }
+        DatabaseSchema canonical = builder.build();
+        return report(platform, SchemaConformanceScope.TABLES, schema, null,
+                TABLE_RULE_FAMILIES, canonical,
+                analyze(canonical, dialectFor(platform), repository));
+    }
+
+    /** Normalizes once for consistent backend validation and report evidence. */
+    public static List<String> normalizeCohortNames(List<String> tableNames) {
+        if (tableNames == null || tableNames.isEmpty()) {
+            throw new IllegalArgumentException("At least one table name is required");
+        }
+        if (tableNames.size() > 100) {
+            throw new IllegalArgumentException("At most 100 table names may be submitted");
+        }
+        Map<String, String> seen = new LinkedHashMap<>();
+        List<String> normalized = new ArrayList<>();
+        for (String raw : tableNames) {
+            String name = requireIdentifierText(raw, "table");
+            if (name.length() > 128 || name.chars().anyMatch(c -> Character.isISOControl(c))) {
+                throw new IllegalArgumentException("Table name is too long or contains control characters");
+            }
+            String key = name.toUpperCase(Locale.ROOT);
+            String previous = seen.putIfAbsent(key, name);
+            if (previous == null) {
+                normalized.add(name);
+            } else if (!previous.equals(name)) {
+                throw new IllegalArgumentException("Ambiguous table names differing only by letter case: "
+                        + previous + ", " + name);
+            }
+        }
+        return List.copyOf(normalized);
     }
 
     /** Audits every existing live table in one schema using metadata only. */

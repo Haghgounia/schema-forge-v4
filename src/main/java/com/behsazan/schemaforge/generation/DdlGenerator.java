@@ -393,6 +393,11 @@ public final class DdlGenerator {
             if (index < columns.size() - 1 || hasPrimaryKey || hasSupplementalDefinitions) {
                 definition += ",";
             }
+            // The glossary note belongs after the complete column definition and
+            // optional comma, but before SQL line comments such as -- W:SPELL.
+            if (glossaryDdlHints != null) {
+                definition += glossaryDdlHints.afterColumn(column.name().value());
+            }
             definition += inlineIssueRenderer.render(
                     issueCatalog.forColumn(table, column.name().value()));
             definitions.add(definition);
@@ -448,9 +453,6 @@ public final class DdlGenerator {
             long metadataFrequency,
             boolean metadataAvailable) {
         StringBuilder sql = new StringBuilder("  ");
-        if (glossaryDdlHints != null) {
-            sql.append(glossaryDdlHints.beforeColumn(column.name().value()));
-        }
         if (metadataAvailable) {
             sql.append("/* ").append(String.format(Locale.ROOT, "%3d", metadataFrequency)).append("*/  ");
         }

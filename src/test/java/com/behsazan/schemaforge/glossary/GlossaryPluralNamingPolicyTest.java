@@ -57,11 +57,11 @@ class GlossaryPluralNamingPolicyTest {
     void ddlShowsNonExecutablePluralViolationAndReportImportIgnoresIt() {
         var glossary = new GlossaryLexicon(Set.of("PROFILE", "ID"), Set.of());
         var hints = new GlossaryDdlHints(glossary);
-        assertEquals("", hints.beforeColumn("PROFILE_ID"));
-        assertEquals("/* GLOSSARY_HINT: PLURAL_COLUMN=PROFILES */ ",
-                hints.beforeColumn("PROFILES_ID"));
-        assertEquals("/* GLOSSARY_HINT: MISSING=ALIEN | PLURAL_COLUMN=PROFILES */ ",
-                hints.beforeColumn("ALIEN_PROFILES_ID"));
+        assertEquals("", hints.afterColumn("PROFILE_ID"));
+        assertEquals(" /* PLURAL: PROFILES */",
+                hints.afterColumn("PROFILES_ID"));
+        assertEquals(" /* GH: ALIEN | PLURAL: PROFILES */",
+                hints.afterColumn("ALIEN_PROFILES_ID"));
         String csv = GlossaryCsv.row("source_name", "object_type", "table_name", "column_name",
                 "identifier", "unknown_term", "token_position", "review_status")
                 + GlossaryCsv.row("a.docx", "COLUMN", "PROFILES", "PROFILES_ID",
