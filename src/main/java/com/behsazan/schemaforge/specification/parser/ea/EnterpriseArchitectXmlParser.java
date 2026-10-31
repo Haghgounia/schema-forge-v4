@@ -56,6 +56,18 @@ public final class EnterpriseArchitectXmlParser {
             "([A-Za-z][A-Za-z0-9_$#]*)\\s*=\\s*([A-Za-z][A-Za-z0-9_$#]*)");
     private static final Pattern CHECK_WRAPPER = Pattern.compile(
             "(?is)^CHECK\\s*\\((.*)\\)\\s*;?$");
+    private static final Pattern UML21_SEQUENCE_NEXTVAL = Pattern.compile(
+            "(?i)^[A-Z][A-Z0-9_$#]*(?:\\.[A-Z][A-Z0-9_$#]*)?\\.NEXTVAL$");
+    private static final Pattern UML21_RULE_PREFIX = Pattern.compile(
+            "(?is)^\\s*(PK|FK|UQ|UK|CK|CHECK)\\s*:\\s*(.+)$");
+    private static final Pattern UML21_KEY_COLUMNS = Pattern.compile(
+            "(?is)^(?:PRIMARY\\s+KEY|UNIQUE)\\s*\\(([^()]*)\\)$");
+    private static final Pattern UML21_FOREIGN_KEY = Pattern.compile(
+            "(?is)^FOREIGN\\s+KEY\\s*\\(([^()]*)\\)\\s+REFERENCES\\s+"
+                    + "(?:[A-Z][A-Z0-9_$#]*\\.)?([A-Z][A-Z0-9_$#]*)\\s*\\(([^()]*)\\)$");
+    private static final Pattern UML21_CONNECTOR_ENDPOINT = Pattern.compile(
+            "(?is)^\\s*(?:[A-Z][A-Z0-9_$#]*\\.)?([A-Z][A-Z0-9_$#]*)\\."
+                    + "([A-Z][A-Z0-9_$#,\\s]*)\\s*$");
     private static final String DEFAULT_SCHEMA = "COL";
     private static final Set<String> SCHEMA_TAGS = Set.of(
             "SCHEMA", "SCHEMA_NAME", "SCHEMANAME", "OWNER", "DATABASE_OWNER",
@@ -151,9 +163,11 @@ public final class EnterpriseArchitectXmlParser {
                             : (globalXmlSchema.isBlank() ? "CONFIG_DEFAULT" : "XML"));
 
             for (EaTable eaTable : logicalTablesByQualifiedName.values()) {
-                schema.addTable(buildTable(
+                Table builtTable = buildTable(
                         eaTable, tablesById, associationBySourceOperation, warnings,
-                        primaryKeyAsIdentity));
+                        primaryKeyAsIdentity);
+                validateUml21RuleCompleteness(eaTable, builtTable);
+                schema.addTable(builtTable);
             }
             if (!warnings.isEmpty()) {
                 schema.metadata("recovery.warningCount", Integer.toString(warnings.size()));
@@ -242,7 +256,8 @@ public final class EnterpriseArchitectXmlParser {
         int fallbackPosition = 0;
         for (Element attribute : classifierMembers(
                 tableElement, "Attribute", "ownedAttribute", "Property")) {
-            if (!isStereotype(attribute, "column", extensionIndex)) continue;
+            if (!isStereotype(attribute, "column", extensionIndex)
+                    && !isUml21PhysicalColumn(attribute, extensionIndex)) continue;
             if (isEaCheckPseudoColumn(attribute, extensionIndex)) {
                 warnings.add("EA_CHECK_PSEUDO_COLUMN_IGNORED|table=" + tableName
                         + "|attribute=" + sanitizeIdentifier(attribute(attribute, "name"), "UNNAMED_CHECK")
@@ -261,6 +276,14 @@ public final class EnterpriseArchitectXmlParser {
                 tableElement, "Operation", "ownedOperation", "Operation")) {
             operations.add(parseOperation(operation, extensionIndex));
         }
+        // UML 2.1 exports can encode physical PK/FK/UK/CHECK constraints as
+        // ownedRule rather than EA operation stereotypes. Read the explicit SQL
+        // expression, never infer a constraint solely from its name.
+        for (Element rule : childElements(tableElement)) {
+            if ("ownedRule".equals(localName(rule)) && isXmiType(rule, "Constraint")) {
+                operations.add(parseUml21Rule(rule, columns, tableName));
+            }
+        }
 
         return new EaTable(
                 firstNonBlank(xmiId(tableElement), tableName),
@@ -270,6 +293,129 @@ public final class EnterpriseArchitectXmlParser {
                 description,
                 List.copyOf(columns),
                 List.copyOf(operations));
+    }
+
+    /** A core UML Property is a physical column only with EA extension type evidence. */
+    private static boolean isUml21PhysicalColumn(
+            Element attribute, EaExtensionIndex extensionIndex) {
+        if (!"ownedAttribute".equals(localName(attribute)) || !isXmiType(attribute, "Property")) {
+            return false;
+        }
+        Element extension = extensionIndex.nodeFor(attribute);
+        if (extension == null || !"attribute".equals(localName(extension))) return false;
+        String physicalType = attribute(directChild(extension, "properties"), "type");
+        if (physicalType.isBlank()) {
+            throw new IllegalArgumentException("EA XMI 2.1 physical column missing type: "
+                    + attribute(attribute, "name"));
+        }
+        return true;
+    }
+
+    /** Parse the explicit SQL-backed ownedRule dialect; unsupported rules fail closed. */
+    private static EaOperation parseUml21Rule(
+            Element rule, List<EaColumn> columns, String tableName) {
+        String name = sanitizeIdentifier(attribute(rule, "name"), "");
+        Element specification = directChild(rule, "specification");
+        Element body = directChild(specification, "body");
+        String expression = body == null ? "" : body.getTextContent().trim();
+        Matcher prefix = UML21_RULE_PREFIX.matcher(expression);
+        if (name.isBlank() || !prefix.matches()) {
+            throw new IllegalArgumentException("EA XMI 2.1 rule lacks a recognized definition: table="
+                    + tableName + ", rule=" + name);
+        }
+        String prefixKind = prefix.group(1).toUpperCase(Locale.ROOT);
+        String detail = prefix.group(2).trim();
+        String stereotype = switch (prefixKind) {
+            case "PK" -> "PK";
+            case "FK" -> "FK";
+            case "UQ", "UK" -> "UK";
+            case "CK", "CHECK" -> "CHECK";
+            default -> throw new IllegalArgumentException("Unsupported EA rule: " + name);
+        };
+        if (!(name.toUpperCase(Locale.ROOT).startsWith(prefixKind + "_")
+                || ("CHECK".equals(prefixKind) && name.startsWith("CK_")))) {
+            throw new IllegalArgumentException("EA XMI 2.1 rule name/body kind mismatch: " + name);
+        }
+        Map<String, String> tags = new LinkedHashMap<>();
+        tags.put("PORTABLE_RULE", "true");
+        if ("CHECK".equals(stereotype)) {
+            String check = normalizeCheckExpression(detail);
+            if (check.isBlank() || !looksLikeCheckExpression(check)) {
+                throw new IllegalArgumentException("EA XMI 2.1 CHECK expression unresolved: " + name);
+            }
+            tags.put("EXPRESSION", check);
+            return new EaOperation(name, stereotype, List.of(), Map.copyOf(tags));
+        }
+        String columnList = detail;
+        if ("FK".equals(stereotype) && detail.toUpperCase(Locale.ROOT).startsWith("FOREIGN")) {
+            Matcher foreignKey = UML21_FOREIGN_KEY.matcher(detail);
+            if (!foreignKey.matches()) {
+                throw new IllegalArgumentException("EA XMI 2.1 FK expression unresolved: " + name);
+            }
+            columnList = foreignKey.group(1);
+            tags.put("PORTABLETARGETTABLE", sanitizeIdentifier(foreignKey.group(2), ""));
+            tags.put("PORTABLEREFERENCEDCOLUMNS", String.join(",",
+                    parseUml21Columns(foreignKey.group(3), name)));
+        } else if (!"FK".equals(stereotype) && detail.contains("(")) {
+            Matcher key = UML21_KEY_COLUMNS.matcher(detail);
+            if (!key.matches()) {
+                throw new IllegalArgumentException("EA XMI 2.1 key expression unresolved: " + name);
+            }
+            columnList = key.group(1);
+        }
+        List<String> names = parseUml21Columns(columnList, name);
+        List<EaParameter> parameters = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            if (!columnExists(columns, names.get(i))) {
+                throw new IllegalArgumentException("EA XMI 2.1 rule refers to missing column: "
+                        + tableName + "." + names.get(i) + " (" + name + ")");
+            }
+            parameters.add(new EaParameter(names.get(i), i, SortDirection.ASC));
+        }
+        return new EaOperation(name, stereotype, List.copyOf(parameters), Map.copyOf(tags));
+    }
+
+    private static List<String> parseUml21Columns(String columns, String constraintName) {
+        List<String> names = new ArrayList<>();
+        for (String part : columns.split(",", -1)) {
+            String trimmed = part.trim();
+            if (!trimmed.matches("(?i)[A-Z][A-Z0-9_$#]*")) {
+                throw new IllegalArgumentException("EA XMI 2.1 malformed column list: "
+                        + constraintName + " (" + columns + ")");
+            }
+            names.add(trimmed.toUpperCase(Locale.ROOT));
+        }
+        if (names.isEmpty() || names.stream().distinct().count() != names.size()) {
+            throw new IllegalArgumentException("EA XMI 2.1 ambiguous column list: " + constraintName);
+        }
+        return List.copyOf(names);
+    }
+
+    private static boolean columnExists(List<EaColumn> columns, String name) {
+        return columns.stream().anyMatch(column -> column.name().equalsIgnoreCase(name));
+    }
+
+    private static void validateUml21RuleCompleteness(EaTable eaTable, Table table) {
+        if (eaTable.operations().stream()
+                .noneMatch(op -> "true".equalsIgnoreCase(tag(op.tags(), "portable_rule")))) {
+            return;
+        }
+        long pk = eaTable.operations().stream().filter(op -> operationKind(op) == OperationKind.PRIMARY_KEY).count();
+        long uk = eaTable.operations().stream().filter(op -> operationKind(op) == OperationKind.UNIQUE_KEY).count();
+        long fk = eaTable.operations().stream().filter(op -> operationKind(op) == OperationKind.FOREIGN_KEY).count();
+        long ck = eaTable.operations().stream().filter(op -> operationKind(op) == OperationKind.CHECK).count();
+        if (pk != (table.primaryKey().isPresent() ? 1 : 0)
+                || uk != table.uniqueKeys().size()
+                || fk != table.foreignKeys().size()
+                || ck != table.checkConstraints().size()) {
+            throw new IllegalArgumentException("EA XMI 2.1 missing physical constraints for table "
+                    + eaTable.name() + ": expected PK=" + pk + ", UK=" + uk
+                    + ", FK=" + fk + ", CHECK=" + ck
+                    + "; actual PK=" + (table.primaryKey().isPresent() ? 1 : 0)
+                    + ", UK=" + table.uniqueKeys().size()
+                    + ", FK=" + table.foreignKeys().size()
+                    + ", CHECK=" + table.checkConstraints().size());
+        }
     }
 
     private static EaColumn parseColumn(
@@ -340,7 +486,9 @@ public final class EnterpriseArchitectXmlParser {
             EaExtensionIndex extensionIndex) {
         List<EaAssociation> result = new ArrayList<>();
         for (Element association : associationElements(document)) {
-            if (!isStereotype(association, "FK", extensionIndex)) continue;
+            boolean uml21ForeignKey = isUml21ForeignKeyAssociation(
+                    association, extensionIndex, tablesById);
+            if (!isStereotype(association, "FK", extensionIndex) && !uml21ForeignKey) continue;
             Map<String, String> tags = taggedValues(association, extensionIndex);
             String sourceOperation = "";
             String targetOperation = "";
@@ -401,7 +549,10 @@ public final class EnterpriseArchitectXmlParser {
                 String explicitConstraint = tag(tags, "constraint");
                 boolean eaXmi2Connector = extensionIndex.nodeFor(association) != null;
                 sourceOperation = sanitizeIdentifier(firstNonBlank(
-                        explicitConstraint, eaXmi2Connector ? "" : attribute(association, "name")), "");
+                        explicitConstraint,
+                        uml21ForeignKey ? attribute(
+                                directChild(extensionIndex.nodeFor(association), "properties"), "name") : "",
+                        eaXmi2Connector ? "" : attribute(association, "name")), "");
             }
 
             // Some compatible XMI variants provide two unlabelled AssociationEnd
@@ -469,6 +620,68 @@ public final class EnterpriseArchitectXmlParser {
             Element connectorForNames = extensionIndex.nodeFor(association);
             String extensionSourceName = connectorEndpointName(connectorForNames, "source");
             String extensionTargetName = connectorEndpointName(connectorForNames, "target");
+            if (uml21ForeignKey) {
+                // This XMI 2.1 dialect stores FK pairs in connector documentation
+                // (e.g. A.C1,C2 -> B.K1,K2). Enforce that mapping and the owning
+                // FK rule agree rather than silently losing referential integrity.
+                PortableLink link = parseUml21ConnectorMapping(
+                        tag(tags, "documentation"), sourceOperation);
+                EaTable sourceTable = tablesById.get(sourceId);
+                EaTable targetTable = tablesById.get(targetId);
+                if (sourceTable == null || targetTable == null
+                        || !sourceTable.name().equalsIgnoreCase(link.source().tableName())
+                        || !targetTable.name().equalsIgnoreCase(link.target().tableName())
+                        || !sourceTable.name().equalsIgnoreCase(extensionSourceName)
+                        || !targetTable.name().equalsIgnoreCase(extensionTargetName)) {
+                    throw new IllegalArgumentException("EA XMI 2.1 FK endpoint mismatch: "
+                            + sourceOperation);
+                }
+                String documentedForeignKeyName = sourceOperation;
+                List<EaOperation> foreignKeys = sourceTable.operations().stream()
+                        .filter(operation -> operationKind(operation) == OperationKind.FOREIGN_KEY)
+                        .filter(operation -> operation.name().equalsIgnoreCase(documentedForeignKeyName))
+                        .toList();
+                if (foreignKeys.size() != 1
+                        || !sameColumns(foreignKeys.getFirst().parameters().stream()
+                                        .map(EaParameter::name).toList(), link.source().columns())) {
+                    throw new IllegalArgumentException("EA XMI 2.1 FK rule/connector mismatch: "
+                            + sourceOperation);
+                }
+                EaOperation rule = foreignKeys.getFirst();
+                String declaredTarget = tag(rule.tags(), "portableTargetTable");
+                List<String> declaredColumns = taggedColumnList(
+                        tag(rule.tags(), "portableReferencedColumns"));
+                if ((!declaredTarget.isBlank()
+                        && !declaredTarget.equalsIgnoreCase(link.target().tableName()))
+                        || (!declaredColumns.isEmpty()
+                        && !sameColumns(declaredColumns, link.target().columns()))) {
+                    throw new IllegalArgumentException("EA XMI 2.1 FK referenced key mismatch: "
+                            + sourceOperation);
+                }
+                if (!pairs.isEmpty() || link.source().columns().size() != link.target().columns().size()) {
+                    throw new IllegalArgumentException("EA XMI 2.1 conflicting FK mapping: "
+                            + sourceOperation);
+                }
+                boolean referencesDeclaredKey = targetTable.operations().stream()
+                        .filter(operation -> operationKind(operation) == OperationKind.PRIMARY_KEY
+                                || operationKind(operation) == OperationKind.UNIQUE_KEY)
+                        .anyMatch(operation -> sameColumns(operation.parameters().stream()
+                                .map(EaParameter::name).toList(), link.target().columns()));
+                if (!referencesDeclaredKey) {
+                    throw new IllegalArgumentException("EA XMI 2.1 FK does not reference a PK/UK: "
+                            + sourceOperation + " -> " + link.target().tableName());
+                }
+                for (int i = 0; i < link.source().columns().size(); i++) {
+                    String src = link.source().columns().get(i);
+                    String dst = link.target().columns().get(i);
+                    if (!columnExists(sourceTable.columns(), src)
+                            || !columnExists(targetTable.columns(), dst)) {
+                        throw new IllegalArgumentException("EA XMI 2.1 FK column not found: "
+                                + sourceOperation + " " + src + " -> " + dst);
+                    }
+                    pairs.add(new ColumnPair(src, dst));
+                }
+            }
 
             result.add(new EaAssociation(
                     firstNonBlank(attribute(association, "xmi.id"), attribute(association, "xmi:id"), ""),
@@ -484,6 +697,49 @@ public final class EnterpriseArchitectXmlParser {
                     tags));
         }
         return List.copyOf(result);
+    }
+
+    private static boolean isUml21ForeignKeyAssociation(
+            Element association, EaExtensionIndex extensionIndex,
+            Map<String, EaTable> tablesById) {
+        if (!"packagedElement".equals(localName(association))
+                || !isXmiType(association, "Association")) return false;
+        Element connector = extensionIndex.nodeFor(association);
+        if (connector == null || !"connector".equals(localName(connector))) return false;
+        String name = sanitizeIdentifier(
+                attribute(directChild(connector, "properties"), "name"), "");
+        if (!name.startsWith("FK_")) return false;
+        // Only a connector whose source has an explicit FK ownedRule is part of
+        // the physical XMI 2.1 contract; reject missing or conflicting endpoints
+        // later instead of importing arbitrary UML associations.
+        Element source = directChild(connector, "source");
+        EaTable table = tablesById.get(xmiIdRef(source));
+        return table != null && table.operations().stream()
+                .anyMatch(op -> operationKind(op) == OperationKind.FOREIGN_KEY
+                        && op.name().equalsIgnoreCase(name));
+    }
+
+    private static PortableLink parseUml21ConnectorMapping(String documentation, String constraintName) {
+        String[] sides = documentation.split("\\s*->\\s*", -1);
+        if (sides.length != 2) {
+            throw new IllegalArgumentException("EA XMI 2.1 connector mapping missing: "
+                    + constraintName);
+        }
+        return new PortableLink(
+                parseUml21ConnectorEndpoint(sides[0], constraintName),
+                parseUml21ConnectorEndpoint(sides[1], constraintName));
+    }
+
+    private static PortableEndpoint parseUml21ConnectorEndpoint(
+            String value, String constraintName) {
+        Matcher matcher = UML21_CONNECTOR_ENDPOINT.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("EA XMI 2.1 connector endpoint malformed: "
+                    + constraintName + " (" + value + ")");
+        }
+        return new PortableEndpoint(
+                matcher.group(1).toUpperCase(Locale.ROOT),
+                parseUml21Columns(matcher.group(2), constraintName));
     }
 
     private static boolean tableHasForeignKeyOperation(EaTable table, String operationName) {
@@ -643,19 +899,31 @@ public final class EnterpriseArchitectXmlParser {
         Table.Builder builder = Table.builder(eaTable.schema(), eaTable.name())
                 .persianName(eaTable.persianName())
                 .description(eaTable.description());
+        boolean explicitUml21Rules = eaTable.operations().stream()
+                .anyMatch(operation -> "true".equalsIgnoreCase(tag(operation.tags(), "portable_rule")));
         for (EaColumn column : eaTable.columns()) {
             String normalizedColumnName = column.name().toUpperCase(Locale.ROOT);
             boolean inferredIdentity = primaryKeyAsIdentity
                     && primaryKeyColumns.contains(normalizedColumnName)
                     && !foreignKeyColumns.contains(normalizedColumnName)
                     && identityInferenceCompatible(column.dataType());
+            // This is not generic PK identity inference. The source XMI 2.1
+            // explicitly declares a sequence NEXTVAL default for this integer
+            // PK. Preserve that source expression for Oracle and map the logical
+            // identity to AUTO_INCREMENT on MySQL/MariaDB (which reject NEXTVAL).
+            boolean explicitSourceIdentity = explicitUml21Rules
+                    && primaryKeyColumns.contains(normalizedColumnName)
+                    && !foreignKeyColumns.contains(normalizedColumnName)
+                    && identityInferenceCompatible(column.dataType())
+                    && column.defaultValue() != null
+                    && UML21_SEQUENCE_NEXTVAL.matcher(column.defaultValue().trim()).matches();
             builder.addColumn(new Column(
                     Identifier.of(column.name()),
                     column.dataType(),
                     inferredIdentity ? false : column.nullable(),
                     new DefaultValue(inferredIdentity ? null : column.defaultValue()),
                     new Description(column.description()),
-                    column.identity() || inferredIdentity,
+                    column.identity() || inferredIdentity || explicitSourceIdentity,
                     column.position() + 1,
                     inferredIdentity ? null : column.generatedExpression()));
         }
@@ -1536,6 +1804,10 @@ public final class EnterpriseArchitectXmlParser {
             return id.isBlank() ? null : nodesByModelId.get(id);
         }
     }
+
+    private record PortableEndpoint(String tableName, List<String> columns) { }
+
+    private record PortableLink(PortableEndpoint source, PortableEndpoint target) { }
 
     private record InlineType(String baseType, Integer length, Integer precision, Integer scale) { }
 
