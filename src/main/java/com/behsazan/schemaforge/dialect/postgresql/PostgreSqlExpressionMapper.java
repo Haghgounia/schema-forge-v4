@@ -22,7 +22,17 @@ public final class PostgreSqlExpressionMapper {
         mapped = CURRENT_DATE_PARENS.matcher(mapped).replaceAll("CURRENT_DATE");
         mapped = NVL_FUNCTION.matcher(mapped).replaceAll("COALESCE(");
         mapped = replaceSequenceNextval(mapped);
-        return mapped;
+        return com.behsazan.schemaforge.dialect.PortableRegexLikeAdapter.rewrite(mapped,
+                (column, regex) -> {
+                    if (!com.behsazan.schemaforge.dialect.PortableRegexLikeAdapter
+                            .isApprovedAsciiPattern(regex)) {
+                        throw new IllegalArgumentException("Unreviewed PostgreSQL REGEXP_LIKE "
+                                + "portability pattern: " + regex);
+                    }
+                    // POSIX regular-expression operator is supported before PostgreSQL 15;
+                    // C collation preserves the ASCII range semantics in the source.
+                    return "(" + column + " COLLATE \"C\" ~ '" + regex + "')";
+                });
     }
 
     private String replaceSequenceNextval(String expression) {

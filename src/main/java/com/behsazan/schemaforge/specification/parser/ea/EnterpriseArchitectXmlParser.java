@@ -1171,10 +1171,20 @@ public final class EnterpriseArchitectXmlParser {
             }
             return DataType.simple(canonicalName);
         }
-        if (isTemporalType(canonicalName) && precision > 0) {
-            return new DataType(
-                    Identifier.of(canonicalName), null, LengthSemantics.DEFAULT,
-                    precision, null);
+        if (isTemporalType(canonicalName)) {
+            // EA XMI 1.1 stores TIMESTAMP fractional-second precision in its
+            // attribute `length` tag (e.g. length=6, precision=0). XMI 2.1 may
+            // express it as TIMESTAMP(6) or in the precision property instead.
+            // Do not silently discard either representation or conflicting values.
+            if (length > 0 && precision > 0 && length != precision) {
+                throw new IllegalArgumentException("Conflicting EA temporal precision: "
+                        + canonicalName + " length=" + length + " precision=" + precision);
+            }
+            int temporalPrecision = precision > 0 ? precision : length;
+            if (temporalPrecision > 0) {
+                return new DataType(Identifier.of(canonicalName), null,
+                        LengthSemantics.DEFAULT, temporalPrecision, null);
+            }
         }
         return DataType.simple(canonicalName);
     }

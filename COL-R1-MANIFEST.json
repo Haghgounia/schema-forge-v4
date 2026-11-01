@@ -1,0 +1,57 @@
+{
+  "release": "SchemaForge-V4-COL-DDL-PORTABILITY-R1-20261101",
+  "baseline": "schema-forge-v4-2026-11-01-0919.zip",
+  "kind": "source-delta",
+  "files": {
+    "src/main/java/com/behsazan/schemaforge/specification/parser/ea/EnterpriseArchitectXmlParser.java": {
+      "bytes": 94310,
+      "sha256": "9295468d22be912844d935084ba432c0ee96be71445d1db8740fabfd54c30584"
+    },
+    "src/main/java/com/behsazan/schemaforge/dialect/mysql/MySqlDialect.java": {
+      "bytes": 27923,
+      "sha256": "0abbc47a881d9b8f17f8fc5ff87dd662ce2574bcc607283ea7a8d10cba3dde1d"
+    },
+    "src/main/java/com/behsazan/schemaforge/dialect/mariadb/MariaDbDialect.java": {
+      "bytes": 28352,
+      "sha256": "451544f0b51ae774f92fd8f049e1f3fc24210fdc5f4e852926ab400d3b1dcb33"
+    },
+    "src/main/java/com/behsazan/schemaforge/dialect/sqlserver/SqlServerExpressionMapper.java": {
+      "bytes": 1985,
+      "sha256": "0d3cc97ecd32f7c763b29c0c60957b2668ae964af76dc6a1fe5cb2e74681b151"
+    },
+    "src/main/java/com/behsazan/schemaforge/dialect/sqlserver/SqlServerPortableRegex.java": {
+      "bytes": 2222,
+      "sha256": "c467a78071f12f1f2e0d68bc18bf73ab88e9efeb1bdcb363bb8e0631bff108cb"
+    },
+    "src/main/java/com/behsazan/schemaforge/dialect/postgresql/PostgreSqlExpressionMapper.java": {
+      "bytes": 2558,
+      "sha256": "fa66590e71f531b29f9adfd4ec2dc1fa28aa26e5fbc10f16058ee9457dde6c52"
+    },
+    "src/main/java/com/behsazan/schemaforge/dialect/PortableRegexLikeAdapter.java": {
+      "bytes": 1977,
+      "sha256": "0ee796b87539c9de167964a49104741b449d61d9968c9aa98e1c3fd75c111692"
+    },
+    "src/test/java/com/behsazan/schemaforge/specification/parser/ea/CollateralTemporalRegexPortabilityTest.java": {
+      "bytes": 7685,
+      "sha256": "639c6d6008411e51baec7d081b488cbc470fb0d8e528aab599ae27b5d98f6460"
+    },
+    "scripts/accept-collateral-portability-20261101.cmd": {
+      "bytes": 591,
+      "sha256": "6042728e737d121c037389f9712be54d8b217bd1ca1a51eed2ac6b113a6949da"
+    },
+    "docs/COLLATERAL-DDL-PORTABILITY-R1-20261101.md": {
+      "bytes": 4754,
+      "sha256": "d9e8af6ac9726bc991ec196b293a28c2664f3710c12ad1153dfe932c2936a561"
+    },
+    "README-COLLATERAL-DDL-PORTABILITY-R1.txt": {
+      "bytes": 487,
+      "sha256": "f18694af706cc2e5512aea44e6f06593368749aaba1a88775fae8f8f8cd6f851"
+    }
+  },
+  "validation": {
+    "java21_source_graph_compile": "PASS_WITH_ANNOTATION_STUB",
+    "seven_offline_cases": "7_PASS",
+    "maven_tests": "NOT_EXECUTED",
+    "live_db_execution": "NOT_EXECUTED"
+  }
+}

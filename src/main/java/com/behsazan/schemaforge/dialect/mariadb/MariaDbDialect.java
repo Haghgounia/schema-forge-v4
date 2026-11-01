@@ -270,11 +270,25 @@ public final class MariaDbDialect implements Dialect {
                 && sourceExpression.trim().equalsIgnoreCase("NULL")) {
             return "";
         }
-        String mapped = expression(sourceExpression);
+        String mapped = precisionAwareDefault(column, expression(sourceExpression));
         if (mapped.regionMatches(true, 0, "NEXT VALUE FOR ", 0, "NEXT VALUE FOR ".length())) {
             return " DEFAULT (" + mapped + ")";
         }
         return " DEFAULT " + mapped;
+    }
+
+    /** A DATETIME/TIMESTAMP(6) column must not initialize at second precision. */
+    private static String precisionAwareDefault(Column column, String mapped) {
+        Integer precision = column.dataType().precision();
+        String sourceType = column.dataType().name().normalized().toUpperCase(Locale.ROOT);
+        if (precision != null && precision > 0
+                && (sourceType.equals("TIMESTAMP") || sourceType.equals("DATETIME")
+                    || sourceType.equals("TIMESTAMP_WITH_TIME_ZONE")
+                    || sourceType.equals("TIMESTAMP_WITH_LOCAL_TIME_ZONE"))
+                && mapped.trim().matches("(?i)CURRENT_TIMESTAMP(?:\\(\\))?")) {
+            return "CURRENT_TIMESTAMP(" + precision + ")";
+        }
+        return mapped;
     }
 
     @Override

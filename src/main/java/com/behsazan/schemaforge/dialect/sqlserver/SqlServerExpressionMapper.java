@@ -24,7 +24,7 @@ public final class SqlServerExpressionMapper {
         mapped = SYS_GUID.matcher(mapped).replaceAll("NEWID()");
         mapped = NVL.matcher(mapped).replaceAll("COALESCE(");
         mapped = replaceSequenceReference(mapped);
-        return mapped;
+        return SqlServerPortableRegex.rewrite(mapped);
     }
 
     private String replaceSequenceReference(String expression) {
